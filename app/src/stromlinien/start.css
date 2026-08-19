@@ -157,6 +157,122 @@
   gap: 8px;
   width: 100%;
 }
+.ss .btnrow > .primary:only-child {
+  flex: 1;
+}
+.ss .subrow {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.ss .subrow button {
+  flex: 1;
+  font-size: 10.5px;
+  padding: 8px 10px;
+  box-shadow: none;
+  border-color: var(--line);
+  background: transparent;
+}
+.ss .subrow button.dangerlite {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+.ss .worldrow button.armed {
+  border-color: var(--bad);
+  color: var(--bad);
+  font-weight: 700;
+}
+
+/* ---------- Profilchip & Umschalter ---------- */
+.ss .profilechip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+  padding: 6px 12px 6px 6px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+  flex-shrink: 0;
+}
+.ss .profilechip .av {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--ember);
+  color: #14100a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.ss .profilechip .nm {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  max-width: 34vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ss .proflist .profrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.ss .proflist .profrow:hover {
+  background: var(--panel2);
+}
+.ss .proflist .profrow.active {
+  background: rgba(201, 111, 46, 0.14);
+}
+.ss .proflist .profrow .av {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--river);
+  color: #0d1e1c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.ss .proflist .profrow b {
+  flex: 1;
+  font-family: 'Bricolage Grotesque', sans-serif;
+}
+.ss .proflist .profrow .dot {
+  color: var(--good);
+  font-size: 11px;
+}
+.ss .confirmrow {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.ss .confirmrow button {
+  flex: 1;
+}
+.ss .confirmrow .dangersolid {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: #fff;
+}
+
+/* ---------- Resume-Karte (Stile teils aus shell.css, hier Breite) ---------- */
+.ss .resume {
+  width: 100%;
+}
 
 /* ---------- Buttons ---------- */
 .ss button {

@@ -1,20 +1,20 @@
-import { useEffect, useMemo, useReducer, useState } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import './stromlinien.css'
+import { clearSave, writeSave } from '../shell/storage'
 import { FUND, GLYPHS, ROUNDS, TERRAIN, TILES, YEARS, fmtYear } from './data'
 import {
   canBuildWerkzeug,
   effectiveSchutz,
   finalScore,
   fundIndexesInRegion,
-  newState,
   reducer,
   tileEffects,
 } from './engine'
 import { ANCHORS } from './data'
 import { gridBounds, personTargets } from './grid'
 import { HINT_INSPECT } from './world'
-import type { Cell, GameState, PersonId, RegionCell, TileKind } from './types'
+import type { Cell, GameState, PersonId, TileKind } from './types'
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V']
 
@@ -28,18 +28,52 @@ function Glyph({ name, className }: { name: string; className?: string }) {
 }
 
 export function StromlinienGame({
-  region,
+  initial,
+  initialLastEvent,
+  profileId,
   onExit,
+  onNav,
 }: {
-  region: RegionCell[]
+  /** Frischer Zustand (neues Gebiet) oder wiederhergestellter Autosave. */
+  initial: GameState
+  initialLastEvent: string | null
+  profileId: string
   onExit: () => void
+  onNav: (s: 'regeln' | 'epochen') => void
 }) {
-  const [state, dispatch] = useReducer(reducer, region, newState)
+  const [state, dispatch] = useReducer(reducer, initial, (i: GameState) => i)
   const [selIdx, setSelIdx] = useState<number | null>(null)
   const [selPerson, setSelPerson] = useState<PersonId | null>(null)
   const [inspectIdx, setInspectIdx] = useState<number | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [abandonOpen, setAbandonOpen] = useState(false)
 
   const night = state.phase === 'night' || state.phase === 'gameover'
+
+  /* „zuletzt: …" für die Resume-Karten der Shell. */
+  const lastEventRef = useRef<string | null>(initialLastEvent)
+  useEffect(() => {
+    const o = state.overlay
+    if (o?.kind === 'night') lastEventRef.current = `${o.h} — ${o.result.txt}`
+    if (o?.kind === 'fund')
+      lastEventRef.current = `Fundstelle entdeckt: ${FUND[o.fundIdx].name}`
+  }, [state.overlay])
+
+  /* Autosave nach jeder Aktion: Schliessen verliert nie mehr als die
+     aktuelle Eingabe. Beendete Partien räumen ihren Stand weg. */
+  useEffect(() => {
+    if (state.phase === 'gameover' || state.phase === 'final') {
+      clearSave(profileId)
+      return
+    }
+    if (state.phase === 'intro') return
+    writeSave(profileId, state, lastEventRef.current)
+  }, [state, profileId])
+
+  function abandonRun() {
+    clearSave(profileId)
+    onExit()
+  }
 
   /* Das Spielfeld ist das geformte Weltkarten-Gebiet: gerendert wird sein
      Begrenzungsrechteck, Lücken bleiben unsichtbare Geisterzellen. */
@@ -279,6 +313,23 @@ export function StromlinienGame({
               v. Chr. · {state.phase === 'night' ? 'NACHT' : 'TAG'}
             </span>
           </div>
+          <div className="hdrbtns">
+            <button
+              className="iconbtn"
+              onClick={onExit}
+              aria-label="Zur Weltkarte"
+              title="Zur Weltkarte — gespeichert"
+            >
+              ⬡
+            </button>
+            <button
+              className="iconbtn"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Menü"
+            >
+              ☰
+            </button>
+          </div>
         </header>
 
         <div className="timeline">
@@ -467,7 +518,99 @@ export function StromlinienGame({
       </div>
 
       {state.nightPending && (
-        <div className="nightmsg seq">Die Nacht bricht an …</div>
+        /* Quickwin: erzwungene Animation ist antippbar-überspringbar. */
+        <div
+          className="nightveil"
+          onClick={() => dispatch({ type: 'REVEAL_NIGHT' })}
+        >
+          <div className="nightmsg seq">Die Nacht bricht an …</div>
+          <div className="nightskip">tippen zum Überspringen</div>
+        </div>
+      )}
+
+      {menuOpen && (
+        <div
+          className="shellmenu on"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setMenuOpen(false)
+          }}
+        >
+          <div className="menupanel">
+            <h2>Das Lager</h2>
+            <div className="msub">
+              Runde {state.round} · {state.phase === 'night' ? 'Nacht' : 'Tag'}
+            </div>
+            <button className="menu-item" onClick={() => setMenuOpen(false)}>
+              <span className="ic">▶</span>
+              <span>
+                Fortsetzen<small>zurück zum Spiel</small>
+              </span>
+            </button>
+            <button
+              className="menu-item"
+              onClick={() => {
+                setMenuOpen(false)
+                onNav('regeln')
+              }}
+            >
+              <span className="ic">📜</span>
+              <span>
+                Regeln<small>Tag/Nacht, Verbünde, Zeremonie</small>
+              </span>
+            </button>
+            <button
+              className="menu-item"
+              onClick={() => {
+                setMenuOpen(false)
+                onNav('epochen')
+              }}
+            >
+              <span className="ic">≡</span>
+              <span>
+                Epochen<small>Kampagnen-Übersicht</small>
+              </span>
+            </button>
+            <div className="mspacer" />
+            <button
+              className="menu-item mdanger"
+              onClick={() => {
+                setMenuOpen(false)
+                setAbandonOpen(true)
+              }}
+            >
+              <span className="ic">✕</span>
+              <span>
+                Partie aufgeben<small>unwiderruflich</small>
+              </span>
+            </button>
+            <div className="mfoot">
+              Verlassen geht direkt über ⬡ oben — Autosave macht es verlustfrei.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {abandonOpen && (
+        <div
+          className="shellconfirm on"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setAbandonOpen(false)
+          }}
+        >
+          <div className="confirmcard">
+            <h3>Partie wirklich aufgeben?</h3>
+            <p>
+              Der Fortschritt geht verloren. Das Gebiet bleibt auf der Weltkarte
+              aufgedeckt.
+            </p>
+            <div className="crow">
+              <button onClick={() => setAbandonOpen(false)}>Abbrechen</button>
+              <button className="dangersolid" onClick={abandonRun}>
+                Ja, aufgeben
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <OverlayCard
@@ -604,7 +747,7 @@ function OverlayCard({
   state,
   onClose,
 }: {
-  state: ReturnType<typeof newState>
+  state: GameState
   onClose: () => void
 }) {
   const visible = state.overlay !== null || state.nightPending

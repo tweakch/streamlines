@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './start.css'
+import type { Profile } from '../shell/storage'
+import { fogKey } from '../shell/storage'
+import type { ResumeMeta } from '../shell/TitleScreen'
 import type { HintCat, RegionCell } from './types'
 import {
   DEFAULT_VIEW,
@@ -25,11 +28,11 @@ import {
 } from './world'
 
 /*
- * Startbildschirm: die gestaltete Weltkarte (Alpenrhein, Landquart bis
- * Konstanz) liegt unter dem Nebel des Ungespielten. Man erkundet durch
- * Ziehen und Zoomen, formt ein zusammenhängendes Gebiet und startet darin.
- * Port von prototype/drafts/start-screen-v2.html — adaptiert von der
- * Seed-Welt auf die eine, entworfene Welt.
+ * Weltkarte = Hub der Shell: die gestaltete Weltkarte (Alpenrhein,
+ * Landquart bis Konstanz) unter dem Nebel des Ungespielten. Ohne laufende
+ * Partie formt man hier sein Gebiet und startet; mit laufender Partie
+ * zeigt die Karte die Resume-Karte (Fortsetzen / Aufgeben).
+ * Port von start-screen-v2 + shell-v2.
  */
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V']
@@ -165,17 +168,58 @@ function drawHint(
   ctx.restore()
 }
 
-export function StartScreen({ onStart }: { onStart: (region: RegionCell[]) => void }) {
+function initials(name: string): string {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .map((w) => w[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() || '?'
+  )
+}
+
+export function StartScreen({
+  profile,
+  profiles,
+  resume,
+  onStart,
+  onResume,
+  onAbandon,
+  onSwitchProfile,
+  onNewKlan,
+  onNav,
+}: {
+  profile: Profile
+  profiles: Profile[]
+  resume: ResumeMeta | null
+  onStart: (region: RegionCell[]) => void
+  onResume: () => void
+  onAbandon: () => void
+  onSwitchProfile: (id: string) => void
+  onNewKlan: () => void
+  onNav: (s: 'regeln' | 'titel' | 'epochen') => void
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const viewRef = useRef({ x: wx(DEFAULT_VIEW.c, DEFAULT_VIEW.r), y: wy(DEFAULT_VIEW.r), z: 30 })
   const playedRef = useRef<Set<string>>(new Set())
   const selRef = useRef<Set<string>>(new Set())
   const drawRef = useRef<() => void>(() => {})
+  /* Mit laufender Partie ist die Karte nur Aussicht — kein Formen. */
+  const resumeRef = useRef(!!resume)
+  useEffect(() => {
+    resumeRef.current = !!resume
+  }, [resume])
 
   const [sel, setSel] = useState<ReadonlySet<string>>(new Set())
   const [showEpochs, setShowEpochs] = useState(false)
+  const [showSwitcher, setShowSwitcher] = useState(false)
+  const [showAbandon, setShowAbandon] = useState(false)
+  const [fogArmed, setFogArmed] = useState(false)
   const [toast, setToast] = useState<{ msg: string; id: number } | null>(null)
 
+  const fog = fogKey(profile.id)
   const stats = useMemo(() => regionStats(sel), [sel])
   const waterOk = stats.water + stats.furt > 0
   const hintCats = useMemo(
@@ -200,6 +244,7 @@ export function StartScreen({ onStart }: { onStart: (region: RegionCell[]) => vo
   }, [])
 
   const resetSection = useCallback(() => {
+    if (resumeRef.current) return
     const v = viewRef.current
     const rc = Math.round(v.y / 0.8660254)
     const cc = Math.round(v.x - 0.5 * par(rc))
@@ -209,6 +254,7 @@ export function StartScreen({ onStart }: { onStart: (region: RegionCell[]) => vo
 
   const toggleCell = useCallback(
     (c: number, r: number) => {
+      if (resumeRef.current) return
       if (!worldCellAt(c, r)) return
       const cur = selRef.current
       const k = keyOf(c, r)
@@ -253,21 +299,29 @@ export function StartScreen({ onStart }: { onStart: (region: RegionCell[]) => vo
     [applyZoom],
   )
 
+  /* Nebel zurücksetzen ist destruktiv → zweistufig statt Dialog. */
   const resetFog = useCallback(() => {
+    if (!fogArmed) {
+      setFogArmed(true)
+      showToast('Löscht den gesamten aufgedeckten Nebel — erneut tippen zum Bestätigen.')
+      window.setTimeout(() => setFogArmed(false), 3500)
+      return
+    }
+    setFogArmed(false)
     playedRef.current = new Set()
-    savePlayed(playedRef.current)
+    savePlayed(fog, playedRef.current)
     showToast('Der Nebel liegt wieder über allem.')
     drawRef.current()
-  }, [showToast])
+  }, [fog, fogArmed, showToast])
 
   const startHere = useCallback(() => {
     const st = regionStats(selRef.current)
     if (st.water + st.furt === 0) return
     const region = buildRegion(selRef.current)
     for (const k of selRef.current) playedRef.current.add(k)
-    savePlayed(playedRef.current)
+    savePlayed(fog, playedRef.current)
     onStart(region)
-  }, [onStart])
+  }, [fog, onStart])
 
   /* Canvas, Zeichnen & Eingaben — alles lebt auf Refs, React rendert nur das HUD. */
   useEffect(() => {
@@ -427,10 +481,7 @@ export function StartScreen({ onStart }: { onStart: (region: RegionCell[]) => vo
       return best
     }
 
-    const pointers = new Map<
-      number,
-      { x: number; y: number; dist: number }
-    >()
+    const pointers = new Map<number, { x: number; y: number; dist: number }>()
     let pinchDist = 0
 
     const onPointerDown = (e: PointerEvent) => {
@@ -502,7 +553,7 @@ export function StartScreen({ onStart }: { onStart: (region: RegionCell[]) => vo
     window.addEventListener('resize', resize)
     window.addEventListener('keydown', onKey)
 
-    playedRef.current = loadPlayed()
+    playedRef.current = loadPlayed(fog)
     resize()
     resetSection()
 
@@ -516,7 +567,12 @@ export function StartScreen({ onStart }: { onStart: (region: RegionCell[]) => vo
       window.removeEventListener('keydown', onKey)
       drawRef.current = () => {}
     }
-  }, [applyZoom, clampView, resetSection, toggleCell, zoomBy])
+  }, [applyZoom, clampView, fog, resetSection, toggleCell, zoomBy])
+
+  /* Partie aufgegeben → das Formen beginnt wieder mit einem frischen Sechseck. */
+  useEffect(() => {
+    if (!resume && selRef.current.size === 0) resetSection()
+  }, [resume, resetSection])
 
   return (
     <div className="ss">
@@ -526,16 +582,9 @@ export function StartScreen({ onStart }: { onStart: (region: RegionCell[]) => vo
           STROMLINIEN
           <small>WÄHLE &amp; FORME DEIN TAL</small>
         </div>
-        <div className="hint">
-          ziehen = Karte bewegen
-          <br />
-          tippen = Feld dazu / weg
-          <br />
-          Rad / Pinch = zoomen
-          <span className="desk">
-            <br />
-            Pfeiltasten = bewegen
-          </span>
+        <div className="profilechip" onClick={() => setShowSwitcher(true)}>
+          <div className="av">{initials(profile.name)}</div>
+          <div className="nm">{profile.name}</div>
         </div>
       </div>
       <div className="zoomcol">
@@ -547,44 +596,85 @@ export function StartScreen({ onStart }: { onStart: (region: RegionCell[]) => vo
         </button>
       </div>
       <div className="hud-bottom">
-        <div className="worldrow">
-          <span>ALPENRHEIN · LANDQUART – KONSTANZ</span>
-          <button onClick={resetFog}>Nebel zurücksetzen</button>
-        </div>
-        <div className="report">
-          <div className="r-head">
-            <span>Gewähltes Gebiet · {stats.n} Felder</span>
-            <span className={`r-water ${waterOk ? 'ok' : 'no'}`}>
-              {waterOk ? '✓ Wasser zu hören' : '✕ kein Wasser zu hören'}
-            </span>
-          </div>
-          {hintCats.length ? (
-            <ul>
-              {hintCats.map((cat) => {
-                const n = stats.hints.filter((h) => h.cat === cat).length
-                return (
-                  <li key={cat}>
-                    ◈{n > 1 ? `×${n} ` : ' '}
-                    {HINTTXT[cat](stats)}
-                  </li>
-                )
-              })}
-            </ul>
-          ) : (
-            <div className="r-none">Keine Zeichen im Gebiet – ihr geht ohne Kundschaft.</div>
-          )}
-        </div>
-        <div className="btnrow">
-          <button className="sec" onClick={resetSection}>
-            ⬡ Neu formen
-          </button>
-          <button className="sec" onClick={() => setShowEpochs(true)}>
-            Epochen-Ausblick
-          </button>
-          <button className="primary" disabled={!waterOk} onClick={startHere}>
-            Hier starten
-          </button>
-        </div>
+        {resume ? (
+          <>
+            <div className="resume" onClick={onResume}>
+              <div className="tg">Laufende Partie · tippen zum Fortsetzen</div>
+              <h3>{resume.label}</h3>
+              <div className="meta">Epoche I · Runde {resume.round} / 10</div>
+              <div className="bar">
+                <i style={{ width: `${Math.round((resume.round / 10) * 100)}%` }} />
+              </div>
+              {resume.lastEvent && (
+                <div className="last">
+                  <span className="k">zuletzt</span>
+                  <span>{resume.lastEvent}</span>
+                </div>
+              )}
+            </div>
+            <div className="btnrow">
+              <button className="primary" onClick={onResume}>
+                Fortsetzen
+              </button>
+            </div>
+            <div className="subrow">
+              <button onClick={() => onNav('epochen')}>Epochen</button>
+              <button onClick={() => onNav('regeln')}>Regeln</button>
+              <button onClick={() => onNav('titel')}>Titelbild</button>
+              <button className="dangerlite" onClick={() => setShowAbandon(true)}>
+                Aufgeben
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="worldrow">
+              <span>ziehen = bewegen · tippen = Feld dazu/weg · Rad = Zoom</span>
+              <button className={fogArmed ? 'armed' : ''} onClick={resetFog}>
+                {fogArmed ? 'Sicher? Erneut tippen' : 'Nebel zurücksetzen'}
+              </button>
+            </div>
+            <div className="report">
+              <div className="r-head">
+                <span>Gewähltes Gebiet · {stats.n} Felder</span>
+                <span className={`r-water ${waterOk ? 'ok' : 'no'}`}>
+                  {waterOk ? '✓ Wasser zu hören' : '✕ kein Wasser zu hören'}
+                </span>
+              </div>
+              {hintCats.length ? (
+                <ul>
+                  {hintCats.map((cat) => {
+                    const n = stats.hints.filter((h) => h.cat === cat).length
+                    return (
+                      <li key={cat}>
+                        ◈{n > 1 ? `×${n} ` : ' '}
+                        {HINTTXT[cat](stats)}
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <div className="r-none">Keine Zeichen im Gebiet – ihr geht ohne Kundschaft.</div>
+              )}
+            </div>
+            <div className="btnrow">
+              <button className="sec" onClick={resetSection}>
+                ⬡ Neu formen
+              </button>
+              <button className="sec" onClick={() => setShowEpochs(true)}>
+                Epochen-Ausblick
+              </button>
+              <button className="primary" disabled={!waterOk} onClick={startHere}>
+                Hier starten
+              </button>
+            </div>
+            <div className="subrow">
+              <button onClick={() => onNav('epochen')}>Kampagne</button>
+              <button onClick={() => onNav('regeln')}>Regeln</button>
+              <button onClick={() => onNav('titel')}>Titelbild</button>
+            </div>
+          </>
+        )}
       </div>
       {showEpochs && (
         <div
@@ -615,6 +705,75 @@ export function StartScreen({ onStart }: { onStart: (region: RegionCell[]) => vo
               Orte. Historisch inspiriert und vereinfacht.
             </p>
             <button onClick={() => setShowEpochs(false)}>Schliessen</button>
+          </div>
+        </div>
+      )}
+      {showSwitcher && (
+        <div
+          className="overlay on"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowSwitcher(false)
+          }}
+        >
+          <div className="epcard">
+            <div className="sub">Auf diesem Gerät</div>
+            <h2>Eure Klans</h2>
+            <div className="proflist">
+              {profiles.map((p) => (
+                <div
+                  key={p.id}
+                  className={`profrow${p.id === profile.id ? ' active' : ''}`}
+                  onClick={() => {
+                    setShowSwitcher(false)
+                    if (p.id !== profile.id) onSwitchProfile(p.id)
+                  }}
+                >
+                  <div className="av">{initials(p.name)}</div>
+                  <b>{p.name}</b>
+                  {p.id === profile.id && <span className="dot">●</span>}
+                </div>
+              ))}
+            </div>
+            <button
+              style={{ width: '100%', marginTop: 10 }}
+              onClick={() => {
+                setShowSwitcher(false)
+                onNewKlan()
+              }}
+            >
+              + Neuer Klan
+            </button>
+            <button style={{ width: '100%', marginTop: 8 }} onClick={() => setShowSwitcher(false)}>
+              Schliessen
+            </button>
+          </div>
+        </div>
+      )}
+      {showAbandon && (
+        <div
+          className="overlay on"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAbandon(false)
+          }}
+        >
+          <div className="epcard">
+            <h2>Partie wirklich aufgeben?</h2>
+            <p className="legend" style={{ fontSize: 12 }}>
+              Der Fortschritt geht verloren. Das gewählte Gebiet bleibt auf der
+              Weltkarte aufgedeckt.
+            </p>
+            <div className="confirmrow">
+              <button onClick={() => setShowAbandon(false)}>Abbrechen</button>
+              <button
+                className="dangersolid"
+                onClick={() => {
+                  setShowAbandon(false)
+                  onAbandon()
+                }}
+              >
+                Ja, aufgeben
+              </button>
+            </div>
           </div>
         </div>
       )}

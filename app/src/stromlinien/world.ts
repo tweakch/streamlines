@@ -395,21 +395,21 @@ export function buildRegion(sel: ReadonlySet<string>): RegionCell[] {
 /** Startblick: die Talmitte an der Schaaner Furt. */
 export const DEFAULT_VIEW = { c: 11, r: 26 }
 
-/* ================= Nebel des Ungespielten (localStorage) ================= */
+/* ================= Nebel des Ungespielten (localStorage) =================
+   Der Schlüssel kommt vom Aufrufer (ein Nebel pro Profil — siehe
+   shell/storage.ts, fogKey()). */
 
-const FOG_KEY = 'stromlinien-fog-alpenrhein-v1'
-
-export function loadPlayed(): Set<string> {
+export function loadPlayed(key: string): Set<string> {
   try {
-    return new Set(JSON.parse(localStorage.getItem(FOG_KEY) ?? '[]') as string[])
+    return new Set(JSON.parse(localStorage.getItem(key) ?? '[]') as string[])
   } catch {
     return new Set()
   }
 }
 
-export function savePlayed(played: ReadonlySet<string>): void {
+export function savePlayed(key: string, played: ReadonlySet<string>): void {
   try {
-    localStorage.setItem(FOG_KEY, JSON.stringify([...played]))
+    localStorage.setItem(key, JSON.stringify([...played]))
   } catch {
     /* Speicher voll oder blockiert — der Nebel vergisst, mehr nicht. */
   }
