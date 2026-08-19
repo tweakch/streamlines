@@ -403,13 +403,13 @@ footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--line);font-si
 
 <div class="card openc" data-s="done"><div class="chead"><h3>Spielregeln des Prototyps auf einen Blick</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
 <ul>
-<li><b>10 Runden = 8 000 Jahre</b> (10 000–2 000 v. Chr.), Karte von Landquart bis Bodensee, 5×8-<b>Sechseck</b>-Raster (versetzte Reihen, jedes Plättchen bis zu sechs Nachbarn) mit Fluss, See, Hang, Ufer und zwei Furten</li>
+<li><b>10 Runden = 8 000 Jahre</b> (10 000–2 000 v. Chr.), <b>Sechseck</b>-Raster (odd-r, versetzte Reihen, jedes Plättchen bis zu sechs Nachbarn) mit Fluss, See, Hang, Ufer und Furten. Im HTML-Prototyp eine feste 5×8-Karte; in der App ist das Spielbrett das auf der Weltkarte <b>geformte Gebiet</b> (12–55 Felder, Weltkoordinaten)</li>
 <li><b>Tag</b>: 1 Plättchen ziehen &amp; legen (Fischgrund, Uferlager, Auenwald, Hochterrasse, Höhle, Feuerstein; später Pfahlbau), Einkommen kassieren, optional Werkzeug bauen (Feuerstein + 2 Material → +2 Schutz), Sammlerin/Jäger bewegen</li>
 <li><b>Nacht</b>: Seite verdunkelt sich, Karte flippt – Raubtier/Frost (Schutz-/Materialprüfung), Stille, gute Jagd, Fremde, Fund. Der Stamm isst −1 Nahrung</li>
 <li><b>◆ Vier Anker</b> auf der Zeitleiste (als "?" markiert): ~8 400 Wiederbewaldung, ~6 200 große Kälte, ~4 300 erste Bauern (Pfahlbau frei), ~3 400 der See steigt</li>
 <li><b>Verlustrisiko</b>: zwei Hungernächte in Folge → "Der Stamm zieht weiter"</li>
 <li><b>Fortschritt</b> "Sesshaftigkeit" = min(Nahrung, Schutz, Material), Ziel 20 → Endstufen: <i>Die Pfahlbauer / Am Ufer angekommen / Das Tal bleibt wild</i></li>
-<li><b>Zeremonie I→II</b> mit 5 Karten und Realitätsabgleich (Balance %, Authentizität %, Fundstellen x/3)</li>
+<li><b>Zeremonie I→II</b> mit 5 Karten und Realitätsabgleich (Balance %, Authentizität %, Fundstellen x/y — y = Fundstellen im gewählten Gebiet)</li>
 </ul>
 <p class="dim">UI: Tag/Nacht-Farbwechsel als Signatur, Petroglyphen-Ikonografie, responsive – mobil Kompakt-Layout (Safe-Areas, dvh, Hand fixiert unten), auf dem Desktop bildschirmfüllend (Karte links auf Viewporthöhe skaliert, Status &amp; Hand als Seitenleiste rechts). Datenhinweis im Spiel: historisch inspiriert und vereinfacht, Jahre gerundet.</p>
 </div></div>
@@ -426,18 +426,17 @@ footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--line);font-si
 <p class="dim">Platzierungs- und Bewegungsklicks behalten Vorrang; Inspektion ist der Fallback für alle übrigen Klicks. Bekannter Kompromiss mobil: Das Panel steht über der Karte und schiebt sie beim Öffnen nach unten.</p>
 </div></div>
 
-<div class="card" data-s="idea"><div class="chead"><h3>Startbildschirm: endlose Welt im Nebel, forme dein Tal</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
-<p>Prototyp (<code>start-screen-v2.html</code>): Vor dem Spiel liegt eine <b>endlose, prozedural erzeugte Hex-Welt</b> (Fluss, See, Ufer, Hang, Flachland – gleiche Kacheln, Farben und odd-r-Geometrie wie das Spiel) unter dem <b>Nebel des Ungespielten</b>. Man erkundet durch Ziehen und Zoomen, formt ein Gebiet und startet darin.</p>
+<div class="card" data-s="done"><div class="chead"><h3>Startbildschirm: Weltkarte im Nebel, forme dein Tal</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<p>Portiert nach <code>app/src/stromlinien/StartScreen.tsx</code> + <code>world.ts</code> (Prototyp <code>start-screen-v2.html</code>, archiviert). Beim Port wurde die endlose Seed-Welt des Prototyps durch die <b>gestaltete Weltkarte</b> ersetzt (siehe Entscheidung in Kap. 10): Vor dem Spiel liegt der Alpenrhein von Landquart bis Konstanz (22×44 Hexes, Norden oben) unter dem <b>Nebel des Ungespielten</b>. Man erkundet durch Ziehen und Zoomen, formt ein Gebiet und startet darin.</p>
 <ul>
-<li><b>Nebel des Ungespielten</b>: Gelände ist unsichtbar, bis ein Gebiet gespielt wurde (pro Seed gemerkt, localStorage). Gespielte Gebiete bleiben auf der Weltkarte dauerhaft aufgedeckt – die Weltkarte wird zur persönlichen Entdeckungsgeschichte.</li>
-<li><b>Formbares Sechseck-Gebiet</b>: Startform ist ein Hexagon (Radius 3 = 37 Felder). Tippen fügt Randfelder hinzu oder entfernt Felder – das Gebiet muss <b>zusammenhängen</b> (12–55 Felder). „Neu formen" setzt das Hexagon an die aktuelle Bildmitte.</li>
-<li><b>Zeichen ◈ (Kundschaft)</b>: Seed-deterministische Hinweise nahe markantem Gelände (Wasser, Stein, offenes Land, selten: etwas Verborgenes). Ungespielt sehen <i>alle gleich aus</i> (anonyme Stele) und verraten weder Ort noch Art. Jedes Zeichen <i>im gewählten Gebiet</i> liefert stattdessen <b>eine vage Aussage über das Gesamtgebiet</b> (Stufen: keines/wenig/etwas/reichlich) – mehr Zeichen einschließen = mehr Kundschaft. Nach dem Spielen zeigen Zeichen ihre wahre Glyphe am wahren Ort.</li>
-<li><b>Epochen-Ausblick</b>: Panel mit allen fünf Epochen (Namen/Zeiträume aus der Kampagnenstruktur) und einer Erwartung fürs gewählte Gebiet: Punktwertung + Text aus dem aggregierten Gelände (Furten → Saumpfade/Römerstrasse/Marktort, Seeufer → Pfahlbauten, Fluss → Grenze/Schmuggel, dann Rheinkorrektion/Wasserkraft). Grobe Erwartungen ohne Orte; „historisch inspiriert und vereinfacht".</li>
-<li><b>Startbedingung</b>: mindestens ein Flussfeld im Gebiet. Wegen des Nebels wird nur Ja/Nein verraten („✓/✕ Wasser zu hören") – die Suche nach Wasser im Nebel ist Teil des Reizes; Wasser-Zeichen helfen.</li>
-<li><b>Start</b>: Das Gebiet wird in seiner Form als Spielbrett geladen (DOM-Hexkacheln der epoche1 wiederverwendet), <b>Sammlerin ✦</b> und <b>Jäger ➤</b> landen auf zufälligen Landfeldern; enthaltene Zeichen warten als ◈ auf Deutung im Spiel.</li>
-<li><b>Welt = Seed</b>: deterministisch – gleiche Koordinate ergibt immer dasselbe Gelände. „Andere Welt" würfelt neu, „Nebel zurücksetzen" löscht den Fortschritt des Seeds; <code>?seed=…</code>, <code>?autostart</code>, <code>?epochs</code> für Tests.</li>
+<li><b>Nebel des Ungespielten</b>: Gelände ist unsichtbar, bis ein Gebiet gespielt wurde (localStorage). Gespielte Gebiete bleiben dauerhaft aufgedeckt – die eine Weltkarte wird zur persönlichen Entdeckungsgeschichte. <b>Landmarken</b> (Konstanz, Rheindelta, Furt im Ried, Illmündung, Schaaner Furt, Tardisfurt, Landquart) sind auch unter dem Nebel lesbar – Wissen über das Land, nicht über das Gelände.</li>
+<li><b>Formbares Sechseck-Gebiet</b>: Startform ist ein Hexagon (Radius 3 = 37 Felder) an der Schaaner Furt. Tippen fügt Randfelder hinzu oder entfernt Felder – das Gebiet muss <b>zusammenhängen</b> (12–55 Felder). „Neu formen" setzt das Hexagon an die aktuelle Bildmitte.</li>
+<li><b>Zeichen ◈ (Kundschaft)</b>: an festen Weltpositionen. Ungespielt sehen <i>alle gleich aus</i> (anonyme Stele) und verraten weder Ort noch Art; jedes Zeichen <i>im gewählten Gebiet</i> liefert <b>eine vage Aussage über das Gesamtgebiet</b> (keines/wenig/etwas/reichlich). Nach dem Spielen zeigen Zeichen ihre wahre Glyphe am wahren Ort. <b>Fund-Zeichen stehen ausschließlich an echten Fundstellen</b> – in der gestalteten Welt lügt kein Zeichen; Wasser-/Stein-/Land-Zeichen sind deterministisch aus dem Gelände gestreut (feste Konstante, kein Seed).</li>
+<li><b>Epochen-Ausblick</b>: Panel mit allen fünf Epochen und einer Erwartung fürs gewählte Gebiet (Punktwertung + Text aus dem aggregierten Gelände). Grobe Erwartungen ohne Orte; „historisch inspiriert und vereinfacht".</li>
+<li><b>Startbedingung</b>: mindestens ein Flussfeld im Gebiet. Wegen des Nebels wird nur Ja/Nein verraten („✓/✕ Wasser zu hören") – Wasser-Zeichen und der bekannte Flusslauf der Landmarken helfen.</li>
+<li><b>Übergabe an den Kernloop</b>: Das Gebiet wird in seiner Form (Weltkoordinaten) zum Spielbrett — <code>buildRegionGrid()</code> statt fester 5×8-Karte. Fundstellen mit Weltkoordinate im Gebiet sind im Spiel; Zeichen erscheinen als ◈ auf den Feldern und werden im Feld-Inspektor erklärt; Intro und Realitätsabgleich zählen die Fundstellen des Gebiets dynamisch. Sammlerin ✦ und Jäger ➤ betreten das Tal wie bisher über gelegte Plättchen.</li>
 </ul>
-<p class="dim">v1 (7×9-Rechteckrahmen, sichtbares Gelände, nur Flusszähler) ist archiviert – ersetzt, weil sichtbares Gelände die Wahl trivial machte und der starre Rahmen keine Gestaltung erlaubte. Offen: Übergabe des Gebiets an den Kernloop (prozedurales Gelände statt fester 5×8-Karte), ob der Epochen-Ausblick erst durch Zeichen freigeschaltet werden soll (aktuell liest er das Gelände direkt, nur vergröbert), Zeichen-Dichte, ob Zeichen im Spiel zu Fundstellen/Ereignis-Ankern werden.</p>
+<p class="dim">v1 (7×9-Rechteckrahmen, sichtbares Gelände) ist archiviert. Mit dem Port entfallen (Seed-Welt-Erbe): „Andere Welt"-Knopf und <code>?seed</code>. Offen weiterhin: ob der Epochen-Ausblick erst durch Zeichen freigeschaltet werden soll (aktuell liest er das Gelände direkt, nur vergröbert), Zeichen-Dichte, ob Zeichen im Spiel mechanisch wirken (bisher informativ).</p>
 </div></div>
 
 <div class="card" data-s="idea"><div class="chead"><h3>Designer-Werkstatt: eine Karte, fünf Gewerke</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
@@ -461,9 +460,62 @@ footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--line);font-si
 </div></div>
 
 <div class="card" data-s="idea"><div class="chead"><h3>Playtest-Brücke: die entworfene Karte selbst spielen</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
-<p>Es fehlt das Bindeglied zwischen den drei Werkzeugen: Das <b>Mechanik-Labor</b> lässt Bots datengetriebene Karten spielen, die <b>Designer-Werkstatt</b> entwirft sie – aber <b>kein Mensch kann eine entworfene Karte spielen</b>. Der Kernloop lädt sein Raster aus <code>buildGrid()</code>, einer Funktion ohne Parameter (<code>app/src/stromlinien/grid.ts</code>), und auch der Startbildschirm reicht sein geformtes Gebiet noch nicht weiter.</p>
+<p>Es fehlt das Bindeglied zwischen den drei Werkzeugen: Das <b>Mechanik-Labor</b> lässt Bots datengetriebene Karten spielen, die <b>Designer-Werkstatt</b> entwirft sie – aber <b>kein Mensch kann eine in der Werkstatt entworfene Karte spielen</b>. Der erste Schritt ist getan: Seit dem Startbildschirm-Port nimmt der Kernloop ein geformtes Weltkarten-Gebiet entgegen (<code>buildRegionGrid()</code> in <code>app/src/stromlinien/grid.ts</code> statt des parameterlosen <code>buildGrid()</code>). Was fehlt, ist der Weg Werkstatt-JSON → Weltkarte/Spiel.</p>
 <p>Vorschlag: Prototyp und App lesen eine Karten-JSON statt des fest kodierten Rasters – dieselbe Datei, die Werkstatt und Labor schreiben.</p>
 <div class="why"><b>Warum vor dem Port</b>Designer, die ihre Karte nicht spielen können, entwerfen blind – und das Labor prüft nur, was messbar ist, nicht was sich gut anfühlt. Die Brücke erzwingt zudem, dass das Austauschformat wirklich funktioniert, bevor es in die App wandert: genau die Reihenfolge, für die die Prototypen-Werkstatt existiert.</div>
+</div></div>
+
+<div class="card" data-s="idea"><div class="chead"><h3>Session-Lifecycle: Lager-Menü, Autosave, überspringbare Nacht</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Prototyp (<code>spielmenue-v1.html</code>): Die App speichert heute nur den Nebel des Ungespielten in <code>localStorage</code> – der <code>GameState</code> einer laufenden Partie lebt ausschließlich im React-Reducer und ist bei jedem Reload verloren. Der Prototyp zeigt das fehlende Drumherum:</p>
+<ul>
+<li><b>Lager-Menü</b> (☰ oben rechts, Slide-in-Panel): Fortsetzen · Regeln · Zur Weltkarte (speichert) · Partie aufgeben (destruktiv, mit Bestätigung).</li>
+<li><b>Autosave-Indikator</b>: kleiner Punkt + „gespeichert" / „speichert …" – macht sichtbar, dass Schließen nie mehr als die aktuelle Eingabe verliert.</li>
+<li><b>Confirm-Dialog</b> für jede unwiderrufliche Aktion: Partie aufgeben, Nebel zurücksetzen, Zeremonie-Opfer. Einheitliche Karte (Titel, Folge-Text, Abbrechen/Bestätigen).</li>
+<li><b>Überspringbare Nacht-Sequenz</b>: „Die Nacht bricht an …" ist heute eine erzwungene 1,9-s-Animation ohne Interaktion; der Prototyp macht sie per Tap überspringbar (Skip-Hinweis blendet nach 0,5 s ein).</li>
+<li><b>Fehlerfall-Karte</b>: Ersetzt den weißen Absturz-Bildschirm durch „Aus Autosave wiederherstellen" / „Neu beginnen" – setzt Autosave voraus.</li>
+</ul>
+<div class="why"><b>Warum vor weiterem Ausbau</b>Jede der drei prototypisierten Ideen dieser Session hängt am selben fehlenden Baustein: einem serialisierbaren, versionierten Spielstand. <code>GameState</code> ist bereits reine, JSON-taugliche Daten (alle Funktionen liegen in <code>data.ts</code>) – das Fehlende ist nur die Persistenzschicht selbst.</div>
+<p class="dim">Debug: <code>?menu</code>, <code>?exit</code>, <code>?abandon</code>, <code>?night</code>, <code>?error</code>, <code>?demo</code>. Offen: Schema-Version fürs Save-Format von Anfang an; ob ein Undo-Fenster <i>innerhalb</i> des Tages sinnvoll ist (nach der Nacht unmöglich – Aufdeckung ist final).</p>
+</div></div>
+
+<div class="card" data-s="concept"><div class="chead"><h3>Profil & Chronik-Sync: lokaler Stammesname, Cloud nur als Kopie</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Prototyp (<code>profil-hub-v2.html</code>, v1 archiviert): Kein Login, kein Konto – das Profil ist der <code>localStorage</code>-Schlüssel, nur sichtbar gemacht. Beim ersten Start fragt das Spiel „Wie nennt man euren Stamm?"; unter diesem Namen liegen Nebel, Spielstand und Chronik.</p>
+<ul>
+<li><b>Profilchip</b> (oben rechts auf der Weltkarte) öffnet einen <b>Umschalter</b> für mehrere Stämme auf einem Gerät – jeder mit eigenem Nebel und eigener laufender Partie.</li>
+<li><b>Weltkarte als Fortsetzen-Hub</b>: Liegt ein Spielstand vor, zeigt die Weltkarte statt „Neues Gebiet formen" eine Karte „Laufende Partie · Runde 4" mit Fortsetzen/Aufgeben (Aufgeben mit Bestätigung).</li>
+<li><b>Sync ist opt-in</b>, Standard aus. Solange er aus ist, verlässt nichts das Gerät – und der Erststart-Text sagt genau das.</li>
+<li><b>Chronik-Code als Identität</b>: eine Wortkette (<code>furt-adler-see-wolf-7291</code>), kopierbar als Code oder als Link (<code>?chronik=CODE</code> füllt den Holen-Dialog vor). Kein Konto, keine Mailadresse.</li>
+<li><b>Konflikt-Dialog „Zwei Chroniken"</b>: Gerät und Cloud nebeneinander mit Runde und Zeitpunkt, „▲ neuer" markiert; eine Seite gewinnt, die andere wird überschrieben. Kein Mischen – Spielstände sind ganze Dokumente.</li>
+<li><b>Offline ist ein normaler Zustand</b>, kein Fehler: „Kein Netz – die Chronik bleibt auf diesem Gerät."</li>
+</ul>
+<div class="why"><b>Warum local-first und die Cloud nur als Kopie</b>Das Spiel ist Solo und offline-fähig. Ein Server als primärer Speicher würde jedem Plättchen-Zug Latenz aufzwingen und Offline-Spiel unmöglich machen – für nichts. <code>localStorage</code> bleibt die Wahrheit; hochgeladen wird eine Kopie, wenn der Spieler es will.</div>
+<div class="why"><b>Der Code ist ein Passwortersatz</b>Wer den Code hat, hat die Chronik. Die Wortliste des Prototyps (32 Wörter × 4 Glieder + 4 Ziffern ≈ 33 bit) ist dafür <b>zu kurz</b> – produktiv braucht es ≥60 bit <i>und</i> Rate-Limiting auf dem Endpunkt, sonst ist Durchprobieren möglich. Im Prototyp steht das als Kommentar im Code.</div>
+<p class="dim">Der Server ist im Prototyp durch einen zweiten <code>localStorage</code>-Schlüssel simuliert, damit der Rundlauf <i>sichern → Gerät leeren → holen</i> in einem einzigen Browser durchspielbar ist. Debug: <code>?empty</code>, <code>?demo</code>, <code>?sync</code>, <code>?restore</code>, <code>?conflict</code>, <code>?offline</code>. Offen: ob „ein aktiver Spielstand pro Stamm" reicht; ob der Code zusätzlich als QR angeboten wird; wann die Kopie in der Cloud gelöscht wird, wenn ein Spieler Sync wieder abschaltet.</p>
+</div></div>
+
+<div class="card" data-s="done"><div class="chead"><h3>Das Handbuch wird veröffentlicht – gefiltert zur Build-Zeit</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<p>Dieses Dokument wird mit der Anwendung zusammen deployt und ist unter <code>/handbuch/</code> erreichbar. Veröffentlicht wird aber <b>nur, was entschieden ist</b>: Karten mit Status <i>Umgesetzt</i> und <i>Konzept</i>. Ideen, Verworfenes und offene Fragen bleiben im Arbeitsdokument.</p>
+<div class="why"><b>Warum nicht einfach ?mode=publish ausliefern</b>Der Publish-Schalter blendet Karten nur per CSS aus – der vollständige Text steht weiterhin im ausgelieferten HTML und ist über „Seitenquelltext anzeigen" lesbar. Ein Deployment der Datei, wie sie ist, würde also genau das öffentlich machen, was die Publish-Ansicht verbergen soll. Deshalb schneidet <code>app/scripts/build-handbuch.mjs</code> die Karten <b>vor dem Ausliefern</b> aus dem Dokument.</div>
+<ul>
+<li><b>Build</b>: <code>npm run build</code> baut die App und schreibt danach die gefilterte Fassung nach <code>dist/handbuch/index.html</code>. Das Skript meldet, wie viele Karten veröffentlicht und wie viele zurückgehalten wurden, und bricht ab, wenn gar keine Publish-Karte übrig bleibt.</li>
+<li><b>Nur das Handbuch bauen</b>: <code>npm run build:handbuch</code> – danach <code>npm run preview</code> und <code>/handbuch/</code> aufrufen (mit Schrägstrich; ohne ihn greift lokal der SPA-Fallback).</li>
+<li><b>Leere Kapitel verschwinden von selbst</b>, weil das Seitenskript sie beim Rendern ausblendet und das Inhaltsverzeichnis neu aufbaut – Kapitel 9 („Verworfen") ist in der veröffentlichten Fassung deshalb gar nicht vorhanden.</li>
+<li><b>Vercel</b>: Root Directory <code>app</code>, dazu die Einstellung <i>„Include source files outside of the Root Directory in the Build Step"</i> – das Handbuch liegt in <code>prototype/</code>, also ausserhalb des Root-Verzeichnisses.</li>
+</ul>
+<p class="dim">Die Statusfelder <code>data-s</code> sind damit nicht mehr nur Dokumentation, sondern steuern, was öffentlich sichtbar ist. Ein falsch gesetzter Status veröffentlicht etwas – oder verbirgt es.</p>
+</div></div>
+
+<div class="card" data-s="idea"><div class="chead"><h3>Spielfeld entlasten: Chronik, Lager-Panel, Inspektor als Bottom-Sheet</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Prototyp (<code>spielfeld-entlastung-v1.html</code>): Auf Mobile konkurrieren Header, Timeline, Ressourcen, Sesshaftigkeit, Peoplebar, Feld-Inspektor, Karte, Hand und Action-Row um denselben schmalen Bildschirm. Vier Entlastungen im Prototyp:</p>
+<ul>
+<li><b>Kompakte Punkt-Timeline</b> statt zehn Kästen: schmale Balken, Anker mit ◆, Tap zeigt Runden-Info als Popover statt permanent Platz zu beanspruchen.</li>
+<li><b>Ressourcen-Deltas an den Chips</b> (+2/−1, kurz aufblendend) statt Erklär-Toasts – die Zahl bleibt der Ort der Wahrheit.</li>
+<li><b>Lager-Sammelpanel</b> (einklappbar): aktive Boni (Wiederbewaldung, gestörte Fischgründe, Verbünde) und der Werkzeug-Bau an einem Ort statt verstreut über Toasts und einen dauerhaft sichtbaren, oft disabled Button.</li>
+<li><b>Chronik als Bottom-Sheet</b> („Erzählungen der Alten"): sammelt jeden Toast und jedes Nacht-Ergebnis nachlesbar, mit Runden-Marke. Löst nebenbei das Toast-Verlust-Problem (schnelle Folge überschreibt heute den vorigen Toast).</li>
+<li><b>Feld-Inspektor als eigenes Bottom-Sheet</b>, das von unten hereinfährt statt die Karte nach unten zu verschieben – behebt den im Prototyp <code>stromlinien-epoche1</code> dokumentierten „bekannten Kompromiss mobil".</li>
+</ul>
+<div class="why"><b>Warum diese vier zuerst</b>Alle vier sind additive HUD-Elemente ohne Eingriff in Spielregeln oder Datenmodell – geringstes Risiko, sichtbarster Effekt auf kleinen Bildschirmen.</div>
+<p class="dim">Debug: <code>?chronik</code>, <code>?sheet</code>, <code>?lager</code>, <code>?delta+</code>/<code>?delta-</code>, <code>?demo</code>. Offen: ob die Chronik zusätzlich als globale Session-Historie (über mehrere Partien) im Profil landen soll (Anschluss an die Profil-Idee oben).</p>
 </div></div>
 
 <!-- ============ 9 VERWORFEN ============ -->
@@ -517,14 +569,15 @@ footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--line);font-si
 <p class="dim">Hier zahlt sich die Template-Idee aus (Kap. 4: ~48 Karten-Familien aus Gefahr × Deutungsrahmen) – ein gemeinsames Vokabular ist der Zwischenschritt zur generierten Nachtkarte, die dann redigiert statt geschrieben wird.</p>
 </div></div>
 
-<div class="card" data-s="open"><div class="chead"><h3>Gestaltete Weltkarte oder endlose prozedurale Welt?</h3><span class="badge b-open">Offen</span><span class="chev">▶</span></div><div class="cbody">
-<p>Das Projekt zieht in zwei Richtungen, und die Entscheidung steht aus:</p>
+<div class="card" data-s="done"><div class="chead"><h3>Entschieden: Gestaltete Weltkarte statt endloser prozeduraler Welt</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<p><b>Entscheidung:</b> Die Welt ist <b>gestaltet</b> – die reale Welt mit realen historischen Fakten. Die Erste Weltkarte (Alpenrhein, Landquart bis Konstanz) ist von Hand entworfen (<code>app/src/stromlinien/world.ts</code>, 22×44 Hexes, als ASCII-Zeilen editierbar); <b>Fundstellen, Zeichen und Landmarken sind an feste Weltkoordinaten gebunden</b>, Anker-Ereignisse folgen, sobald sie ortsgebunden werden.</p>
+<p>Die beiden Richtungen, zwischen denen entschieden wurde:</p>
 <ul>
-<li><b>Gestaltet</b>: Kap. 1 setzt auf die konkrete Erste Weltkarte (Alpenrhein, Landquart bis Konstanz); jede Epoche trägt einen eigenen, von Hand entworfenen Kartenzustand (Kap. 2); Werkstatt und Labor schreiben genau diese Karten, die Playtest-Brücke soll sie spielbar machen (Kap. 8).</li>
-<li><b>Prozedural</b>: Der Startbildschirm erzeugt eine <b>endlose Seed-Welt</b> und lässt Spieler ihr Gebiet selbst formen – die Karte ist dann Erzeugnis, nicht Entwurf.</li>
+<li><b>Gestaltet</b> (gewählt): jede Epoche trägt einen von Hand entworfenen Kartenzustand; Werkstatt und Labor schreiben genau diese Karten.</li>
+<li><b>Prozedural</b> (verworfen als Weltprinzip): die endlose Seed-Welt des Startbildschirm-Prototyps. Ihre <i>Interaktion</i> überlebt vollständig – Nebel des Ungespielten, formbares Gebiet und Zeichen ◈ wurden auf die gestaltete Karte übertragen.</li>
 </ul>
-<p>Denkbare Auflösungen: die kuratierte Alpenrhein-Karte als Kampagne und die prozedurale Welt als freies Spiel; oder eine prozedurale Welt mit eingebetteten, von Hand gestalteten Regionen. Daran hängt Konkretes – ob Fundstellen und Anker-Ereignisse an feste Weltkoordinaten gebunden sind oder aus dem Gelände abgeleitet werden, und was der Kartenlader (siehe Backlog) überhaupt laden muss.</p>
-<p class="dim">Historische Treue und endlose Welt vertragen sich nur begrenzt: Eine erzeugte Landschaft kann keine belegte Fundstelle tragen – wohl aber eine, die „so hätte sein können".</p>
+<div class="why"><b>Warum gestaltet</b>Historische Treue und erzeugte Landschaft vertragen sich nur begrenzt: Eine erzeugte Landschaft kann keine belegte Fundstelle tragen. Der Kern der Spielidentität – Zeitreisenden-Effekt, Fundstellen, Authentizität – braucht Orte, die wirklich existieren. Nebeneffekt: Weil die Welt endlich und für alle dieselbe ist, wird die aufgedeckte Weltkarte vergleichbar und die Werkstatt (Kap. 8) zur Quelle der Wahrheit.</div>
+<p class="dim">Die aktuelle Weltkarte in <code>world.ts</code> ist ein erster Entwurf des Kartografen-Gewerks – Geometrie und Fundstellen-Positionen sind „historisch inspiriert und vereinfacht" und warten auf die Recherche-Karte (Kap. 10, „jede Jahreszahl prüfen").</p>
 </div></div>
 
 <div class="card" data-s="open"><div class="chead"><h3>Design-Backlog</h3><span class="badge b-open">Offen</span><span class="chev">▶</span></div><div class="cbody">
@@ -537,8 +590,7 @@ footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--line);font-si
 <li>Mehrspieler-Prototyp</li>
 <li>Simulations-Tool existiert als Draft (Mechanik-Labor, Kap. 8); nächster Schritt: Balancing-Zahlen damit festlegen</li>
 <li>Namen &amp; Erinnerung / Mythos-Karten als leichte Erzählmechaniken prüfen</li>
-<li>Editor-Port: Schema-Validierung (zod) + Kartenlader statt fest kodiertem <code>buildGrid()</code></li>
-<li>Startbildschirm → Kernloop: das geformte Gebiet (beliebige Form statt 5×8-Raster) als Karte übergeben; dabei Zeichen-Dichte und Startplatz der Menschen prüfen</li>
+<li>Editor-Port: Schema-Validierung (zod) + Kartenlader für Werkstatt-JSON (das Spielraster ist seit dem Startbildschirm-Port regionsbasiert; die Weltkarte in <code>world.ts</code> sollte langfristig aus der Werkstatt kommen)</li>
 <li>Deck-Gewichte pro Epoche statt global – ein Pfahlbau-Gewicht ist in Epoche III bedeutungslos</li>
 <li>Stabile Slugs statt laufender Nummern für Arten/Ereignisse/Fundstellen; Fundstellen-Referenzen als Auswahl statt Freitext</li>
 <li>Undo im Editor – Malen ist billig, das Löschen einer über fünf Epochen platzierten Art nicht</li>

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>STROMLINIEN · Profil & Weltkarte-Hub v1</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+:root{
+  --bg:#dce3d8; --panel:#ecefe6; --panel2:#e2e7dc; --ink:#22302c; --ink2:#5a6b64;
+  --river:#7fb2ac; --riverdeep:#5e9793; --ember:#c96f2e; --emberglow:rgba(201,111,46,.25);
+  --bone:#f2ede0; --line:#b8c2b4; --good:#4e7d5b; --bad:#9c4a33;
+  --shadow:0 2px 10px rgba(30,45,40,.12);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--ink);font-family:'Instrument Sans',system-ui,sans-serif;height:100dvh;}
+h1,h2,h3{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;margin:0;}
+button{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:13px;letter-spacing:.03em;border-radius:9px;border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);padding:10px 14px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
+button:active{transform:scale(.97);}
+button.primary{background:var(--ink);color:var(--bg);}
+button.ghost{background:transparent;box-shadow:none;border-color:var(--line);}
+button.danger{border-color:var(--bad);color:var(--bad);background:transparent;box-shadow:none;}
+button:disabled{opacity:.4;pointer-events:none;}
+input[type=text]{font-family:'Instrument Sans',sans-serif;font-size:15px;border:1.5px solid var(--line);border-radius:9px;padding:11px 12px;background:var(--bone);color:var(--ink);width:100%;}
+input[type=text]:focus{outline:none;border-color:var(--ember);}
+
+/* ============ Erststart: Stammesname ============ */
+.onboard{position:fixed;inset:0;background:var(--bg);z-index:30;display:none;align-items:center;justify-content:center;padding:20px;}
+.onboard.on{display:flex;}
+.onboard .card{width:100%;max-width:380px;}
+.onboard .sub{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.16em;color:var(--ember);text-transform:uppercase;margin-bottom:10px;}
+.onboard h1{font-size:28px;line-height:1.1;margin-bottom:10px;}
+.onboard p{font-size:14px;color:var(--ink2);line-height:1.55;margin:0 0 18px;}
+.onboard label{display:block;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--ink2);text-transform:uppercase;margin-bottom:6px;}
+.onboard .row{display:flex;gap:8px;margin-top:14px;}
+.onboard .row button{flex:1;}
+.namehint{font-size:11px;color:var(--ink2);margin-top:6px;}
+
+/* ============ Weltkarte-Hub (Mock) ============ */
+.stage{position:fixed;inset:0;display:none;flex-direction:column;}
+.stage.on{display:flex;}
+.hudtop{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;}
+.brand{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:15px;letter-spacing:.12em;}
+.brand small{display:block;font-family:'Space Mono',monospace;font-weight:400;font-size:9.5px;letter-spacing:.06em;color:var(--ink2);margin-top:2px;}
+
+.profilechip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1.5px solid var(--line);border-radius:20px;padding:6px 12px 6px 6px;cursor:pointer;box-shadow:var(--shadow);}
+.profilechip .av{width:26px;height:26px;border-radius:50%;background:var(--ember);color:#14100a;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;}
+.profilechip .nm{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.04em;}
+
+.worldmock{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.worldmock .fill{position:absolute;inset:0;background:
+  radial-gradient(ellipse 60% 30% at 50% 8%, var(--river), transparent 60%),
+  linear-gradient(180deg, var(--panel2) 0%, var(--bg) 100%);
+  opacity:.9;}
+.worldmock .hint{position:relative;font-family:'Space Mono',monospace;font-size:11px;color:var(--ink2);text-align:center;letter-spacing:.06em;}
+
+.hubcard{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);width:min(400px,88vw);background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:0 8px 24px rgba(0,0,0,.18);}
+.hubcard .tag{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:var(--ember);text-transform:uppercase;margin-bottom:4px;}
+.hubcard h3{font-size:17px;margin-bottom:4px;}
+.hubcard .meta{font-family:'Space Mono',monospace;font-size:11px;color:var(--ink2);margin-bottom:12px;}
+.hubcard .row{display:flex;gap:8px;}
+.hubcard .row button{flex:1;}
+.hubcard .bar{height:8px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);overflow:hidden;margin:8px 0 12px;}
+.hubcard .bar .fill2{height:100%;background:linear-gradient(90deg,var(--riverdeep),var(--river));}
+
+.startbtn{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);}
+
+.hudbottom{display:flex;justify-content:center;gap:8px;padding:14px;flex-wrap:wrap;}
+.hudbottom button{font-size:11px;padding:8px 12px;box-shadow:none;}
+
+/* ============ Profil-Umschalter ============ */
+.overlay{position:fixed;inset:0;background:rgba(20,30,26,0);pointer-events:none;opacity:0;transition:all .3s ease;display:flex;align-items:flex-start;justify-content:center;z-index:40;padding-top:70px;}
+.overlay.on{background:rgba(20,30,26,.5);pointer-events:auto;opacity:1;}
+.switcher{width:min(340px,88vw);background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 8px 30px rgba(0,0,0,.25);transform:translateY(-10px);transition:transform .3s cubic-bezier(.2,.9,.3,1);}
+.overlay.on .switcher{transform:translateY(0);}
+.switcher h3{font-size:15px;margin-bottom:10px;}
+.profrow{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:8px;cursor:pointer;}
+.profrow:hover{background:var(--panel2);}
+.profrow.active{background:var(--emberglow);}
+.profrow .av{width:28px;height:28px;border-radius:50%;background:var(--river);color:#0d1e1c;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
+.profrow .info{flex:1;}
+.profrow .info b{display:block;font-size:13px;}
+.profrow .info span{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);}
+.switcher .newprof{width:100%;margin-top:8px;justify-content:center;}
+.switcher hr{border:none;border-top:1px dashed var(--line);margin:10px 0;}
+.switcher .chronikrow{display:flex;gap:8px;}
+.switcher .chronikrow button{flex:1;font-size:11px;padding:8px;}
+
+.filehidden{display:none;}
+</style>
+</head>
+<body>
+
+<!-- ============ ERSTSTART ============ -->
+<div class="onboard" id="onboard">
+  <div class="card">
+    <div class="sub">Willkommen am Alpenrhein</div>
+    <h1>Wie nennt man<br>euren Stamm?</h1>
+    <p>Unter diesem Namen speichert das Gerät euren Nebel des Ungespielten, laufende Partien und eure Chronik. Kein Konto, keine Anmeldung — alles bleibt hier.</p>
+    <label for="nameinput">Stammesname</label>
+    <input type="text" id="nameinput" placeholder="z. B. Die Ufergänger" maxlength="28">
+    <div class="namehint" id="namehint">&nbsp;</div>
+    <div class="row">
+      <button class="primary" style="flex:2" onclick="createProfile()">Stamm gründen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ WELTKARTE-HUB (Mock) ============ -->
+<div class="stage" id="stage">
+  <div class="hudtop">
+    <div class="brand">STROMLINIEN<small>WÄHLE &amp; FORME DEIN TAL</small></div>
+    <div class="profilechip" onclick="openSwitcher()">
+      <div class="av" id="chipAv">?</div>
+      <div class="nm" id="chipName">–</div>
+    </div>
+  </div>
+  <div class="worldmock">
+    <div class="fill"></div>
+    <div class="hint" id="worldHint">Weltkarte (Mock) — Nebel des Ungespielten</div>
+
+    <!-- Laufende Partie -->
+    <div class="hubcard" id="resumeCard" style="display:none">
+      <div class="tag">Laufende Partie</div>
+      <h3>Gebiet an der Schaaner Furt</h3>
+      <div class="meta">Runde 4 / 10 · 7 600 v. Chr. · Tag</div>
+      <div class="bar"><div class="fill2" style="width:38%"></div></div>
+      <div class="row">
+        <button class="ghost danger" onclick="openAbandon()">Aufgeben</button>
+        <button class="primary" onclick="toast('→ Partie wird fortgesetzt (Mock)')">Fortsetzen</button>
+      </div>
+    </div>
+
+    <!-- Kein laufendes Spiel -->
+    <button class="primary startbtn" id="startBtn" style="display:none" onclick="toast('→ Gebiet formen (Mock)')">Neues Gebiet formen</button>
+  </div>
+  <div class="hudbottom">
+    <button onclick="exportChronik()">⇩ Chronik exportieren</button>
+    <button onclick="document.getElementById('importFile').click()">⇧ Chronik importieren</button>
+    <input type="file" id="importFile" class="filehidden" accept="application/json" onchange="importChronik(event)">
+    <button onclick="startDemoGame()">Debug: laufende Partie simulieren</button>
+    <button onclick="clearRun()">Debug: Partie löschen</button>
+  </div>
+</div>
+
+<!-- ============ PROFIL-UMSCHALTER ============ -->
+<div class="overlay" id="switcherOverlay" onclick="if(event.target===this)closeSwitcher()">
+  <div class="switcher">
+    <h3>Stämme auf diesem Gerät</h3>
+    <div id="profileList"></div>
+    <button class="newprof ghost" onclick="closeSwitcher();showOnboard(true)">+ Neuer Stamm</button>
+    <hr>
+    <div class="chronikrow">
+      <button onclick="exportChronik()">⇩ Export</button>
+      <button onclick="document.getElementById('importFile').click()">⇧ Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Aufgeben-Bestätigung ============ -->
+<div class="overlay" id="abandonOverlay" onclick="if(event.target===this)closeAbandon()">
+  <div class="switcher" style="padding:20px">
+    <h3>Partie wirklich aufgeben?</h3>
+    <p style="font-size:13px;color:var(--ink2);line-height:1.5;margin:8px 0 16px">Der Fortschritt dieser Partie geht verloren. Das gewählte Gebiet bleibt auf der Weltkarte aufgedeckt.</p>
+    <div class="row" style="display:flex;gap:8px">
+      <button class="ghost" style="flex:1" onclick="closeAbandon()">Abbrechen</button>
+      <button class="danger" style="flex:1;border:1.5px solid var(--bad)" onclick="clearRun();closeAbandon();toast('Partie aufgegeben')">Ja, aufgeben</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY_PROFILES='sot-profiles-v1';
+const KEY_ACTIVE='sot-active-profile-v1';
+
+function loadProfiles(){try{return JSON.parse(localStorage.getItem(KEY_PROFILES)||'[]');}catch(e){return[];}}
+function saveProfiles(list){try{localStorage.setItem(KEY_PROFILES,JSON.stringify(list));}catch(e){}}
+function activeId(){return localStorage.getItem(KEY_ACTIVE);}
+function setActive(id){try{localStorage.setItem(KEY_ACTIVE,id);}catch(e){}}
+
+function initials(name){return name.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase()||'?';}
+
+function createProfile(){
+  const input=document.getElementById('nameinput');
+  const name=input.value.trim();
+  if(!name){document.getElementById('namehint').textContent='Bitte einen Namen eingeben.';document.getElementById('namehint').style.color='var(--bad)';return;}
+  const list=loadProfiles();
+  const id='p'+Date.now();
+  list.push({id,name,createdRound:1,hasRun:false});
+  saveProfiles(list);
+  setActive(id);
+  showOnboard(false);
+  renderHub();
+}
+
+function showOnboard(forceNew){
+  document.getElementById('onboard').classList.add('on');
+  document.getElementById('stage').classList.remove('on');
+  document.getElementById('nameinput').value='';
+  document.getElementById('namehint').textContent=' ';
+  document.getElementById('nameinput').focus();
+}
+
+function renderHub(){
+  const list=loadProfiles();
+  const id=activeId();
+  const me=list.find(p=>p.id===id);
+  if(!me){showOnboard(true);return;}
+  document.getElementById('onboard').classList.remove('on');
+  document.getElementById('stage').classList.add('on');
+  document.getElementById('chipAv').textContent=initials(me.name);
+  document.getElementById('chipName').textContent=me.name;
+  document.getElementById('resumeCard').style.display=me.hasRun?'block':'none';
+  document.getElementById('startBtn').style.display=me.hasRun?'none':'block';
+  document.getElementById('worldHint').style.display=me.hasRun?'none':'block';
+  renderProfileList();
+}
+
+function renderProfileList(){
+  const list=loadProfiles();
+  const id=activeId();
+  const el=document.getElementById('profileList');
+  el.innerHTML=list.map(p=>
+    '<div class="profrow'+(p.id===id?' active':'')+'" onclick="switchProfile(\''+p.id+'\')">'
+    +'<div class="av">'+initials(p.name)+'</div>'
+    +'<div class="info"><b>'+p.name+'</b><span>'+(p.hasRun?'laufende Partie':'kein aktives Spiel')+'</span></div>'
+    +(p.id===id?'<span style="font-size:11px;color:var(--good)">●</span>':'')
+    +'</div>'
+  ).join('') || '<p style="font-size:12px;color:var(--ink2)">Noch kein Stamm auf diesem Gerät.</p>';
+}
+
+function switchProfile(id){setActive(id);closeSwitcher();renderHub();toast('Stamm gewechselt');}
+
+function openSwitcher(){renderProfileList();document.getElementById('switcherOverlay').classList.add('on');}
+function closeSwitcher(){document.getElementById('switcherOverlay').classList.remove('on');}
+function openAbandon(){document.getElementById('abandonOverlay').classList.add('on');}
+function closeAbandon(){document.getElementById('abandonOverlay').classList.remove('on');}
+
+function startDemoGame(){
+  const list=loadProfiles();const id=activeId();
+  const me=list.find(p=>p.id===id);
+  if(!me){toast('Erst einen Stamm gründen');return;}
+  me.hasRun=true;saveProfiles(list);renderHub();
+}
+function clearRun(){
+  const list=loadProfiles();const id=activeId();
+  const me=list.find(p=>p.id===id);
+  if(me){me.hasRun=false;saveProfiles(list);}
+  renderHub();
+}
+
+function exportChronik(){
+  const list=loadProfiles();
+  const data={exportedAt:'(Zeitstempel beim echten Export)',profiles:list,active:activeId()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='stromlinien-chronik.json';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('Chronik exportiert');
+}
+function importChronik(ev){
+  const file=ev.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const data=JSON.parse(reader.result);
+      if(!Array.isArray(data.profiles))throw new Error('ungültig');
+      saveProfiles(data.profiles);
+      if(data.active)setActive(data.active);
+      renderHub();
+      toast('Chronik importiert — '+data.profiles.length+' Stämme');
+    }catch(e){toast('Import fehlgeschlagen — Datei ungültig');}
+  };
+  reader.readAsText(file);
+  ev.target.value='';
+}
+
+let toastEl=null;
+function toast(msg){
+  if(!toastEl){
+    toastEl=document.createElement('div');
+    toastEl.style.cssText='position:fixed;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:24px;font-size:12.5px;font-weight:600;z-index:70;box-shadow:var(--shadow);transition:opacity .3s;';
+    document.body.appendChild(toastEl);
+  }
+  toastEl.textContent=msg;toastEl.style.opacity='1';
+  clearTimeout(toastEl._h);
+  toastEl._h=setTimeout(()=>toastEl.style.opacity='0',2200);
+}
+
+/* Debug: ?empty erzwingt Erststart, ?demo legt einen Demo-Stamm mit laufender Partie an,
+   ?profiles legt drei Stämme an und öffnet den Umschalter */
+const q=new URLSearchParams(location.search);
+if(q.has('empty')){
+  saveProfiles([]);localStorage.removeItem(KEY_ACTIVE);
+}
+if(q.has('demo')){
+  const list=[{id:'demo1',name:'Die Ufergänger',hasRun:true,createdRound:1}];
+  saveProfiles(list);setActive('demo1');
+}
+if(q.has('profiles')){
+  const list=[
+    {id:'a',name:'Die Ufergänger',hasRun:true},
+    {id:'b',name:'Kinder des Sees',hasRun:false},
+    {id:'c',name:'Talwanderer',hasRun:false},
+  ];
+  saveProfiles(list);setActive('a');
+}
+renderHub();
+if(q.has('profiles'))openSwitcher();
+document.getElementById('nameinput').addEventListener('keydown',e=>{if(e.key==='Enter')createProfile();});
+</script>
+</body>
+</html>

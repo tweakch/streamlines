@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>STROMLINIEN · Profil, Hub & Chronik-Sync v2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+:root{
+  --bg:#dce3d8; --panel:#ecefe6; --panel2:#e2e7dc; --ink:#22302c; --ink2:#5a6b64;
+  --river:#7fb2ac; --riverdeep:#5e9793; --ember:#c96f2e; --emberglow:rgba(201,111,46,.25);
+  --bone:#f2ede0; --line:#b8c2b4; --good:#4e7d5b; --bad:#9c4a33;
+  --shadow:0 2px 10px rgba(30,45,40,.12);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--ink);font-family:'Instrument Sans',system-ui,sans-serif;height:100dvh;}
+h1,h2,h3{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;margin:0;}
+p{margin:0;}
+button{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:13px;letter-spacing:.03em;border-radius:9px;border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);padding:10px 14px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
+button:active{transform:scale(.97);}
+button.primary{background:var(--ink);color:var(--bg);}
+button.ghost{background:transparent;box-shadow:none;border-color:var(--line);}
+button.danger{border-color:var(--bad);color:var(--bad);background:transparent;box-shadow:none;}
+button:disabled{opacity:.4;pointer-events:none;}
+input[type=text]{font-family:'Instrument Sans',sans-serif;font-size:15px;border:1.5px solid var(--line);border-radius:9px;padding:11px 12px;background:var(--bone);color:var(--ink);width:100%;}
+input[type=text]:focus{outline:none;border-color:var(--ember);}
+.mono{font-family:'Space Mono',monospace;}
+
+/* ============ Erststart ============ */
+.onboard{position:fixed;inset:0;background:var(--bg);z-index:30;display:none;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
+.onboard.on{display:flex;}
+.onboard .card{width:100%;max-width:390px;}
+.onboard .sub{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.16em;color:var(--ember);text-transform:uppercase;margin-bottom:10px;}
+.onboard h1{font-size:28px;line-height:1.1;margin-bottom:10px;}
+.onboard p{font-size:14px;color:var(--ink2);line-height:1.55;margin:0 0 18px;}
+.onboard label{display:block;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--ink2);text-transform:uppercase;margin-bottom:6px;}
+.namehint{font-size:11px;color:var(--bad);margin-top:6px;min-height:14px;}
+.onboard .primary{width:100%;margin-top:6px;}
+.onboard .alt{width:100%;margin-top:8px;}
+
+/* ============ Hub ============ */
+.stage{position:fixed;inset:0;display:none;flex-direction:column;}
+.stage.on{display:flex;}
+.hudtop{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;gap:10px;}
+.brand{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:15px;letter-spacing:.12em;}
+.brand small{display:block;font-family:'Space Mono',monospace;font-weight:400;font-size:9.5px;letter-spacing:.06em;color:var(--ink2);margin-top:2px;}
+.profilechip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1.5px solid var(--line);border-radius:20px;padding:6px 12px 6px 6px;cursor:pointer;box-shadow:var(--shadow);flex-shrink:0;}
+.profilechip .av{width:26px;height:26px;border-radius:50%;background:var(--ember);color:#14100a;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
+.profilechip .who{line-height:1.15;}
+.profilechip .nm{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.04em;}
+.profilechip .sy{font-family:'Space Mono',monospace;font-size:8.5px;color:var(--ink2);}
+.profilechip .sy.on{color:var(--good);}
+
+.worldmock{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.worldmock .fill{position:absolute;inset:0;background:
+  radial-gradient(ellipse 60% 30% at 50% 8%, var(--river), transparent 60%),
+  linear-gradient(180deg, var(--panel2) 0%, var(--bg) 100%);opacity:.9;}
+.worldmock .hint{position:relative;font-family:'Space Mono',monospace;font-size:11px;color:var(--ink2);text-align:center;letter-spacing:.06em;}
+
+.hubcard{position:absolute;left:50%;bottom:104px;transform:translateX(-50%);width:min(400px,88vw);background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:0 8px 24px rgba(0,0,0,.18);}
+.hubcard .tag{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:var(--ember);text-transform:uppercase;margin-bottom:4px;}
+.hubcard h3{font-size:17px;margin-bottom:4px;}
+.hubcard .meta{font-family:'Space Mono',monospace;font-size:11px;color:var(--ink2);margin-bottom:10px;}
+.hubcard .bar{height:8px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);overflow:hidden;margin-bottom:12px;}
+.hubcard .bar .fill2{height:100%;background:linear-gradient(90deg,var(--riverdeep),var(--river));}
+.hubcard .row{display:flex;gap:8px;}
+.hubcard .row button{flex:1;}
+.startbtn{position:absolute;left:50%;bottom:104px;transform:translateX(-50%);}
+.hudbottom{display:flex;justify-content:center;gap:8px;padding:12px;flex-wrap:wrap;}
+.hudbottom button{font-size:10.5px;padding:7px 11px;box-shadow:none;}
+
+/* ============ Overlays ============ */
+.overlay{position:fixed;inset:0;background:rgba(20,30,26,0);pointer-events:none;opacity:0;transition:all .3s ease;display:flex;align-items:flex-start;justify-content:center;z-index:40;padding:64px 16px 16px;overflow-y:auto;}
+.overlay.on{background:rgba(20,30,26,.5);pointer-events:auto;opacity:1;}
+.sheet{width:min(390px,92vw);background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.25);transform:translateY(-10px);transition:transform .3s cubic-bezier(.2,.9,.3,1);margin:auto 0;}
+.overlay.on .sheet{transform:translateY(0);}
+.sheet h3{font-size:16px;margin-bottom:4px;}
+.sheet .lead{font-size:12.5px;color:var(--ink2);line-height:1.5;margin-bottom:14px;}
+
+/* Profil-Liste */
+.profrow{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:8px;cursor:pointer;}
+.profrow:hover{background:var(--panel2);}
+.profrow.active{background:var(--emberglow);}
+.profrow .av{width:28px;height:28px;border-radius:50%;background:var(--river);color:#0d1e1c;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
+.profrow .info{flex:1;}
+.profrow .info b{display:block;font-size:13px;}
+.profrow .info span{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);}
+.sheet hr{border:none;border-top:1px dashed var(--line);margin:12px 0;}
+.sheet .stack{display:flex;flex-direction:column;gap:8px;}
+.sheet .stack button{width:100%;}
+.sheet .rowbtn{display:flex;gap:8px;}
+.sheet .rowbtn button{flex:1;}
+
+/* Sync-Schalter */
+.switchrow{display:flex;align-items:flex-start;gap:12px;padding:12px;border:1.5px solid var(--line);border-radius:10px;background:var(--bone);}
+.switchrow .txt{flex:1;}
+.switchrow .txt b{font-size:13px;display:block;}
+.switchrow .txt span{font-size:11.5px;color:var(--ink2);line-height:1.45;display:block;margin-top:2px;}
+.toggle{width:44px;height:26px;border-radius:13px;background:var(--line);border:none;position:relative;cursor:pointer;flex-shrink:0;padding:0;box-shadow:none;transition:background .2s;}
+.toggle.on{background:var(--good);}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s;}
+.toggle.on::after{transform:translateX(18px);}
+
+/* Chronik-Code */
+.codebox{background:var(--bone);border:1.5px dashed var(--ember);border-radius:10px;padding:14px;text-align:center;margin:12px 0;}
+.codebox .lbl{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:6px;}
+.codebox .code{font-family:'Space Mono',monospace;font-weight:700;font-size:15px;letter-spacing:.06em;word-break:break-all;line-height:1.5;}
+.warn{background:var(--panel2);border-left:3px solid var(--ember);border-radius:0 8px 8px 0;padding:9px 11px;font-size:11.5px;line-height:1.5;color:var(--ink2);margin:10px 0;}
+.warn b{color:var(--ink);font-size:11.5px;}
+.syncstate{font-family:'Space Mono',monospace;font-size:10.5px;color:var(--ink2);display:flex;align-items:center;gap:6px;margin:10px 0;}
+.syncstate .dot{width:7px;height:7px;border-radius:50%;background:var(--good);flex-shrink:0;}
+.syncstate.busy .dot{background:var(--ember);animation:pulse 1s ease infinite;}
+.syncstate.err .dot{background:var(--bad);}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+
+/* Konflikt */
+.cmp{display:flex;gap:8px;margin:12px 0;}
+.cmpcard{flex:1;border:1.5px solid var(--line);border-radius:10px;padding:11px;background:var(--bone);cursor:pointer;transition:all .15s;}
+.cmpcard.sel{border-color:var(--ember);box-shadow:0 0 0 3px var(--emberglow);}
+.cmpcard .where{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);}
+.cmpcard b{display:block;font-size:14px;margin:3px 0 1px;}
+.cmpcard span{font-family:'Space Mono',monospace;font-size:10px;color:var(--ink2);}
+.cmpcard .newer{display:inline-block;margin-top:5px;font-family:'Space Mono',monospace;font-size:9px;color:var(--good);}
+
+.debugstrip{position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:90;display:flex;gap:5px;background:rgba(20,30,26,.85);padding:5px;border-radius:20px;flex-wrap:wrap;justify-content:center;max-width:96vw;}
+.debugstrip button{font-size:9.5px;padding:5px 9px;border-radius:14px;box-shadow:none;background:var(--bone);}
+.filehidden{display:none;}
+</style>
+</head>
+<body>
+
+<!-- ============ ERSTSTART ============ -->
+<div class="onboard" id="onboard">
+  <div class="card">
+    <div class="sub">Willkommen am Alpenrhein</div>
+    <h1>Wie nennt man<br>euren Stamm?</h1>
+    <p>Unter diesem Namen liegen euer Nebel des Ungespielten, laufende Partien und eure Chronik — <b>zunächst nur auf diesem Gerät</b>. Kein Konto, keine Anmeldung. Wer später auf einem zweiten Gerät weiterspielen will, kann die Chronik mit einem Code sichern.</p>
+    <label for="nameinput">Stammesname</label>
+    <input type="text" id="nameinput" placeholder="z. B. Die Ufergänger" maxlength="28">
+    <div class="namehint" id="namehint"></div>
+    <button class="primary" onclick="createProfile()">Stamm gründen</button>
+    <button class="ghost alt" onclick="openRestore()">Ich habe einen Chronik-Code</button>
+  </div>
+</div>
+
+<!-- ============ HUB ============ -->
+<div class="stage" id="stage">
+  <div class="hudtop">
+    <div class="brand">STROMLINIEN<small>WÄHLE &amp; FORME DEIN TAL</small></div>
+    <div class="profilechip" onclick="openSwitcher()">
+      <div class="av" id="chipAv">?</div>
+      <div class="who">
+        <div class="nm" id="chipName">–</div>
+        <div class="sy" id="chipSync">nur auf diesem Gerät</div>
+      </div>
+    </div>
+  </div>
+  <div class="worldmock">
+    <div class="fill"></div>
+    <div class="hint" id="worldHint">Weltkarte (Mock) — Nebel des Ungespielten</div>
+    <div class="hubcard" id="resumeCard" style="display:none">
+      <div class="tag">Laufende Partie</div>
+      <h3>Gebiet an der Schaaner Furt</h3>
+      <div class="meta" id="resumeMeta">Runde 4 / 10 · 7 600 v. Chr. · Tag</div>
+      <div class="bar"><div class="fill2" id="resumeBar" style="width:38%"></div></div>
+      <div class="row">
+        <button class="ghost danger" onclick="openAbandon()">Aufgeben</button>
+        <button class="primary" onclick="toast('→ Partie wird fortgesetzt (Mock)')">Fortsetzen</button>
+      </div>
+    </div>
+    <button class="primary startbtn" id="startBtn" style="display:none" onclick="toast('→ Gebiet formen (Mock)')">Neues Gebiet formen</button>
+  </div>
+  <div class="hudbottom">
+    <button onclick="openSync()">☁ Chronik &amp; Sync</button>
+    <button onclick="advanceRound()">Debug: Runde +1</button>
+    <button onclick="startDemoGame()">Debug: Partie starten</button>
+    <button onclick="wipeLocal()">Debug: Gerät leeren</button>
+  </div>
+</div>
+
+<!-- ============ PROFIL-UMSCHALTER ============ -->
+<div class="overlay" id="switcherOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="sheet">
+    <h3>Stämme auf diesem Gerät</h3>
+    <div id="profileList"></div>
+    <button class="ghost" style="width:100%;margin-top:8px" onclick="closeAll();showOnboard()">+ Neuer Stamm</button>
+    <hr>
+    <div class="stack">
+      <button onclick="closeAll();openSync()">☁ Chronik &amp; Sync …</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SYNC-PANEL ============ -->
+<div class="overlay" id="syncOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="sheet">
+    <h3>Chronik &amp; Sync</h3>
+    <p class="lead">Gespielt wird immer auf diesem Gerät. Die Cloud ist nur eine Kopie — zum Weiterspielen woanders.</p>
+
+    <div class="switchrow">
+      <div class="txt">
+        <b>Chronik sichern</b>
+        <span id="syncExplain">Aus. Nichts verlässt dieses Gerät.</span>
+      </div>
+      <button class="toggle" id="syncToggle" onclick="toggleSync()" aria-label="Sync einschalten"></button>
+    </div>
+
+    <div id="syncOn" style="display:none">
+      <div class="warn" id="syncWarn"><b>Was hochgeladen wird:</b> Stammesname, Spielstand und aufgedeckter Nebel. Keine Mailadresse, kein Konto, keine Standortdaten.</div>
+      <div class="codebox">
+        <div class="lbl">Euer Chronik-Code</div>
+        <div class="code" id="codeText">–</div>
+      </div>
+      <div class="rowbtn">
+        <button class="ghost" onclick="copyCode()">Code kopieren</button>
+        <button class="ghost" onclick="copyLink()">Link kopieren</button>
+      </div>
+      <div class="syncstate" id="syncState"><span class="dot"></span><span id="syncStateTxt">noch nicht gesichert</span></div>
+      <button class="primary" style="width:100%" onclick="pushNow()">Jetzt sichern</button>
+      <div class="warn"><b>Wer den Code hat, hat die Chronik.</b> Er ersetzt ein Passwort — teilt ihn nur mit euch selbst.</div>
+    </div>
+
+    <hr>
+    <div class="stack">
+      <button class="ghost" onclick="openRestore()">Chronik von einem Code holen …</button>
+      <button class="ghost" onclick="exportChronik()">⇩ Als Datei exportieren</button>
+      <button class="ghost" onclick="document.getElementById('importFile').click()">⇧ Aus Datei importieren</button>
+      <input type="file" id="importFile" class="filehidden" accept="application/json" onchange="importChronik(event)">
+      <button onclick="closeAll()">Schliessen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CHRONIK HOLEN ============ -->
+<div class="overlay" id="restoreOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="sheet">
+    <h3>Chronik holen</h3>
+    <p class="lead">Gebt den Code ein, den das andere Gerät zeigt.</p>
+    <input type="text" id="codeInput" class="mono" placeholder="furt-adler-see-wolf-7291" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <div class="namehint" id="restoreHint"></div>
+    <div class="rowbtn" style="margin-top:6px">
+      <button class="ghost" onclick="closeAll()">Abbrechen</button>
+      <button class="primary" id="restoreBtn" onclick="pullNow()">Holen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ KONFLIKT ============ -->
+<div class="overlay" id="conflictOverlay">
+  <div class="sheet">
+    <h3>Zwei Chroniken</h3>
+    <p class="lead">Auf diesem Gerät und in der Cloud steht Unterschiedliches. Welche gilt? Die andere wird überschrieben.</p>
+    <div class="cmp">
+      <div class="cmpcard sel" id="cmpLocal" onclick="pickSide('local')">
+        <div class="where">Dieses Gerät</div>
+        <b id="cmpLocalRound">Runde 4</b>
+        <span id="cmpLocalTime">vor 2 Minuten</span>
+        <div class="newer" id="cmpLocalNewer"></div>
+      </div>
+      <div class="cmpcard" id="cmpRemote" onclick="pickSide('remote')">
+        <div class="where">Cloud</div>
+        <b id="cmpRemoteRound">Runde 7</b>
+        <span id="cmpRemoteTime">vor 1 Stunde</span>
+        <div class="newer" id="cmpRemoteNewer"></div>
+      </div>
+    </div>
+    <div class="rowbtn">
+      <button class="ghost" onclick="closeAll()">Später entscheiden</button>
+      <button class="primary" onclick="resolveConflict()">Übernehmen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AUFGEBEN ============ -->
+<div class="overlay" id="abandonOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="sheet">
+    <h3>Partie wirklich aufgeben?</h3>
+    <p class="lead">Der Fortschritt dieser Partie geht verloren. Das gewählte Gebiet bleibt auf der Weltkarte aufgedeckt.</p>
+    <div class="rowbtn">
+      <button class="ghost" onclick="closeAll()">Abbrechen</button>
+      <button class="danger" style="border:1.5px solid var(--bad)" onclick="clearRun();closeAll();toast('Partie aufgegeben')">Ja, aufgeben</button>
+    </div>
+  </div>
+</div>
+
+<div class="debugstrip">
+  <button onclick="dbgEmpty()">?empty</button>
+  <button onclick="dbgDemo()">?demo</button>
+  <button onclick="openSync()">?sync</button>
+  <button onclick="dbgConflict()">?conflict</button>
+  <button onclick="openRestore()">?restore</button>
+  <button onclick="toggleOffline()" id="offlineBtn">?offline: aus</button>
+</div>
+
+<script>
+/* =====================================================================
+   Modell
+   ---------------------------------------------------------------------
+   localStorage ist die WAHRHEIT. Die "Cloud" ist nur eine Kopie und wird
+   hier durch einen zweiten localStorage-Schlüssel simuliert, damit sich
+   der komplette Rundlauf (sichern → Gerät leeren → holen) in EINEM
+   Browser testen lässt.
+   ===================================================================== */
+const KEY_PROFILES='sot-profiles-v2';
+const KEY_ACTIVE='sot-active-profile-v2';
+const KEY_MOCKSERVER='sot-mockserver-v2';   // <- steht stellvertretend für Vercel Blob
+
+let offline=false;
+
+/* ---------- lokaler Speicher ---------- */
+function loadProfiles(){try{return JSON.parse(localStorage.getItem(KEY_PROFILES)||'[]');}catch(e){return[];}}
+function saveProfiles(l){try{localStorage.setItem(KEY_PROFILES,JSON.stringify(l));}catch(e){}}
+function activeId(){return localStorage.getItem(KEY_ACTIVE);}
+function setActive(id){try{localStorage.setItem(KEY_ACTIVE,id);}catch(e){}}
+function me(){return loadProfiles().find(p=>p.id===activeId())||null;}
+function updateMe(fn){
+  const list=loadProfiles();const p=list.find(x=>x.id===activeId());
+  if(!p)return null;
+  fn(p);saveProfiles(list);return p;
+}
+
+/* ---------- Mock-Server ---------- */
+function serverAll(){try{return JSON.parse(localStorage.getItem(KEY_MOCKSERVER)||'{}');}catch(e){return{};}}
+function serverWrite(o){try{localStorage.setItem(KEY_MOCKSERVER,JSON.stringify(o));}catch(e){}}
+function net(ms){
+  return new Promise((res,rej)=>setTimeout(()=>offline?rej(new Error('offline')):res(),ms));
+}
+async function mockPut(code,payload){
+  await net(700);
+  const all=serverAll();
+  all[code]={payload,uploadedAt:Date.now()};
+  serverWrite(all);
+}
+async function mockGet(code){
+  await net(700);
+  const rec=serverAll()[code];
+  if(!rec)throw new Error('notfound');
+  return rec;
+}
+
+/* ---------- Chronik-Code ----------
+   Wortkette + Zahl: vorlesbar und tippbar, aber lang genug.
+   ACHTUNG für die echte Umsetzung: Der Code ist ein Bearer-Token auf einen
+   fremden Spielstand. Diese Demo-Liste hat 32 Wörter (5 bit) × 4 + 4 Ziffern
+   ≈ 33 bit — zu wenig. Produktiv: ≥60 bit (grössere Liste bzw. mehr Glieder)
+   UND Rate-Limiting auf dem Endpunkt, sonst ist Durchprobieren möglich. */
+const WORDS=['furt','adler','see','wolf','ried','hang','stein','aue','fels','reuse','feuer','nebel','birke','erle','kies','wehr','tal','moos','schilf','otter','reiher','luchs','esche','weide','sand','flut','quelle','grat','au','horn','delta','sumpf'];
+function makeCode(){
+  const pick=()=>WORDS[Math.floor(Math.random()*WORDS.length)];
+  return [pick(),pick(),pick(),pick()].join('-')+'-'+String(Math.floor(Math.random()*9000)+1000);
+}
+function normalizeCode(s){return s.trim().toLowerCase().replace(/\s+/g,'-').replace(/-+/g,'-');}
+
+/* ---------- Zeitformat ---------- */
+function ago(ts){
+  if(!ts)return 'nie';
+  const s=Math.round((Date.now()-ts)/1000);
+  if(s<60)return 'gerade eben';
+  if(s<3600)return 'vor '+Math.round(s/60)+' Min.';
+  if(s<86400)return 'vor '+Math.round(s/3600)+' Std.';
+  return 'vor '+Math.round(s/86400)+' Tagen';
+}
+
+/* ---------- Profil anlegen ---------- */
+function initials(n){return n.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase()||'?';}
+function createProfile(){
+  const input=document.getElementById('nameinput');
+  const name=input.value.trim();
+  if(!name){document.getElementById('namehint').textContent='Bitte einen Namen eingeben.';return;}
+  const list=loadProfiles();
+  const id='p'+Date.now();
+  list.push({id,name,hasRun:false,round:1,updatedAt:Date.now(),syncEnabled:false,code:null,lastSyncAt:null,lastSyncedRound:null});
+  saveProfiles(list);setActive(id);
+  document.getElementById('onboard').classList.remove('on');
+  render();
+}
+function showOnboard(){
+  document.getElementById('onboard').classList.add('on');
+  document.getElementById('stage').classList.remove('on');
+  document.getElementById('nameinput').value='';
+  document.getElementById('namehint').textContent='';
+}
+
+/* ---------- Rendern ---------- */
+function render(){
+  const p=me();
+  if(!p){showOnboard();return;}
+  document.getElementById('onboard').classList.remove('on');
+  document.getElementById('stage').classList.add('on');
+  document.getElementById('chipAv').textContent=initials(p.name);
+  document.getElementById('chipName').textContent=p.name;
+  const sy=document.getElementById('chipSync');
+  sy.textContent=p.syncEnabled?('gesichert · '+ago(p.lastSyncAt)):'nur auf diesem Gerät';
+  sy.classList.toggle('on',!!p.syncEnabled&&!!p.lastSyncAt);
+
+  document.getElementById('resumeCard').style.display=p.hasRun?'block':'none';
+  document.getElementById('startBtn').style.display=p.hasRun?'none':'block';
+  document.getElementById('worldHint').style.display=p.hasRun?'none':'block';
+  if(p.hasRun){
+    document.getElementById('resumeMeta').textContent='Runde '+p.round+' / 10 · Tag';
+    document.getElementById('resumeBar').style.width=Math.round(p.round/10*100)+'%';
+  }
+  /* Sync-Panel */
+  document.getElementById('syncToggle').classList.toggle('on',!!p.syncEnabled);
+  document.getElementById('syncOn').style.display=p.syncEnabled?'block':'none';
+  document.getElementById('syncExplain').textContent=p.syncEnabled
+    ?'An. Eine Kopie liegt unter eurem Code in der Cloud.'
+    :'Aus. Nichts verlässt dieses Gerät.';
+  document.getElementById('codeText').textContent=p.code||'–';
+  const st=document.getElementById('syncState');
+  st.classList.remove('busy','err');
+  document.getElementById('syncStateTxt').textContent=p.lastSyncAt
+    ?('gesichert '+ago(p.lastSyncAt)+' (Runde '+(p.lastSyncedRound??'?')+')')
+    :'noch nicht gesichert';
+  renderProfileList();
+}
+function renderProfileList(){
+  const list=loadProfiles(),id=activeId();
+  document.getElementById('profileList').innerHTML=list.map(p=>
+    '<div class="profrow'+(p.id===id?' active':'')+'" onclick="switchProfile(\''+p.id+'\')">'
+    +'<div class="av">'+initials(p.name)+'</div>'
+    +'<div class="info"><b>'+p.name+'</b><span>'
+    +(p.hasRun?('Runde '+p.round):'kein aktives Spiel')
+    +(p.syncEnabled?' · gesichert':'')+'</span></div>'
+    +(p.id===id?'<span style="font-size:11px;color:var(--good)">●</span>':'')+'</div>'
+  ).join('')||'<p style="font-size:12px;color:var(--ink2)">Noch kein Stamm auf diesem Gerät.</p>';
+}
+function switchProfile(id){setActive(id);closeAll();render();toast('Stamm gewechselt');}
+
+/* ---------- Sync ---------- */
+function toggleSync(){
+  const p=me();if(!p)return;
+  if(p.syncEnabled){
+    updateMe(x=>{x.syncEnabled=false;});
+    render();toast('Sync aus — die Kopie in der Cloud bleibt bestehen');
+  }else{
+    updateMe(x=>{x.syncEnabled=true;if(!x.code)x.code=makeCode();});
+    render();toast('Sync an — jetzt einmal sichern');
+  }
+}
+async function pushNow(){
+  const p=me();if(!p||!p.syncEnabled)return;
+  const st=document.getElementById('syncState');
+  st.classList.add('busy');st.classList.remove('err');
+  document.getElementById('syncStateTxt').textContent='sichert …';
+  try{
+    /* Vor dem Überschreiben prüfen, ob in der Cloud etwas Neueres liegt. */
+    let remote=null;
+    try{remote=await mockGet(p.code);}catch(e){if(e.message!=='notfound')throw e;}
+    if(remote&&remote.payload.round>p.round&&remote.payload.updatedAt>(p.lastSyncAt||0)){
+      st.classList.remove('busy');
+      showConflict(p,remote.payload);
+      return;
+    }
+    await mockPut(p.code,{name:p.name,round:p.round,hasRun:p.hasRun,updatedAt:Date.now()});
+    updateMe(x=>{x.lastSyncAt=Date.now();x.lastSyncedRound=x.round;});
+    render();toast('Chronik gesichert');
+  }catch(e){
+    st.classList.remove('busy');st.classList.add('err');
+    document.getElementById('syncStateTxt').textContent='kein Netz — später erneut';
+    toast('Kein Netz. Die Chronik bleibt auf diesem Gerät.');
+  }
+}
+async function pullNow(){
+  const raw=document.getElementById('codeInput').value;
+  const code=normalizeCode(raw);
+  const hint=document.getElementById('restoreHint');
+  if(!code){hint.textContent='Bitte einen Code eingeben.';return;}
+  const btn=document.getElementById('restoreBtn');
+  btn.disabled=true;hint.textContent='';
+  try{
+    const rec=await mockGet(code);
+    const list=loadProfiles();
+    let p=list.find(x=>x.code===code);
+    if(!p){
+      p={id:'p'+Date.now(),name:rec.payload.name,code,syncEnabled:true};
+      list.push(p);
+    }
+    p.name=rec.payload.name;p.round=rec.payload.round;p.hasRun=rec.payload.hasRun;
+    p.updatedAt=rec.payload.updatedAt;p.lastSyncAt=Date.now();p.lastSyncedRound=rec.payload.round;
+    p.syncEnabled=true;
+    saveProfiles(list);setActive(p.id);
+    closeAll();render();toast('Chronik geholt — '+p.name);
+  }catch(e){
+    hint.textContent=e.message==='notfound'
+      ?'Kein Eintrag zu diesem Code. Tippfehler?'
+      :'Kein Netz. Später erneut versuchen.';
+  }finally{btn.disabled=false;}
+}
+
+/* ---------- Konflikt ---------- */
+let conflictPick='local', conflictRemote=null;
+function showConflict(local,remote){
+  conflictRemote=remote;conflictPick='local';
+  document.getElementById('cmpLocalRound').textContent='Runde '+local.round;
+  document.getElementById('cmpLocalTime').textContent=ago(local.updatedAt);
+  document.getElementById('cmpRemoteRound').textContent='Runde '+remote.round;
+  document.getElementById('cmpRemoteTime').textContent=ago(remote.updatedAt);
+  const lNewer=local.updatedAt>=remote.updatedAt;
+  document.getElementById('cmpLocalNewer').textContent=lNewer?'▲ neuer':'';
+  document.getElementById('cmpRemoteNewer').textContent=lNewer?'':'▲ neuer';
+  pickSide('local');
+  closeAll();
+  document.getElementById('conflictOverlay').classList.add('on');
+}
+function pickSide(s){
+  conflictPick=s;
+  document.getElementById('cmpLocal').classList.toggle('sel',s==='local');
+  document.getElementById('cmpRemote').classList.toggle('sel',s==='remote');
+}
+async function resolveConflict(){
+  const p=me();
+  if(conflictPick==='remote'&&conflictRemote){
+    updateMe(x=>{x.round=conflictRemote.round;x.hasRun=conflictRemote.hasRun;x.updatedAt=conflictRemote.updatedAt;x.lastSyncAt=Date.now();x.lastSyncedRound=conflictRemote.round;});
+    closeAll();render();toast('Cloud-Stand übernommen');
+  }else{
+    closeAll();
+    try{
+      await mockPut(p.code,{name:p.name,round:p.round,hasRun:p.hasRun,updatedAt:Date.now()});
+      updateMe(x=>{x.lastSyncAt=Date.now();x.lastSyncedRound=x.round;});
+      render();toast('Gerätestand hochgeladen');
+    }catch(e){toast('Kein Netz — nichts geändert');}
+  }
+}
+
+/* ---------- Datei-Export/Import (bleibt als netzfreier Weg) ---------- */
+function exportChronik(){
+  const data={profiles:loadProfiles(),active:activeId()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='stromlinien-chronik.json';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('Chronik exportiert');
+}
+function importChronik(ev){
+  const f=ev.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);
+      if(!Array.isArray(d.profiles))throw new Error('ungültig');
+      saveProfiles(d.profiles);if(d.active)setActive(d.active);
+      closeAll();render();toast('Chronik importiert');
+    }catch(e){toast('Import fehlgeschlagen');}
+  };
+  r.readAsText(f);ev.target.value='';
+}
+
+/* ---------- Kopieren ---------- */
+function copyText(t,msg){
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(()=>toast(msg),()=>toast('Kopieren nicht möglich'));
+  }else toast('Kopieren nicht möglich');
+}
+function copyCode(){const p=me();if(p&&p.code)copyText(p.code,'Code kopiert');}
+function copyLink(){
+  const p=me();if(!p||!p.code)return;
+  copyText(location.origin+location.pathname+'?chronik='+encodeURIComponent(p.code),'Link kopiert');
+}
+
+/* ---------- Overlays ---------- */
+function closeAll(){
+  ['switcherOverlay','syncOverlay','restoreOverlay','conflictOverlay','abandonOverlay']
+    .forEach(id=>document.getElementById(id).classList.remove('on'));
+}
+function openSwitcher(){closeAll();renderProfileList();document.getElementById('switcherOverlay').classList.add('on');}
+function openSync(){closeAll();render();document.getElementById('syncOverlay').classList.add('on');}
+function openRestore(){closeAll();document.getElementById('restoreHint').textContent='';document.getElementById('restoreOverlay').classList.add('on');}
+function openAbandon(){closeAll();document.getElementById('abandonOverlay').classList.add('on');}
+
+/* ---------- Debug ---------- */
+function advanceRound(){const p=updateMe(x=>{x.hasRun=true;x.round=Math.min(10,(x.round||1)+1);x.updatedAt=Date.now();});if(p)render();}
+function startDemoGame(){updateMe(x=>{x.hasRun=true;x.round=4;x.updatedAt=Date.now();});render();}
+function clearRun(){updateMe(x=>{x.hasRun=false;x.round=1;x.updatedAt=Date.now();});render();}
+function wipeLocal(){
+  localStorage.removeItem(KEY_PROFILES);localStorage.removeItem(KEY_ACTIVE);
+  toast('Gerät geleert — Cloud bleibt. Jetzt „Chronik holen" testen.');
+  render();
+}
+function toggleOffline(){
+  offline=!offline;
+  document.getElementById('offlineBtn').textContent='?offline: '+(offline?'AN':'aus');
+  toast(offline?'Netz simuliert offline':'Netz wieder da');
+}
+function dbgEmpty(){localStorage.removeItem(KEY_PROFILES);localStorage.removeItem(KEY_ACTIVE);render();}
+function dbgDemo(){
+  saveProfiles([{id:'demo1',name:'Die Ufergänger',hasRun:true,round:4,updatedAt:Date.now(),syncEnabled:true,code:'furt-adler-see-wolf-7291',lastSyncAt:Date.now()-90*60*1000,lastSyncedRound:3}]);
+  setActive('demo1');render();
+}
+function dbgConflict(){
+  dbgDemo();
+  const p=me();
+  showConflict(p,{name:p.name,round:7,hasRun:true,updatedAt:Date.now()-60*60*1000});
+}
+
+let toastEl=null;
+function toast(msg){
+  if(!toastEl){
+    toastEl=document.createElement('div');
+    toastEl.style.cssText='position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:24px;font-size:12.5px;font-weight:600;z-index:80;box-shadow:var(--shadow);transition:opacity .3s;max-width:90vw;text-align:center;';
+    document.body.appendChild(toastEl);
+  }
+  toastEl.textContent=msg;toastEl.style.opacity='1';
+  clearTimeout(toastEl._h);
+  toastEl._h=setTimeout(()=>toastEl.style.opacity='0',2400);
+}
+
+/* ---------- Init ---------- */
+const q=new URLSearchParams(location.search);
+if(q.has('empty')){localStorage.removeItem(KEY_PROFILES);localStorage.removeItem(KEY_ACTIVE);}
+if(q.has('demo'))dbgDemo();
+if(q.has('offline'))toggleOffline();
+render();
+if(q.has('sync'))openSync();
+if(q.has('restore'))openRestore();
+if(q.has('conflict'))dbgConflict();
+/* Geteilter Link ?chronik=CODE füllt den Holen-Dialog vor. */
+if(q.get('chronik')){
+  openRestore();
+  document.getElementById('codeInput').value=q.get('chronik');
+}
+document.getElementById('nameinput').addEventListener('keydown',e=>{if(e.key==='Enter')createProfile();});
+document.getElementById('codeInput').addEventListener('keydown',e=>{if(e.key==='Enter')pullNow();});
+</script>
+</body>
+</html>
