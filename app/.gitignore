@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Vercel CLI project linkage
+.vercel
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
