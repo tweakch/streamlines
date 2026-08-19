@@ -22,10 +22,29 @@ ported "statically" into the app.
 - `prototype/archive/` — immutable history: superseded, rejected, or ported files.
 - The ledger table in `prototype/README.md` tracks each prototype's status — update
   it whenever a file moves or gets ported.
+- Give every prototype **debug query params** so inner states are reachable without
+  clicking (`?autostart`, `?seed=…`, `?demo`, `?night`) — a screenshot can't click.
 
 When asked to change game design, prefer editing/adding a prototype draft over
 editing the app, unless the change is a port of an already-approved draft or a pure
 code-quality fix.
+
+## Verifying a prototype
+
+Prototypes are standalone HTML — screenshot them with headless Chrome. Try this first:
+the Playwright MCP browser is often locked by another session ("Browser is already in
+use"), and the Chrome extension may be disconnected.
+
+```
+& "C:\Program Files\Google\Chrome\Application\chrome.exe" --headless=new --disable-gpu --window-size=540,1150 --virtual-time-budget=5000 --screenshot="<out.png>" "file:///C:/dev/tweakch/shadows-of-truth/prototype/drafts/<file>.html"
+```
+
+- `--dump-dom` instead of `--screenshot` reads computed state (e.g. the `--hexw` a
+  prototype set) — use it before guessing at a layout bug.
+- `--user-data-dir=<dir>` keeps `localStorage` across runs — required to test anything
+  persistent (fog of the unplayed, saved worlds).
+- Content clipped at the right edge with a narrow `--window-size` is usually a capture
+  artifact, not a layout bug; re-shoot wider before "fixing" it.
 
 ## Knowledge base: the Handbuch
 
@@ -47,6 +66,9 @@ what is decided or already in the app).
   and status changes — run it at the end of design-heavy sessions. With a
   numeric arg (`/handbuch-sync 3`) it also mines the N most recent past session
   transcripts.
+- The Handbuch and `prototype/README.md` change on disk mid-session — re-read them
+  immediately before editing; a read from earlier in the same session goes stale, and
+  line numbers shift.
 
 ## App
 
@@ -58,8 +80,12 @@ npm run build # tsc -b && vite build  ← run this to typecheck
 npm run lint
 ```
 
-- `app/src/stromlinien/` — the current core game (port of `stromlinien-epoche1`
-  prototype): hex tile placement, day/night loop, anchor events, Fundstellen.
+- `app/src/stromlinien/` — the current core game (ports of `stromlinien-epoche1`
+  and `start-screen-v2` prototypes): designed world map (`world.ts`, Alpenrhein
+  Landquart–Konstanz, fixed world coordinates — "gestaltete Welt" decision),
+  start screen with fog-of-the-unplayed and shapeable region (`StartScreen.tsx`),
+  then hex tile placement, day/night loop, anchor events, Fundstellen on the
+  chosen region.
 - `app/src/game/` + `app/src/components/` — the earlier evidence/research game
   ("Shadows of Truth" research loop). Kept for reference; not wired into `App.tsx`.
 
@@ -74,3 +100,5 @@ npm run lint
   don't special-case logic.
 - Historical events/finds are "historisch inspiriert und vereinfacht" — keep that
   disclaimer wherever they surface.
+- Size hex grids **after** the container is visible — `clientWidth` is 0 while a parent
+  still has `.hid`/`display:none`, silently leaving hexes at their CSS default size.
