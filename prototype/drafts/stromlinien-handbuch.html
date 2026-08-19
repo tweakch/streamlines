@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Handbuch &amp; Designdokument</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+:root{
+  --bg:#DCE3D8; --panel:#ECEFE6; --panel2:#E2E7DC; --ink:#22302C; --ink2:#5A6B64;
+  --river:#7FB2AC; --riverdeep:#5E9793; --ember:#C96F2E; --line:#B8C2B4;
+  --shadow:0 2px 10px rgba(30,45,40,.10);
+  --st-done:#4E7D5B; --st-concept:#3E6E8C; --st-idea:#B08A2E; --st-rej:#9C4A33; --st-open:#7A6A9C;
+}
+body.night{
+  --bg:#0D151D; --panel:#141F28; --panel2:#101A22; --ink:#E6E1D2; --ink2:#8B9690;
+  --river:#2E5457; --riverdeep:#24444a; --ember:#E08A3C; --line:#2C3B44;
+  --shadow:0 2px 14px rgba(0,0,0,.5);
+  --st-done:#7FB08B; --st-concept:#7FA8C4; --st-idea:#D4B15E; --st-rej:#D07B5E; --st-open:#A798C9;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{scroll-behavior:smooth;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Instrument Sans',system-ui,sans-serif;transition:background .9s,color .9s;line-height:1.6;}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 80px;}
+
+header.hero{padding:26px 0 10px;}
+.hero .kicker{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.2em;color:var(--ember);text-transform:uppercase;}
+.hero h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(34px,8vw,52px);line-height:.98;margin:8px 0 10px;}
+.hero p{color:var(--ink2);max-width:56ch;margin:0;}
+.modebtn{position:fixed;top:14px;right:14px;z-index:50;font-family:'Space Mono',monospace;font-size:11px;border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);border-radius:20px;padding:7px 13px;cursor:pointer;transition:all .3s;}
+.viewbtn{position:fixed;top:14px;right:106px;z-index:50;font-family:'Space Mono',monospace;font-size:11px;border:1.5px solid var(--ember);background:var(--panel);color:var(--ember);border-radius:20px;padding:7px 13px;cursor:pointer;transition:all .3s;font-weight:700;}
+@media (max-width:560px){.viewbtn{top:52px;right:14px;}}
+
+/* view modes: publish (nur Entschiedenes & Umgesetztes) vs. development (alles) */
+.pubonly{display:none;}
+body.publish .pubonly{display:inline;}
+body.publish .devonly{display:none!important;}
+.modetag{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;border:1px solid var(--line);border-radius:12px;padding:2px 9px;color:var(--ink2);vertical-align:2px;margin-left:8px;}
+body.publish .modetag{border-color:var(--st-done);color:var(--st-done);}
+
+/* legend + filter */
+.filters{display:flex;flex-wrap:wrap;gap:7px;margin:20px 0 8px;position:sticky;top:0;background:var(--bg);padding:12px 0;z-index:40;transition:background .9s;border-bottom:1px solid var(--line);}
+.fbtn{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.04em;border-radius:16px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink2);padding:5px 11px;cursor:pointer;transition:all .2s;}
+.fbtn.on{border-color:var(--ink);color:var(--ink);font-weight:700;}
+.fbtn .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:0;}
+.count{font-family:'Space Mono',monospace;font-size:10px;color:var(--ink2);margin:6px 0 0;}
+
+/* chapters */
+h2.chap{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:21px;margin:38px 0 4px;display:flex;align-items:baseline;gap:10px;}
+h2.chap .n{font-family:'Space Mono',monospace;font-size:12px;color:var(--ember);}
+.chapsub{font-size:12.5px;color:var(--ink2);margin:0 0 14px;}
+
+/* cards */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:10px;box-shadow:var(--shadow);overflow:hidden;transition:background .9s;}
+.card.hidden{display:none;}
+.chead{display:flex;align-items:center;gap:10px;padding:13px 15px;cursor:pointer;user-select:none;}
+.chead h3{font-size:14.5px;font-weight:600;margin:0;flex:1;line-height:1.3;}
+.badge{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:10px;color:var(--bg);white-space:nowrap;flex-shrink:0;}
+.b-done{background:var(--st-done);} .b-concept{background:var(--st-concept);} .b-idea{background:var(--st-idea);} .b-rej{background:var(--st-rej);} .b-open{background:var(--st-open);}
+.chev{color:var(--ink2);font-size:11px;transition:transform .25s;flex-shrink:0;}
+.card.openc .chev{transform:rotate(90deg);}
+.cbody{display:none;padding:0 15px 15px;font-size:13.5px;}
+.card.openc .cbody{display:block;}
+.cbody p{margin:0 0 10px;}
+.cbody ul{margin:0 0 10px;padding-left:18px;}
+.cbody li{margin-bottom:5px;}
+.cbody table{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0 12px;}
+.cbody th{text-align:left;font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);padding:5px 8px;border-bottom:1.5px solid var(--line);}
+.cbody td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top;}
+.why{background:var(--panel2);border-left:3px solid var(--ember);border-radius:0 8px 8px 0;padding:9px 12px;font-size:12px;margin:10px 0;}
+.why b{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ember);display:block;margin-bottom:3px;}
+code{font-family:'Space Mono',monospace;font-size:11.5px;background:var(--panel2);padding:1px 5px;border-radius:4px;}
+.dim{color:var(--ink2);font-size:12px;}
+footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--line);font-size:11px;color:var(--ink2);line-height:1.6;}
+.toc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:18px;font-size:13px;}
+.toc a{color:var(--ink);text-decoration:none;border-bottom:1px dotted var(--ink2);}
+.toc b{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);display:block;margin-bottom:6px;}
+</style>
+</head>
+<body>
+<button class="modebtn" onclick="document.body.classList.toggle('night');this.textContent=document.body.classList.contains('night')?'☀ TAG':'☾ NACHT'">☾ NACHT</button>
+<button class="viewbtn" id="viewbtn"></button>
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker">Handbuch · Designdokument · Stand August 2026<span class="modetag" id="modetag"></span></div>
+  <h1>STROMLINIEN</h1>
+  <p><span class="devonly">Ein Fluss. Zwölftausend Jahre. Deine Entscheidungen. — Dieses Dokument versammelt Spielregeln <i>und</i> Entstehungsgeschichte: was gebaut ist, was geplant ist, was wir bewusst verworfen haben und warum.</span><span class="pubonly">Ein Fluss. Zwölftausend Jahre. Deine Entscheidungen. — Dieses Handbuch beschreibt das Spiel, wie es entschieden und gebaut ist: <span style="color:var(--st-done)">Umgesetzt</span> läuft heute in der Anwendung, <span style="color:var(--st-concept)">Konzept</span> ist entschieden und wartet auf die Umsetzung.</span></p>
+  <div class="toc" id="toc"><b>Kapitel</b><span id="toclinks"></span></div>
+</header>
+
+<div class="filters devonly" id="filters">
+  <button class="fbtn on" data-f="all">Alle</button>
+  <button class="fbtn" data-f="done"><span class="dot" style="background:var(--st-done)"></span>Umgesetzt</button>
+  <button class="fbtn" data-f="concept"><span class="dot" style="background:var(--st-concept)"></span>Konzept</button>
+  <button class="fbtn" data-f="idea"><span class="dot" style="background:var(--st-idea)"></span>Idee</button>
+  <button class="fbtn" data-f="rej"><span class="dot" style="background:var(--st-rej)"></span>Verworfen</button>
+  <button class="fbtn" data-f="open"><span class="dot" style="background:var(--st-open)"></span>Offen</button>
+</div>
+<p class="count devonly" id="count"></p>
+
+<!-- ============ 1 VISION ============ -->
+<h2 class="chap" id="k1"><span class="n">01</span>Vision &amp; Rahmen</h2>
+<p class="chapsub">Was das Spiel sein will – und wie weit es reichen soll.</p>
+
+<div class="card" data-s="concept"><div class="chead"><h3>Grundidee: Geschichte eines Orts spielerisch erleben</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Ein Karten- und Plättchenlegespiel für den Browser, in dem Spieler die Geschichte eines realen Orts durchleben – historisch korrekt <i>und</i> spannend. Der Konflikt zwischen beidem wird nicht versteckt, sondern zur Designaufgabe: Genauigkeit über Belohnung (Scores, Fundstellen) statt über Verbote.</p>
+</div></div>
+
+<div class="card" data-s="concept"><div class="chead"><h3>Erste Weltkarte: Alpenrhein, Landquart bis Konstanz</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Historisch enorm dichtes Gebiet: Pfahlbauten am Bodensee (UNESCO-Welterbe), römische Provinz Rätien, Kloster St. Gallen und Bistum Konstanz, Konfessionsgrenze der Reformation, im 19. Jh. die Rheinkorrektion – einer der größten Flussumbauten Europas.</p>
+<div class="why"><b>Warum ein Fluss</b>Der Fluss ist Ressource, Gefahr und Bindeglied zugleich – er verbindet Spielerabschnitte mechanisch (Hochwasser wirkt flussabwärts) und erzählerisch.</div>
+</div></div>
+
+<div class="card" data-s="concept"><div class="chead"><h3>Kampagne 10 000 v. Chr. bis heute – in fünf Epochen-Modulen</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Eine durchgehende 12 000-Jahre-Partie wäre unspielbar – daher fünf Module, einzeln oder als Gesamtkampagne spielbar:</p>
+<table><tr><th>Modul</th><th>Zeitraum</th><th>Kernthema</th></tr>
+<tr><td>I</td><td>10 000–2 000 v. Chr.</td><td>Überleben am Wasser, Pfahlbauten</td></tr>
+<tr><td>II</td><td>2 000 v. Chr.–500 n. Chr.</td><td>Rätier, Römer, ferne Macht</td></tr>
+<tr><td>III</td><td>500–1500</td><td>Klöster, Städte, Konstanz</td></tr>
+<tr><td>IV</td><td>1500–1800</td><td>Glaube, Grenzen, Schmuggel</td></tr>
+<tr><td>V</td><td>1800–heute</td><td>Industrie, Rheinkorrektion</td></tr></table>
+<p class="dim">Frühere Module bleiben als "archäologische Schichten" unter der aktuellen Bebauung sichtbar.</p>
+</div></div>
+
+<div class="card" data-s="concept"><div class="chead"><h3>Fünf Gewerke an einer Karte</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Eine Weltkarte ist kein Solo-Werk, sondern ein <b>gemeinsames Objekt für fünf Gewerke</b>:</p>
+<table><tr><th>Gewerk</th><th>Rolle</th><th>Verantwortet</th></tr>
+<tr><td>Kartografie</td><td>Kartendesign</td><td>Gelände je Epoche, Flusslauf, Landmarken</td></tr>
+<tr><td>Biologie</td><td>Flora &amp; Fauna</td><td>Arten, Lebensräume, Vorkommen über die Epochen</td></tr>
+<tr><td>Archäologie</td><td>Technologie</td><td>Plättchen-Katalog (was es wann gab), Fundstellen</td></tr>
+<tr><td>Geschichte</td><td>Ereignisse</td><td>Anker- und Streu-Ereignisse, Zeremonien</td></tr>
+<tr><td>Spieldesign</td><td>Mechanik</td><td>Kosten, Erträge, Gewichte, Startwerte, Ziele</td></tr></table>
+<p>Jedes Gewerk hat eine eigene <b>Sicht</b> auf dieselben Daten – niemand bekommt ein eigenes Dokument.</p>
+<div class="why"><b>Warum eine Karte, nicht fünf Dateien</b>Die Gewerke müssen sich gegenseitig sehen: Die Biologie braucht das Gelände der Kartografie, die Archäologie die Epochen der Geschichte, das Spieldesign den Katalog der Archäologie. Getrennte Dateien würden genau die Abstimmung verhindern, die eine glaubwürdige Karte ausmacht.</div>
+</div></div>
+
+<div class="card" data-s="idea"><div class="chead"><h3>Globale Erweiterungen (Rhône, Donau, Nil …)</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Weitere Flüsse als eigene Weltkarten – mit denselben Mechaniken, aber ortsspezifischen Ereignissen, Zeremonien und Deutungsrahmen. Voraussetzung ist die Datenschicht (Kap. 4): Engine bleibt gleich, nur Daten ändern sich.</p>
+<div class="why"><b>Realistischer Hinweis</b>Eine Region gut zu belegen kostet Wochen an Recherche. Architektur global anlegen, Datenerfassung als offenes/Community-System bauen – das Rheintal ist die Referenzimplementierung.</div>
+</div></div>
+
+<div class="card" data-s="idea"><div class="chead"><h3>Belegstatus-Kennzeichnung &amp; Chronisten-Karten</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Aus der allerersten Ideenrunde: Inhalte farblich als <i>belegt / wahrscheinlich / künstlerische Freiheit</i> markieren. Wo Historiker uneinig sind, wählt der Spieler zwischen "Chronisten"-Karten mit unterschiedlichen Deutungen derselben Quellenlage.</p>
+<p><b>Die Belegstatus-Hälfte wird verfolgt</b>: Die Designer-Werkstatt (Kap. 8) führt vier Stufen – <i>belegt / wahrscheinlich / rekonstruiert / frei erfunden</i> – plus Quellenfeld an jedem Fakteneintrag (Plättchen, Arten, Ereignisse, Fundstellen) und zeigt die Quellenlage der Karte als Zähler. Bisher nur im Werkzeug, nicht im Spiel sichtbar.</p>
+<p class="dim">Die <b>Chronisten-Karten</b> bleiben unangetastet – weiterhin reine Idee. Passt gut zum Anker/Streu-Modell und zum Deutungsvektor.</p>
+</div></div>
+
+<div class="card" data-s="idea"><div class="chead"><h3>Plättchen-Vokabular je Epoche</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Das bisherige Vokabular (Fischgrund, Uferlager, Auenwald, Hochterrasse, Höhle, Feuerstein, Pfahlbau) ist reines Epoche-I-Material. Erste Sammlung für die späteren Module:</p>
+<table><tr><th>Modul</th><th>Plättchen-Kandidaten</th></tr>
+<tr><td>I</td><td>Steinbruch, Alp – beide erst durch das Gelände Berg erschlossen</td></tr>
+<tr><td>II</td><td>Römerstrasse, Gutshof (Villa), Rebberg, Kastell</td></tr>
+<tr><td>III</td><td>Kloster, Burg, Markt, Mühle, Brücke/Fähre</td></tr>
+<tr><td>IV</td><td>Zollstation, Bleiche/Leinwand, Saumpfad</td></tr>
+<tr><td>V</td><td>Rheindamm, Eisenbahn, Stickerei-Fabrik, Kraftwerk, Torfstich</td></tr></table>
+<p class="dim">Der Rebberg ist ein gutes Beispiel für Kontinuität: von den Römern gebracht, prägt er die Region bis heute. Das Glyphen-Set wächst mit (Turm, Kreuz, Brücke, Zahnrad …), bleibt aber im kuratierten Petroglyphen-Stil – er ist Signatur, nicht Dekoration.</p>
+</div></div>
+
+<!-- ============ 2 KERNMECHANIKEN ============ -->
+<h2 class="chap" id="k2"><span class="n">02</span>Kernmechaniken</h2>
+<p class="chapsub">Das Regelgerüst, das für alle Epochen gilt.</p>
+
+<div class="card" data-s="done"><div class="chead"><h3>Tag/Nacht-Rhythmus</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<p>Inspiriert von Werwolf: <b>Tag</b> = bauen, bewirtschaften, planen. <b>Nacht</b> = gleichzeitiges Aufdecken dessen, was im Dunkeln geschah. Der Übergang ist immer gleich (Konsistenz), aber die <i>Bedeutung</i> der Nacht ändert sich pro Epoche radikal:</p>
+<table><tr><th>Modul</th><th>Nacht-Thema</th></tr>
+<tr><td>I</td><td>Überleben (Raubtier, Kälte – Furcht ist real)</td></tr>
+<tr><td>II</td><td>Sichtbare vs. verwaltete Macht</td></tr>
+<tr><td>III</td><td>Weltlich vs. geistlich</td></tr>
+<tr><td>IV</td><td>Erlaubt vs. verboten</td></tr>
+<tr><td>V</td><td>Fortschritt vs. Kosten – das elektrische Licht <i>bricht</i> die eigene Mechanik</td></tr></table>
+<div class="why"><b>Alleinstellung</b>Die Spielmechanik selbst wird Teil der Geschichtserzählung, statt nur die Kulisse zu tauschen. In Modul I im Prototyp umgesetzt.</div>
+</div></div>
+
+<div class="card" data-s="done"><div class="chead"><h3>Vier Ressourcen &amp; min()-Fortschritt</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<p>Nahrung, Schutz, Baumaterial, Kultur – pro Epoche unterschiedlich gewichtet. Fortschritt ("Sesshaftigkeit") pro Runde = <code>min(schwächste Ressourcen)</code>, gekappt auf 0–3.</p>
+<div class="why"><b>Warum min() statt Summe</b>Erzwingt echte Balance: Wer nur Nahrung hortet und Schutz vernachlässigt, kommt nicht voran – und ist zugleich anfälliger für Nachtereignisse. Formel und Erlebnis hängen spürbar zusammen.</div>
+</div></div>
+
+<div class="card" data-s="done"><div class="chead"><h3>Der Fluss als aktiver Akteur</h3><span class="badge b-done">Umgesetzt (teilweise)</span><span class="chev">▶</span></div><div class="cbody">
+<p>Nicht Kulisse, sondern Mitspieler: Pegel und Hochwasser als Ereignisse (Anker "Der See steigt" im Prototyp), Furten als Überquerungspunkte. Geplant für Modul V: der Spieler begradigt den Fluss selbst – Landgewinn gegen späteres Risiko, historisch die Rheinkorrektion.</p>
+<p class="dim">Hochwasser durchläuft alle Epochen, aber die Antwortmöglichkeiten wandeln sich: ausweichen → römische Dämme → kollektive Hilfe → Grenzprobleme → Regulierung mit unbeabsichtigten Folgen.</p>
+</div></div>
+
+<div class="card" data-s="done"><div class="chead"><h3>Verbund-Boni</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<ul>
+<li>Fischgrund neben Lager/Pfahlbau → +1 Nahrung/Tag ("Fangplatz")</li>
+<li>Auenwald neben Lager/Pfahlbau → +1 Material/Tag</li>
+<li>Höhle neben Hochterrasse → +1 Schutz (einmalig)</li>
+<li>Zwei Pfahlbauten nebeneinander → Dorf, +1 Kultur (einmalig)</li>
+</ul>
+<p>Verbünde wirken auch <b>über Furten hinweg</b> – gutes Platzieren wird räumliches Denken.</p>
+</div></div>
+
+<div class="card" data-s="done"><div class="chead"><h3>Menschen als bewegliche Elemente</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<p>Zwei Figuren mit täglicher Entscheidung, max. 2 Schritte über verbundene Plättchen:</p>
+<ul><li><b>Sammlerin ✦</b> – bewirtschaftet ihr Plättchen: +1 Ertrag auf Wald, Feuerstein, Fischgrund oder Lager</li>
+<li><b>Jäger ➤</b> – +2 Schutz, solange er im Tal steht (zählt in Nachtprüfungen, Fortschritt, Endwertung)</li></ul>
+<p class="dim">Offen: Bewegungsreichweite skalieren, wenn das Tal wächst; weitere Rollen in späteren Epochen (Händler, Mönch, Ingenieur?).</p>
+</div></div>
+
+<div class="card" data-s="done"><div class="chead"><h3>Furten – flache Stellen im Fluss</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<p>Zwei markierte Flusszellen erlauben Menschen die Überquerung und verbinden Plättchen beider Ufer für Verbund-Boni.</p>
+<div class="why"><b>Historischer Bonus</b>Furten waren real Keimzellen späterer Siedlungen – in Epoche II können genau dort die römischen Brücken entstehen. Eine Mechanik, die zur Erzählbrücke zwischen Modulen wird.</div>
+</div></div>
+
+<div class="card" data-s="concept"><div class="chead"><h3>Berg: Gelände, das Grenzen zieht</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Der Alpenrhein ist ein Tal, <b>weil</b> Berge es begrenzen – das Raster kennt bisher nur Flachland, Ufer, Hang, Fluss und See. <b>Berg</b> kommt hinzu: nicht bebaubar, für Menschen nicht begehbar. Damit erhalten Karten Ränder, Talengen und echte Wegewahl statt eines offenen Felds. Später erschließt Berg eigene Plättchen (Steinbruch, Alp).</p>
+<div class="why"><b>Warum das Gestaltungsfreiheit gibt</b>Ein Gelände, das <i>nichts erlaubt</i>, ist gestalterisch stärker als eines, das etwas gibt: Erst Sperrflächen machen die freien Flächen zu einer Komposition. Kartografen können Talengen, Seitentäler und Sackgassen formen, ohne dass eine neue Regel dazukommt.</div>
+</div></div>
+
+<div class="card" data-s="concept"><div class="chead"><h3>Die Karte verändert sich pro Epoche</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Nicht nur die Bebauung wandert – <b>das Gelände selbst hat pro Epoche einen eigenen Zustand</b>: der See steigt, der Fluss verlagert sein Bett, Ried wird Kulturland. Jede Epoche trägt darum ihren vollständigen Kartenzustand; Designer übernehmen den Stand der Vorepoche als Ausgangspunkt und ändern, was die Geschichte ändert.</p>
+<div class="why"><b>Warum nicht eine Karte mit Zeitschichten</b>Ein einziges Raster mit Änderungslisten wäre kompakter, aber für die Gewerke unlesbar. Fünf vollständige Zustände plus Differenzansicht zeigen sofort, <i>was</i> eine Epoche mit dem Tal gemacht hat – die Veränderung wird selbst zum Entwurfsgegenstand.</div>
+<p class="dim">Ergänzt die "archäologischen Schichten" aus Kap. 1: Dort bleiben frühere Module unter der Bebauung sichtbar, hier ändert sich der Untergrund selbst.</p>
+</div></div>
+
+<div class="card" data-s="idea"><div class="chead"><h3>Weitere Mechanik-Kandidaten für Modul I (geparkt)</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Bei der Suche nach der "fehlenden Mechanik" diskutiert, dann zugunsten der Geschichts-Anbindung zurückgestellt:</p>
+<ul>
+<li><b>Saisonzyklus</b> (Sommer sammeln, Winter zehren) – sichere Wahl, evtl. Überlagerung mit Tag/Nacht</li>
+<li><b>Tierwanderungen</b> (bewegliche Wild-/Fischmarker) – passt zu "Natur als Akteur"</li>
+<li><b>Generationenwechsel</b> (Wissen geht verloren, wenn nicht weitergegeben)</li>
+<li><b>Namen &amp; Erinnerung</b> (Spieler benennt Orte, Namen bleiben über alle Epochen)</li>
+<li><b>Mythos-Karten</b> (große Erlebnisse werden Legenden, in Modul III Heiligengeschichten)</li>
+<li><b>Unbekanntes Terrain / Höhenprofil / NPC-Nachbargruppen</b></li>
+</ul>
+<p class="dim">Mobiles Lager (Wanderung) siehe Kapitel 9 – als Vollmechanik verworfen.</p>
+</div></div>
+
+<div class="card" data-s="idea"><div class="chead"><h3>Gelände als Daten – und weitere Geländekandidaten</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Heute ist Gelände hart kodiert: <code>Terrain</code> ist eine feste Aufzählung von fünf Werten (<code>app/src/stromlinien/types.ts</code>), Palette und Farben liegen im Code – <b>Berg wäre eine Code-Änderung</b>. Vorschlag: Gelände wird Daten wie der Plättchen-Katalog, mit <b>Eigenschaften statt Namen</b> (<code>bebaubar</code>, <code>wasser</code>, <code>sperrt Bewegung</code>, <code>Übergang</code>). Dann ist Berg ein Eintrag, und fremde Weltkarten (Rhône, Donau, Nil) bringen eigenes Gelände mit, ohne die Engine anzufassen.</p>
+<p>Weitere Kandidaten:</p>
+<ul>
+<li><b>Pass</b> – verhält sich zum Berg wie die Furt zum Fluss: ein Übergang durch die Sperre. Nutzt die bestehende Furt-Logik fast unverändert und gibt Designern Routenführung (Saumpfade, Splügen/San Bernardino in späteren Epochen).</li>
+<li><b>Moor/Ried</b> – der Talboden vor der Rheinkorrektion: leicht zu queren, schlecht zu bebauen. In Modul V zahlt es sich aus (Torfstich, Melioration) und wird durch die Regulierung zu Flachland – ein Geländewandel, den die Epochen-Karten bereits abbilden können.</li>
+<li><b>Kiesbank/Aue</b> – die Kiesflächen des wandernden Flusses: fruchtbar, aber hochwassergefährdet (hoher Ertrag gegen Ereignisrisiko).</li>
+</ul>
+</div></div>
+
+<div class="card" data-s="idea"><div class="chead"><h3>Nebel des Ungespielten: die Weltkarte als Entdeckungsgeschichte</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Auf der Weltkarte ist Gelände <b>unsichtbar, bis es gespielt wurde</b>. Gespielte Gebiete bleiben dauerhaft aufgedeckt (pro Welt-Seed gemerkt) – über viele Partien wächst aus dem Nebel die persönliche Entdeckungsgeschichte eines Spielers.</p>
+<p>Folgen für die Gebietswahl: Sie wird zur <b>Entscheidung unter Unsicherheit</b> – als Anhaltspunkte bleiben nur die Zeichen und die Ja/Nein-Auskunft „Wasser zu hören". Wiederkehren lohnt sich, weil bekanntes Gelände planbares Spiel erlaubt, und das Aufdecken selbst wird zur Belohnung.</p>
+<div class="why"><b>Warum nicht sichtbares Gelände</b>In der ersten Fassung des Startbildschirms lag die ganze Welt offen – die Wahl war dann bloßes Ablesen der besten Kachelmischung, eine Optimieraufgabe ohne Erzählung. Der Nebel macht aus derselben Handlung ein Aufbrechen ins Unbekannte, passend zu einer Epoche, in der niemand eine Karte hatte.</div>
+<p class="dim">Prototypisch umgesetzt in <code>start-screen-v2.html</code> (Kap. 8); als Spielmechanik noch nicht entschieden.</p>
+</div></div>
+
+<div class="card" data-s="idea"><div class="chead"><h3>Zeichen ◈: Kundschaft ohne Ortsangabe</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Verstreut auf der Weltkarte liegen <b>Zeichen</b> – deterministisch aus dem Welt-Seed, gehäuft nahe markantem Gelände. Ungespielt sehen <b>alle gleich aus</b> (anonyme Stele) und verraten weder ihren Ort noch ihre Art.</p>
+<p>Ihren Wert entfalten sie erst über die Gebietswahl: Jedes Zeichen <i>innerhalb</i> des gewählten Gebiets liefert eine wahre, aber vage Aussage über das <b>Gesamtgebiet</b> – in groben Stufen (keines / wenig / etwas / reichlich), etwa zu Wasser, steinigem Grund oder offenem Land; selten auch das Gerücht von etwas Verborgenem. Mehr Zeichen einschließen heißt mehr Kundschaft: <b>Information wird zur Währung der Gebietswahl</b>. Erst nach dem Spielen zeigt ein Zeichen seine wahre Glyphe am wahren Ort.</p>
+<div class="why"><b>Warum Aussagen übers Gebiet statt Markierungen am Ort</b>Ein Zeichen, das „hier ist Feuerstein" sagt, ist ein Wegweiser – es nimmt dem Nebel genau die Spannung, für die er da ist, und macht die Karte zur Schatzsuche. Eine Aussage über das Ganze informiert die <i>Entscheidung</i> (welches Gebiet?), ohne die <i>Entdeckung</i> (was steht wo?) vorwegzunehmen. Zugleich schafft sie einen Zielkonflikt beim Formen: Zeichen einzuschließen kostet Felder, die man sonst nach Gelände gewählt hätte.</div>
+<p class="dim">Offen: ob Zeichen im Spiel zu Fundstellen oder Anker-Ereignissen werden; ob der Epochen-Ausblick (Kap. 8) erst durch Zeichen freigeschaltet wird, statt das Gelände direkt zu lesen; Zeichen-Dichte.</p>
+</div></div>
+
+<!-- ============ 3 NACHT ============ -->
+<h2 class="chap" id="k3"><span class="n">03</span>Die Nacht: Furcht &amp; Zeitgeist</h2>
+<p class="chapsub">Die längste Designreise des Projekts – in drei Etappen.</p>
+
+<div class="card" data-s="rej"><div class="chead"><h3>Etappe 1: Nacht als Themenwechsel</h3><span class="badge b-rej">Verworfen</span><span class="chev">▶</span></div><div class="cbody">
+<p>Erste Fassung: Die Nacht bekommt pro Epoche nur ein anderes <i>Thema</i> (Verwaltung, Kirche, Schmuggel), aber der Spieler tut nichts anderes als am Tag.</p>
+<div class="why"><b>Warum verworfen</b>"Könnte spannender sein" – es fehlte der Werwolf-Kern: etwas, das die Nacht vom Tag strukturell unterscheidet.</div>
+</div></div>
+
+<div class="card" data-s="rej"><div class="chead"><h3>Etappe 2: Nacht als asymmetrische Information</h3><span class="badge b-rej">Verworfen / geparkt</span><span class="chev">▶</span></div><div class="cbody">
+<p>Zweite Fassung mit sauberer Eskalation über die Module: <b>II</b> – ein "Beamter" sieht heimlich den Statthalter-Stapel (einer weiß mehr). <b>III</b> – der Klosterspieler sieht alle geplanten Aktionen, darf eine verraten (einer weiß alles). <b>IV</b> – heimliche Bündniskarten, Denunziationsrisiko (jeder weiß etwas über jemanden).</p>
+<div class="why"><b>Warum verworfen</b>Die Richtung sollte eine andere sein: nicht Information zwischen Spielern, sondern <i>Furcht vor Zeitgenössischem</i>. Zudem funktioniert asymmetrische Info erst ab 3–4 Spielern. Elemente (Denunziation!) leben in Etappe 3 weiter – als Mehrspieler-Würze wieder aufgreifbar.</div>
+</div></div>
+
+<div class="card" data-s="concept"><div class="chead"><h3>Etappe 3: Die Nacht als Mentalitätsgeschichte — aktueller Stand</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Die Nacht zeigt, <b>was die Menschen damals wirklich fürchteten</b> – der Zeitgeist gibt vor:</p>
+<table><tr><th>Modul</th><th>Furcht vor …</th><th>Mechanik</th></tr>
+<tr><td>I</td><td>dem Tier (Furcht ist real)</td><td>Vorbereitung tags, Aufdeckung nachts</td></tr>
+<tr><td>II</td><td>den Göttern</td><td><b>Omen</b> deuten: Opfer bringen oder ignorieren – das Spiel verrät nie, ob es Zusammenhang gab</td></tr>
+<tr><td>III</td><td>der Sünde</td><td>Wer tags hart handelte, zieht nachts aus <b>schwererem Stapel</b>; Ablass/Stiftung neutralisiert</td></tr>
+<tr><td>IV</td><td>dem Nachbarn</td><td>Nach Unglück sucht die Nacht <b>einen Schuldigen</b> – mitgehen oder schützen, beides kostet</td></tr>
+<tr><td>V</td><td>sich selbst</td><td>Nachtkarten sind <b>Prognosen</b> – handeln oder verdrängen</td></tr></table>
+<div class="why"><b>Der Bogen</b>Tier → Götter → Sünde → Nachbar → sich selbst. In Modul I ist die Furcht <i>berechtigt</i>, in Modul IV <i>tödlich falsch</i>. Das Spiel lehrt, ohne zu belehren.</div>
+</div></div>
+
+<div class="card" data-s="done"><div class="chead"><h3>Anker- vs. Streu-Ereignisse</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<p><b>Anker</b> = belegt, datiert, geschehen in jeder Partie zur selben Zeit (im Prototyp: Wiederbewaldung, große Kälte ~6 200 v. Chr., erste Bauern, steigender See). <b>Streu</b> = Ereignistypen, die real vorkamen, aber nicht datierbar sind – hier ist die <i>Wahrscheinlichkeit</i> historisch korrekt, nicht das Einzelereignis.</p>
+<div class="why"><b>Der Zeitreisenden-Effekt</b>Erste Kampagne: überrascht. Zweite: Vorräte anlegen. Erfahrene Spieler antizipieren belegte Geschichte – Wissen wird spielbar. Kernstück der Spielidentität.</div>
+</div></div>
+
+<!-- ============ 4 DATENSCHICHT ============ -->
+<h2 class="chap" id="k4"><span class="n">04</span>Die Datenschicht</h2>
+<p class="chapsub">Woher Ereignisse und Furcht kommen – die Grundlage für globale Skalierung.</p>
+
+<div class="card" data-s="concept"><div class="chead"><h3>Ausbreitungsmodelle statt Einzelwahrscheinlichkeiten</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Ereignisse mappen über Geometrien auf Orte, nicht über handgepflegte Wahrscheinlichkeiten pro Zelle:</p>
+<table><tr><th>Typ</th><th>Beispiel</th><th>Geometrie</th></tr>
+<tr><td>Punkt</td><td>Klostergründung</td><td>Koordinate + Radius</td></tr>
+<tr><td>Korridor</td><td>Handelsroute, Feldzug</td><td>Linie + Abstandsabfall</td></tr>
+<tr><td>Einzugsgebiet</td><td>Hochwasser</td><td>Flussbecken, flussabwärts</td></tr>
+<tr><td>Diffusionsfront</td><td>Pest, Landwirtschaft, Religion</td><td>Startpunkt + Geschwindigkeit über Zeit</td></tr>
+<tr><td>Global/Klima</td><td>Kaltphasen</td><td>breitengradabhängig</td></tr></table>
+<p class="dim">Datensatz pro Ereignis: Typ, Zeitfenster, Geometrie, Ausbreitungsparameter, Belegstatus, Quelle, Spielwirkung. Historische Fakten und Spielregeln strikt getrennt halten.</p>
+<p class="dim">Die Werkzeuge (Kap. 8) erfassen davon bisher <b>einen Teil</b>: Belegstatus, Quelle und Spielwirkung – letztere in der Designer-Werkstatt als Freitext, im Mechanik-Labor als ausführbare Struktur. <b>Geometrietypen und Ausbreitungsparameter</b> (Punkt, Korridor, Einzugsgebiet, Diffusionsfront) fehlen in beiden vollständig; Ereignisse hängen dort an Runden, nicht an Orten.</p>
+</div></div>
+
+<div class="card" data-s="concept"><div class="chead"><h3>Furcht = Bedrohung × Deutungsrahmen</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Jede Zelle trägt pro Zeitschnitt zwei Vektoren: einen <b>Gefahrenvektor</b> (objektiv: Flut, Seuche, Krieg, Wildnis …) und einen <b>Deutungsvektor</b> (womit erklärt sich dieser Ort das Unglück?). Die Nacht-Engine rechnet: <code>Nachtkarte = Bedrohung(Ort, Zeit) gedeutet durch Rahmen(Ort, Zeit)</code>.</p>
+<p>Sechs Deutungsrahmen: <b>ANI</b> animistisch · <b>KULT</b> kultisch · <b>CHR</b> christlich-vorreformatorisch · <b>KONF</b> konfessionell-dämonologisch · <b>RAT</b> rational-verwaltet · <b>ÖKO</b> ökologisch-reflexiv.</p>
+<p>Beispiel Viehseuche: 1400 → "Gottes Strafe – Wallfahrt gelobt?" · 1620 → "Wer hat das Vieh verhext?" · 1890 → "Der Amtstierarzt ordnet Keulung an."</p>
+<div class="why"><b>Drei Erkenntnisse</b>1) Deutungsrahmen diffundieren wie Ereignisse (Christianisierung von Chur <i>und</i> St. Gallen zur Talmitte – die Mischzone ist wunderbar spielbar). 2) Rahmen sterben nie, sie sinken auf Sockelwerte (Synkretismus, moderner Aberglaube gratis). 3) <b>Der Spieler verschiebt Gewichte über Gebäude</b>: Kloster +CHR, Druckerei/Schule +RAT, Naturschutzgebiet +ÖKO – die Nacht wird beeinflussbar, ohne kontrollierbar zu sein.</div>
+<p class="dim">~8 Gefahrentypen × ~6 Rahmen ≈ 48 Karten-Familien als Templates – decken jede Region der Welt ab. Tag und Nacht lesen <b>dieselben Daten</b>: einmal als Fakt (Pegelwert), einmal als Furcht (Zorn des Flussgottes).</p>
+</div></div>
+
+<div class="card" data-s="concept"><div class="chead"><h3>Ereignisstapel wächst als Schichtenmodell</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Neue Ereignisebenen <b>kommen hinzu, statt alte zu ersetzen</b>: Natur (immer) → + ferne Macht (II) → + Institution (III) → + Ideologie (IV) → + Mensch als Naturkraft (V). Die Welt wird spürbar komplexer; wiederkehrende Ereignisse (gleiches Symbol, andere Konsequenz) machen Kontinuität sichtbar.</p>
+</div></div>
+
+<div class="card" data-s="open"><div class="chead"><h3>Zeit- &amp; Raumauflösung, Diffusionsgeschwindigkeiten</h3><span class="badge b-open">Offen</span><span class="chev">▶</span></div><div class="cbody">
+<ul><li>Globales Hex-Raster mit fester Kantenlänge vs. Geometrie pro Karte?</li>
+<li>Runde = wie viele Jahre pro Modul? Ereignisse in absoluten Jahren speichern, erst beim Rendern auf Runden mappen.</li>
+<li>Diffusionstempi pro Rahmen so kalibrieren, dass sie sich in Rundenlängen richtig anfühlen.</li>
+<li>Maximale Stapelgröße pro Modul, bevor es unübersichtlich wird.</li></ul>
+</div></div>
+
+<!-- ============ 5 WERTUNG ============ -->
+<h2 class="chap" id="k5"><span class="n">05</span>Wertung &amp; Balancing</h2>
+<p class="chapsub">Zwei unabhängige Scores – klug spielen und historisch bauen.</p>
+
+<div class="card" data-s="done"><div class="chead"><h3>Balance-Score</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<p><code>Balance = min(alle Ressourcen) / Durchschnitt(alle Ressourcen)</code> → 0–100 %.</p>
+<p>Beispiel: 9/3/7/5 (Summe 24) → 3/6 = <b>50 %</b>. Aber 6/6/6/6 (gleiche Summe!) → <b>100 %</b>. Einseitige Strategien werden nicht verboten, sie zahlen am Ende – und leiden unterwegs real unter Nachtereignissen.</p>
+</div></div>
+
+<div class="card" data-s="done"><div class="chead"><h3>Authentizitäts-Score</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<p>Jedes Plättchen hat einen historischen Idealbereich (aus Fundlage). Dort platziert = volle Punkte, anderswo = weniger oder null – <b>bauen bleibt immer erlaubt</b>, es kostet nur Punkte. Beispiel: Pfahlbau im Flachwasser des Sees = 3, im Bergtal = 0.</p>
+<div class="why"><b>Warum das nicht frustriert</b>Kein verbotener Zug, sondern ein zweiter Ehrgeiz: "Kann ich beim nächsten Mal näher an der Realität bauen?" – dabei lernt man nebenbei, wo die echten Fundstellen liegen. Verstärkt durch Sofort-Feedback pro Zug und die Realitätsabgleich-Karte der Zeremonie.</div>
+</div></div>
+
+<div class="card" data-s="done"><div class="chead"><h3>Versteckte Fundstellen</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<p>Reale (vereinfachte) Fundplätze liegen verdeckt auf der Karte. Wer das passende Plättchen dort baut, deckt den Fund auf – mit Kurztext und Kultur-Bonus. Belohnt historisch plausibles Bauen <i>im Moment des Spielens</i>, nicht erst in der Endabrechnung. Im Prototyp: Pfahlbau-Fundstelle am Seeufer, Jägerrastplatz in Hanglage, Silex-Abbaustelle.</p>
+</div></div>
+
+<div class="card" data-s="concept"><div class="chead"><h3>Spielerzahl-Skalierung: die Durchschnitts-Variante</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Erkenntnis aus der Diskussion: "Schwellenwert = 5×N" und "Durchschnitt ≥ 5" sind <b>dieselbe Ungleichung</b>, nur anders aufgeschrieben. Gewählt: <code>Σ min(…) / N ≥ Zielwert</code> – am leichtesten zu erklären ("wir brauchen im Schnitt 5 pro Person") und zu programmieren.</p>
+<p class="dim">Ein echter Multiplikator lohnt nur als bewusster Ausgleich (z. B. ×1,2 bei 2 Spielern, falls Partien sich "leerer" anfühlen). Die frühere Tabelle 12/16/20 war nicht rein proportional – korrigiert.</p>
+</div></div>
+
+<div class="card" data-s="open"><div class="chead"><h3>Balancing-Loop &amp; offene Zahlen</h3><span class="badge b-open">Offen</span><span class="chev">▶</span></div><div class="cbody">
+<ul><li>Ziel: Unterschied gutes/schlechtes Spiel ≈ 2–3 Runden, nicht 10 (im Mechanik-Labor simulieren)</li>
+<li>Erster Monte-Carlo-Befund (Mechanik-Labor, Kap. 8): Ein gut spielender Bot überlebt mit den aktuellen Werten 99,9 % der Läufe und erreicht in 99,4 % „Die Pfahlbauer" (Median 26/30) — die oberste Endstufe ist für optimiertes Spiel zu leicht; einzige reale Gefahr ist die große Kälte. Schwellen (10/16) oder Erträge gehören nachgeschärft.</li>
+<li>Nachtkarten-Verhältnis (aktuell ~ Gefahr/Chance/Stille) nach Playtests justieren</li>
+<li>Gesamtgewichtung Balance vs. Authentizität am Kampagnenende – 60/40? Hängt von der Positionierung Strategiespiel vs. Lernspiel ab</li>
+<li>Variance-Tests mit unterschiedlichen Spielstilen</li></ul>
+</div></div>
+
+<!-- ============ 6 ZEREMONIEN ============ -->
+<h2 class="chap" id="k6"><span class="n">06</span>Epochenübergänge: Die Zeremonie</h2>
+<p class="chapsub">Kein Ladebildschirm, sondern ein Ritual aus fünf nummerierten Karten.</p>
+
+<div class="card" data-s="done"><div class="chead"><h3>Struktur: 5 nummerierte Karten mit eigenem Spannungsbogen</h3><span class="badge b-done">Umgesetzt (I→II)</span><span class="chev">▶</span></div><div class="cbody">
+<p>Tag/Nacht pausiert; ein Zeremonie-Stapel schreibt fünf Runden vor – der Spieler <i>spielt</i> den Übergang, statt ihn zu erleben. Muster: Ruhe → Entscheidung → Aufbau → Kontakt → Abschluss (Realitätsabgleich). Jede Zeremonie ist ortsspezifisch und historisch verankert – langfristig das Marken-Merkmal jeder Weltkarte.</p>
+</div></div>
+
+<div class="card" data-s="done"><div class="chead"><h3>Zeremonie I→II: "Sesshaft werden"</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<ul><li><b>I Der letzte Sommer</b> – Abschied in Fülle (+1 Nahrung)</li>
+<li><b>II Das Opfer</b> – provisorische Plättchen (Fischgrund/Höhle) endgültig aufgeben: echte Wahl, was die alte Lebensweise war</li>
+<li><b>III Das Fundament</b> – Pfahlbau/Uferlager wird Siedlungskern (+Kultur)</li>
+<li><b>IV Fremde am Fluss</b> – aufnehmen (+Ressourcen, −Schutz) oder abweisen (+Schutz)</li>
+<li><b>V Realitätsabgleich</b> – Scores, Vergleich mit Fundlage, Ausblick</li></ul>
+</div></div>
+
+<div class="card" data-s="concept"><div class="chead"><h3>Zeremonie II→III: "Rückzug und Neuanfang"</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<ul><li><b>I Die Legionen ziehen ab</b> – römische Infrastruktur instand halten (laufende Kosten) oder verfallen lassen → <b>Ruinen-Plättchen</b>, die erst in Modul V (Archäologie/Tourismus) Früchte tragen</li>
+<li><b>II Neue Gesichter am Fluss</b> – Alemannen: Ressourcen teilen bestimmt Integration vs. unabhängige Strukturen</li>
+<li><b>III Wessen Glaube?</b> – <b>verdeckte Wahl</b> (altes Brauchtum vs. frühes Christentum), Aufdeckung erst in Karte V – erster echter Werwolf-Import</li>
+<li><b>IV Klostergründung</b> – <b>exklusiver</b> Standort-Wettbewerb per Abstimmung/Gebot (historisch: St. Gallen)</li>
+<li><b>V Zwei Wege, ein Tal</b> – Aufdeckung, Synergien/Spannungen, Realitätsabgleich (vorchristliche Bräuche hielten sich real jahrhundertelang parallel)</li></ul>
+</div></div>
+
+<div class="card" data-s="idea"><div class="chead"><h3>Verdeckte Wahl als roter Faden + weitere Zeremonien</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Die "verdeckte Wahl mit späterer Aufdeckung" könnte alle Übergänge durchziehen: III→IV Konfessionswahl (Reformation), IV→V gemeinsame Investitionsentscheidung Rheinkorrektion (Kollektiv-Abstimmung mit ungewissem Ausgang). Skizziert, nicht ausgearbeitet.</p>
+</div></div>
+
+<!-- ============ 7 MULTI & SOLO ============ -->
+<h2 class="chap" id="k7"><span class="n">07</span>Mehrspieler &amp; Solo</h2>
+<p class="chapsub">Ein Fluss verbindet – auch wenn man allein spielt.</p>
+
+<div class="card" data-s="concept"><div class="chead"><h3>2–4 Spieler: kooperativ-kompetitiv am gemeinsamen Fluss</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Jeder Spieler entwickelt einen eigenen Flussabschnitt (Landquart, Chur, Rheintal-Mitte, Bodenseeufer) auf <b>einem</b> zusammenhängenden Spielfeld. Ereignisse wirken abschnittsübergreifend (Hochwasser wandert flussabwärts). Nachtphase: alle decken <b>gleichzeitig</b> auf – der Werwolf-Moment. Zwei Modi: kooperativ (gemeinsames Tal-Ziel) und kompetitiv (individuelle Scores trotz Interaktion).</p>
+</div></div>
+
+<div class="card" data-s="concept"><div class="chead"><h3>Solo/Mobile: die Datenschicht als Mitspieler</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<ul>
+<li><b>Nachbarabschnitte leben aus den Daten</b>: Sie bauen, was dort real entstand, zum belegten Zeitpunkt – du spielst mit/gegen die tatsächliche Geschichte, keine Bot-KI nötig</li>
+<li><b>Nacht als innerer Monolog</b>: Omen deuten, Denunziations-Dilemma als Dorfvorsteher – solo fast stärker, weil niemand Verantwortung teilt</li>
+<li><b>Session-Struktur</b>: 1 Session = 1 Tag + 1 Nacht (3–5 Min); optional echtzeit-gekoppelt ("Was geschah, während du fort warst"); Zeremonie als 15-Minuten-Sonntagssession</li>
+<li><b>Produkt-Treppe</b>: Mobile solo lernen (Zeitreisenden-Training), Browser gemeinsam meistern – gleiche Engine, gleiche Daten</li>
+</ul>
+</div></div>
+
+<div class="card" data-s="open"><div class="chead"><h3>2-Spieler-Fassungen der Info-Mechaniken</h3><span class="badge b-open">Offen</span><span class="chev">▶</span></div><div class="cbody">
+<p>Falls Elemente der asymmetrischen Information (Kap. 3, Etappe 2) zurückkehren: Sie funktionieren erst ab 3–4 Spielern sauber. Für 2 Spieler braucht es abgeschwächte Varianten – ungelöst.</p>
+</div></div>
+
+<!-- ============ 8 PROTOTYP ============ -->
+<h2 class="chap" id="k8"><span class="n">08</span>Prototyp: Epoche I spielbar</h2>
+<p class="chapsub">Was du jetzt im Browser/auf dem Handy spielen kannst.</p>
+
+<div class="card openc" data-s="done"><div class="chead"><h3>Spielregeln des Prototyps auf einen Blick</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<ul>
+<li><b>10 Runden = 8 000 Jahre</b> (10 000–2 000 v. Chr.), Karte von Landquart bis Bodensee, 5×8-<b>Sechseck</b>-Raster (versetzte Reihen, jedes Plättchen bis zu sechs Nachbarn) mit Fluss, See, Hang, Ufer und zwei Furten</li>
+<li><b>Tag</b>: 1 Plättchen ziehen &amp; legen (Fischgrund, Uferlager, Auenwald, Hochterrasse, Höhle, Feuerstein; später Pfahlbau), Einkommen kassieren, optional Werkzeug bauen (Feuerstein + 2 Material → +2 Schutz), Sammlerin/Jäger bewegen</li>
+<li><b>Nacht</b>: Seite verdunkelt sich, Karte flippt – Raubtier/Frost (Schutz-/Materialprüfung), Stille, gute Jagd, Fremde, Fund. Der Stamm isst −1 Nahrung</li>
+<li><b>◆ Vier Anker</b> auf der Zeitleiste (als "?" markiert): ~8 400 Wiederbewaldung, ~6 200 große Kälte, ~4 300 erste Bauern (Pfahlbau frei), ~3 400 der See steigt</li>
+<li><b>Verlustrisiko</b>: zwei Hungernächte in Folge → "Der Stamm zieht weiter"</li>
+<li><b>Fortschritt</b> "Sesshaftigkeit" = min(Nahrung, Schutz, Material), Ziel 20 → Endstufen: <i>Die Pfahlbauer / Am Ufer angekommen / Das Tal bleibt wild</i></li>
+<li><b>Zeremonie I→II</b> mit 5 Karten und Realitätsabgleich (Balance %, Authentizität %, Fundstellen x/3)</li>
+</ul>
+<p class="dim">UI: Tag/Nacht-Farbwechsel als Signatur, Petroglyphen-Ikonografie, responsive – mobil Kompakt-Layout (Safe-Areas, dvh, Hand fixiert unten), auf dem Desktop bildschirmfüllend (Karte links auf Viewporthöhe skaliert, Status &amp; Hand als Seitenleiste rechts). Datenhinweis im Spiel: historisch inspiriert und vereinfacht, Jahre gerundet.</p>
+</div></div>
+
+<div class="card" data-s="done"><div class="chead"><h3>Feld-Inspektor: jedes Feld ist anklickbar</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<p>Ein Klick auf ein beliebiges Feld wählt es aus (dunkle Kante, unterscheidbar vom Glut-Leuchten gültiger Züge) und öffnet ein Info-Panel:</p>
+<ul>
+<li><b>Geländetyp</b> mit Beschreibung (Fluss, Furt, See, Hang, Ufer, Flachland)</li>
+<li><b>Position</b> als Raster A–E / 1–8, plus Landmarken (Landquart, Bodensee, Seeufer)</li>
+<li><b>Gelegtes Plättchen</b> mit Glyphe, Beschreibung und aktuellen Wirkungen – inkl. aktiver Verbünde, Wiederbewaldungs-Bonus, gestörter Fischgründe</li>
+<li><b>Menschen</b> auf dem Feld mit ihren Effekten und Tagesstatus</li>
+<li><b>Aktionen</b>: Sammlerin/Jäger hierher ziehen (falls erreichbar), passende Handplättchen direkt bauen</li>
+</ul>
+<p class="dim">Platzierungs- und Bewegungsklicks behalten Vorrang; Inspektion ist der Fallback für alle übrigen Klicks. Bekannter Kompromiss mobil: Das Panel steht über der Karte und schiebt sie beim Öffnen nach unten.</p>
+</div></div>
+
+<div class="card" data-s="idea"><div class="chead"><h3>Startbildschirm: endlose Welt im Nebel, forme dein Tal</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Prototyp (<code>start-screen-v2.html</code>): Vor dem Spiel liegt eine <b>endlose, prozedural erzeugte Hex-Welt</b> (Fluss, See, Ufer, Hang, Flachland – gleiche Kacheln, Farben und odd-r-Geometrie wie das Spiel) unter dem <b>Nebel des Ungespielten</b>. Man erkundet durch Ziehen und Zoomen, formt ein Gebiet und startet darin.</p>
+<ul>
+<li><b>Nebel des Ungespielten</b>: Gelände ist unsichtbar, bis ein Gebiet gespielt wurde (pro Seed gemerkt, localStorage). Gespielte Gebiete bleiben auf der Weltkarte dauerhaft aufgedeckt – die Weltkarte wird zur persönlichen Entdeckungsgeschichte.</li>
+<li><b>Formbares Sechseck-Gebiet</b>: Startform ist ein Hexagon (Radius 3 = 37 Felder). Tippen fügt Randfelder hinzu oder entfernt Felder – das Gebiet muss <b>zusammenhängen</b> (12–55 Felder). „Neu formen" setzt das Hexagon an die aktuelle Bildmitte.</li>
+<li><b>Zeichen ◈ (Kundschaft)</b>: Seed-deterministische Hinweise nahe markantem Gelände (Wasser, Stein, offenes Land, selten: etwas Verborgenes). Ungespielt sehen <i>alle gleich aus</i> (anonyme Stele) und verraten weder Ort noch Art. Jedes Zeichen <i>im gewählten Gebiet</i> liefert stattdessen <b>eine vage Aussage über das Gesamtgebiet</b> (Stufen: keines/wenig/etwas/reichlich) – mehr Zeichen einschließen = mehr Kundschaft. Nach dem Spielen zeigen Zeichen ihre wahre Glyphe am wahren Ort.</li>
+<li><b>Epochen-Ausblick</b>: Panel mit allen fünf Epochen (Namen/Zeiträume aus der Kampagnenstruktur) und einer Erwartung fürs gewählte Gebiet: Punktwertung + Text aus dem aggregierten Gelände (Furten → Saumpfade/Römerstrasse/Marktort, Seeufer → Pfahlbauten, Fluss → Grenze/Schmuggel, dann Rheinkorrektion/Wasserkraft). Grobe Erwartungen ohne Orte; „historisch inspiriert und vereinfacht".</li>
+<li><b>Startbedingung</b>: mindestens ein Flussfeld im Gebiet. Wegen des Nebels wird nur Ja/Nein verraten („✓/✕ Wasser zu hören") – die Suche nach Wasser im Nebel ist Teil des Reizes; Wasser-Zeichen helfen.</li>
+<li><b>Start</b>: Das Gebiet wird in seiner Form als Spielbrett geladen (DOM-Hexkacheln der epoche1 wiederverwendet), <b>Sammlerin ✦</b> und <b>Jäger ➤</b> landen auf zufälligen Landfeldern; enthaltene Zeichen warten als ◈ auf Deutung im Spiel.</li>
+<li><b>Welt = Seed</b>: deterministisch – gleiche Koordinate ergibt immer dasselbe Gelände. „Andere Welt" würfelt neu, „Nebel zurücksetzen" löscht den Fortschritt des Seeds; <code>?seed=…</code>, <code>?autostart</code>, <code>?epochs</code> für Tests.</li>
+</ul>
+<p class="dim">v1 (7×9-Rechteckrahmen, sichtbares Gelände, nur Flusszähler) ist archiviert – ersetzt, weil sichtbares Gelände die Wahl trivial machte und der starre Rahmen keine Gestaltung erlaubte. Offen: Übergabe des Gebiets an den Kernloop (prozedurales Gelände statt fester 5×8-Karte), ob der Epochen-Ausblick erst durch Zeichen freigeschaltet werden soll (aktuell liest er das Gelände direkt, nur vergröbert), Zeichen-Dichte, ob Zeichen im Spiel zu Fundstellen/Ereignis-Ankern werden.</p>
+</div></div>
+
+<div class="card" data-s="idea"><div class="chead"><h3>Designer-Werkstatt: eine Karte, fünf Gewerke</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Editor-Prototyp (<code>map-editor-v3.html</code>): eine Weltkarte ist ein <b>gemeinsames Objekt für fünf Gewerke</b>, umschaltbar als Linsen auf denselben Daten – Kartendesign, Spieldesign, Biologie, Archäologie und Geschichte arbeiten am selben Tal:</p>
+<ul>
+<li><b>Landschaft</b> (Kartografie): Gelände + vorplatzierte Plättchen je Epoche malen (pointy-top, odd-r offset, identische Nachbarschaftstabellen wie das Spiel); "Ufer ableiten", "Aus voriger Epoche übernehmen", Diff-Ansicht zwischen Epochen.</li>
+<li><b>Natur</b> (Biologie): Arten (Flora/Fauna) mit Lebensraum-Gelände, Epochen-Vorkommen und Spielwirkung definieren, Vorkommen als Punkte auf die Karte klicken.</li>
+<li><b>Technologie</b> (Archäologie): der Plättchen-Katalog selbst wird editierbar – Name, Glyphe (Petroglyphen-Set), erlaubtes Gelände, Epochen-Verfügbarkeit, Beschreibung. Dazu Fundstellen mit Text und Entdeckungs-Plättchen, platzierbar per Klick.</li>
+<li><b>Ereignisse</b> (Geschichte): Anker-Ereignisse (feste Runde, geschehen immer) und Streu-Ereignisse (Nachtdeck mit Gewichten) je Epoche, mit Spielwirkungs-Feld.</li>
+<li><b>Mechanik</b> (Spieldesign): Kosten/Erträge/Deck-Gewichte als Tabelle über den Katalog, Startressourcen, Sesshaftigkeits-Ziel, Rundenzahl – Zahlen getrennt von Geschichten.</li>
+</ul>
+<p><b>Belegstatus &amp; Quelle statt Schranken</b>: Fakten-Einträge (Plättchen, Arten, Ereignisse, Fundstellen) tragen einen Status (<i>belegt / wahrscheinlich / rekonstruiert / frei erfunden</i>) und ein Quellenfeld. Nichts wird erzwungen – ein Quellenlage-Zähler im Kopf und weiche "Richtwerte" (3–5 Anker/Epoche, Deck-Gewichte ~100) laden zur Sorgfalt ein, statt Beiträge abzulehnen. Damit greift die Idee der Schichtentrennung (Fakten / Deutung / Mechanik) aus der Kollaborations-Skizze, ohne deren Gate-Workflow zu übernehmen.</p>
+<p><b>Struktur wie v2</b>: 5 Epochen (je eigener Kartenzustand, Kernthema, Zeitraum) + 4 Zeremonien (Karten-Journey, Bogen Ruhe → Entscheidung → Aufbau → Kontakt → Abschluss; I→II "Sesshaft werden" vorbefüllt). Speichern in localStorage, Export/Import als JSON v3 (<code>{rules, tiles, species, events, funds, epochs, ceremonies}</code>; liest v2/v1) – gedacht als Austauschformat Richtung <code>app/src/stromlinien/</code>, wo Karte und Daten bisher fest kodiert sind.</p>
+<p class="dim">Status: Draft (v1 Einzelkarte, v2 Kartograf-only archiviert). Bewusst NICHT übernommen aus der Skizze: Schreibrechte pro Schicht, Zwei-Personen-Review-Gates, Simulations-Zertifizierung – legitime Ideen für ein Community-System mit hunderten Beitragenden, aber zu restriktiv für die Werkstatt-Phase. Offen: Deutungsvektor/Nachtkarten-Generierung, Sensibilitäts-Leitlinien für Modul-IV-Material, ob Karten datengetrieben in die App wandern.</p>
+</div></div>
+
+<div class="card" data-s="idea"><div class="chead"><h3>Mechanik-Labor: Monte-Carlo-Prüfstand für Balancing</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Prototyp (<code>mechanik-labor-v1.html</code>): ein headless Port des Epoche-I-Kernloops, komplett datengetrieben — Designer und Balancer verändern Karte (Gelände, Furten, Fundstellen, Start-Plättchen), Deck-Zusammensetzung, Plättchen-Werte, Verbünde, Arten (Flora/Fauna mit Lebensräumen), Technologien, Anker-/Streu-Ereignisse und Grundregeln, und lassen einen Bot tausende Partien spielen (seedbar, Strategien: ausgewogen/Nahrung/Schutz/Authentizität/Zufall).</p>
+<p>Auswertung: Überlebensquote, Sesshaftigkeits-Verteilung mit Endstufen-Schwellen, Ressourcen-Verlauf pro Runde, Ereignis-Bilanz (wie oft ausgelöst, wie oft gut ausgegangen), Belegungs-Heatmap auf der Hexkarte, Einzellauf-Zeitleiste (eine Partie Runde für Runde). Kernstück ist die <b>gepinnte Basis</b>: Ergebnis merken, Werte ändern, neu simulieren — jede Kennzahl zeigt das Delta. JSON-Export/Import als Austauschformat, gleiche Datenphilosophie wie die Designer-Werkstatt.</p>
+<div class="why"><b>Warum</b>Die offene Balancing-Frage (Kap. 5) verlangte bisher Papier-Simulation; jetzt lassen sich Zahlenänderungen in Sekunden gegen tausende Läufe prüfen, bevor sie in die App wandern. Enthält als Experiment ein Arten-System (Flora/Fauna verstärken Plättchen in/neben ihrem Lebensraum, Standard: aus) — Kandidat für die „Tierwanderungen"-Idee aus Kap. 2.</div>
+</div></div>
+
+<div class="card" data-s="idea"><div class="chead"><h3>Playtest-Brücke: die entworfene Karte selbst spielen</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Es fehlt das Bindeglied zwischen den drei Werkzeugen: Das <b>Mechanik-Labor</b> lässt Bots datengetriebene Karten spielen, die <b>Designer-Werkstatt</b> entwirft sie – aber <b>kein Mensch kann eine entworfene Karte spielen</b>. Der Kernloop lädt sein Raster aus <code>buildGrid()</code>, einer Funktion ohne Parameter (<code>app/src/stromlinien/grid.ts</code>), und auch der Startbildschirm reicht sein geformtes Gebiet noch nicht weiter.</p>
+<p>Vorschlag: Prototyp und App lesen eine Karten-JSON statt des fest kodierten Rasters – dieselbe Datei, die Werkstatt und Labor schreiben.</p>
+<div class="why"><b>Warum vor dem Port</b>Designer, die ihre Karte nicht spielen können, entwerfen blind – und das Labor prüft nur, was messbar ist, nicht was sich gut anfühlt. Die Brücke erzwingt zudem, dass das Austauschformat wirklich funktioniert, bevor es in die App wandert: genau die Reihenfolge, für die die Prototypen-Werkstatt existiert.</div>
+</div></div>
+
+<!-- ============ 9 VERWORFEN ============ -->
+<h2 class="chap" id="k9"><span class="n">09</span>Verworfen – und warum</h2>
+<p class="chapsub">Sackgassen gehören zur Karte. Manche sind nur geparkt.</p>
+
+<div class="card" data-s="rej"><div class="chead"><h3>Sonnenseite/Schattenseite als geteiltes Spielfeld</h3><span class="badge b-rej">Verworfen</span><span class="chev">▶</span></div><div class="cbody">
+<p>Real belegte Idee (Sonnhalb/Schatthalb im Alpenrheintal): zwei Talseiten mit unterschiedlichen Regeln, plus die Deutung "offizielle vs. verborgene Geschichte". Entschieden wurde stattdessen der <b>zeitliche Rhythmus</b> (Tag/Nacht), weil jede Epoche ihn für eine eigene Mechanik nutzen kann – so noch nie gesehen in einem historischen Legespiel.</p>
+<p class="dim">Geparkt, nicht tot: Als 2-Spieler-Variante (je eine Talseite) könnte die Idee zurückkehren.</p>
+</div></div>
+
+<div class="card" data-s="rej"><div class="chead"><h3>Nacht-Mechaniken der Etappen 1 &amp; 2</h3><span class="badge b-rej">Verworfen</span><span class="chev">▶</span></div><div class="cbody">
+<p>Siehe Kapitel 3: Themenwechsel-Nacht (zu passiv) und asymmetrische Information (falsche Richtung, Spielerzahl-Problem). Ersetzt durch Furcht/Zeitgeist. Einzelbausteine (Denunziation, verdeckte Wahl) leben weiter.</p>
+</div></div>
+
+<div class="card" data-s="rej"><div class="chead"><h3>Mobiles Lager / volle Wanderungs-Mechanik</h3><span class="badge b-rej">Verworfen (abgeschwächt übernommen)</span><span class="chev">▶</span></div><div class="cbody">
+<p>Historisch der Kernkonflikt der Epoche (mobil → sesshaft), aber sie widerspricht dem Grundprinzip eines Legespiels: Plättchen bleiben liegen. Abgeschwächt übernommen als <b>bewegliche Menschen</b> (Sammlerin/Jäger) auf festen Plättchen – Mobilität ohne Bruch des Genres. Das Sesshaft-Werden selbst trägt die Zeremonie I→II.</p>
+</div></div>
+
+<div class="card" data-s="rej"><div class="chead"><h3>Eintrittswahrscheinlichkeiten für alles</h3><span class="badge b-rej">Verworfen (präzisiert)</span><span class="chev">▶</span></div><div class="cbody">
+<p>Ursprüngliche Formulierung: Ereignisse mappen "mittels Eintrittswahrscheinlichkeit" auf Orte. Konflikt: Was belegt ist und <i>einfach geschieht</i>, ist deterministisch – der Kern des Zeitreisenden-Effekts. Aufgelöst in die Zweiteilung <b>Anker (deterministisch) + Streu (probabilistisch)</b>: Der Takt kommt von den Ankern, die Textur von der Streuung.</p>
+</div></div>
+
+<div class="card" data-s="rej"><div class="chead"><h3>Nicht-proportionale Schwellenwert-Tabelle</h3><span class="badge b-rej">Korrigiert</span><span class="chev">▶</span></div><div class="cbody">
+<p>Erste Skalierungstabelle (12/16/20 für 2/3/4 Spieler) war Pi-mal-Daumen und nicht rein proportional. Durch Nutzerfrage aufgedeckt, ersetzt durch die saubere Durchschnitts-Formel (Kap. 5).</p>
+</div></div>
+
+<div class="card" data-s="rej"><div class="chead"><h3>Gate-Workflow für Beitragende (Schreibrechte, Review-Stufen, Zertifizierung)</h3><span class="badge b-rej">Verworfen</span><span class="chev">▶</span></div><div class="cbody">
+<p>Skizziert war ein Redaktionssystem für viele Beitragende: Schreibrechte pro Schicht (niemand bearbeitet mehr als eine), eine Zwei-Personen-Regel <i>Entwurf → belegt → geprüft</i>, Ablehnung von Einträgen ohne Quellenangabe, quantitative Hüllen (Ankerabstand, simulierte Überlebensrate, Entscheidungsdichte) als harte Schranken, dazu Simulations-Zertifizierung und ein Kuratierungs-Durchgang als Release-Gate.</p>
+<p><b>Übernommen</b> wurde die Schichtentrennung (Fakten / Deutung / Mechanik) und die Rollenlandschaft – aber als <b>Sichten, nicht als Rechte</b> (Kap. 1 "Fünf Gewerke", Kap. 8). Aus den harten Hüllen wurden Richtwerte, aus der Quellenpflicht ein Quellenlage-Zähler, aus der Zertifizierung das Mechanik-Labor als freiwilliger Prüfstand.</p>
+<div class="why"><b>Warum verworfen</b>Zu restriktiv für die Werkstatt-Phase. Gates schützen ein System mit hunderten Beitragenden, kosten aber genau das, was jetzt gebraucht wird: schnelles gemeinsames Basteln. Wer ein korrigiertes Flutdatum nur nach Review eintragen darf, trägt es nicht ein.</div>
+<p class="dim">Geparkt, nicht tot: Sobald Fremde beitragen, ist die Zwei-Personen-Regel die erste Rückkehr wert – Museen und Archive als institutionelle Prüfinstanz sind zugleich die Glaubwürdigkeitsgeschichte des Projekts.</p>
+</div></div>
+
+<!-- ============ 10 OFFEN ============ -->
+<h2 class="chap" id="k10"><span class="n">10</span>Offene Fragen &amp; nächste Schritte</h2>
+<p class="chapsub">Die Landkarte des Ungelösten.</p>
+
+<div class="card" data-s="open"><div class="chead"><h3>Recherche: jede Jahreszahl prüfen</h3><span class="badge b-open">Offen</span><span class="chev">▶</span></div><div class="cbody">
+<p>Alle Datierungen in Konzept und Prototyp (8,2-ka-Ereignis, Piora, Klostergründungen, Bündner Wirren, Rheinregulierung, regionale Fundstellen, Diffusionstempi) sind Gedächtnisstand / Design-Hypothesen – <b>vor der Datenerfassung gehört jede Zahl belegt</b>. Der Belegstatus wandert dann als Feld in die Datenschicht.</p>
+</div></div>
+
+<div class="card" data-s="open"><div class="chead"><h3>Ein Effekt-Vokabular für alle Werkzeuge</h3><span class="badge b-open">Offen</span><span class="chev">▶</span></div><div class="cbody">
+<p>Die beiden Werkzeuge beschreiben Spielwirkung <b>unterschiedlich</b> – das ist der eigentliche Portblocker:</p>
+<ul>
+<li><b>Mechanik-Labor</b>: ausführbare Struktur, bereits erprobt – Bedingung <code>{stat:'schutz', gte:5}</code>, dann <code>pass</code>/<code>fail</code> als Ressourcendelta (<code>{n:-2}</code> / <code>{n:-4}</code>), plus benannte Sonderfälle (<code>woodBoost</code>, <code>pfahlUnlock</code>, <code>seeRise</code>).</li>
+<li><b>Designer-Werkstatt</b>: <b>Freitext</b> – ein Mensch liest "−2 Nahrung ohne Schutz ≥4", keine Engine führt es aus.</li>
+<li><b>Spiel/App</b>: JavaScript-Funktionen pro Anker (<code>data.ts</code>).</li>
+</ul>
+<p>Offen ist die Konvergenz: Das Labor hat das Vokabular praktisch schon gefunden – <code>Bedingung × pass/fail × Ressource</code> – und sollte es der Werkstatt vorgeben, mit Freitext als Rückfall für alles Atmosphärische. Fragen: Wie viel müssen die benannten Sonderfälle tragen, bevor sie wieder Code sind (steigender See, Freischaltungen, Deck-Eingriffe)? Wie werden Verbund- und Geländebedingungen ausgedrückt? Und braucht es <b>ein</b> Austauschformat statt zweier (<code>{P, MAP, START_TILES}</code> im Labor gegen <code>{rules, tiles, species, events, funds, epochs, ceremonies}</code> in der Werkstatt)?</p>
+<p class="dim">Hier zahlt sich die Template-Idee aus (Kap. 4: ~48 Karten-Familien aus Gefahr × Deutungsrahmen) – ein gemeinsames Vokabular ist der Zwischenschritt zur generierten Nachtkarte, die dann redigiert statt geschrieben wird.</p>
+</div></div>
+
+<div class="card" data-s="open"><div class="chead"><h3>Gestaltete Weltkarte oder endlose prozedurale Welt?</h3><span class="badge b-open">Offen</span><span class="chev">▶</span></div><div class="cbody">
+<p>Das Projekt zieht in zwei Richtungen, und die Entscheidung steht aus:</p>
+<ul>
+<li><b>Gestaltet</b>: Kap. 1 setzt auf die konkrete Erste Weltkarte (Alpenrhein, Landquart bis Konstanz); jede Epoche trägt einen eigenen, von Hand entworfenen Kartenzustand (Kap. 2); Werkstatt und Labor schreiben genau diese Karten, die Playtest-Brücke soll sie spielbar machen (Kap. 8).</li>
+<li><b>Prozedural</b>: Der Startbildschirm erzeugt eine <b>endlose Seed-Welt</b> und lässt Spieler ihr Gebiet selbst formen – die Karte ist dann Erzeugnis, nicht Entwurf.</li>
+</ul>
+<p>Denkbare Auflösungen: die kuratierte Alpenrhein-Karte als Kampagne und die prozedurale Welt als freies Spiel; oder eine prozedurale Welt mit eingebetteten, von Hand gestalteten Regionen. Daran hängt Konkretes – ob Fundstellen und Anker-Ereignisse an feste Weltkoordinaten gebunden sind oder aus dem Gelände abgeleitet werden, und was der Kartenlader (siehe Backlog) überhaupt laden muss.</p>
+<p class="dim">Historische Treue und endlose Welt vertragen sich nur begrenzt: Eine erzeugte Landschaft kann keine belegte Fundstelle tragen – wohl aber eine, die „so hätte sein können".</p>
+</div></div>
+
+<div class="card" data-s="open"><div class="chead"><h3>Design-Backlog</h3><span class="badge b-open">Offen</span><span class="chev">▶</span></div><div class="cbody">
+<ul>
+<li>Module II–V als spielbare Kartensets (II als Nächstes: "sichtbare vs. verwaltete Macht" + Omen-Nächte)</li>
+<li>Zeremonien III→IV und IV→V ausformulieren</li>
+<li>Furcht-Kartenset Modul IV (mechanisch das heikelste: Denunziation respektvoll und lehrreich gestalten)</li>
+<li>Personen-System erweitern (Rollen pro Epoche? Bewegungsreichweite bei wachsendem Tal?)</li>
+<li>Flussbegradigung als Spielzug (Modul V) inkl. Langzeitfolgen</li>
+<li>Mehrspieler-Prototyp</li>
+<li>Simulations-Tool existiert als Draft (Mechanik-Labor, Kap. 8); nächster Schritt: Balancing-Zahlen damit festlegen</li>
+<li>Namen &amp; Erinnerung / Mythos-Karten als leichte Erzählmechaniken prüfen</li>
+<li>Editor-Port: Schema-Validierung (zod) + Kartenlader statt fest kodiertem <code>buildGrid()</code></li>
+<li>Startbildschirm → Kernloop: das geformte Gebiet (beliebige Form statt 5×8-Raster) als Karte übergeben; dabei Zeichen-Dichte und Startplatz der Menschen prüfen</li>
+<li>Deck-Gewichte pro Epoche statt global – ein Pfahlbau-Gewicht ist in Epoche III bedeutungslos</li>
+<li>Stabile Slugs statt laufender Nummern für Arten/Ereignisse/Fundstellen; Fundstellen-Referenzen als Auswahl statt Freitext</li>
+<li>Undo im Editor – Malen ist billig, das Löschen einer über fünf Epochen platzierten Art nicht</li>
+</ul>
+</div></div>
+
+<footer>
+<span class="devonly">STROMLINIEN · Arbeitsdokument. Historische Angaben sind für Design und Prototyp vereinfacht und teils ungeprüft – Kennzeichnung "belegt" bezieht sich auf den angestrebten Datenstandard, nicht auf den aktuellen Recherchestand. Statusfarben: <span style="color:var(--st-done)">umgesetzt</span> · <span style="color:var(--st-concept)">Konzept (entschieden, noch nicht gebaut)</span> · <span style="color:var(--st-idea)">Idee (zu erkunden)</span> · <span style="color:var(--st-rej)">verworfen/korrigiert</span> · <span style="color:var(--st-open)">offen</span>.</span>
+<span class="pubonly">STROMLINIEN · Handbuch. Historische Angaben sind für das Spiel vereinfacht, Jahreszahlen gerundet. <span style="color:var(--st-done)">Umgesetzt</span> = läuft in der aktuellen Anwendung · <span style="color:var(--st-concept)">Konzept</span> = entschieden, noch nicht gebaut. Die vollständige Entstehungsgeschichte (Ideen, Verworfenes, offene Fragen) zeigt die Entwicklungs-Ansicht.</span>
+</footer>
+</div>
+
+<script>
+// collapse/expand
+document.querySelectorAll('.chead').forEach(h=>{
+  h.addEventListener('click',()=>h.parentElement.classList.toggle('openc'));
+});
+
+/* ---------- Ansichten ----------
+   development: alles – Ideen, Verworfenes, offene Fragen, Statusfilter.
+   publish: nur Entschiedenes – "Umgesetzt" (läuft in der App) und
+   "Konzept" (entschieden, noch nicht gebaut). Leere Kapitel verschwinden. */
+const PUBLISH_STATUSES=new Set(['done','concept']);
+const btns=document.querySelectorAll('.fbtn');
+let mode='dev', filter='all';
+
+function chapters(){
+  return [...document.querySelectorAll('h2.chap')].map(h2=>{
+    const parts=[];let el=h2.nextElementSibling;
+    while(el&&!el.matches('h2.chap')&&!el.matches('footer')){parts.push(el);el=el.nextElementSibling;}
+    return {h2,parts,cards:parts.filter(p=>p.matches('.card'))};
+  });
+}
+function cardVisible(c){
+  if(mode==='publish'&&!PUBLISH_STATUSES.has(c.dataset.s))return false;
+  return filter==='all'||c.dataset.s===filter;
+}
+function render(){
+  document.body.classList.toggle('publish',mode==='publish');
+  btns.forEach(b=>b.classList.toggle('on',b.dataset.f===filter));
+  let n=0;const toc=[];
+  for(const ch of chapters()){
+    let any=false;
+    for(const card of ch.cards){
+      const show=cardVisible(card);
+      card.classList.toggle('hidden',!show);
+      if(show){any=true;n++;}
+    }
+    ch.h2.style.display=any?'':'none';
+    for(const p of ch.parts)if(p.matches('.chapsub'))p.style.display=any?'':'none';
+    if(any){
+      const num=parseInt(ch.h2.querySelector('.n').textContent,10);
+      const title=ch.h2.textContent.replace(ch.h2.querySelector('.n').textContent,'').trim();
+      toc.push('<a href="#'+ch.h2.id+'">'+num+' '+title+'</a>');
+    }
+  }
+  document.getElementById('toclinks').innerHTML=' '+toc.join(' · ');
+  document.getElementById('count').textContent=n+' Einträge'+(filter!=='all'?' · Filter aktiv':'');
+  document.getElementById('modetag').textContent=mode==='publish'?'Publish':'Entwicklung';
+  document.getElementById('viewbtn').textContent=mode==='publish'?'✎ ENTWICKLUNG':'⎙ PUBLISH';
+  document.getElementById('viewbtn').title=mode==='publish'
+    ?'Zur Entwicklungs-Ansicht: alles inkl. Ideen, Verworfenem und offenen Fragen'
+    :'Zur Publish-Ansicht: nur Entschiedenes und Umgesetztes';
+}
+function setMode(m,persist){
+  mode=m;
+  if(mode==='publish')filter='all';
+  if(persist){
+    try{localStorage.setItem('sl-handbuch-mode',mode);}catch(e){}
+    const u=new URL(location.href);u.searchParams.set('mode',mode);
+    history.replaceState(null,'',u);
+  }
+  render();
+}
+btns.forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.f;render();}));
+document.getElementById('viewbtn').addEventListener('click',()=>setMode(mode==='publish'?'dev':'publish',true));
+
+// Init: ?mode=publish|dev gewinnt (teilbare Links), sonst gemerkte Wahl, sonst Entwicklung.
+(function(){
+  const q=new URLSearchParams(location.search).get('mode');
+  let m=null;
+  if(q==='publish'||q==='dev')m=q;
+  else{try{m=localStorage.getItem('sl-handbuch-mode');}catch(e){}}
+  setMode(m==='publish'?'publish':'dev',false);
+})();
+</script>
+</body>
+</html>

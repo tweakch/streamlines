@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Mechanik-Labor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+:root{
+  --bg:#DCE3D8; --panel:#ECEFE6; --panel2:#E2E7DC; --ink:#22302C; --ink2:#5A6B64;
+  --river:#7FB2AC; --riverdeep:#5E9793; --lake:#8FBDB6;
+  --ember:#C96F2E;
+  --bone:#F2EDE0; --line:#B8C2B4; --good:#4E7D5B; --bad:#9C4A33; --warn:#A8842C;
+  --tile:#CDD6C8; --tileink:#33443E;
+  --shadow:0 2px 10px rgba(30,45,40,.12);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{background:var(--bg);color:var(--ink);font-family:'Instrument Sans',system-ui,sans-serif;min-height:100vh;}
+
+header{max-width:1360px;margin:0 auto;padding:14px 14px 0;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;}
+.brand{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:17px;letter-spacing:.14em;}
+.brand small{display:block;font-family:'Space Mono',monospace;font-weight:400;font-size:10px;letter-spacing:.08em;color:var(--ink2);margin-top:2px;}
+.hright{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+
+.layout{display:flex;gap:14px;max-width:1360px;margin:0 auto;padding:14px;align-items:flex-start;}
+.side{width:300px;flex:none;display:flex;flex-direction:column;gap:10px;}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;}
+
+.panel{background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:12px;box-shadow:var(--shadow);}
+.plabel{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);display:block;margin-bottom:8px;}
+.hint{font-size:11px;color:var(--ink2);line-height:1.5;}
+
+input[type=text],select{font-family:'Instrument Sans',sans-serif;font-size:12.5px;font-weight:500;color:var(--ink);background:var(--bone);border:1.5px solid var(--line);border-radius:8px;padding:6px 8px;}
+input[type=text]:focus,select:focus{outline:none;border-color:var(--ember);}
+input[type=number]{font-family:'Space Mono',monospace;font-size:12px;color:var(--ink);background:var(--bone);border:1.5px solid var(--line);border-radius:7px;padding:4px 4px;width:48px;text-align:center;}
+input[type=number]:focus{outline:none;border-color:var(--ember);}
+select{cursor:pointer;}
+input[type=checkbox]{accent-color:var(--ember);}
+
+button{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:12px;letter-spacing:.04em;color:var(--ink);background:var(--bone);border:1.5px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;transition:border-color .15s,transform .1s;}
+button:hover{border-color:var(--ember);}
+button:active{transform:scale(.97);}
+button.primary{background:var(--ember);border-color:var(--ember);color:var(--bone);font-size:13px;padding:9px 18px;}
+button.small{font-size:10.5px;padding:4px 8px;}
+button.ghost{background:transparent;}
+
+/* side tabs */
+.tabbar{display:flex;flex-wrap:wrap;gap:4px;}
+.tab{flex:1;min-width:80px;background:var(--panel2);border:1.5px solid var(--line);border-radius:8px;padding:6px 6px;cursor:pointer;user-select:none;text-align:center;transition:border-color .15s;}
+.tab b{font-family:'Bricolage Grotesque',sans-serif;font-size:11px;display:block;line-height:1.1;}
+.tab small{font-family:'Space Mono',monospace;font-size:7.5px;letter-spacing:.06em;color:var(--ink2);text-transform:uppercase;}
+.tab.sel{border-color:var(--ember);background:var(--bone);box-shadow:0 0 8px rgba(201,111,46,.3);}
+
+/* lists in side */
+.itemlist{display:flex;flex-direction:column;gap:5px;}
+.itemrow{display:flex;align-items:center;gap:7px;background:var(--bone);border:1.5px solid var(--line);border-radius:8px;padding:5px 8px;cursor:pointer;user-select:none;}
+.itemrow.sel{border-color:var(--ember);box-shadow:0 0 8px rgba(201,111,46,.3);}
+.itemrow.off{opacity:.45;}
+.itemrow b{font-size:11.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.itemrow .glyph{width:20px;height:20px;flex:none;color:var(--tileink);}
+.itemrow small{font-family:'Space Mono',monospace;font-size:9px;color:var(--ink2);white-space:nowrap;}
+.sdot{width:9px;height:9px;border-radius:50%;flex:none;}
+.sdot.flora{background:var(--good);}
+.sdot.fauna{background:var(--ember);}
+
+.editform{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);display:flex;flex-direction:column;gap:7px;}
+.editform label{font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);display:block;margin-bottom:2px;}
+.frow{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;}
+.frow>.field{flex:1;min-width:0;}
+.fxgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
+.fxgrid .fxcell{text-align:center;}
+.fxgrid .fxcell span{font-family:'Space Mono',monospace;font-size:8px;color:var(--ink2);display:block;margin-bottom:2px;}
+.fxgrid input{width:100%;}
+.tagchecks{display:flex;flex-wrap:wrap;gap:4px;}
+.tagchecks label{display:flex;align-items:center;gap:3px;font-size:10px;font-family:'Instrument Sans',sans-serif;text-transform:none;letter-spacing:0;color:var(--ink);background:var(--bone);border:1px solid var(--line);border-radius:6px;padding:3px 6px;cursor:pointer;margin:0;}
+.checkrow{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink);user-select:none;cursor:pointer;}
+.checkrow small{color:var(--ink2);}
+
+/* swatches (tile & terrain palettes) */
+.swatches{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.swatch{display:flex;align-items:center;gap:7px;background:var(--bone);border:1.5px solid var(--line);border-radius:8px;padding:5px 7px;cursor:pointer;user-select:none;transition:border-color .15s;}
+.swatch.sel{border-color:var(--ember);box-shadow:0 0 8px rgba(201,111,46,.35);}
+.swatch .dot{width:16px;height:18px;flex:none;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);}
+.swatch .glyph{width:20px;height:20px;flex:none;color:var(--tileink);}
+.swatch span{font-size:10.5px;font-weight:600;line-height:1.1;}
+
+/* hex map */
+.mapwrap{overflow:auto;padding:6px 2px 8px;}
+.map{--hexw:58px;--hexh:calc(var(--hexw)*1.1547);--hexgap:4px;width:max-content;}
+.map.mini{--hexw:40px;--hexgap:3px;}
+.hexrow{display:flex;gap:var(--hexgap);}
+.hexrow.odd{margin-left:calc(var(--hexw)/2 + var(--hexgap)/2);}
+.hexrow + .hexrow{margin-top:calc(var(--hexh)*-0.25 + var(--hexgap));}
+.cell{position:relative;width:var(--hexw);height:var(--hexh);flex:none;display:flex;align-items:center;justify-content:center;--edge:var(--line);--fill:var(--panel2);cursor:pointer;}
+.map.mini .cell{cursor:default;}
+.cell::before{content:'';position:absolute;inset:0;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--edge);}
+.cell::after{content:'';position:absolute;inset:1.5px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background-color:var(--fill);}
+.cell.t-flach{--fill:var(--tile);}
+.cell.t-ufer{--fill:#C4D4BC;}
+.cell.t-water{--fill:var(--river);--edge:var(--riverdeep);}
+.cell.t-lake{--fill:var(--lake);--edge:var(--riverdeep);}
+.cell.t-hang{--fill:var(--panel2);}
+.cell.t-hang::after{background-image:repeating-linear-gradient(135deg,transparent 0 5px,rgba(90,107,100,.13) 5px 7px);}
+.cell .inner{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;width:100%;height:100%;}
+.cell .tglyph{width:46%;height:auto;color:var(--tileink);}
+.cell .tglyph svg{width:100%;height:100%;display:block;}
+.cell.start .tglyph{filter:drop-shadow(0 0 3px rgba(201,111,46,.8));}
+.cell .furtmark{position:absolute;z-index:2;bottom:16%;font-family:'Space Mono',monospace;font-size:10px;color:var(--bone);letter-spacing:-.1em;pointer-events:none;text-shadow:0 1px 2px rgba(30,45,40,.5);}
+.cell .fundmark{position:absolute;z-index:3;top:14%;right:22%;font-size:11px;color:var(--ember);pointer-events:none;text-shadow:0 0 3px var(--bone);}
+.cell .heat{position:absolute;inset:1.5px;z-index:1;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--ember);pointer-events:none;}
+.cell .heatlbl{position:absolute;z-index:3;bottom:8%;left:0;right:0;text-align:center;font-family:'Space Mono',monospace;font-size:8px;color:var(--ink);pointer-events:none;}
+
+/* sim bar */
+.simbar{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;}
+.simbar .field label{font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);display:block;margin-bottom:3px;}
+.dirty{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--warn);letter-spacing:.05em;display:none;}
+.dirty.show{display:inline;}
+
+/* summary cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;}
+.card{background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;box-shadow:var(--shadow);}
+.card .lbl{font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);}
+.card .val{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:21px;margin-top:2px;}
+.card .delta{font-family:'Space Mono',monospace;font-size:10px;margin-top:1px;}
+.delta.up{color:var(--good);} .delta.down{color:var(--bad);} .delta.flat{color:var(--ink2);}
+
+.duo{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;}
+.duo2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;}
+@media (max-width:1050px){.duo,.duo2{grid-template-columns:1fr;}}
+canvas{display:block;width:100%;height:230px;}
+
+/* bars */
+.barrow{display:flex;align-items:center;gap:8px;margin:4px 0;}
+.barrow .bl{width:110px;flex:none;font-size:11px;font-weight:600;text-align:right;}
+.barrow .track{flex:1;height:14px;background:var(--panel2);border-radius:7px;overflow:hidden;position:relative;}
+.barrow .fill{height:100%;border-radius:7px;}
+.barrow .pv{width:86px;flex:none;font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);}
+.minihist{display:flex;align-items:flex-end;gap:2px;height:36px;margin-top:6px;}
+.minihist div{flex:1;background:var(--bad);opacity:.75;border-radius:2px 2px 0 0;min-height:1px;}
+.minihist span{font-family:'Space Mono',monospace;font-size:7.5px;color:var(--ink2);}
+
+/* event table */
+table.evt{width:100%;border-collapse:collapse;font-size:11.5px;}
+table.evt th{font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);text-align:left;padding:4px 6px;border-bottom:1px solid var(--line);}
+table.evt td{padding:4px 6px;border-bottom:1px dashed var(--line);}
+table.evt td.num{font-family:'Space Mono',monospace;font-size:10.5px;text-align:right;}
+.pill{font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.05em;padding:2px 6px;border-radius:10px;white-space:nowrap;}
+.pill.anker{background:rgba(201,111,46,.15);color:var(--ember);}
+.pill.nacht{background:rgba(90,107,100,.14);color:var(--ink2);}
+.gbar{display:inline-block;width:70px;height:8px;background:rgba(156,74,51,.35);border-radius:4px;overflow:hidden;vertical-align:middle;margin-right:5px;}
+.gbar i{display:block;height:100%;background:var(--good);}
+
+/* beispiellauf */
+.runlog{max-height:340px;overflow:auto;display:flex;flex-direction:column;gap:5px;}
+.logrow{background:var(--bone);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:11px;line-height:1.45;}
+.logrow.cur{border-color:var(--ember);box-shadow:0 0 6px rgba(201,111,46,.3);}
+.logrow b{font-family:'Bricolage Grotesque',sans-serif;font-size:11px;}
+.logrow .ev-good{color:var(--good);} .logrow .ev-bad{color:var(--bad);}
+.logrow .stats{font-family:'Space Mono',monospace;font-size:9px;color:var(--ink2);display:block;margin-top:2px;}
+input[type=range]{width:100%;accent-color:var(--ember);}
+
+footer{max-width:1360px;margin:0 auto;padding:4px 14px 24px;font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);letter-spacing:.04em;}
+.subrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;}
+h4.sect{font-family:'Bricolage Grotesque',sans-serif;font-size:12px;margin:12px 0 6px;}
+h4.sect:first-child{margin-top:0;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">STROMLINIEN · MECHANIK-LABOR
+    <small>Monte-Carlo-Prüfstand · Karte, Deck, Arten, Technologien &amp; Ereignisse balancieren</small>
+  </div>
+  <div class="hright">
+    <button class="small ghost" id="btnExport">Export JSON</button>
+    <button class="small ghost" id="btnImport">Import JSON</button>
+    <input type="file" id="fileImport" accept=".json" style="display:none">
+    <button class="small ghost" id="btnReset">Zurücksetzen</button>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- ============ SIDE: editors ============ -->
+  <aside class="side">
+    <div class="tabbar" id="tabbar"></div>
+    <div class="panel" id="sidepanel"></div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <div class="panel">
+      <span class="plabel">Simulation</span>
+      <div class="simbar">
+        <div class="field"><label>Läufe</label>
+          <select id="simRuns"><option>200</option><option selected>1000</option><option>3000</option><option>5000</option></select></div>
+        <div class="field"><label>Bot-Strategie</label>
+          <select id="simPolicy">
+            <option value="ausgewogen" selected>Ausgewogen (schwächste Ressource)</option>
+            <option value="nahrung">Nahrung zuerst</option>
+            <option value="schutz">Schutz zuerst</option>
+            <option value="auth">Authentizität &amp; Kultur</option>
+            <option value="zufall">Zufall</option>
+          </select></div>
+        <div class="field"><label>Plättchen/Tag</label><input type="number" id="simTiles" min="1" max="3" value="2"></div>
+        <div class="field"><label>Seed</label><input type="number" id="simSeed" value="42" style="width:64px"></div>
+        <label class="checkrow" style="padding-bottom:6px"><input type="checkbox" id="simJaeger" checked> Jäger</label>
+        <label class="checkrow" style="padding-bottom:6px"><input type="checkbox" id="simSammler" checked> Sammlerin</label>
+        <button class="primary" id="btnRun">▶ Simulieren</button>
+        <button id="btnPin" title="Aktuelles Ergebnis als Vergleichsbasis merken">📌 Als Basis merken</button>
+        <span class="dirty" id="dirtyFlag">● Parameter geändert — neu simulieren</span>
+      </div>
+      <div class="hint" id="baseInfo" style="margin-top:6px"></div>
+    </div>
+
+    <div class="cards" id="cards"></div>
+
+    <div class="duo">
+      <div class="panel">
+        <span class="plabel">Karte · <span id="mapModeLbl">Bearbeiten</span></span>
+        <div class="mapwrap"><div class="map" id="map"></div></div>
+        <label class="checkrow"><input type="checkbox" id="chkHeat"> Simulations-Overlay: Wie oft steht am Ende hier ein Plättchen?</label>
+      </div>
+      <div class="panel">
+        <span class="plabel">Ressourcen-Verlauf (Mittelwert pro Runde · Band = Sesshaftigkeit P25–P75)</span>
+        <canvas id="cvTraj" height="230"></canvas>
+        <div class="hint" id="trajLegend"></div>
+      </div>
+    </div>
+
+    <div class="duo2">
+      <div class="panel">
+        <span class="plabel">Sesshaftigkeit am Ende (Verteilung · Umriss = Basis)</span>
+        <canvas id="cvHist" height="230"></canvas>
+      </div>
+      <div class="panel">
+        <span class="plabel">Ausgang der Läufe</span>
+        <div id="tiers"></div>
+        <span class="plabel" style="margin-top:12px">Verhungert in Runde …</span>
+        <div class="minihist" id="deathHist"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="plabel">Ereignis-Bilanz (über alle Läufe)</span>
+      <table class="evt" id="evtTable"></table>
+    </div>
+
+    <div class="panel">
+      <span class="plabel">Beispiellauf ansehen — eine einzelne Partie, Runde für Runde</span>
+      <div class="subrow">
+        <button id="btnDetail">▶ Beispiellauf</button>
+        <button class="small" id="btnDetailNext">🎲 anderer Lauf</button>
+        <span class="hint" id="detailInfo"></span>
+      </div>
+      <div class="duo" id="detailWrap" style="display:none;margin-top:10px">
+        <div>
+          <div class="map mini" id="runmap"></div>
+          <input type="range" id="runScrub" min="1" max="10" value="1">
+          <div class="hint" id="runScrubLbl" style="text-align:center"></div>
+        </div>
+        <div class="runlog" id="runlog"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>Alle Ereignisse und Fundstellen: historisch inspiriert und vereinfacht. · Prototyp, wirft nichts weg: Einstellungen liegen im localStorage.</footer>
+
+<script>
+/* =====================================================================
+   STROMLINIEN · Mechanik-Labor v1
+   Headless-Port des Epoche-I-Kernloops (app/src/stromlinien/engine.ts),
+   vollständig datengetrieben: alle Werte editierbar, Monte-Carlo-Läufe
+   mit Bot-Spieler, Auswertung + Vergleich gegen gepinnte Basis.
+   ===================================================================== */
+
+/* ---------- Glyphen (identisch zu data.ts) ---------- */
+const GLYPHS = {
+  fisch:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 20 Q16 10 27 16 Q33 19 34 20 Q33 21 27 24 Q16 30 6 20 Z"/><path d="M34 20 L39 14 M34 20 L39 26"/><circle cx="13" cy="18.5" r="1.4" fill="currentColor"/></svg>',
+  ufer:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 26 L20 12 L32 26"/><path d="M20 12 V26"/><path d="M5 32 Q12 29 20 32 Q28 35 35 32"/></svg>',
+  wald:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M13 32 V22 M13 22 L7 24 M13 22 L19 24 M13 15 L8 18 M13 15 L18 18 M13 8 L13 15"/><path d="M28 32 V20 M28 20 L22 23 M28 20 L34 23 M28 12 L23 16 M28 12 L33 16"/></svg>',
+  terrasse:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 32 H35 M9 25 H31 M14 18 H26 M18 11 H22"/></svg>',
+  hoehle:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 32 Q6 12 20 12 Q34 12 34 32"/><path d="M14 32 Q14 20 20 20 Q26 20 26 32"/></svg>',
+  flint:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M20 6 L30 16 L26 34 L14 34 L10 16 Z"/><path d="M20 6 L18 20 L26 34 M18 20 L10 16"/></svg>',
+  pfahl:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 18 L20 8 L32 18 M11 18 H29 V24 H11 Z"/><path d="M13 24 V34 M20 24 V34 M27 24 V34"/><path d="M6 35 Q13 32 20 35 Q27 38 34 35"/></svg>',
+  wolf:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 28 L14 20 L18 22 L26 14 L30 8 L32 14 L28 20 L30 28 M14 20 L12 28 M22 18 L23 28"/></svg>',
+};
+
+const TERRAIN_NAMES = { flach:'Flachland', hang:'Hang', ufer:'Ufer', water:'Fluss', lake:'See' };
+const TERRAIN_KEYS = ['flach','hang','ufer','water','lake'];
+const RES_NAMES = { n:'Nahrung', b:'Material', s:'Schutz', k:'Kultur' };
+
+/* =====================================================================
+   Default-Parameter — exakt der Stand des Spiels (engine.ts / data.ts)
+   ===================================================================== */
+function makeDefaults(){
+  return {
+    version:'mechanik-labor-v1',
+    rules:{
+      rounds:10, startN:4, startS:1, startB:1, startK:0,
+      eat:1, hungerLimit:2, progCap:3, handSize:3, handMax:4,
+      tier1:10, tier2:16, speciesOn:false, ceremonyOn:true,
+    },
+    tiles:{
+      fisch:   {nm:'Fischgrund',   glyph:'fisch',   terrain:['water','lake'],      n:1,b:0,s:0,k:0,cost:0,unlock:false, auth:{best:['water','lake'],pts:2,off:2,max:2}},
+      ufer:    {nm:'Lager am Ufer',glyph:'ufer',    terrain:['ufer'],              n:1,b:0,s:0,k:0,cost:0,unlock:false, auth:{best:['ufer'],pts:1,off:1,max:1}},
+      wald:    {nm:'Auenwald',     glyph:'wald',    terrain:['ufer','flach'],      n:0,b:1,s:0,k:0,cost:0,unlock:false, auth:{best:['ufer'],pts:1,off:0,max:1}},
+      terrasse:{nm:'Hochterrasse', glyph:'terrasse',terrain:['flach','hang'],      n:0,b:0,s:1,k:0,cost:0,unlock:false, auth:{best:['hang'],pts:2,off:1,max:2}},
+      hoehle:  {nm:'Höhle',        glyph:'hoehle',  terrain:['hang'],              n:0,b:0,s:2,k:0,cost:0,unlock:false, auth:{best:['hang'],pts:2,off:0,max:2}},
+      flint:   {nm:'Feuerstein',   glyph:'flint',   terrain:['hang','flach'],      n:0,b:0,s:0,k:0,cost:0,unlock:false, auth:{best:['hang'],pts:1,off:0,max:2}},
+      pfahl:   {nm:'Pfahlbau',     glyph:'pfahl',   terrain:['lake','lakeUfer'],   n:1,b:0,s:1,k:0,cost:3,unlock:true,  auth:{best:['lake','lakeUfer'],pts:3,off:1,max:3}},
+    },
+    deck:{ ufer:24, wald:20, fisch:16, terrasse:15, hoehle:13, flint:12, pfahl:0 },
+    combos:[
+      {a:'hoehle', b:'terrasse', s:1,k:0, label:'Höhle + Terrasse (einmalig)', on:true},
+      {a:'pfahl',  b:'pfahl',    s:0,k:1, label:'Pfahlbau-Dorf (einmalig)',    on:true},
+    ],
+    comboIncome:[
+      {tile:'fisch', near:['ufer','pfahl'], n:1,b:0, label:'Fangplatz am Lager (+/Tag)', on:true},
+      {tile:'wald',  near:['ufer','pfahl'], n:0,b:1, label:'Holz am Lager (+/Tag)',      on:true},
+    ],
+    species:[
+      {nm:'Äsche & Forelle', cat:'fauna', habitat:['water','lake'], tile:'fisch',    mode:'auf', res:'n', amt:1, from:1, to:10, on:true},
+      {nm:'Erle & Weide',    cat:'flora', habitat:['ufer'],         tile:'wald',     mode:'auf', res:'b', amt:1, from:1, to:10, on:true},
+      {nm:'Rothirsch',       cat:'fauna', habitat:['flach'],        tile:'ufer',     mode:'angrenzend', res:'n', amt:1, from:1, to:10, on:true},
+      {nm:'Haselnuss',       cat:'flora', habitat:['hang'],         tile:'terrasse', mode:'auf', res:'n', amt:1, from:3, to:10, on:true},
+    ],
+    tech:[
+      {nm:'Werkzeuge aus Feuerstein', req:'flint', cost:2, s:2,k:0, nDay:0,bDay:0, on:true},
+      {nm:'Einbaum',                  req:'wald',  cost:2, s:0,k:0, nDay:1,bDay:0, on:false},
+      {nm:'Räucherstand',             req:'ufer',  cost:1, s:0,k:1, nDay:0,bDay:0, on:false},
+    ],
+    anchors:[
+      {round:3, nm:'Die Wälder erobern das Tal', special:'woodBoost', woodBonus:1, pendingCount:0, cond:null, pass:{b:1}, fail:{}, on:true},
+      {round:5, nm:'Die große Kälte', special:null, cond:{stat:'schutz',gte:5}, pass:{n:-2}, fail:{n:-4}, on:true},
+      {round:7, nm:'Die ersten Bauern am See', special:'pfahlUnlock', pendingCount:2, cond:null, pass:{k:1}, fail:{}, on:true},
+      {round:9, nm:'Der See steigt', special:'seeRise', cond:null, pass:{k:2}, fail:{b:-2}, on:true},
+    ],
+    nights:[
+      {nm:'Etwas umkreist das Lager', w:22, cond:{stat:'schutz',gte:4}, pass:{}, fail:{n:-2}, on:true},
+      {nm:'Frost kriecht ins Lager',  w:16, cond:{stat:'b',gte:3},      pass:{b:-1}, fail:{n:-2}, on:true},
+      {nm:'Stille',                   w:18, cond:null, pass:{}, fail:{}, on:true},
+      {nm:'Gute Jagd im Morgengrauen',w:16, cond:null, pass:{n:2}, fail:{}, on:true},
+      {nm:'Fremde am Feuer',          w:14, cond:null, pass:{extraDraw:1}, fail:{}, on:true},
+      {nm:'Ein Fund im Kies',         w:14, cond:null, pass:{k:1}, fail:{}, on:true},
+    ],
+    funds:[
+      {r:6,c:0, types:['ufer','pfahl'],     nm:'Pfahlbau-Fundstelle · Seeufer', k:2, auth:2},
+      {r:1,c:4, types:['hoehle','terrasse'],nm:'Jägerrastplatz · Hanglage',     k:1, auth:2},
+      {r:3,c:0, types:['flint'],            nm:'Silex-Abbaustelle',             k:1, auth:2},
+    ],
+  };
+}
+
+/* ---------- Standard-Karte (Port von grid.ts buildGrid) ---------- */
+const COLS = 5, ROWS = 8;
+function makeDefaultMap(){
+  const terrain = [], furt = [];
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    let t='flach';
+    if(r<=5 && c===2) t='water';
+    if(r>=6 && c>=1 && c<=3) t='lake';
+    if(r<=3 && (c===0||c===4)) t='hang';
+    terrain.push(t); furt.push(c===2 && (r===2||r===4));
+  }
+  // Ufer-Ableitung wie buildGrid
+  const cells = terrain.map((t,i)=>({t,r:Math.floor(i/COLS),c:i%COLS}));
+  for(let i=0;i<cells.length;i++){
+    const cl=cells[i]; if(cl.t!=='flach') continue;
+    if(neighborIdx(cl.r,cl.c).some(j=>terrain[j]==='water'||terrain[j]==='lake')) terrain[i]='ufer';
+  }
+  return { terrain, furt };
+}
+
+/* ---------- Hex-Nachbarschaft (pointy-top, odd-r) ---------- */
+const DIRS_EVEN=[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]];
+const DIRS_ODD =[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
+function neighborIdx(r,c){
+  const dirs = r%2 ? DIRS_ODD : DIRS_EVEN, out=[];
+  for(const [dr,dc] of dirs){ const rr=r+dr, cc=c+dc;
+    if(rr>=0&&rr<ROWS&&cc>=0&&cc<COLS) out.push(rr*COLS+cc); }
+  return out;
+}
+/* Nachbarschaft inkl. Furt-Brücke — vorberechnet aus der Karte */
+function buildCells(mapData){
+  const cells=[];
+  for(let i=0;i<ROWS*COLS;i++){
+    const r=Math.floor(i/COLS), c=i%COLS, t=mapData.terrain[i];
+    cells.push({idx:i,r,c,t,furt:mapData.furt[i] && t==='water', lakeUfer:false, nb:[], adj:[]});
+  }
+  for(const cl of cells){
+    cl.nb = neighborIdx(cl.r,cl.c);
+    if(cl.t==='flach'||cl.t==='hang'||cl.t==='ufer')
+      cl.lakeUfer = cl.nb.some(j=>cells[j].t==='lake');
+  }
+  for(const cl of cells){
+    const set=new Set();
+    for(const j of cl.nb){ set.add(j);
+      if(cells[j].furt) for(const jj of cells[j].nb) if(jj!==cl.idx) set.add(jj); }
+    if(cl.furt) for(const j of cl.nb) set.add(j);
+    cl.adj=[...set];
+  }
+  return cells;
+}
+
+/* =====================================================================
+   Globaler Zustand
+   ===================================================================== */
+let P = makeDefaults();
+let MAP = makeDefaultMap();
+let START_TILES = [];        // [{kind, cellIdx}] — vom Designer vorplatziert
+let CELLS = buildCells(MAP);
+
+let ui = { tab:'karte', brush:{kind:'terrain', val:'ufer'}, selTile:'fisch', selSpecies:0, selTech:0, selEvt:'a0', fundPlace:null, heat:false };
+let RESULT = null, BASELINE = null, DETAIL = null, detailIdx = 0;
+
+const $ = id => document.getElementById(id);
+const CSSV = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+function markDirty(){ $('dirtyFlag').classList.add('show'); persist(); }
+
+/* =====================================================================
+   RNG (mulberry32) — seedbare, reproduzierbare Läufe
+   ===================================================================== */
+function makeRng(seed){ let a=seed>>>0; return function(){
+  a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+
+/* =====================================================================
+   Simulations-Engine (headless, treu zu engine.ts)
+   ===================================================================== */
+function tileValid(kind, cell){
+  const d=P.tiles[kind];
+  return d.terrain.includes(cell.t) || (d.terrain.includes('lakeUfer') && cell.lakeUfer);
+}
+function authBestMatch(kind, cell){
+  const a=P.tiles[kind].auth;
+  return a.best.includes(cell.t) || (a.best.includes('lakeUfer') && cell.lakeUfer);
+}
+function fx(o,key){ return o && o[key] ? o[key] : 0; }
+function applyFx(st,f){ if(!f) return;
+  st.n=Math.max(0,st.n+fx(f,'n')); st.b=Math.max(0,st.b+fx(f,'b'));
+  st.s=Math.max(0,st.s+fx(f,'s')); st.k=Math.max(0,st.k+fx(f,'k'));
+  if(f.extraDraw) st.extraDraw=true; }
+function fxNegative(f){ return f && (fx(f,'n')<0||fx(f,'b')<0||fx(f,'s')<0||fx(f,'k')<0); }
+
+function drawFromDeck(st,rng){
+  if(st.pending.length) return st.pending.shift();
+  const es=Object.entries(P.deck).filter(([k,w])=>w>0 && P.tiles[k]);
+  const total=es.reduce((a,[,w])=>a+w,0);
+  if(!total) return null;
+  let x=rng()*total;
+  for(const [k,w] of es){ x-=w; if(x<=0) return k; }
+  return es[0][0];
+}
+
+function speciesBonus(st, kind, cell, round){
+  if(!P.rules.speciesOn) return {n:0,b:0,k:0};
+  const out={n:0,b:0,k:0};
+  for(const sp of P.species){
+    if(!sp.on || sp.tile!==kind || round<sp.from || round>sp.to) continue;
+    const match = sp.mode==='auf'
+      ? sp.habitat.includes(cell.t)
+      : cell.nb.some(j=>sp.habitat.includes(CELLS[j].t));
+    if(match) out[sp.res]+=sp.amt;
+  }
+  return out;
+}
+
+function dayIncome(st, opts, round){
+  let n=0,b=0,k=0;
+  for(let i=0;i<st.board.length;i++){
+    const kind=st.board[i]; if(!kind) continue;
+    const cell=CELLS[i], d=P.tiles[kind];
+    const blockedFish = kind==='fisch' && st.fishBlocked;
+    if(!blockedFish){
+      n+=d.n;
+      for(const ci of P.comboIncome){
+        if(!ci.on || ci.tile!==kind) continue;
+        if(cell.adj.some(j=>ci.near.includes(st.board[j]))){ n+=ci.n; b+=ci.b; }
+      }
+      const sb=speciesBonus(st,kind,cell,round); n+=sb.n; b+=sb.b; k+=sb.k;
+    }
+    b+=d.b + (kind==='wald'&&st.woodBoost ? st.woodBonus : 0);
+  }
+  n+=st.perDay.n; b+=st.perDay.b;
+  if(opts.sammler){ // Sammlerin bewirtschaftet das nützlichste Plättchen
+    const hasB=st.board.some(t=>t==='wald'||t==='flint');
+    const hasN=st.board.some(t=>(t==='fisch'&&!st.fishBlocked)||t==='ufer');
+    if(st.b<=st.n && hasB) b++; else if(hasN) n++; else if(hasB) b++;
+  }
+  st.fishBlocked=false;
+  st.n+=n; st.b+=b; st.k+=k;
+}
+
+function checkStaticCombos(st, kind, cellIdx){
+  const cell=CELLS[cellIdx]; let gained=null;
+  P.combos.forEach((co,ci)=>{
+    if(!co.on) return;
+    let otherKind=null;
+    if(kind===co.a) otherKind=co.b; else if(kind===co.b) otherKind=co.a; else return;
+    for(const j of cell.adj){
+      if(st.board[j]!==otherKind) continue;
+      const key=ci+':'+Math.min(cellIdx,j)+'-'+Math.max(cellIdx,j);
+      if(st.combosSeen.has(key)) continue;
+      st.combosSeen.add(key);
+      st.s+=co.s; st.k+=co.k; gained=co.label;
+    }
+  });
+  return gained;
+}
+
+/* Bot: bewertet (Handplättchen × Zelle) und legt die besten */
+function policyWeights(st, opts, effS){
+  const w={n:1,b:1,s:1,k:.4,a:.3};
+  const clampNeed=v=>Math.min(3,Math.max(.6,6/(2+v)));
+  w.n=clampNeed(st.n); w.b=clampNeed(st.b); w.s=clampNeed(effS);
+  const weakest=Math.min(st.n,st.b,effS);
+  if(st.n===weakest)w.n*=1.5; if(st.b===weakest)w.b*=1.4; if(effS===weakest)w.s*=1.4;
+  if(opts.policy==='nahrung'){w.n*=2.2;}
+  if(opts.policy==='schutz'){w.s*=2.5;}
+  if(opts.policy==='auth'){w.a=2;w.k=1.6;}
+  return w;
+}
+function scorePlacement(st, kind, cell, w, roundsLeft, rng){
+  const d=P.tiles[kind];
+  let n=d.n, b=d.b + (kind==='wald'&&st.woodBoost?st.woodBonus:0);
+  for(const ci of P.comboIncome){
+    if(!ci.on) continue;
+    if(ci.tile===kind && cell.adj.some(j=>ci.near.includes(st.board[j]))){n+=ci.n;b+=ci.b;}
+    if(ci.near.includes(kind)) for(const j of cell.adj){ // ich schalte Nachbar-Verbund frei
+      if(st.board[j]===ci.tile && !CELLS[j].adj.some(x=>x!==cell.idx&&ci.near.includes(st.board[x]))){n+=ci.n;b+=ci.b;}
+    }
+  }
+  const sb=speciesBonus(st,kind,cell,P.rules.rounds-roundsLeft+1); n+=sb.n; b+=sb.b;
+  let sVal=d.s, kVal=d.k;
+  for(const co of P.combos){ if(!co.on) continue;
+    const other = kind===co.a?co.b : kind===co.b?co.a : null;
+    if(other && cell.adj.some(j=>st.board[j]===other)){ sVal+=co.s; kVal+=co.k; } }
+  const auth = authBestMatch(kind,cell)?d.auth.pts:d.auth.off;
+  let fundBonus=0;
+  P.funds.forEach((f,i)=>{ if(!st.fundFound[i]&&f.r===cell.r&&f.c===cell.c&&f.types.includes(kind)) fundBonus=f.k*w.k+f.auth*w.a+1.2; });
+  const horiz=Math.min(roundsLeft+1,6)*.5;
+  return w.n*n*horiz + w.b*(b*horiz - d.cost*.5) + w.s*sVal + w.k*kVal + w.a*auth + fundBonus + rng()*.3;
+}
+function botPlace(st, opts, round, rng, log){
+  let placed=0;
+  const roundsLeft=P.rules.rounds-round;
+  while(placed<opts.tilesPerDay && st.hand.length){
+    const effS=st.s+(opts.jaeger&&st.board.some(Boolean)?2:0);
+    const w=policyWeights(st,opts,effS);
+    let best=null;
+    for(let hi=0;hi<st.hand.length;hi++){
+      const kind=st.hand[hi], d=P.tiles[kind];
+      if(d.unlock&&!st.pfahlUnlocked) continue;
+      if(st.b<d.cost) continue;
+      for(const cell of CELLS){
+        if(st.board[cell.idx]||!tileValid(kind,cell)) continue;
+        const sc = opts.policy==='zufall' ? rng() : scorePlacement(st,kind,cell,w,roundsLeft,rng);
+        if(!best||sc>best.sc) best={sc,hi,cell,kind};
+      }
+    }
+    if(!best) break;
+    if(placed>0 && opts.policy!=='zufall' && best.sc<.8) break;
+    // legen (Spiegel von PLACE in engine.ts)
+    const d=P.tiles[best.kind];
+    st.b-=d.cost; st.s+=d.s; st.k+=d.k;
+    st.board[best.cell.idx]=best.kind;
+    st.hand.splice(best.hi,1);
+    checkStaticCombos(st,best.kind,best.cell.idx);
+    const pts=authBestMatch(best.kind,best.cell)?d.auth.pts:d.auth.off;
+    st.authGot+=pts; st.authMax+=d.auth.max;
+    P.funds.forEach((f,i)=>{
+      if(!st.fundFound[i]&&f.r===best.cell.r&&f.c===best.cell.c&&f.types.includes(best.kind)){
+        st.fundFound[i]=true; st.authGot+=f.auth; st.k+=f.k; }
+    });
+    if(log) log.placed.push({kind:best.kind,cellIdx:best.cell.idx});
+    placed++;
+  }
+  return placed;
+}
+function botTech(st, log){
+  P.tech.forEach((t,i)=>{
+    if(!t.on||st.techBought[i]) return;
+    if(t.req && !st.board.includes(t.req)) return;
+    if(st.b < t.cost+1) return;
+    st.techBought[i]=true; st.b-=t.cost;
+    st.s+=t.s; st.k+=t.k; st.perDay.n+=t.nDay; st.perDay.b+=t.bDay;
+    if(log) log.tech.push(t.nm);
+  });
+}
+
+function pickNight(st, round, rng){
+  const a=P.anchors.find(x=>x.on&&x.round===round);
+  if(a) return {def:a, anchor:true, id:'a'+P.anchors.indexOf(a)};
+  const ns=P.nights.filter(x=>x.on&&x.w>0);
+  const total=ns.reduce((s,x)=>s+x.w,0);
+  if(!total) return null;
+  let x=rng()*total;
+  for(const nDef of ns){ x-=nDef.w; if(x<=0) return {def:nDef, anchor:false, id:'n'+P.nights.indexOf(nDef)}; }
+  return {def:ns[0], anchor:false, id:'n'+P.nights.indexOf(ns[0])};
+}
+function applyNight(st, def, effS){
+  let good=true, branch=def.pass;
+  if(def.special==='seeRise'){
+    st.fishBlocked=true;
+    const has=st.board.includes('pfahl');
+    branch=has?def.pass:def.fail; good=has;
+  } else if(def.cond){
+    const v = def.cond.stat==='schutz'?effS : st[def.cond.stat];
+    good = v>=def.cond.gte;
+    branch = good?def.pass:def.fail;
+  } else good = !fxNegative(def.pass);
+  applyFx(st,branch);
+  if(def.special==='woodBoost'){ st.woodBoost=true; st.woodBonus=def.woodBonus??1; }
+  if(def.special==='pfahlUnlock'){ st.pfahlUnlocked=true; for(let i=0;i<(def.pendingCount||0);i++) st.pending.push('pfahl'); }
+  return good;
+}
+
+function simulate(opts, seed, wantDetail){
+  const rng=makeRng(seed);
+  const R=P.rules;
+  const st={ n:R.startN, s:R.startS, b:R.startB, k:R.startK, prog:0,
+    board:new Array(CELLS.length).fill(null), hand:[], pending:[],
+    woodBoost:false, woodBonus:1, pfahlUnlocked:false, fishBlocked:false, extraDraw:false,
+    hungry:0, authGot:0, authMax:0, fundFound:P.funds.map(()=>false),
+    techBought:{}, perDay:{n:0,b:0}, combosSeen:new Set(), dead:null, blocked:0 };
+  // vorplatzierte Start-Plättchen: gebaut, aber ohne Authentizitäts-Wertung
+  for(const t of START_TILES){
+    if(st.board[t.cellIdx]) continue;
+    st.board[t.cellIdx]=t.kind;
+    const d=P.tiles[t.kind]; if(!d) continue;
+    st.s+=d.s; st.k+=d.k;
+  }
+  for(const t of START_TILES) if(st.board[t.cellIdx]===t.kind) checkStaticCombos(st,t.kind,t.cellIdx);
+  // Starthand (mit Fisch/Ufer-Garantie wie START)
+  for(let i=0;i<R.handSize;i++){ const t=drawFromDeck(st,rng); if(t)st.hand.push(t); }
+  if(st.hand.length && !st.hand.some(t=>t==='fisch'||t==='ufer')) st.hand[0]='ufer';
+
+  const evStats={}, traj=[], timeline=wantDetail?[]:null;
+  for(let round=1;round<=R.rounds;round++){
+    const log = wantDetail?{round,placed:[],tech:[],event:null,after:null}:null;
+    if(round>1){ // Morgen: ziehen + Einkommen (Runde 1: nur Starthand, kein Einkommen)
+      const dr=st.extraDraw?2:1; st.extraDraw=false;
+      for(let i=0;i<dr;i++) if(st.hand.length<R.handMax){ const t=drawFromDeck(st,rng); if(t)st.hand.push(t); }
+      while(st.hand.length<R.handSize){ const t=drawFromDeck(st,rng); if(!t)break; st.hand.push(t); }
+      dayIncome(st,opts,round);
+    }
+    // Tag: Bot legt & forscht
+    const placed=botPlace(st,opts,round,rng,log);
+    if(!placed) st.blocked++;
+    botTech(st,log);
+    // Nacht
+    const effS=st.s+(opts.jaeger&&st.board.some(Boolean)?2:0);
+    const night=pickNight(st,round,rng);
+    let good=true;
+    if(night){ good=applyNight(st,night.def,effS);
+      const es=evStats[night.id]??(evStats[night.id]={count:0,good:0});
+      es.count++; if(good)es.good++;
+      if(log) log.event={nm:night.def.nm, good, anchor:night.anchor};
+    }
+    st.n=Math.max(0,st.n-R.eat); // der Stamm isst
+    if(st.n<=0){ st.hungry++; } else st.hungry=0;
+    if(st.hungry>=R.hungerLimit){
+      st.dead=round;
+      if(log){ log.after=snap(st,effS); timeline.push(log); }
+      traj.push(snap(st,effS));
+      break;
+    }
+    const gain=Math.max(0,Math.min(R.progCap,Math.min(st.n,effS,st.b)));
+    st.prog+=gain;
+    if(log){ log.after=snap(st,effS); log.gain=gain; timeline.push(log); }
+    traj.push(snap(st,effS));
+  }
+  if(!st.dead && R.ceremonyOn){ // Zeremonie (vereinfachter Bot-Durchlauf)
+    st.n+=1;
+    const order=['flint','wald','terrasse','fisch','ufer','hoehle','pfahl'];
+    for(const k of order){ const i=st.board.indexOf(k);
+      if(i>=0){ st.board[i]=null; if(k==='hoehle')st.s=Math.max(0,st.s-2); break; } }
+    if(st.board.includes('pfahl')) st.k+=2;
+    else if(st.board.includes('ufer')) st.k+=1;
+    const effS=st.s+(opts.jaeger?2:0);
+    if(effS>=3){ st.n+=2; st.k+=1; st.s=Math.max(0,st.s-1); } else st.s+=1;
+  }
+  const tier = st.dead?'tot' : st.prog>=P.rules.tier2?'pfahlbauer' : st.prog>=P.rules.tier1?'ufer' : 'wild';
+  return { dead:st.dead, prog:st.prog, tier, traj, evStats, board:st.board,
+    authPct: st.authMax?Math.round(st.authGot/st.authMax*100):0,
+    funds: st.fundFound.filter(Boolean).length, k:st.k, blocked:st.blocked, timeline };
+}
+function snap(st,effS){ return {n:st.n,b:st.b,s:effS,k:st.k,prog:st.prog}; }
+
+/* =====================================================================
+   Monte-Carlo-Runner + Aggregation
+   ===================================================================== */
+function readOpts(){
+  return { policy:$('simPolicy').value,
+    tilesPerDay:Math.max(1,Math.min(3,+$('simTiles').value||2)),
+    jaeger:$('simJaeger').checked, sammler:$('simSammler').checked };
+}
+function runMC(){
+  const N=+$('simRuns').value, seed=+$('simSeed').value||42, opts=readOpts();
+  const R=P.rules.rounds;
+  const agg={ N, opts, seed,
+    survived:0, tiers:{pfahlbauer:0,ufer:0,wild:0,tot:0},
+    progs:[], deaths:new Array(R+1).fill(0),
+    traj:Array.from({length:R},()=>({n:[],b:[],s:[],k:[],prog:[]})),
+    evStats:{}, occ:new Array(CELLS.length).fill(0),
+    occKind:Array.from({length:CELLS.length},()=>({})),
+    authSum:0, fundSum:0, kSum:0, blockedRuns:0 };
+  for(let i=0;i<N;i++){
+    const r=simulate(opts, (seed*2654435761 + i*1013904223)>>>0, false);
+    if(!r.dead) agg.survived++; else agg.deaths[r.dead]++;
+    agg.tiers[r.tier]++;
+    agg.progs.push(r.prog);
+    agg.authSum+=r.authPct; agg.fundSum+=r.funds; agg.kSum+=r.k;
+    if(r.blocked)agg.blockedRuns++;
+    r.traj.forEach((s,ri)=>{ const t=agg.traj[ri];
+      t.n.push(s.n);t.b.push(s.b);t.s.push(s.s);t.k.push(s.k);t.prog.push(s.prog); });
+    for(const[id,es]of Object.entries(r.evStats)){
+      const a=agg.evStats[id]??(agg.evStats[id]={count:0,good:0});
+      a.count+=es.count; a.good+=es.good; }
+    r.board.forEach((kind,ci)=>{ if(kind){ agg.occ[ci]++;
+      agg.occKind[ci][kind]=(agg.occKind[ci][kind]||0)+1; } });
+  }
+  return agg;
+}
+function mean(a){ return a.length?a.reduce((x,y)=>x+y,0)/a.length:0; }
+function pct(a,p){ if(!a.length)return 0; const s=[...a].sort((x,y)=>x-y);
+  return s[Math.min(s.length-1,Math.floor(p*s.length))]; }
+function median(a){ return pct(a,.5); }
+
+function summaryOf(agg){
+  return { surv:agg.survived/agg.N*100,
+    progMean:mean(agg.progs), progMed:median(agg.progs),
+    pfahl:agg.tiers.pfahlbauer/agg.N*100, auth:agg.authSum/agg.N,
+    kultur:agg.kSum/agg.N, funds:agg.fundSum/agg.N };
+}
+
+/* =====================================================================
+   Rendering — Auswertung
+   ===================================================================== */
+function fmt(v,d=0){ return v.toLocaleString('de-CH',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function deltaHtml(cur,base,unit='',digits=1,goodUp=true){
+  if(base==null) return '';
+  const d=cur-base;
+  if(Math.abs(d)<.05) return '<div class="delta flat">± 0 zur Basis</div>';
+  const up=d>0, cls=(up===goodUp)?'up':'down', sign=up?'+':'−';
+  return `<div class="delta ${cls}">${sign}${fmt(Math.abs(d),digits)}${unit} zur Basis</div>`;
+}
+function renderCards(){
+  const el=$('cards');
+  if(!RESULT){ el.innerHTML=''; return; }
+  const s=summaryOf(RESULT), b=BASELINE?BASELINE.summary:null;
+  const cards=[
+    {lbl:'Überlebt', val:fmt(s.surv,1)+'%', d:deltaHtml(s.surv,b?.surv,'%',1)},
+    {lbl:'Sesshaftigkeit Ø / Median', val:fmt(s.progMean,1)+' / '+fmt(s.progMed,0), d:deltaHtml(s.progMean,b?.progMean,'',1)},
+    {lbl:'Pfahlbauer-Quote', val:fmt(s.pfahl,1)+'%', d:deltaHtml(s.pfahl,b?.pfahl,'%',1)},
+    {lbl:'Authentizität Ø', val:fmt(s.auth,0)+'%', d:deltaHtml(s.auth,b?.auth,'%',0)},
+    {lbl:'Kultur Ø', val:fmt(s.kultur,1), d:deltaHtml(s.kultur,b?.kultur,'',1)},
+    {lbl:'Fundstellen Ø', val:fmt(s.funds,2)+' / '+P.funds.length, d:deltaHtml(s.funds,b?.funds,'',2)},
+  ];
+  el.innerHTML=cards.map(c=>`<div class="card"><div class="lbl">${c.lbl}</div><div class="val">${c.val}</div>${c.d}</div>`).join('');
+}
+
+function setupCanvas(cv){
+  const dpr=window.devicePixelRatio||1, w=cv.clientWidth||600, h=cv.clientHeight||230;
+  cv.width=w*dpr; cv.height=h*dpr;
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h); return {ctx,w,h};
+}
+function renderTraj(){
+  const cv=$('cvTraj'), {ctx,w,h}=setupCanvas(cv);
+  if(!RESULT) return;
+  const R=P.rules.rounds, pad={l:26,r:8,t:8,b:18};
+  const series=[
+    {nm:'Nahrung', col:CSSV('--good'), get:t=>mean(t.n)},
+    {nm:'Material',col:CSSV('--warn'), get:t=>mean(t.b)},
+    {nm:'Schutz',  col:CSSV('--riverdeep'), get:t=>mean(t.s)},
+    {nm:'Kultur',  col:CSSV('--ember'), get:t=>mean(t.k)},
+    {nm:'Sesshaftigkeit', col:CSSV('--ink'), get:t=>mean(t.prog), bold:true},
+  ];
+  const lo=RESULT.traj.map(t=>pct(t.prog,.25)), hi=RESULT.traj.map(t=>pct(t.prog,.75));
+  let maxV=Math.max(4,...hi);
+  for(const s of series) for(const t of RESULT.traj) maxV=Math.max(maxV,s.get(t));
+  maxV=Math.ceil(maxV+1);
+  const X=i=>pad.l+(w-pad.l-pad.r)*(R>1?i/(R-1):0);
+  const Y=v=>h-pad.b-(h-pad.t-pad.b)*(v/maxV);
+  ctx.font='9px "Space Mono"'; ctx.fillStyle=CSSV('--ink2');
+  ctx.strokeStyle=CSSV('--line'); ctx.lineWidth=1;
+  for(let g=0;g<=maxV;g+=Math.ceil(maxV/5)){ ctx.beginPath();ctx.moveTo(pad.l,Y(g));ctx.lineTo(w-pad.r,Y(g));ctx.stroke(); ctx.fillText(g,4,Y(g)+3); }
+  for(let i=0;i<R;i++){ ctx.fillText(i+1,X(i)-3,h-4); }
+  // Band P25–P75 der Sesshaftigkeit
+  ctx.beginPath();
+  RESULT.traj.forEach((t,i)=>{ const y=Y(hi[i]); i?ctx.lineTo(X(i),y):ctx.moveTo(X(0),y); });
+  for(let i=RESULT.traj.length-1;i>=0;i--) ctx.lineTo(X(i),Y(lo[i]));
+  ctx.closePath(); ctx.fillStyle='rgba(34,48,44,.10)'; ctx.fill();
+  // Basis-Sesshaftigkeit gestrichelt
+  if(BASELINE?.trajProg){ ctx.setLineDash([4,4]); ctx.strokeStyle=CSSV('--ink2'); ctx.lineWidth=1.5;
+    ctx.beginPath(); BASELINE.trajProg.forEach((v,i)=>{ i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(0),Y(v)); }); ctx.stroke(); ctx.setLineDash([]); }
+  for(const s of series){
+    ctx.strokeStyle=s.col; ctx.lineWidth=s.bold?2.5:1.6;
+    ctx.beginPath();
+    RESULT.traj.forEach((t,i)=>{ const y=Y(s.get(t)); i?ctx.lineTo(X(i),y):ctx.moveTo(X(0),y); });
+    ctx.stroke();
+  }
+  $('trajLegend').innerHTML=series.map(s=>`<span style="color:${s.col};font-weight:600">■ ${s.nm}</span>`).join(' · ')
+    + (BASELINE?' · <span style="color:var(--ink2)">┄ Basis (Sesshaftigkeit)</span>':'');
+}
+function renderHist(){
+  const cv=$('cvHist'), {ctx,w,h}=setupCanvas(cv);
+  if(!RESULT) return;
+  const vals=RESULT.progs, baseVals=BASELINE?.progs;
+  const maxP=Math.max(P.rules.tier2+4,...vals,...(baseVals||[0]));
+  const bins=new Array(maxP+1).fill(0); vals.forEach(v=>bins[Math.min(maxP,v)]++);
+  let bbins=null;
+  if(baseVals){ bbins=new Array(maxP+1).fill(0); baseVals.forEach(v=>bbins[Math.min(maxP,v)]++); }
+  const maxC=Math.max(...bins, ...(bbins?bbins.map(c=>c*vals.length/baseVals.length):[0]),1);
+  const pad={l:8,r:8,t:8,b:20}, bw=(w-pad.l-pad.r)/(maxP+1);
+  const Y=c=>h-pad.b-(h-pad.t-pad.b)*(c/maxC);
+  // Tier-Schwellen
+  const vline=(x,col,lbl)=>{ ctx.strokeStyle=col; ctx.lineWidth=1.2; ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,h-pad.b);ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=col; ctx.font='8.5px "Space Mono"'; ctx.fillText(lbl,x+3,pad.t+8); };
+  bins.forEach((c,i)=>{
+    const x=pad.l+i*bw;
+    ctx.fillStyle = i>=P.rules.tier2?CSSV('--ember') : i>=P.rules.tier1?CSSV('--good') : CSSV('--ink2');
+    ctx.globalAlpha=.85; ctx.fillRect(x+1,Y(c),Math.max(1,bw-2),h-pad.b-Y(c)); ctx.globalAlpha=1;
+  });
+  if(bbins){ ctx.strokeStyle=CSSV('--ink'); ctx.lineWidth=1.4;
+    bbins.forEach((c,i)=>{ const cN=c*vals.length/baseVals.length, x=pad.l+i*bw;
+      ctx.strokeRect(x+1,Y(cN),Math.max(1,bw-2),h-pad.b-Y(cN)); }); }
+  vline(pad.l+P.rules.tier1*bw,CSSV('--good'),'Ufer ≥'+P.rules.tier1);
+  vline(pad.l+P.rules.tier2*bw,CSSV('--ember'),'Pfahlbauer ≥'+P.rules.tier2);
+  ctx.fillStyle=CSSV('--ink2'); ctx.font='9px "Space Mono"';
+  for(let i=0;i<=maxP;i+=Math.ceil(maxP/12)) ctx.fillText(i,pad.l+i*bw+bw/2-3,h-6);
+}
+function renderTiers(){
+  const el=$('tiers');
+  if(!RESULT){el.innerHTML='';return;}
+  const N=RESULT.N, t=RESULT.tiers;
+  const rows=[
+    {lbl:'Die Pfahlbauer', v:t.pfahlbauer, col:CSSV('--ember')},
+    {lbl:'Am Ufer angekommen', v:t.ufer, col:CSSV('--good')},
+    {lbl:'Das Tal bleibt wild', v:t.wild, col:CSSV('--ink2')},
+    {lbl:'Verhungert', v:t.tot, col:CSSV('--bad')},
+  ];
+  const base=BASELINE?.tiers, bn=BASELINE?.N;
+  el.innerHTML=rows.map((r,i)=>{
+    const p=r.v/N*100;
+    const bp=base?['pfahlbauer','ufer','wild','tot'].map(k=>base[k]/bn*100)[i]:null;
+    const d=bp==null?'':` (Basis ${fmt(bp,1)}%)`;
+    return `<div class="barrow"><div class="bl">${r.lbl}</div>
+      <div class="track"><div class="fill" style="width:${p}%;background:${r.col}"></div></div>
+      <div class="pv">${fmt(p,1)}%${d}</div></div>`;
+  }).join('');
+  // Todesrunden
+  const dh=$('deathHist'), R=P.rules.rounds;
+  const maxD=Math.max(1,...RESULT.deaths);
+  dh.innerHTML=Array.from({length:R},(_,i)=>{
+    const c=RESULT.deaths[i+1];
+    return `<div style="height:${Math.round(c/maxD*100)}%" title="Runde ${i+1}: ${c} Läufe"></div>`;
+  }).join('');
+}
+function renderEvtTable(){
+  const el=$('evtTable');
+  if(!RESULT){el.innerHTML='';return;}
+  const rows=[];
+  P.anchors.forEach((a,i)=>{ const es=RESULT.evStats['a'+i];
+    rows.push({nm:a.nm,type:'anker',round:'R'+a.round,on:a.on,es}); });
+  P.nights.forEach((n,i)=>{ const es=RESULT.evStats['n'+i];
+    rows.push({nm:n.nm,type:'nacht',round:'—',on:n.on,es}); });
+  el.innerHTML=`<tr><th>Ereignis</th><th>Typ</th><th>Runde</th><th style="text-align:right">Ø pro Lauf</th><th>gut ausgegangen</th></tr>`+
+    rows.map(r=>{
+      const per=r.es?r.es.count/RESULT.N:0;
+      const gp=r.es&&r.es.count?r.es.good/r.es.count*100:null;
+      return `<tr style="${r.on?'':'opacity:.4'}"><td>${r.nm}</td>
+        <td><span class="pill ${r.type}">${r.type==='anker'?'Anker':'Nacht'}</span></td>
+        <td class="num">${r.round}</td>
+        <td class="num">${r.es?fmt(per,2)+'×':'—'}</td>
+        <td>${gp==null?'—':`<span class="gbar"><i style="width:${gp}%"></i></span><span style="font-family:'Space Mono';font-size:10px">${fmt(gp,0)}%</span>`}</td></tr>`;
+    }).join('');
+}
+function renderResults(){
+  renderCards(); renderTraj(); renderHist(); renderTiers(); renderEvtTable(); renderMap();
+  $('baseInfo').innerHTML = RESULT
+    ? `${fmt(RESULT.N)} Läufe · Strategie „${$('simPolicy').selectedOptions[0].text}" · Seed ${RESULT.seed}`
+      + (RESULT.blockedRuns?` · <span style="color:var(--warn)">${RESULT.blockedRuns} Läufe mit blockierten Tagen (nichts legbar)</span>`:'')
+      + (BASELINE?` · <b>Basis gepinnt</b> (${fmt(BASELINE.N)} Läufe)`:'')
+    : '';
+}
+
+/* =====================================================================
+   Karte: Rendering + Editor
+   ===================================================================== */
+function renderMap(){
+  const el=$('map'); el.innerHTML='';
+  const heat=ui.heat&&RESULT;
+  for(let r=0;r<ROWS;r++){
+    const row=document.createElement('div');
+    row.className='hexrow'+(r%2?' odd':'');
+    for(let c=0;c<COLS;c++){
+      const i=r*COLS+c, cell=CELLS[i];
+      const div=document.createElement('div');
+      div.className='cell t-'+cell.t;
+      const st=START_TILES.find(t=>t.cellIdx===i);
+      const fundIdx=P.funds.findIndex(f=>f.r===r&&f.c===c);
+      let inner='<div class="inner">';
+      if(st) inner+=`<div class="tglyph">${GLYPHS[P.tiles[st.kind].glyph]||''}</div>`;
+      inner+='</div>';
+      if(cell.furt) inner+='<div class="furtmark">≋≋</div>';
+      if(fundIdx>=0) inner+='<div class="fundmark">◈</div>';
+      if(heat){
+        const f=RESULT.occ[i]/RESULT.N;
+        if(f>0.02){
+          inner+=`<div class="heat" style="opacity:${(f*.55).toFixed(2)}"></div><div class="heatlbl">${Math.round(f*100)}%</div>`;
+        }
+      }
+      if(st) div.classList.add('start');
+      div.innerHTML=inner;
+      div.title=`${TERRAIN_NAMES[cell.t]}${cell.furt?' · Furt':''}${cell.lakeUfer?' · Seeufer':''}`
+        +(st?` · Start: ${P.tiles[st.kind].nm}`:'')
+        +(fundIdx>=0?` · ◈ ${P.funds[fundIdx].nm}`:'');
+      div.onclick=()=>mapClick(i);
+      row.appendChild(div);
+    }
+    el.appendChild(row);
+  }
+  $('mapModeLbl').textContent = ui.fundPlace!=null ? `Fundstelle setzen: ${P.funds[ui.fundPlace]?.nm??''}`
+    : ui.brush.kind==='terrain' ? `Pinsel: ${TERRAIN_NAMES[ui.brush.val]??ui.brush.val}`
+    : ui.brush.kind==='furt' ? 'Pinsel: Furt (an/aus, nur Fluss)'
+    : `Start-Plättchen: ${P.tiles[ui.brush.val].nm} (Klick legt/entfernt)`;
+}
+function mapClick(i){
+  const cell=CELLS[i];
+  if(ui.fundPlace!=null){
+    const f=P.funds[ui.fundPlace];
+    if(f){ f.r=cell.r; f.c=cell.c; }
+    ui.fundPlace=null; markDirty(); renderMap(); renderSide(); return;
+  }
+  if(ui.brush.kind==='terrain'){
+    MAP.terrain[i]=ui.brush.val;
+    if(ui.brush.val!=='water') MAP.furt[i]=false;
+    rebuild(); return;
+  }
+  if(ui.brush.kind==='furt'){
+    if(MAP.terrain[i]==='water'){ MAP.furt[i]=!MAP.furt[i]; rebuild(); }
+    return;
+  }
+  // Start-Plättchen
+  const kind=ui.brush.val;
+  const ex=START_TILES.findIndex(t=>t.cellIdx===i);
+  if(ex>=0){ START_TILES.splice(ex,1); }
+  else if(!tileValid(kind,cell)){ return; }
+  else START_TILES.push({kind,cellIdx:i});
+  markDirty(); renderMap();
+}
+function rebuild(){
+  CELLS=buildCells(MAP);
+  START_TILES=START_TILES.filter(t=>tileValid(t.kind,CELLS[t.cellIdx]));
+  markDirty(); renderMap();
+}
+
+/* =====================================================================
+   Seitliche Editor-Tabs
+   ===================================================================== */
+const TABS=[
+  {id:'karte', b:'Karte', s:'Gelände · Start'},
+  {id:'deck', b:'Plättchen', s:'Deck · Werte'},
+  {id:'arten', b:'Flora & Fauna', s:'Arten'},
+  {id:'tech', b:'Technologie', s:'Errungensch.'},
+  {id:'evt', b:'Ereignisse', s:'Anker · Nächte'},
+  {id:'regeln', b:'Regeln', s:'Grundwerte'},
+];
+function renderTabs(){
+  $('tabbar').innerHTML=TABS.map(t=>
+    `<div class="tab${ui.tab===t.id?' sel':''}" data-tab="${t.id}"><b>${t.b}</b><small>${t.s}</small></div>`).join('');
+  $('tabbar').querySelectorAll('.tab').forEach(el=>el.onclick=()=>{ ui.tab=el.dataset.tab; renderTabs(); renderSide(); });
+}
+
+/* -- kleine Form-Helfer (Prototyp-Stil: innerHTML + verdrahten) -- */
+function numField(lbl,val,cb,attrs=''){
+  const id='f'+Math.random().toString(36).slice(2,8);
+  queue.push(()=>{ const el=$(id); if(el) el.oninput=()=>{ cb(+el.value||0); markDirty(); }; });
+  return `<div class="field"><label>${lbl}</label><input type="number" id="${id}" value="${val}" ${attrs}></div>`;
+}
+function txtField(lbl,val,cb){
+  const id='f'+Math.random().toString(36).slice(2,8);
+  queue.push(()=>{ const el=$(id); if(el) el.oninput=()=>{ cb(el.value); markDirty(); renderSideSoon(); }; });
+  return `<div class="field"><label>${lbl}</label><input type="text" id="${id}" value="${val.replace(/"/g,'&quot;')}" style="width:100%"></div>`;
+}
+function chkField(lbl,val,cb){
+  const id='f'+Math.random().toString(36).slice(2,8);
+  queue.push(()=>{ const el=$(id); if(el) el.onchange=()=>{ cb(el.checked); markDirty(); renderSideSoon(); }; });
+  return `<label class="checkrow"><input type="checkbox" id="${id}" ${val?'checked':''}> ${lbl}</label>`;
+}
+function selField(lbl,val,options,cb){
+  const id='f'+Math.random().toString(36).slice(2,8);
+  queue.push(()=>{ const el=$(id); if(el) el.onchange=()=>{ cb(el.value); markDirty(); renderSideSoon(); }; });
+  return `<div class="field"><label>${lbl}</label><select id="${id}" style="width:100%">${
+    options.map(o=>`<option value="${o.v}"${o.v===val?' selected':''}>${o.t}</option>`).join('')}</select></div>`;
+}
+function tagChecks(list,selected,cb){
+  const id='f'+Math.random().toString(36).slice(2,8);
+  queue.push(()=>{ const wrap=$(id); if(!wrap)return;
+    wrap.querySelectorAll('input').forEach(inp=>inp.onchange=()=>{
+      const vals=[...wrap.querySelectorAll('input:checked')].map(x=>x.value);
+      cb(vals); markDirty(); }); });
+  return `<div class="tagchecks" id="${id}">${list.map(o=>
+    `<label><input type="checkbox" value="${o.v}"${selected.includes(o.v)?' checked':''}>${o.t}</label>`).join('')}</div>`;
+}
+function fxGrid(lbl,obj,cb){
+  const keys=['n','b','s','k'];
+  return `<div class="field"><label>${lbl}</label><div class="fxgrid">${
+    keys.map(k=>{
+      const id='f'+Math.random().toString(36).slice(2,8);
+      queue.push(()=>{ const el=$(id); if(el) el.oninput=()=>{ obj[k]=+el.value||0; cb&&cb(); markDirty(); }; });
+      return `<div class="fxcell"><span>${RES_NAMES[k][0]}</span><input type="number" id="${id}" value="${obj[k]||0}"></div>`;
+    }).join('')}</div></div>`;
+}
+let queue=[]; // Verdrahtungs-Warteschlange nach innerHTML
+let sideTimer=null;
+function renderSideSoon(){ clearTimeout(sideTimer); sideTimer=setTimeout(renderSide,350); }
+function wire(){ queue.forEach(f=>f()); queue=[]; }
+
+const TERR_OPTS=TERRAIN_KEYS.map(t=>({v:t,t:TERRAIN_NAMES[t]})).concat([{v:'lakeUfer',t:'Seeufer'}]);
+const TILE_OPTS=()=>Object.entries(P.tiles).map(([k,d])=>({v:k,t:d.nm}));
+
+function renderSide(){
+  queue=[];
+  const el=$('sidepanel');
+  let html='';
+  if(ui.tab==='karte') html=sideKarte();
+  else if(ui.tab==='deck') html=sideDeck();
+  else if(ui.tab==='arten') html=sideArten();
+  else if(ui.tab==='tech') html=sideTech();
+  else if(ui.tab==='evt') html=sideEvt();
+  else html=sideRegeln();
+  el.innerHTML=html;
+  wire();
+}
+
+function sideKarte(){
+  const terrSw=TERRAIN_KEYS.map(t=>{
+    const col={flach:'var(--tile)',hang:'var(--panel2)',ufer:'#C4D4BC',water:'var(--river)',lake:'var(--lake)'}[t];
+    const sel=ui.brush.kind==='terrain'&&ui.brush.val===t;
+    return `<div class="swatch${sel?' sel':''}" data-terr="${t}"><div class="dot" style="background:${col}"></div><span>${TERRAIN_NAMES[t]}</span></div>`;
+  }).join('')+`<div class="swatch${ui.brush.kind==='furt'?' sel':''}" data-terr="__furt"><div class="dot" style="background:var(--riverdeep)"></div><span>Furt an/aus</span></div>`;
+  const tileSw=Object.entries(P.tiles).map(([k,d])=>{
+    const sel=ui.brush.kind==='tile'&&ui.brush.val===k;
+    return `<div class="swatch${sel?' sel':''}" data-tile="${k}"><div class="glyph">${GLYPHS[d.glyph]||''}</div><span>${d.nm}</span></div>`;
+  }).join('');
+  const funds=P.funds.map((f,i)=>`
+    <div class="itemrow" data-fund="${i}"><span style="color:var(--ember)">◈</span>
+      <b>${f.nm}</b><small>${f.r},${f.c}</small>
+      <button class="small" data-fundset="${i}" title="Position auf der Karte wählen">setzen</button>
+      <button class="small" data-funddel="${i}">✕</button></div>`).join('');
+  queue.push(()=>{
+    document.querySelectorAll('[data-terr]').forEach(sw=>sw.onclick=()=>{
+      const t=sw.dataset.terr; ui.fundPlace=null;
+      ui.brush = t==='__furt' ? {kind:'furt'} : {kind:'terrain',val:t};
+      renderSide(); renderMap(); });
+    document.querySelectorAll('[data-tile]').forEach(sw=>sw.onclick=()=>{
+      ui.fundPlace=null; ui.brush={kind:'tile',val:sw.dataset.tile}; renderSide(); renderMap(); });
+    document.querySelectorAll('[data-fundset]').forEach(b=>b.onclick=e=>{
+      e.stopPropagation(); ui.fundPlace=+b.dataset.fundset; renderMap(); });
+    document.querySelectorAll('[data-funddel]').forEach(b=>b.onclick=e=>{
+      e.stopPropagation(); P.funds.splice(+b.dataset.funddel,1); markDirty(); renderSide(); renderMap(); });
+    document.querySelectorAll('[data-fund]').forEach(row=>row.onclick=()=>{
+      const i=+row.dataset.fund, f=P.funds[i];
+      const nm=prompt('Name der Fundstelle:',f.nm); if(nm)f.nm=nm; markDirty(); renderSide(); renderMap(); });
+    $('btnFundAdd').onclick=()=>{ P.funds.push({r:0,c:0,types:['ufer'],nm:'Neue Fundstelle',k:1,auth:2}); markDirty(); renderSide(); };
+    $('btnMapReset').onclick=()=>{ MAP=makeDefaultMap(); START_TILES=[]; rebuild(); };
+    $('btnStartClear').onclick=()=>{ START_TILES=[]; markDirty(); renderMap(); };
+  });
+  const fi=ui.fundPlace!=null?null:P.funds[0];
+  let fundEdit='';
+  return `<h4 class="sect">Gelände malen</h4><div class="swatches">${terrSw}</div>
+    <h4 class="sect">Start-Plättchen legen</h4>
+    <div class="hint" style="margin-bottom:6px">Vorplatzierte Plättchen sind bei Simulationsstart gebaut (Schutz/Kultur zählt, keine Authentizitäts-Wertung).</div>
+    <div class="swatches">${tileSw}</div>
+    <div class="subrow"><button class="small" id="btnStartClear">Start-Plättchen leeren</button>
+    <button class="small" id="btnMapReset">Standard-Karte</button></div>
+    <h4 class="sect">Fundstellen ◈</h4>
+    <div class="itemlist">${funds}</div>
+    <div class="subrow"><button class="small" id="btnFundAdd">+ Fundstelle</button></div>
+    <div class="hint" style="margin-top:6px">Klick auf Namen = umbenennen · „setzen" + Klick auf Karte = Position. Werte (Kultur/Auth/Plättchen-Arten) im Export-JSON editierbar.</div>`;
+}
+
+function sideDeck(){
+  const k=ui.selTile, d=P.tiles[k];
+  const list=Object.entries(P.tiles).map(([key,t])=>{
+    return `<div class="itemrow${key===k?' sel':''}" data-t="${key}">
+      <div class="glyph">${GLYPHS[t.glyph]||''}</div><b>${t.nm}</b>
+      <small>×</small><input type="number" data-deck="${key}" value="${P.deck[key]??0}" min="0" style="width:44px" title="Anzahl im Deck (Gewicht)">
+    </div>`;
+  }).join('');
+  queue.push(()=>{
+    document.querySelectorAll('[data-t]').forEach(row=>row.onclick=e=>{
+      if(e.target.tagName==='INPUT')return;
+      ui.selTile=row.dataset.t; renderSide(); });
+    document.querySelectorAll('[data-deck]').forEach(inp=>inp.oninput=()=>{
+      P.deck[inp.dataset.deck]=Math.max(0,+inp.value||0); markDirty(); });
+  });
+  const combos=P.combos.map((co,i)=>`
+    <div style="background:var(--bone);border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin-bottom:5px">
+      ${chkField(`<b style="font-size:11px">${co.label}</b>`,co.on,v=>co.on=v)}
+      <div class="frow" style="margin-top:4px">${numField('Schutz',co.s,v=>co.s=v)}${numField('Kultur',co.k,v=>co.k=v)}</div>
+    </div>`).join('');
+  const comboInc=P.comboIncome.map((ci,i)=>`
+    <div style="background:var(--bone);border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin-bottom:5px">
+      ${chkField(`<b style="font-size:11px">${ci.label}</b>`,ci.on,v=>ci.on=v)}
+      <div class="frow" style="margin-top:4px">${numField('Nahrung/Tag',ci.n,v=>ci.n=v)}${numField('Material/Tag',ci.b,v=>ci.b=v)}</div>
+    </div>`).join('');
+  return `<h4 class="sect">Deck (Anzahl je Plättchen)</h4>
+    <div class="itemlist">${list}</div>
+    <h4 class="sect">Plättchen bearbeiten: ${d.nm}</h4>
+    <div class="editform">
+      ${txtField('Name',d.nm,v=>d.nm=v)}
+      <div class="frow">${numField('Nahrung/Tag',d.n,v=>d.n=v)}${numField('Material/Tag',d.b,v=>d.b=v)}</div>
+      <div class="frow">${numField('Schutz (Bau)',d.s,v=>d.s=v)}${numField('Kultur (Bau)',d.k,v=>d.k=v)}${numField('Kosten (Mat)',d.cost,v=>d.cost=v)}</div>
+      ${chkField('Erst nach Freischaltung legbar (Anker-Ereignis)',d.unlock,v=>d.unlock=v)}
+      <div class="field"><label>Erlaubtes Gelände</label>${tagChecks(TERR_OPTS,d.terrain,v=>d.terrain=v)}</div>
+      <div class="field"><label>Authentizität: bestes Gelände</label>${tagChecks(TERR_OPTS,d.auth.best,v=>d.auth.best=v)}</div>
+      <div class="frow">${numField('Auth (best)',d.auth.pts,v=>d.auth.pts=v)}${numField('Auth (sonst)',d.auth.off,v=>d.auth.off=v)}${numField('Auth max',d.auth.max,v=>d.auth.max=v)}</div>
+    </div>
+    <h4 class="sect">Verbünde (einmalig beim Bau)</h4>${combos}
+    <h4 class="sect">Verbund-Erträge (laufend)</h4>${comboInc}`;
+}
+
+function sideArten(){
+  const i=Math.min(ui.selSpecies,P.species.length-1), sp=P.species[i];
+  const list=P.species.map((s,j)=>`
+    <div class="itemrow${j===i?' sel':''}${s.on?'':' off'}" data-sp="${j}">
+      <div class="sdot ${s.cat}"></div><b>${s.nm}</b>
+      <small>${s.cat==='flora'?'Flora':'Fauna'}</small>
+      <button class="small" data-spdel="${j}">✕</button></div>`).join('');
+  queue.push(()=>{
+    document.querySelectorAll('[data-sp]').forEach(r=>r.onclick=e=>{
+      if(e.target.tagName==='BUTTON')return; ui.selSpecies=+r.dataset.sp; renderSide(); });
+    document.querySelectorAll('[data-spdel]').forEach(b=>b.onclick=e=>{
+      e.stopPropagation(); P.species.splice(+b.dataset.spdel,1); ui.selSpecies=0; markDirty(); renderSide(); });
+    $('btnSpAdd').onclick=()=>{ P.species.push({nm:'Neue Art',cat:'flora',habitat:['ufer'],tile:'wald',mode:'auf',res:'b',amt:1,from:1,to:P.rules.rounds,on:true}); ui.selSpecies=P.species.length-1; markDirty(); renderSide(); };
+  });
+  let form='';
+  if(sp) form=`<div class="editform">
+    ${txtField('Name',sp.nm,v=>sp.nm=v)}
+    <div class="frow">
+      ${selField('Kategorie',sp.cat,[{v:'flora',t:'Flora'},{v:'fauna',t:'Fauna'}],v=>sp.cat=v)}
+      ${selField('Wirkung auf Plättchen',sp.tile,TILE_OPTS(),v=>sp.tile=v)}
+    </div>
+    <div class="field"><label>Lebensraum (Gelände)</label>${tagChecks(TERR_OPTS.filter(o=>o.v!=='lakeUfer'),sp.habitat,v=>sp.habitat=v)}</div>
+    <div class="frow">
+      ${selField('Bezug',sp.mode,[{v:'auf',t:'Plättchen steht im Lebensraum'},{v:'angrenzend',t:'Plättchen grenzt an Lebensraum'}],v=>sp.mode=v)}
+    </div>
+    <div class="frow">
+      ${selField('Ressource',sp.res,[{v:'n',t:'Nahrung'},{v:'b',t:'Material'},{v:'k',t:'Kultur'}],v=>sp.res=v)}
+      ${numField('+ pro Tag',sp.amt,v=>sp.amt=v)}
+    </div>
+    <div class="frow">${numField('Ab Runde',sp.from,v=>sp.from=v,'min="1"')}${numField('Bis Runde',sp.to,v=>sp.to=v)}</div>
+    ${chkField('Art aktiv',sp.on,v=>sp.on=v)}
+  </div>`;
+  return `${chkField('<b>Arten-System aktiv</b> (Standard aus → Basis = aktuelles Spiel)',P.rules.speciesOn,v=>P.rules.speciesOn=v)}
+    <h4 class="sect">Arten</h4><div class="itemlist">${list}</div>
+    <div class="subrow"><button class="small" id="btnSpAdd">+ Art</button></div>${form}
+    <div class="hint" style="margin-top:8px">Eine Art verstärkt Plättchen in oder neben ihrem Lebensraum — z.&nbsp;B. Äschen im Fluss: Fischgründe dort +1 Nahrung/Tag.</div>`;
+}
+
+function sideTech(){
+  const i=Math.min(ui.selTech,P.tech.length-1), t=P.tech[i];
+  const list=P.tech.map((x,j)=>`
+    <div class="itemrow${j===i?' sel':''}${x.on?'':' off'}" data-te="${j}">
+      <b>${x.nm}</b><small>${x.cost} Mat</small>
+      <button class="small" data-tedel="${j}">✕</button></div>`).join('');
+  queue.push(()=>{
+    document.querySelectorAll('[data-te]').forEach(r=>r.onclick=e=>{
+      if(e.target.tagName==='BUTTON')return; ui.selTech=+r.dataset.te; renderSide(); });
+    document.querySelectorAll('[data-tedel]').forEach(b=>b.onclick=e=>{
+      e.stopPropagation(); P.tech.splice(+b.dataset.tedel,1); ui.selTech=0; markDirty(); renderSide(); });
+    $('btnTeAdd').onclick=()=>{ P.tech.push({nm:'Neue Technologie',req:'wald',cost:2,s:0,k:0,nDay:0,bDay:0,on:true}); ui.selTech=P.tech.length-1; markDirty(); renderSide(); };
+  });
+  let form='';
+  if(t) form=`<div class="editform">
+    ${txtField('Name',t.nm,v=>t.nm=v)}
+    <div class="frow">
+      ${selField('Voraussetzung (Plättchen liegt)',t.req||'',[{v:'',t:'— keine —'}].concat(TILE_OPTS()),v=>t.req=v||null)}
+      ${numField('Kosten (Mat)',t.cost,v=>t.cost=v)}
+    </div>
+    <div class="frow">${numField('Schutz sofort',t.s,v=>t.s=v)}${numField('Kultur sofort',t.k,v=>t.k=v)}</div>
+    <div class="frow">${numField('Nahrung/Tag',t.nDay,v=>t.nDay=v)}${numField('Material/Tag',t.bDay,v=>t.bDay=v)}</div>
+    ${chkField('Technologie aktiv',t.on,v=>t.on=v)}
+  </div>`;
+  return `<h4 class="sect">Technologien</h4>
+    <div class="hint" style="margin-bottom:6px">Der Bot erforscht eine Technologie, sobald das vorausgesetzte Plättchen liegt und Material reicht (behält 1 Reserve).</div>
+    <div class="itemlist">${list}</div>
+    <div class="subrow"><button class="small" id="btnTeAdd">+ Technologie</button></div>${form}`;
+}
+
+function condField(o,cb){
+  const has=!!o.cond;
+  const stat=o.cond?.stat??'schutz', gte=o.cond?.gte??4;
+  return `<div class="frow">
+    ${selField('Bedingung',has?stat:'',[
+      {v:'',t:'— keine —'},{v:'schutz',t:'Schutz ≥'},{v:'n',t:'Nahrung ≥'},{v:'b',t:'Material ≥'},{v:'k',t:'Kultur ≥'}
+    ],v=>{ o.cond = v?{stat:v,gte:o.cond?.gte??4}:null; cb&&cb(); })}
+    ${numField('Schwelle',gte,v=>{ if(o.cond)o.cond.gte=v; })}
+  </div>`;
+}
+function sideEvt(){
+  const anchors=P.anchors.map((a,i)=>({id:'a'+i,o:a,typ:'anker'}));
+  const nights=P.nights.map((n,i)=>({id:'n'+i,o:n,typ:'nacht'}));
+  const sel=[...anchors,...nights].find(x=>x.id===ui.selEvt)??anchors[0];
+  const row=x=>`<div class="itemrow${sel&&x.id===sel.id?' sel':''}${x.o.on?'':' off'}" data-ev="${x.id}">
+      <span class="pill ${x.typ}">${x.typ==='anker'?'R'+x.o.round:'w'+x.o.w}</span><b>${x.o.nm}</b>
+      ${x.typ==='nacht'?`<button class="small" data-evdel="${x.id}">✕</button>`:''}</div>`;
+  queue.push(()=>{
+    document.querySelectorAll('[data-ev]').forEach(r=>r.onclick=e=>{
+      if(e.target.tagName==='BUTTON')return; ui.selEvt=r.dataset.ev; renderSide(); });
+    document.querySelectorAll('[data-evdel]').forEach(b=>b.onclick=e=>{
+      e.stopPropagation(); P.nights.splice(+b.dataset.evdel.slice(1),1); ui.selEvt='a0'; markDirty(); renderSide(); });
+    const add=$('btnEvAdd'); if(add) add.onclick=()=>{
+      P.nights.push({nm:'Neue Nacht',w:10,cond:null,pass:{},fail:{},on:true});
+      ui.selEvt='n'+(P.nights.length-1); markDirty(); renderSide(); };
+    const addA=$('btnAnAdd'); if(addA) addA.onclick=()=>{
+      P.anchors.push({round:2,nm:'Neues Anker-Ereignis',special:null,pendingCount:0,woodBonus:1,cond:null,pass:{},fail:{},on:true});
+      ui.selEvt='a'+(P.anchors.length-1); markDirty(); renderSide(); };
+  });
+  let form='';
+  if(sel){
+    const o=sel.o, isA=sel.typ==='anker';
+    o.pass=o.pass||{}; o.fail=o.fail||{};
+    form=`<div class="editform">
+      ${txtField('Name',o.nm,v=>o.nm=v)}
+      <div class="frow">
+        ${isA?numField('Runde',o.round,v=>o.round=v,'min="1"'):numField('Gewicht',o.w,v=>o.w=v,'min="0"')}
+        ${isA?selField('Spezialeffekt',o.special||'',[
+          {v:'',t:'— keiner —'},{v:'woodBoost',t:'Wald-Boost (Auenwald +Bonus/Tag)'},
+          {v:'pfahlUnlock',t:'Pfahlbau freischalten (+Plättchen)'},{v:'seeRise',t:'Seespiegel (Pfahlbau-Probe, Fisch gestört)'}
+        ],v=>o.special=v||null):''}
+      </div>
+      ${isA&&o.special==='woodBoost'?numField('Wald-Bonus/Tag',o.woodBonus??1,v=>o.woodBonus=v):''}
+      ${isA&&o.special==='pfahlUnlock'?numField('Pfahl-Plättchen auf die Hand',o.pendingCount??2,v=>o.pendingCount=v):''}
+      ${o.special==='seeRise'?'<div class="hint">Probe: Liegt ein Pfahlbau? → „bestanden", sonst „nicht bestanden". Fischgründe am Folgetag gestört.</div>':condField(o)}
+      ${fxGrid(o.cond||o.special==='seeRise'?'Effekt wenn bestanden (N·M·S·K)':'Effekt (N·M·S·K)',o.pass)}
+      ${(o.cond||o.special==='seeRise')?fxGrid('Effekt wenn nicht bestanden',o.fail):''}
+      ${sel.typ==='nacht'?chkField('Extra-Plättchen am Morgen',!!o.pass.extraDraw,v=>o.pass.extraDraw=v?1:0):''}
+      ${chkField('Ereignis aktiv',o.on,v=>o.on=v)}
+    </div>`;
+  }
+  return `<h4 class="sect">Anker-Ereignisse (belegt · feste Runde)</h4>
+    <div class="itemlist">${anchors.map(row).join('')}</div>
+    <div class="subrow"><button class="small" id="btnAnAdd">+ Anker</button></div>
+    <h4 class="sect">Streu-Nächte (gewichtet zufällig)</h4>
+    <div class="itemlist">${nights.map(row).join('')}</div>
+    <div class="subrow"><button class="small" id="btnEvAdd">+ Nacht</button></div>${form}
+    <div class="hint" style="margin-top:8px">Alle Ereignisse: historisch inspiriert und vereinfacht.</div>`;
+}
+
+function sideRegeln(){
+  const R=P.rules;
+  return `<h4 class="sect">Startwerte</h4>
+    <div class="frow">${numField('Nahrung',R.startN,v=>R.startN=v)}${numField('Material',R.startB,v=>R.startB=v)}${numField('Schutz',R.startS,v=>R.startS=v)}${numField('Kultur',R.startK,v=>R.startK=v)}</div>
+    <h4 class="sect">Rundenlauf</h4>
+    <div class="frow">${numField('Runden',R.rounds,v=>R.rounds=Math.max(1,v),'min="1" max="30"')}${numField('Essen/Nacht',R.eat,v=>R.eat=v)}${numField('Hunger-Limit',R.hungerLimit,v=>R.hungerLimit=Math.max(1,v))}</div>
+    <div class="frow">${numField('Sessh.-Deckel/Nacht',R.progCap,v=>R.progCap=v)}${numField('Handgröße',R.handSize,v=>R.handSize=Math.max(1,v))}${numField('Hand max',R.handMax,v=>R.handMax=Math.max(1,v))}</div>
+    <h4 class="sect">Wertung</h4>
+    <div class="frow">${numField('„Am Ufer" ab',R.tier1,v=>R.tier1=v)}${numField('„Pfahlbauer" ab',R.tier2,v=>R.tier2=v)}</div>
+    ${chkField('Zeremonie am Ende (Bot spielt sie vereinfacht)',R.ceremonyOn,v=>R.ceremonyOn=v)}
+    <div class="hint" style="margin-top:10px">Sesshaftigkeit pro Nacht = schwächste Ressource aus Nahrung, Schutz (inkl. Jäger), Material — gedeckelt. Zwei Hungernächte in Folge beenden den Lauf.</div>`;
+}
+
+/* =====================================================================
+   Beispiellauf (Einzelpartie mit Zeitleiste)
+   ===================================================================== */
+function runDetail(){
+  const seed=((+$('simSeed').value||42)*2654435761 + detailIdx*97561)>>>0;
+  DETAIL=simulate(readOpts(), seed, true);
+  $('detailWrap').style.display='';
+  const sc=$('runScrub');
+  sc.max=DETAIL.timeline.length; sc.value=DETAIL.timeline.length;
+  $('detailInfo').textContent = DETAIL.dead
+    ? `Lauf #${detailIdx+1}: verhungert in Runde ${DETAIL.dead}.`
+    : `Lauf #${detailIdx+1}: Sesshaftigkeit ${DETAIL.prog} → ${({pfahlbauer:'Die Pfahlbauer',ufer:'Am Ufer angekommen',wild:'Das Tal bleibt wild'})[DETAIL.tier]}`;
+  renderDetail();
+}
+function renderDetail(){
+  if(!DETAIL) return;
+  const upTo=+$('runScrub').value;
+  // Karte des Laufs
+  const el=$('runmap'); el.innerHTML='';
+  const board=new Array(CELLS.length).fill(null);
+  for(const t of START_TILES) board[t.cellIdx]=t.kind;
+  DETAIL.timeline.slice(0,upTo).forEach(l=>l.placed.forEach(p=>board[p.cellIdx]=p.kind));
+  for(let r=0;r<ROWS;r++){
+    const row=document.createElement('div'); row.className='hexrow'+(r%2?' odd':'');
+    for(let c=0;c<COLS;c++){
+      const i=r*COLS+c, cell=CELLS[i];
+      const div=document.createElement('div'); div.className='cell t-'+cell.t;
+      let inner='<div class="inner">';
+      if(board[i]) inner+=`<div class="tglyph">${GLYPHS[P.tiles[board[i]]?.glyph]||''}</div>`;
+      inner+='</div>';
+      if(cell.furt) inner+='<div class="furtmark">≋≋</div>';
+      div.innerHTML=inner;
+      row.appendChild(div);
+    }
+    el.appendChild(row);
+  }
+  const cur=DETAIL.timeline[upTo-1];
+  $('runScrubLbl').textContent=cur?`Runde ${cur.round} · N ${cur.after.n} · M ${cur.after.b} · S ${cur.after.s} · K ${cur.after.k} · Sessh. ${cur.after.prog}`:'';
+  $('runlog').innerHTML=DETAIL.timeline.map((l,i)=>{
+    const parts=[];
+    if(l.placed.length) parts.push('Gelegt: '+l.placed.map(p=>P.tiles[p.kind]?.nm??p.kind).join(', '));
+    if(l.tech.length) parts.push('Erforscht: '+l.tech.join(', '));
+    if(l.event) parts.push(`<span class="${l.event.good?'ev-good':'ev-bad'}">${l.event.anchor?'⚓ ':'☾ '}${l.event.nm} — ${l.event.good?'gut ausgegangen':'schlecht ausgegangen'}</span>`);
+    if(l.gain!=null) parts.push(`Sesshaftigkeit +${l.gain}`);
+    if(DETAIL.dead===l.round) parts.push('<span class="ev-bad"><b>Der Stamm verhungert.</b></span>');
+    return `<div class="logrow${i===upTo-1?' cur':''}" data-lr="${i+1}"><b>Runde ${l.round}</b> · ${parts.join(' · ')}
+      <span class="stats">danach: Nahrung ${l.after.n} · Material ${l.after.b} · Schutz ${l.after.s} · Kultur ${l.after.k} · Sesshaftigkeit ${l.after.prog}</span></div>`;
+  }).join('');
+  document.querySelectorAll('[data-lr]').forEach(r=>r.onclick=()=>{ $('runScrub').value=r.dataset.lr; renderDetail(); });
+  const curEl=document.querySelector('.logrow.cur'); if(curEl) curEl.scrollIntoView({block:'nearest'});
+}
+
+/* =====================================================================
+   Persistenz / Export / Import
+   ===================================================================== */
+const LS_KEY='mechanik-labor-v1';
+function persist(){
+  try{ localStorage.setItem(LS_KEY,JSON.stringify({P,MAP,START_TILES})); }catch(e){}
+}
+function restore(){
+  try{
+    const raw=localStorage.getItem(LS_KEY); if(!raw)return;
+    const o=JSON.parse(raw);
+    if(o?.P?.version==='mechanik-labor-v1'){ P=o.P; MAP=o.MAP; START_TILES=o.START_TILES||[]; }
+  }catch(e){}
+}
+function doExport(){
+  const blob=new Blob([JSON.stringify({P,MAP,START_TILES},null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='mechanik-labor-config.json'; a.click();
+  URL.revokeObjectURL(a.href);
+}
+function doImport(file){
+  const rd=new FileReader();
+  rd.onload=()=>{ try{
+    const o=JSON.parse(rd.result);
+    if(o?.P?.version!=='mechanik-labor-v1'){ alert('Kein Mechanik-Labor-Export.'); return; }
+    P=o.P; MAP=o.MAP; START_TILES=o.START_TILES||[];
+    CELLS=buildCells(MAP); markDirty(); renderTabs(); renderSide(); renderMap();
+  }catch(e){ alert('Import fehlgeschlagen: '+e.message); } };
+  rd.readAsText(file);
+}
+
+/* =====================================================================
+   Verdrahtung + Start
+   ===================================================================== */
+function runAndRender(){
+  const t0=performance.now();
+  RESULT=runMC();
+  RESULT.seed=+$('simSeed').value||42;
+  $('dirtyFlag').classList.remove('show');
+  renderResults();
+  const ms=performance.now()-t0;
+  $('baseInfo').innerHTML+=` · ${fmt(ms,0)} ms`;
+}
+$('btnRun').onclick=runAndRender;
+$('btnPin').onclick=()=>{
+  if(!RESULT){ runAndRender(); }
+  BASELINE={ summary:summaryOf(RESULT), tiers:{...RESULT.tiers}, N:RESULT.N,
+    progs:[...RESULT.progs], trajProg:RESULT.traj.map(t=>mean(t.prog)) };
+  renderResults();
+};
+$('chkHeat').onchange=e=>{ ui.heat=e.target.checked; renderMap(); };
+$('btnDetail').onclick=runDetail;
+$('btnDetailNext').onclick=()=>{ detailIdx++; runDetail(); };
+$('runScrub').oninput=renderDetail;
+$('btnExport').onclick=doExport;
+$('btnImport').onclick=()=>$('fileImport').click();
+$('fileImport').onchange=e=>{ if(e.target.files[0]) doImport(e.target.files[0]); e.target.value=''; };
+$('btnReset').onclick=()=>{
+  if(!confirm('Alle Parameter, Karte und Start-Plättchen auf den Spielstand zurücksetzen?'))return;
+  P=makeDefaults(); MAP=makeDefaultMap(); START_TILES=[]; CELLS=buildCells(MAP);
+  BASELINE=null; localStorage.removeItem(LS_KEY);
+  renderTabs(); renderSide(); renderMap(); runAndRender();
+};
+['simRuns','simPolicy','simTiles','simSeed','simJaeger','simSammler'].forEach(id=>{
+  $(id).addEventListener('change',()=>$('dirtyFlag').classList.add('show'));
+});
+window.addEventListener('resize',()=>{ if(RESULT){ renderTraj(); renderHist(); } });
+
+restore();
+CELLS=buildCells(MAP);
+renderTabs(); renderSide(); renderMap();
+runAndRender();
+</script>
+</body>
+</html>

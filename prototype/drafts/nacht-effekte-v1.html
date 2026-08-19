@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>STROMLINIEN · Nacht-Effekte</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+:root{
+  --bg:#DCE3D8; --panel:#ECEFE6; --panel2:#E2E7DC; --ink:#22302C; --ink2:#5A6B64;
+  --river:#7FB2AC; --riverdeep:#5E9793; --lake:#8FBDB6;
+  --ember:#C96F2E; --emberglow:rgba(224,138,60,.0);
+  --bone:#F2EDE0; --line:#B8C2B4; --good:#4E7D5B; --bad:#9C4A33;
+  --tile:#CDD6C8; --tileink:#33443E;
+  --shadow:0 2px 10px rgba(30,45,40,.12);
+}
+body.night{
+  --bg:#0D151D; --panel:#141F28; --panel2:#101A22; --ink:#E6E1D2; --ink2:#8B9690;
+  --river:#2E5457; --riverdeep:#24444a; --lake:#2F5A5C;
+  --ember:#E08A3C; --emberglow:rgba(224,138,60,.28);
+  --bone:#1B2731; --line:#2C3B44; --good:#7FB08B; --bad:#D07B5E;
+  --tile:#1E2C34; --tileink:#C9D2C6;
+  --shadow:0 2px 14px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+html,body{margin:0;padding:0;}
+html{overscroll-behavior:none;}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:'Instrument Sans',system-ui,sans-serif;
+  transition:background 1.4s ease, color 1.4s ease;
+  min-height:100vh; min-height:100dvh;
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;}}
+.wrap{max-width:480px;margin:0 auto;padding:10px 10px calc(120px + env(safe-area-inset-bottom));}
+
+header{display:flex;justify-content:space-between;align-items:flex-end;padding:6px 2px 10px;}
+.brand{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:15px;letter-spacing:.14em;}
+.brand small{display:block;font-family:'Space Mono',monospace;font-weight:400;font-size:10px;letter-spacing:.08em;color:var(--ink2);margin-top:2px;}
+.year{font-family:'Space Mono',monospace;text-align:right;}
+.year b{font-size:20px;font-weight:700;display:block;line-height:1;}
+.year span{font-size:10px;color:var(--ink2);letter-spacing:.1em;}
+.phase-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--ember);margin-right:5px;vertical-align:1px;box-shadow:0 0 8px var(--emberglow);}
+
+.res{display:flex;gap:6px;margin-bottom:12px;}
+.chip{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 4px;text-align:center;box-shadow:var(--shadow);transition:background 1.4s ease;}
+.chip b{font-family:'Space Mono',monospace;font-size:17px;display:block;line-height:1.1;}
+.chip span{font-size:9.5px;letter-spacing:.06em;color:var(--ink2);text-transform:uppercase;}
+.chip.flash{animation:flash .7s ease;}
+@keyframes flash{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+
+/* ---------- map: hexagonal, odd-r offset rows, pointy-top (aus stromlinien-epoche1) ---------- */
+.map{--hexw:72px;--hexh:calc(var(--hexw)*1.1547);--hexgap:4px;margin-bottom:12px;}
+.hexrow{display:flex;gap:var(--hexgap);}
+.hexrow.odd{margin-left:calc(var(--hexw)/2 + var(--hexgap)/2);}
+.hexrow + .hexrow{margin-top:calc(var(--hexh)*-0.25 + var(--hexgap));}
+.cell{position:relative;width:var(--hexw);height:var(--hexh);flex:none;display:flex;align-items:center;justify-content:center;--edge:var(--line);--fill:var(--tile);transition:filter .25s;cursor:pointer;}
+.cell::before{content:'';position:absolute;inset:0;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--edge);transition:background .25s;}
+.cell::after{content:'';position:absolute;inset:1.5px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background-color:var(--fill);transition:background-color 1.4s ease;}
+.cell.water{--fill:var(--river);--edge:var(--riverdeep);}
+.cell.lake{--fill:var(--lake);--edge:var(--riverdeep);}
+.cell.hang{--fill:var(--panel2);}
+.cell.hang::after{background-image:repeating-linear-gradient(135deg,transparent 0 5px,rgba(90,107,100,.13) 5px 7px);}
+.cell.furt::after{background-image:repeating-linear-gradient(0deg,var(--river) 0 4px,var(--lake) 4px 8px);}
+.cell.furt .furtlabel{position:absolute;top:14%;left:0;right:0;text-align:center;font-family:'Space Mono',monospace;font-size:7px;letter-spacing:.14em;color:rgba(255,255,255,.9);pointer-events:none;z-index:1;}
+.cell .glyph{width:52%;height:52%;color:var(--tileink);z-index:1;}
+.cell.placed .glyph{color:var(--ink);}
+.cell.valid{--edge:var(--ember);filter:drop-shadow(0 0 7px var(--ember));}
+.cell.valid:active{transform:scale(.95);}
+.cell.inspect{--edge:var(--ink);filter:drop-shadow(0 0 6px rgba(30,45,40,.4));}
+body.night .cell.inspect{filter:drop-shadow(0 0 6px rgba(230,225,210,.3));}
+.person{position:absolute;top:5%;right:5%;width:19px;height:19px;border-radius:50%;background:var(--ember);color:#14100a;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;z-index:3;box-shadow:0 1px 4px rgba(0,0,0,.35);border:1.5px solid var(--bg);}
+.wanderer{position:absolute;bottom:5%;right:5%;width:19px;height:19px;border-radius:50%;background:var(--bone);color:var(--ink);display:flex;align-items:center;justify-content:center;z-index:3;border:1.5px solid var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.3);}
+.wanderer svg{width:12px;height:12px;}
+/* Effekt-Marker mit Restdauer */
+.emark{position:absolute;top:4%;left:4%;min-width:21px;height:21px;border-radius:6px;background:var(--bad);color:#fff;display:flex;align-items:center;justify-content:center;gap:1px;padding:0 3px;z-index:4;box-shadow:0 1px 4px rgba(0,0,0,.35);border:1.5px solid var(--bg);}
+.emark svg{width:12px;height:12px;}
+.emark b{font-family:'Space Mono',monospace;font-size:9px;font-weight:700;line-height:1;}
+.cell.spreadnew{animation:spreadpulse 1.6s ease;}
+@keyframes spreadpulse{0%{filter:drop-shadow(0 0 0 var(--bad))}45%{filter:drop-shadow(0 0 11px var(--bad))}100%{filter:none}}
+
+/* ---------- Effekt-Leiste ---------- */
+.efx{background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:12px;box-shadow:var(--shadow);transition:background 1.4s ease;}
+.efx .efx-lbl{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);display:block;margin-bottom:5px;}
+.efx .efx-none{font-size:11.5px;color:var(--ink2);font-style:italic;}
+.efx-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px dashed var(--line);}
+.efx-row:first-of-type{border-top:none;}
+.efx-row .eg{width:20px;height:20px;color:var(--bad);flex:none;}
+.efx-row .et{flex:1;line-height:1.25;}
+.efx-row .et b{font-size:12px;display:block;}
+.efx-row .et span{font-size:10px;color:var(--ink2);font-family:'Space Mono',monospace;}
+.efx-row button{font-size:10px;padding:5px 8px;border-radius:7px;flex:none;}
+
+.tileinfo{background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px;box-shadow:var(--shadow);}
+.tileinfo .ti-head{display:flex;align-items:baseline;gap:8px;}
+.tileinfo .ti-head b{font-family:'Bricolage Grotesque',sans-serif;font-size:14px;font-weight:800;}
+.tileinfo .ti-loc{font-family:'Space Mono',monospace;font-size:10px;color:var(--ink2);margin-left:auto;}
+.tileinfo .ti-close{border:none;background:none;color:var(--ink2);font-size:15px;cursor:pointer;padding:0 2px;line-height:1;font-family:inherit;}
+.tileinfo .ti-desc{font-size:11.5px;color:var(--ink2);margin:3px 0 0;line-height:1.45;}
+.tileinfo ul{margin:5px 0 0;padding-left:16px;font-size:11.5px;}
+.tileinfo li{margin-bottom:2px;}
+
+.peoplebar{display:flex;gap:6px;margin-bottom:12px;}
+.pbtn{flex:1;display:flex;align-items:center;gap:8px;background:var(--panel);border:1.5px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer;transition:border-color .2s,background 1.4s ease;user-select:none;}
+.pbtn.sel{border-color:var(--ember);box-shadow:0 0 10px var(--emberglow);}
+.pbtn.moved{opacity:.45;}
+.pbtn .pico{width:23px;height:23px;border-radius:50%;background:var(--ember);color:#14100a;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:none;}
+.pbtn .ptxt{line-height:1.15;}
+.pbtn .ptxt b{font-size:11.5px;display:block;}
+.pbtn .ptxt span{font-size:9px;color:var(--ink2);font-family:'Space Mono',monospace;}
+
+.barwrap{position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:1px solid var(--line);transition:background 1.4s ease;z-index:30;padding-bottom:env(safe-area-inset-bottom);}
+.bar{max-width:480px;margin:0 auto;padding:10px;display:flex;gap:8px;}
+button{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:13px;letter-spacing:.04em;border-radius:9px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);padding:10px 12px;cursor:pointer;transition:all .2s;}
+button:active{transform:scale(.97);}
+button.primary{background:var(--ink);color:var(--bg);flex:1;}
+body.night button.primary{background:var(--ember);border-color:var(--ember);color:#14100a;}
+button:disabled{opacity:.35;pointer-events:none;}
+button.small{font-size:11px;padding:8px 10px;}
+
+.toast{position:fixed;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%) translateY(-90px);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:24px;font-size:12.5px;font-weight:600;z-index:60;transition:transform .4s cubic-bezier(.2,.9,.3,1.2);max-width:88vw;text-align:center;box-shadow:var(--shadow);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.prompt{position:fixed;bottom:calc(72px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:var(--ember);color:#14100a;padding:8px 15px;border-radius:20px;font-size:12px;font-weight:700;z-index:35;box-shadow:var(--shadow);max-width:90vw;text-align:center;display:none;}
+.prompt.on{display:block;}
+
+.overlay{position:fixed;inset:0;background:rgba(8,13,18,0);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;pointer-events:none;opacity:0;visibility:hidden;transition:background 1.2s ease,opacity .8s ease,visibility 0s linear 1.2s;}
+.overlay.on{background:rgba(8,13,18,.88);pointer-events:auto;opacity:1;visibility:visible;transition:background 1.2s ease,opacity .8s ease,visibility 0s;}
+.ncard{width:100%;max-width:400px;background:#17232D;border:1px solid #3A4B54;color:#E6E1D2;border-radius:14px;padding:24px 20px;}
+.ncard.effect{border:2px solid var(--bad);box-shadow:0 0 30px rgba(156,74,51,.4);}
+.ncard .tag{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.16em;color:var(--ember);margin-bottom:9px;text-transform:uppercase;}
+.ncard h2{font-family:'Bricolage Grotesque',sans-serif;font-size:22px;font-weight:800;margin:0 0 10px;line-height:1.15;}
+.ncard p{font-size:13.5px;line-height:1.55;color:#C7CFC3;margin:0 0 8px;}
+.ncard .events{margin:12px 0 0;padding:10px 0 0;border-top:1px dashed #3A4B54;font-size:12px;line-height:1.5;color:#C7CFC3;}
+.ncard .events div{margin-bottom:3px;}
+.ncard button{margin-top:16px;width:100%;background:var(--ember);border-color:var(--ember);color:#14100a;}
+.ncard .choices button{margin-top:8px;background:transparent;border-color:#5A6B64;color:#E6E1D2;text-align:left;font-size:12.5px;padding:11px 13px;}
+.ncard .choices button small{display:block;font-weight:400;font-size:11px;color:#8B9690;margin-top:2px;font-family:'Space Mono',monospace;}
+
+.full{position:fixed;inset:0;background:var(--bg);z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:max(22px,env(safe-area-inset-top)) 20px 30px;overflow-y:auto;height:100dvh;}
+.full-inner{max-width:420px;width:100%;margin:auto 0;}
+.full h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:32px;line-height:1.03;margin:0 0 4px;}
+.full .sub{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.18em;color:var(--ember);text-transform:uppercase;margin-bottom:16px;}
+.full p{font-size:13.5px;line-height:1.6;margin:0 0 11px;}
+.full p.dim{color:var(--ink2);font-size:12.5px;}
+.full button{width:100%;margin-top:6px;}
+.legend{font-size:10.5px;color:var(--ink2);line-height:1.5;margin-top:14px;}
+.hid{display:none!important;}
+</style>
+</head>
+<body>
+
+<!-- ============ INTRO ============ -->
+<div class="full" id="intro">
+  <div class="full-inner">
+    <div class="sub">Werkstatt · Nacht-Effekte</div>
+    <h1>Was die Nacht<br>zurücklässt.</h1>
+    <p>Prüfstand für eine Frage: Was passiert, wenn die Nacht nicht mehr nur Ressourcen kostet, sondern <b>Zustände auf dem Brett hinterlässt</b>, die in die folgenden Tage hineinreichen?</p>
+    <p class="dim"><b>Zeitweilige Effekte</b> liegen auf einem Feld und tragen eine Restdauer. Sie mindern oder blockieren dessen Ertrag, bis sie ablaufen.</p>
+    <p class="dim"><b>Ausbreitung</b>: Manche Effekte greifen jede Nacht auf ein Nachbarfeld über – Verlandung dem Wasser entlang, Wildseuche über Land, Schlamm den Fluss hinab.</p>
+    <p class="dim"><b>Du wendest sie an</b>: Wenn ein Effekt eintrifft, wählst <i>du</i>, welches deiner Felder ihn trägt. Das ist der Kern des Versuchs – Anwenden als Entscheidung, nicht als Buchhaltung.</p>
+    <p class="dim"><b>Menschen halten dagegen</b>: Der <b>Jäger ➤</b> verhindert die Ausbreitung von dem Feld, auf dem er steht. Die <b>Sammlerin ✦</b> bringt +1 Ertrag – auf einem befallenen Feld nichts.</p>
+    <p class="dim"><b>Wanderer</b> ziehen übers Brett auf dein Lager zu. Am Feuer aufnehmen bringt Wissen und Material – und vielleicht mehr, als dir lieb ist.</p>
+    <button class="primary" onclick="startGame()">Der erste Tag</button>
+    <p class="legend">Prototyp, Epoche I. Effekte sind natürlich, nicht übernatürlich – die Furcht dieser Epoche gilt dem Tier, nicht dem Fluch. Historisch inspiriert und vereinfacht.</p>
+  </div>
+</div>
+
+<!-- ============ GAME ============ -->
+<div class="wrap hid" id="game">
+  <header>
+    <div class="brand">STROMLINIEN<small>NACHT-EFFEKTE · WERKSTATT</small></div>
+    <div class="year"><b id="rnd">1</b><span><span class="phase-dot"></span><span id="phaselbl">TAG</span></span></div>
+  </header>
+
+  <div class="res">
+    <div class="chip" id="chipN"><b id="rN">5</b><span>Nahrung</span></div>
+    <div class="chip" id="chipS"><b id="rS">2</b><span>Schutz</span></div>
+    <div class="chip" id="chipB"><b id="rB">3</b><span>Material</span></div>
+    <div class="chip" id="chipK"><b id="rK">0</b><span>Kultur</span></div>
+  </div>
+
+  <div class="peoplebar">
+    <div class="pbtn" id="pb_sammler" onclick="selPersonToggle('sammler')">
+      <div class="pico">✦</div><div class="ptxt"><b>Sammlerin</b><span id="pt_sammler">–</span></div>
+    </div>
+    <div class="pbtn" id="pb_jaeger" onclick="selPersonToggle('jaeger')">
+      <div class="pico">➤</div><div class="ptxt"><b>Jäger</b><span id="pt_jaeger">–</span></div>
+    </div>
+  </div>
+
+  <div class="efx" id="efx"></div>
+  <div class="tileinfo hid" id="tileinfo"></div>
+  <div class="map" id="map"></div>
+</div>
+
+<div class="barwrap hid" id="barwrap">
+  <div class="bar">
+    <button class="small" id="btnSkip" onclick="passDay()">Tag verstreichen</button>
+    <button class="primary" id="btnNight" onclick="beginNight()">Nacht anbrechen lassen</button>
+  </div>
+</div>
+
+<div class="prompt" id="prompt"></div>
+<div class="overlay" id="overlay"><div class="ncard" id="ncard"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= GRID (pointy-top, odd-r offset — identisch zu stromlinien-epoche1) ================= */
+const COLS=5, ROWS=6, ROUNDS=8;
+const HEXDIRS_EVEN=[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]];
+const HEXDIRS_ODD =[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
+
+const G={
+  fisch:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 20 Q16 10 27 16 Q33 19 34 20 Q33 21 27 24 Q16 30 6 20 Z"/><path d="M34 20 L39 14 M34 20 L39 26"/><circle cx="13" cy="18.5" r="1.4" fill="currentColor"/></svg>',
+  ufer:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 26 L20 12 L32 26"/><path d="M20 12 V26"/><path d="M5 32 Q12 29 20 32 Q28 35 35 32"/></svg>',
+  wald:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M13 32 V22 M13 22 L7 24 M13 22 L19 24 M13 15 L8 18 M13 15 L18 18 M13 8 L13 15"/><path d="M28 32 V20 M28 20 L22 23 M28 20 L34 23 M28 12 L23 16 M28 12 L33 16"/></svg>',
+  terrasse:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 32 H35 M9 25 H31 M14 18 H26 M18 11 H22"/></svg>',
+  hoehle:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 32 Q6 12 20 12 Q34 12 34 32"/><path d="M14 32 Q14 20 20 20 Q26 20 26 32"/></svg>',
+  /* Effekt-Glyphen */
+  wild:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 34 L12 20 L8 14 M12 20 L16 14 M28 34 L28 20 L24 14 M28 20 L32 14"/><path d="M6 8 Q20 2 34 8"/></svg>',
+  bruch:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M20 36 V22 L10 10 M20 22 L30 14"/><path d="M8 6 L16 14 M32 6 L26 12"/></svg>',
+  schilf:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 36 Q10 22 14 8 M20 36 Q20 20 20 6 M28 36 Q30 22 26 8"/></svg>',
+  seuche:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="20" cy="20" r="5"/><path d="M20 8 V2 M20 38 V32 M8 20 H2 M38 20 H32 M11 11 L7 7 M29 29 L33 33 M29 11 L33 7 M11 29 L7 33"/></svg>',
+  schlamm:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 14 Q12 8 20 14 Q28 20 36 14"/><path d="M4 24 Q12 18 20 24 Q28 30 36 24"/><path d="M6 34 H34"/></svg>',
+  fuss:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><circle cx="20" cy="7" r="4"/><path d="M20 12 V24 M20 24 L13 36 M20 24 L27 36 M10 17 L30 17"/></svg>',
+};
+
+const TERRAIN={
+  water:{nm:'Fluss'}, furt:{nm:'Furt'}, lake:{nm:'See'},
+  hang:{nm:'Hang'}, ufer:{nm:'Ufer'}, flach:{nm:'Flachland'},
+};
+const TILES={
+  fisch:{nm:'Fischgrund',glyph:'fisch',n:1,b:0},
+  ufer:{nm:'Lager am Ufer',glyph:'ufer',n:1,b:0},
+  wald:{nm:'Auenwald',glyph:'wald',n:0,b:1},
+  terrasse:{nm:'Hochterrasse',glyph:'terrasse',n:0,b:0},
+  hoehle:{nm:'Höhle',glyph:'hoehle',n:0,b:0},
+};
+const START_TILES=[
+  {r:1,c:1,tile:'ufer'},{r:2,c:1,tile:'wald'},{r:3,c:3,tile:'wald'},
+  {r:1,c:2,tile:'fisch'},{r:4,c:2,tile:'fisch'},{r:0,c:0,tile:'terrasse'},{r:0,c:4,tile:'hoehle'},
+];
+
+/* ================= EFFEKTE =================
+   Zeitweilige Zustände auf einem Feld. `spread` = greift nachts auf ein
+   Nachbarfeld über (Ausbreitungsmodell, Kap. 4). `on` = wo der Effekt
+   überhaupt liegen kann. */
+const EFFECTS={
+  wild:{nm:'Wild zieht weiter',glyph:'wild',dauer:2,spread:false,
+    d:'Das Wild meidet die Gegend – die Fallen bleiben leer.',
+    wirkung:'−1 Nahrung auf diesem Feld',
+    on:c=>['flach','ufer'].includes(c.t)||c.tile==='wald',
+    mod:y=>({n:y.n-1,b:y.b})},
+  bruch:{nm:'Schneebruch',glyph:'bruch',dauer:3,spread:false,
+    d:'Ein Sturm hat den Bestand geworfen – das Holz liegt wirr und nass.',
+    wirkung:'−1 Material auf diesem Feld',
+    on:c=>c.tile==='wald',
+    mod:y=>({n:y.n,b:y.b-1})},
+  schilf:{nm:'Verlandung',glyph:'schilf',dauer:4,spread:true,
+    d:'Schilf und Schlick nehmen das flache Wasser ein; die Reusen stehen im Grünen.',
+    wirkung:'Feld liefert nichts · breitet sich dem Wasser entlang aus',
+    on:c=>['water','lake','furt'].includes(c.t),
+    mod:()=>({n:0,b:0})},
+  seuche:{nm:'Seuche im Wild',glyph:'seuche',dauer:3,spread:true,
+    d:'Die Tiere fallen um, ohne dass jemand sie erlegt hätte.',
+    wirkung:'−1 Nahrung · breitet sich über Land aus',
+    on:c=>['flach','ufer'].includes(c.t),
+    mod:y=>({n:y.n-1,b:y.b})},
+  schlamm:{nm:'Hochwasserschlamm',glyph:'schlamm',dauer:2,spread:true,
+    d:'Der Fluss hat übers Ufer gegriffen und alles unter Schlick begraben.',
+    wirkung:'Feld liefert nichts · zieht flussabwärts weiter',
+    on:c=>c.t==='ufer',
+    mod:()=>({n:0,b:0})},
+};
+const CONTAIN_COST=2;   // Material, um einen Effekt vorzeitig zu beenden
+
+/* Nachtkarten: entweder ein Effekt (mit Platzierungswahl) oder ein Ereignis */
+const NIGHTS=[
+  {w:20,key:'wild',tag:'Die Nacht',h:'Die Fährten hören auf',
+   p:'Im Morgengrauen findet der Jäger nur alte Spuren. Etwas hat das Wild vergrämt.'},
+  {w:16,key:'bruch',tag:'Die Nacht',h:'Der Sturm im Auwald',
+   p:'Die ganze Nacht krachen Stämme. Am Morgen liegt der Wald wie hingeworfen.'},
+  {w:14,key:'schilf',tag:'Die Nacht',h:'Das Wasser wird still',
+   p:'Wo gestern Strömung war, steht das Wasser. Schilf kommt schneller, als man es schneiden kann.'},
+  {w:12,key:'seuche',tag:'Die Nacht',h:'Etwas geht im Wild um',
+   p:'Zwei Hirschkühe liegen am Waldrand, unversehrt und tot. Niemand rührt das Fleisch an.'},
+  {w:12,key:'schlamm',tag:'Die Nacht',h:'Der Fluss steigt',
+   p:'Regen weit oben im Tal. In der Dunkelheit hört man, wie das Wasser die Ufer nimmt.'},
+  {w:14,key:null,tag:'Die Nacht',h:'Stille',
+   p:'Nur der Fluss spricht. Die Sterne stehen so klar, dass die Ältesten Geschichten in sie hineinlesen.',
+   fx(){return 'Nichts geschieht. Manchmal ist das das größte Geschenk.';}},
+  {w:12,key:null,tag:'Die Nacht',h:'Gute Jagd im Morgengrauen',
+   p:'Noch vor Sonnenaufgang stellt ihr eine Hirschkuh am Wasser.',
+   fx(){S.N+=2;flashChip('chipN');return '+2 Nahrung.';}},
+];
+
+/* ================= STATE ================= */
+let S, selPerson=null, selCell=null, pending=null;
+function newState(){
+  const g=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    let t='flach';
+    if(c===2&&r<=3)t='water';
+    if(r>=4&&c>=1&&c<=3)t='lake';
+    if((c===0||c===4)&&r<=2)t='hang';
+    g.push({r,c,t,tile:null,furt:(c===2&&r===2)});
+  }
+  for(const cell of g){                       // Ufer aus Wassernachbarschaft ableiten
+    if(cell.t!=='flach')continue;
+    if(nbIn(g,cell).some(o=>['water','lake','furt'].includes(o.t)))cell.t='ufer';
+  }
+  for(const st of START_TILES){
+    const cell=g.find(o=>o.r===st.r&&o.c===st.c);
+    if(cell)cell.tile=st.tile;
+  }
+  return{
+    round:1, phase:'day', N:5, S:2, B:3, K:0,
+    grid:g, effects:[], wanderer:null, nextEid:1,
+    people:{sammler:{cell:g.find(o=>o.r===2&&o.c===1)},jaeger:{cell:g.find(o=>o.r===3&&o.c===3)}},
+    lastNight:[], over:false,
+  };
+}
+function nbIn(list,cell){
+  const dirs=cell.r%2?HEXDIRS_ODD:HEXDIRS_EVEN;
+  return dirs.map(([dr,dc])=>list.find(o=>o.r===cell.r+dr&&o.c===cell.c+dc)).filter(Boolean);
+}
+const nb=cell=>nbIn(S.grid,cell);
+const effectsOn=cell=>S.effects.filter(e=>e.cell===cell);
+const $=id=>document.getElementById(id);
+function toast(msg,ms=2400){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),ms);}
+function flashChip(id){const el=$(id);if(!el)return;el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');}
+const locOf=cell=>'ABCDE'[cell.c]+(cell.r+1);
+
+/* ================= ERTRAG ================= */
+function yieldOf(cell){
+  if(!cell.tile)return{n:0,b:0};
+  const t=TILES[cell.tile];
+  let y={n:t.n,b:t.b};
+  if(S.people.sammler.cell===cell&&(y.n>0||y.b>0)){    // Sammlerin: +1 auf ihrem Ertragsfeld
+    if(y.n>0)y.n+=1; else y.b+=1;
+  }
+  for(const e of effectsOn(cell))y=EFFECTS[e.key].mod(y);
+  return{n:Math.max(0,y.n),b:Math.max(0,y.b)};
+}
+function collectIncome(){
+  let n=0,b=0;
+  for(const cell of S.grid){const y=yieldOf(cell);n+=y.n;b+=y.b;}
+  S.N+=n;S.B+=b;
+  if(n)flashChip('chipN');
+  if(b)flashChip('chipB');
+  return{n,b};
+}
+
+/* ================= RENDER ================= */
+function renderAll(){
+  renderRes();renderMap();renderEfx();renderPeople();renderTileInfo();
+  $('rnd').textContent=S.round;
+  $('phaselbl').textContent=S.phase==='day'?'TAG':'NACHT';
+  $('btnNight').disabled=S.phase!=='day'||!!pending||S.over;
+  $('btnSkip').disabled=S.phase!=='day'||!!pending||S.over;
+}
+function renderRes(){$('rN').textContent=S.N;$('rS').textContent=S.S;$('rB').textContent=S.B;$('rK').textContent=S.K;}
+function sizeHexes(m){
+  const w=m.clientWidth;if(!w)return;
+  const gap=4;
+  m.style.setProperty('--hexw',Math.floor((w-(COLS-0.5)*gap)/(COLS+0.5))+'px');
+}
+window.addEventListener('resize',()=>{const m=$('map');if(m&&S)sizeHexes(m);});
+function renderMap(){
+  const m=$('map');m.innerHTML='';sizeHexes(m);
+  const targets=pending?new Set(pending.candidates):(selPerson?personTargets(selPerson):null);
+  for(let r=0;r<ROWS;r++){
+    const row=document.createElement('div');
+    row.className='hexrow'+(r%2?' odd':'');
+    for(let c=0;c<COLS;c++){
+      const cell=S.grid.find(o=>o.r===r&&o.c===c);
+      const d=document.createElement('div');
+      d.className='cell '+(cell.furt?'water furt':cell.t==='flach'||cell.t==='ufer'?'':cell.t);
+      if(cell.furt)d.innerHTML+='<div class="furtlabel">FURT</div>';
+      if(cell.tile){d.classList.add('placed');d.innerHTML+='<div class="glyph">'+G[TILES[cell.tile].glyph]+'</div>';}
+      for(const e of effectsOn(cell)){
+        d.innerHTML+='<div class="emark">'+G[EFFECTS[e.key].glyph]+'<b>'+e.left+'</b></div>';
+        if(e.fresh)d.classList.add('spreadnew');
+      }
+      if(S.people.sammler.cell===cell)d.innerHTML+='<div class="person">✦</div>';
+      if(S.people.jaeger.cell===cell)d.innerHTML+='<div class="person" style="top:auto;bottom:5%">➤</div>';
+      if(S.wanderer&&S.wanderer.cell===cell)d.innerHTML+='<div class="wanderer">'+G.fuss+'</div>';
+      if(cell===selCell)d.classList.add('inspect');
+      if(targets&&targets.has(cell)){
+        d.classList.add('valid');
+        d.onclick=pending?(()=>applyPending(cell)):(()=>movePerson(cell));
+      }else{
+        d.onclick=()=>{selCell=selCell===cell?null:cell;renderMap();renderTileInfo();};
+      }
+      row.appendChild(d);
+    }
+    m.appendChild(row);
+  }
+}
+function renderEfx(){
+  const el=$('efx');
+  let h='<span class="efx-lbl">Wirkende Zustände</span>';
+  if(!S.effects.length){h+='<div class="efx-none">Das Tal ist unbelastet.</div>';el.innerHTML=h;return;}
+  for(const e of S.effects){
+    const E=EFFECTS[e.key];
+    const guarded=S.people.jaeger.cell===e.cell&&E.spread;
+    h+='<div class="efx-row"><div class="eg">'+G[E.glyph]+'</div>'
+      +'<div class="et"><b>'+E.nm+' · '+locOf(e.cell)+'</b>'
+      +'<span>noch '+e.left+' '+(e.left===1?'Nacht':'Nächte')+' · '+E.wirkung
+      +(guarded?' · Jäger hält dagegen':'')+'</span></div>'
+      +'<button onclick="contain('+e.id+')"'+(S.B<CONTAIN_COST||S.phase!=='day'?' disabled':'')+'>Beheben −'+CONTAIN_COST+' Mat</button></div>';
+  }
+  el.innerHTML=h;
+}
+function renderPeople(){
+  for(const pid of['sammler','jaeger']){
+    const el=$('pb_'+pid),p=S.people[pid];
+    el.classList.toggle('sel',selPerson===pid);
+    $('pt_'+pid).textContent=p.cell?locOf(p.cell)+(pid==='jaeger'?' · sichert':' · +1 Ertrag'):'–';
+  }
+}
+function renderTileInfo(){
+  const el=$('tileinfo');
+  if(!selCell){el.classList.add('hid');return;}
+  el.classList.remove('hid');
+  const cell=selCell;
+  const ter=cell.furt?TERRAIN.furt:TERRAIN[cell.t];
+  let h='<div class="ti-head"><b>'+(cell.tile?TILES[cell.tile].nm:ter.nm)+'</b>'
+    +'<span class="ti-loc">'+locOf(cell)+'</span>'
+    +'<button class="ti-close" onclick="selCell=null;renderMap();renderTileInfo();">✕</button></div>';
+  h+='<p class="ti-desc"><b>'+ter.nm+'</b>'+(cell.tile?' · '+TILES[cell.tile].nm:' · unbebaut')+'</p>';
+  const y=yieldOf(cell);
+  const li=[];
+  if(cell.tile)li.push('Ertrag heute: '+y.n+' Nahrung, '+y.b+' Material');
+  for(const e of effectsOn(cell)){
+    const E=EFFECTS[e.key];
+    li.push('<b>'+E.nm+'</b> – '+E.d+' ('+E.wirkung+', noch '+e.left+')');
+  }
+  if(S.people.sammler.cell===cell)li.push('Sammlerin ✦ bewirtschaftet dieses Feld');
+  if(S.people.jaeger.cell===cell)li.push('Jäger ➤ steht hier – verhindert Ausbreitung von diesem Feld');
+  if(S.wanderer&&S.wanderer.cell===cell)li.push('Ein Wanderer zieht über dieses Feld');
+  h+=li.length?'<ul>'+li.map(x=>'<li>'+x+'</li>').join('')+'</ul>':'<p class="ti-desc">Nichts Besonderes.</p>';
+  el.innerHTML=h;
+}
+
+/* ================= MENSCHEN ================= */
+function personTargets(pid){
+  const p=S.people[pid];
+  const set=new Set();const q=[[p.cell,0]];const seen=new Set([p.cell]);
+  while(q.length){
+    const[c,dist]=q.shift();
+    if(dist>=2)continue;
+    for(const n of nb(c)){
+      if(seen.has(n))continue;seen.add(n);
+      if(['water','lake'].includes(n.t)&&!n.furt)continue;   // Wasser nur über die Furt
+      set.add(n);q.push([n,dist+1]);
+    }
+  }
+  set.delete(p.cell);
+  return set;
+}
+function selPersonToggle(pid){
+  if(S.phase!=='day'||pending||S.over)return;
+  selPerson=selPerson===pid?null:pid;
+  renderMap();renderPeople();
+  if(selPerson)toast(pid==='jaeger'?'Jäger: verhindert Ausbreitung von seinem Feld.':'Sammlerin: +1 Ertrag – auf befallenem Feld nichts.');
+}
+function movePerson(cell){
+  S.people[selPerson].cell=cell;
+  toast((selPerson==='sammler'?'Die Sammlerin':'Der Jäger')+' zieht nach '+locOf(cell)+'.');
+  selPerson=null;renderAll();
+}
+function contain(id){
+  const i=S.effects.findIndex(e=>e.id===id);
+  if(i<0||S.B<CONTAIN_COST)return;
+  const e=S.effects[i];
+  S.B-=CONTAIN_COST;S.effects.splice(i,1);
+  toast(EFFECTS[e.key].nm+' bei '+locOf(e.cell)+' behoben. −'+CONTAIN_COST+' Material');
+  flashChip('chipB');renderAll();
+}
+
+/* ================= TAG ================= */
+function startGame(){
+  S=newState();
+  $('intro').classList.add('hid');
+  $('game').classList.remove('hid');
+  $('barwrap').classList.remove('hid');
+  const inc=collectIncome();
+  toast('Tag 1 · +'+inc.n+' Nahrung, +'+inc.b+' Material');
+  renderAll();
+}
+function passDay(){toast('Der Tag verstreicht.');}
+
+/* ================= NACHT ================= */
+function pickNight(){
+  const tot=NIGHTS.reduce((a,x)=>a+x.w,0);
+  let x=Math.random()*tot;
+  for(const c of NIGHTS){x-=c.w;if(x<=0)return c;}
+  return NIGHTS[0];
+}
+function beginNight(){
+  if(S.phase!=='day')return;
+  S.phase='night';selPerson=null;selCell=null;
+  document.body.classList.add('night');
+  for(const e of S.effects)e.fresh=false;
+  const events=[];
+
+  /* 1) Ausbreitung – der Jäger blockt sein Feld */
+  for(const e of[...S.effects]){
+    const E=EFFECTS[e.key];
+    if(!E.spread)continue;
+    if(S.people.jaeger.cell===e.cell){
+      events.push('➤ Der Jäger hält '+E.nm+' bei '+locOf(e.cell)+' auf seinem Feld fest.');
+      continue;
+    }
+    const opts=nb(e.cell).filter(c=>E.on(c)&&!effectsOn(c).some(x=>x.key===e.key));
+    if(!opts.length)continue;
+    const target=opts[Math.floor(Math.random()*opts.length)];
+    S.effects.push({id:S.nextEid++,key:e.key,cell:target,left:E.dauer,fresh:true});
+    events.push('◆ '+E.nm+' greift auf '+locOf(target)+' über.');
+  }
+
+  /* 2) Wanderer bewegen / erscheinen */
+  const wev=moveWanderer();
+  if(wev)events.push(wev);
+
+  /* 3) Nachtkarte ziehen */
+  const card=pickNight();
+  let resolveText=null;
+  if(!card.key&&card.fx)resolveText=card.fx();
+  S.lastNight={card,events,resolveText};
+  showNightCard();
+  renderAll();
+}
+function moveWanderer(){
+  if(!S.wanderer){
+    if(S.round<3||Math.random()>0.45)return null;
+    const edges=S.grid.filter(c=>(c.r===0||c.r===ROWS-1||c.c===0||c.c===COLS-1)&&!['water','lake'].includes(c.t));
+    if(!edges.length)return null;
+    S.wanderer={cell:edges[Math.floor(Math.random()*edges.length)]};
+    return '⌁ Am Rand des Tals taucht ein Wanderer auf ('+locOf(S.wanderer.cell)+').';
+  }
+  const camp=S.grid.find(c=>c.tile==='ufer');
+  if(!camp)return null;
+  if(S.wanderer.cell===camp)return null;
+  const opts=nb(S.wanderer.cell).filter(c=>!['water','lake'].includes(c.t)||c.furt);
+  if(!opts.length)return null;
+  const dist=c=>Math.abs(c.r-camp.r)+Math.abs(c.c-camp.c);
+  opts.sort((a,b)=>dist(a)-dist(b));
+  S.wanderer.cell=opts[0];
+  if(S.wanderer.cell===camp)return '⌁ Der Wanderer erreicht euer Lager.';
+  return '⌁ Der Wanderer zieht nach '+locOf(S.wanderer.cell)+'.';
+}
+function showNightCard(){
+  const{card,events,resolveText}=S.lastNight;
+  const el=$('ncard');
+  el.className='ncard'+(card.key?' effect':'');
+  let h='<div class="tag">'+card.tag+' · Runde '+S.round+'</div><h2>'+card.h+'</h2><p>'+card.p+'</p>';
+  if(resolveText)h+='<p style="color:#7FB08B;font-family:\'Space Mono\',monospace;font-size:12.5px">'+resolveText+'</p>';
+  if(events.length)h+='<div class="events">'+events.map(e=>'<div>'+e+'</div>').join('')+'</div>';
+  h+='<button onclick="afterNightCard()">'+(card.key?'Wo trifft es euch?':'Der Morgen kommt')+'</button>';
+  el.innerHTML=h;
+  $('overlay').classList.add('on');
+}
+function afterNightCard(){
+  $('overlay').classList.remove('on');
+  const{card}=S.lastNight;
+  if(!card.key)return checkWanderer();
+  const E=EFFECTS[card.key];
+  const cands=S.grid.filter(c=>E.on(c)&&!effectsOn(c).some(x=>x.key===card.key));
+  if(!cands.length){toast(E.nm+' findet keinen Boden – nichts geschieht.');return checkWanderer();}
+  /* Auswahl: bevorzugt Felder mit Ertrag, damit die Wahl weh tut */
+  const scored=cands.map(c=>{const y=yieldOf(c);return{c,v:y.n+y.b};}).sort((a,b)=>b.v-a.v);
+  const top=scored.slice(0,Math.min(3,scored.length)).map(x=>x.c);
+  pending={key:card.key,candidates:top};
+  $('prompt').textContent='Wo trifft es euch? · '+E.nm;
+  $('prompt').classList.add('on');
+  renderAll();
+}
+function applyPending(cell){
+  const E=EFFECTS[pending.key];
+  S.effects.push({id:S.nextEid++,key:pending.key,cell,left:E.dauer,fresh:true});
+  pending=null;
+  $('prompt').classList.remove('on');
+  toast(E.nm+' liegt nun auf '+locOf(cell)+' – '+E.dauer+' Nächte.');
+  renderAll();
+  checkWanderer();
+}
+function checkWanderer(){
+  const camp=S.grid.find(c=>c.tile==='ufer');
+  if(S.wanderer&&camp&&S.wanderer.cell===camp&&!S.wanderer.resolved){
+    setTimeout(showWandererChoice,500);
+  }else dawn();
+}
+function showWandererChoice(){
+  const el=$('ncard');
+  el.className='ncard';
+  el.innerHTML='<div class="tag">Am Feuer · Runde '+S.round+'</div>'
+    +'<h2>Fremde am Feuer</h2>'
+    +'<p>Eine kleine Gruppe steht am Rand des Lichtscheins. Sie sind weit gegangen, tragen Felle und Werkzeug – und sie kennen Stellen, die ihr nicht kennt.</p>'
+    +'<div class="choices">'
+    +'<button onclick="wandererChoice(true)">Am Feuer aufnehmen<small>+1 Kultur, +1 Material · sie bringen mit, was sie tragen</small></button>'
+    +'<button onclick="wandererChoice(false)">Weiterziehen heißen<small>Sie nehmen sich, was sie brauchen, wenn ihr schwach steht</small></button>'
+    +'</div>';
+  $('overlay').classList.add('on');
+}
+function wandererChoice(take){
+  $('overlay').classList.remove('on');
+  S.wanderer.resolved=true;
+  if(take){
+    S.K+=1;S.B+=1;flashChip('chipK');flashChip('chipB');
+    if(Math.random()<0.4){
+      const E=EFFECTS.seuche;
+      const cands=S.grid.filter(c=>E.on(c)&&!effectsOn(c).some(x=>x.key==='seuche'));
+      if(cands.length){
+        const cell=cands[Math.floor(Math.random()*cands.length)];
+        S.effects.push({id:S.nextEid++,key:'seuche',cell,left:E.dauer,fresh:true});
+        toast('+1 Kultur, +1 Material – doch sie brachten mehr mit: Seuche bei '+locOf(cell)+'.',3400);
+      }
+    }else toast('+1 Kultur, +1 Material – ihr Wissen bleibt bei euch.',3000);
+  }else{
+    if(S.S<4){S.N=Math.max(0,S.N-1);flashChip('chipN');toast('Sie ziehen weiter – am Morgen fehlt Vorrat. −1 Nahrung.',3000);}
+    else toast('Sie ziehen weiter. Eure Wachen sehen ihnen nach.',3000);
+  }
+  S.wanderer=null;
+  dawn();
+}
+
+/* ================= MORGEN ================= */
+function dawn(){
+  /* Effektdauer abbauen */
+  const expired=[];
+  S.effects=S.effects.filter(e=>{
+    e.left-=1;e.fresh=false;
+    if(e.left<=0){expired.push(EFFECTS[e.key].nm+' bei '+locOf(e.cell));return false;}
+    return true;
+  });
+  S.N=Math.max(0,S.N-1);            // der Stamm isst
+  S.round++;
+  S.phase='day';
+  document.body.classList.remove('night');
+  if(S.round>ROUNDS)return endGame();
+  const inc=collectIncome();
+  setTimeout(()=>{
+    let msg='Tag '+S.round+' · +'+inc.n+' N, +'+inc.b+' Mat';
+    if(expired.length)msg+=' · vorbei: '+expired.join(', ');
+    toast(msg,3200);
+  },700);
+  renderAll();
+}
+function endGame(){
+  S.over=true;
+  const el=$('ncard');
+  el.className='ncard';
+  el.innerHTML='<div class="tag">Nach '+ROUNDS+' Runden</div><h2>Was die Nächte hinterließen</h2>'
+    +'<p>Nahrung '+S.N+' · Schutz '+S.S+' · Material '+S.B+' · Kultur '+S.K+'</p>'
+    +'<p>Noch wirkende Zustände: '+(S.effects.length||'keine')+'</p>'
+    +'<p style="color:#8B9690;font-size:12px">Prüffrage der Werkstatt: Hat sich das Wählen des betroffenen Feldes wie eine Entscheidung angefühlt – oder wie Buchhaltung?</p>'
+    +'<button onclick="location.reload()">Noch einmal</button>';
+  $('overlay').classList.add('on');
+  renderAll();
+}
+
+/* Debug (für Tests/Screenshots):
+   ?autostart überspringt das Intro · ?demo setzt Beispiel-Effekte ·
+   ?night spielt die Nacht bis zur Platzierungswahl durch */
+window.addEventListener('load',()=>{
+  const q=location.search;
+  if(!q.includes('autostart')&&!q.includes('demo')&&!q.includes('night'))return;
+  startGame();
+  if(q.includes('demo')){
+    const put=(key,r,c)=>{
+      const cell=S.grid.find(o=>o.r===r&&o.c===c);
+      if(cell)S.effects.push({id:S.nextEid++,key,cell,left:EFFECTS[key].dauer});
+    };
+    put('bruch',2,1);put('schilf',4,2);put('seuche',3,1);
+    S.wanderer={cell:S.grid.find(o=>o.r===5&&o.c===0)};
+    renderAll();
+  }
+  if(q.includes('night')){beginNight();setTimeout(afterNightCard,300);}
+});
+</script>
+</body>
+</html>

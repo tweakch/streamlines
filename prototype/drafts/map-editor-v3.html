@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Designer-Werkstatt</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+:root{
+  --bg:#DCE3D8; --panel:#ECEFE6; --panel2:#E2E7DC; --ink:#22302C; --ink2:#5A6B64;
+  --river:#7FB2AC; --riverdeep:#5E9793; --lake:#8FBDB6;
+  --ember:#C96F2E;
+  --bone:#F2EDE0; --line:#B8C2B4; --good:#4E7D5B; --bad:#9C4A33; --warn:#A8842C;
+  --tile:#CDD6C8; --tileink:#33443E;
+  --shadow:0 2px 10px rgba(30,45,40,.12);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{background:var(--bg);color:var(--ink);font-family:'Instrument Sans',system-ui,sans-serif;min-height:100vh;}
+.layout{display:flex;gap:14px;max-width:1240px;margin:0 auto;padding:14px;align-items:flex-start;}
+
+/* ---------- header ---------- */
+header{max-width:1240px;margin:0 auto;padding:14px 14px 0;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;}
+.brand{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:17px;letter-spacing:.14em;}
+.brand small{display:block;font-family:'Space Mono',monospace;font-weight:400;font-size:10px;letter-spacing:.08em;color:var(--ink2);margin-top:2px;}
+.hright{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.quellen{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.06em;color:var(--ink2);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:5px 11px;}
+.quellen b{color:var(--good);}
+.namebox{display:flex;align-items:center;gap:8px;}
+.namebox label{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);}
+input[type=text],textarea,select{font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:500;color:var(--ink);background:var(--bone);border:1.5px solid var(--line);border-radius:8px;padding:7px 10px;}
+input[type=text]:focus,textarea:focus,select:focus{outline:none;border-color:var(--ember);}
+#mapname{width:200px;font-size:14px;font-weight:600;}
+input[type=number]{font-family:'Space Mono',monospace;font-size:13px;color:var(--ink);background:var(--bone);border:1.5px solid var(--line);border-radius:8px;padding:6px 6px;width:56px;text-align:center;}
+input[type=number]:focus{outline:none;border-color:var(--ember);}
+textarea{width:100%;resize:vertical;min-height:50px;line-height:1.45;}
+select{cursor:pointer;}
+
+/* ---------- lens tabs (Werkstätten) ---------- */
+.lensbar{max-width:1240px;margin:10px auto 0;padding:0 14px;display:flex;gap:6px;flex-wrap:wrap;}
+.lens{flex:1;min-width:120px;background:var(--panel2);border:1.5px solid var(--line);border-radius:9px;padding:7px 10px;cursor:pointer;user-select:none;transition:border-color .15s;text-align:left;}
+.lens b{font-family:'Bricolage Grotesque',sans-serif;font-size:12.5px;display:block;}
+.lens small{font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.08em;color:var(--ink2);text-transform:uppercase;}
+.lens.sel{border-color:var(--ember);background:var(--bone);box-shadow:0 0 8px rgba(201,111,46,.3);}
+
+/* ---------- panels ---------- */
+.panel{background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:12px;box-shadow:var(--shadow);}
+.side{width:262px;flex:none;display:flex;flex-direction:column;gap:12px;}
+.main{flex:1;min-width:0;}
+.plabel{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);display:block;margin-bottom:8px;}
+.hint{font-size:11px;color:var(--ink2);line-height:1.5;}
+
+/* ---------- campaign timeline ---------- */
+.campaign{display:flex;align-items:stretch;gap:4px;margin-bottom:12px;flex-wrap:wrap;}
+.ep-chip{flex:1;min-width:88px;background:var(--panel2);border:1.5px solid var(--line);border-radius:8px;padding:6px 8px;cursor:pointer;user-select:none;transition:border-color .15s;text-align:left;}
+.ep-chip b{font-family:'Bricolage Grotesque',sans-serif;font-size:12px;display:block;line-height:1.15;}
+.ep-chip small{font-family:'Space Mono',monospace;font-size:8.5px;color:var(--ink2);letter-spacing:.04em;display:block;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ep-chip.sel{border-color:var(--ember);box-shadow:0 0 8px rgba(201,111,46,.35);background:var(--bone);}
+.cer-chip{flex:none;align-self:center;width:34px;height:34px;border-radius:50%;background:var(--panel2);border:1.5px solid var(--line);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--ink2);user-select:none;transition:border-color .15s;}
+.cer-chip.sel{border-color:var(--ember);color:var(--ember);box-shadow:0 0 8px rgba(201,111,46,.35);background:var(--bone);}
+.cer-chip.filled{color:var(--ember);}
+
+/* ---------- epoch meta ---------- */
+.epmeta{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.epmeta .field{flex:1;min-width:160px;}
+.epmeta label{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);display:block;margin-bottom:3px;}
+.epmeta input{width:100%;}
+
+/* ---------- palette / lists ---------- */
+.swatches{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.swatch{display:flex;align-items:center;gap:7px;background:var(--bone);border:1.5px solid var(--line);border-radius:8px;padding:6px 8px;cursor:pointer;user-select:none;transition:border-color .15s,transform .1s;}
+.swatch:active{transform:scale(.96);}
+.swatch.sel{border-color:var(--ember);box-shadow:0 0 8px rgba(201,111,46,.35);}
+.swatch .dot{width:18px;height:20px;flex:none;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);}
+.swatch .glyph{width:22px;height:22px;flex:none;color:var(--tileink);}
+.swatch span{font-size:11px;font-weight:600;line-height:1.1;}
+.swatch.wide{grid-column:1 / -1;}
+.checkrow{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink2);margin-top:10px;user-select:none;cursor:pointer;}
+.checkrow input{accent-color:var(--ember);}
+
+.itemlist{display:flex;flex-direction:column;gap:5px;}
+.itemrow{display:flex;align-items:center;gap:7px;background:var(--bone);border:1.5px solid var(--line);border-radius:8px;padding:6px 8px;cursor:pointer;user-select:none;}
+.itemrow.sel{border-color:var(--ember);box-shadow:0 0 8px rgba(201,111,46,.3);}
+.itemrow b{font-size:11.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.itemrow .glyph{width:20px;height:20px;flex:none;color:var(--tileink);}
+.sdot{width:10px;height:10px;border-radius:50%;flex:none;}
+.sdot.flora{background:var(--good);}
+.sdot.fauna{background:var(--ember);}
+.pill{font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.05em;padding:2px 6px;border-radius:10px;white-space:nowrap;flex:none;}
+.pill.belegt{background:rgba(78,125,91,.18);color:var(--good);}
+.pill.wahrscheinlich{background:rgba(168,132,44,.16);color:var(--warn);}
+.pill.rekonstruiert{background:rgba(201,111,46,.15);color:var(--ember);}
+.pill.frei{background:rgba(90,107,100,.14);color:var(--ink2);}
+
+/* ---------- edit forms ---------- */
+.editform{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);display:flex;flex-direction:column;gap:7px;}
+.editform label{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);display:block;margin-bottom:2px;}
+.editform input[type=text],.editform select,.editform textarea{width:100%;font-size:12px;padding:6px 8px;}
+.frow{display:flex;gap:6px;}
+.frow>*{flex:1;min-width:0;}
+.tagchecks{display:flex;flex-wrap:wrap;gap:4px;}
+.tagchecks label{display:flex;align-items:center;gap:3px;font-size:10px;font-family:'Instrument Sans',sans-serif;text-transform:none;letter-spacing:0;color:var(--ink);background:var(--bone);border:1px solid var(--line);border-radius:6px;padding:3px 6px;cursor:pointer;margin:0;}
+.tagchecks input{accent-color:var(--ember);margin:0;}
+
+/* ---------- map (hexagonal, odd-r offset rows, pointy-top) ---------- */
+.mapwrap{overflow:auto;padding:6px 2px 10px;}
+.map{--hexw:64px;--hexh:calc(var(--hexw)*1.1547);--hexgap:4px;width:max-content;}
+.hexrow{display:flex;gap:var(--hexgap);}
+.hexrow.odd{margin-left:calc(var(--hexw)/2 + var(--hexgap)/2);}
+.hexrow + .hexrow{margin-top:calc(var(--hexh)*-0.25 + var(--hexgap));}
+.cell{position:relative;width:var(--hexw);height:var(--hexh);flex:none;display:flex;align-items:center;justify-content:center;--edge:var(--line);--fill:var(--panel2);cursor:pointer;}
+.cell::before{content:'';position:absolute;inset:0;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--edge);}
+.cell::after{content:'';position:absolute;inset:1.5px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background-color:var(--fill);}
+.cell.t-flach{--fill:var(--tile);}
+.cell.t-ufer{--fill:#C4D4BC;}
+.cell.t-water{--fill:var(--river);--edge:var(--riverdeep);}
+.cell.t-lake{--fill:var(--lake);--edge:var(--riverdeep);}
+.cell.t-hang{--fill:var(--panel2);}
+.cell.t-hang::after{background-image:repeating-linear-gradient(135deg,transparent 0 5px,rgba(90,107,100,.13) 5px 7px);}
+.cell.furt::after{background-image:repeating-linear-gradient(0deg,var(--river) 0 4px,var(--lake) 4px 8px);}
+.cell.furt .furtlabel{position:absolute;top:16%;left:0;right:0;text-align:center;font-family:'Space Mono',monospace;font-size:7px;letter-spacing:.14em;color:rgba(255,255,255,.9);pointer-events:none;z-index:1;}
+.cell .glyph{width:52%;height:52%;color:var(--ink);z-index:1;pointer-events:none;}
+.cell:hover{filter:drop-shadow(0 0 6px var(--ember));}
+.cell.invalid{--edge:var(--bad);}
+.cell.invalid .glyph{color:var(--bad);}
+.cell.diff .diffdot{position:absolute;top:14%;right:22%;width:8px;height:8px;border-radius:50%;background:var(--ember);z-index:2;box-shadow:0 0 5px rgba(201,111,46,.6);pointer-events:none;}
+.fundmark{position:absolute;top:8%;left:0;right:0;text-align:center;font-size:11px;color:var(--ember);z-index:2;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.25);}
+.speciesrow{position:absolute;bottom:12%;left:0;right:0;display:flex;justify-content:center;gap:3px;z-index:2;pointer-events:none;}
+.speciesrow .sd{width:7px;height:7px;border-radius:50%;border:1px solid rgba(255,255,255,.6);}
+.coord{position:absolute;bottom:4%;left:0;right:0;text-align:center;font-family:'Space Mono',monospace;font-size:7px;letter-spacing:.08em;color:var(--ink2);opacity:.55;pointer-events:none;z-index:1;}
+
+/* ---------- ceremony editor ---------- */
+.cerhead{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+.cerhead .arc{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.08em;color:var(--ink2);}
+.cername{flex:1;min-width:200px;}
+.cercards{display:flex;flex-direction:column;gap:10px;}
+.cercard{background:var(--bone);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;}
+.cercard .cc-top{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.cercard .cc-num{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--ember);text-transform:uppercase;white-space:nowrap;}
+.cercard .cc-top input{flex:1;font-weight:600;}
+.cercard .cc-btns{display:flex;gap:4px;}
+.cercard .cc-btns button{font-size:10px;padding:4px 7px;border-radius:6px;}
+.cercard .cc-choices{display:flex;gap:8px;margin-top:7px;}
+.cercard .cc-choices input{flex:1;font-size:12px;}
+.addcard{margin-top:10px;width:100%;}
+
+/* ---------- events editor ---------- */
+.evsec{margin-bottom:16px;}
+.evcard{background:var(--bone);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;}
+.evcard .ev-top{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap;}
+.evcard .ev-top input[type=text]{flex:1;min-width:140px;font-weight:600;}
+.evcard .ev-meta{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;align-items:center;}
+.evcard .ev-meta select{font-size:11px;padding:5px 7px;}
+.evcard .ev-meta input[type=text]{flex:1;min-width:140px;font-size:11.5px;padding:5px 8px;}
+.evnum{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--ember);white-space:nowrap;display:flex;align-items:center;gap:5px;}
+.evnum input{width:48px;padding:4px;}
+
+/* ---------- mechanics table ---------- */
+.mechtable{width:100%;border-collapse:collapse;font-size:12px;}
+.mechtable th{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);white-space:nowrap;}
+.mechtable td{padding:5px 6px;border-bottom:1px dashed var(--line);vertical-align:middle;}
+.mechtable td b{font-size:12px;white-space:nowrap;}
+.mechtable input[type=number]{width:52px;padding:4px;}
+.mechtable input[type=text]{width:100%;min-width:120px;font-size:11.5px;padding:5px 8px;}
+.mechtable .glyph{width:22px;height:22px;color:var(--tileink);display:block;}
+.rulesbox{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+.rulesbox .rfield{display:flex;flex-direction:column;gap:3px;}
+.rulesbox label{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);}
+
+/* ---------- toolbar / buttons ---------- */
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;}
+.sizebox{display:flex;align-items:center;gap:6px;font-family:'Space Mono',monospace;font-size:10.5px;color:var(--ink2);letter-spacing:.06em;}
+button{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:12px;letter-spacing:.04em;border-radius:9px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);padding:8px 12px;cursor:pointer;transition:all .15s;}
+button:active{transform:scale(.97);}
+button.primary{background:var(--ink);color:var(--bg);}
+button.small{font-size:10.5px;padding:6px 9px;}
+button.danger{border-color:var(--bad);color:var(--bad);}
+button.armed{background:var(--bad);border-color:var(--bad);color:var(--bg);}
+button.ember{border-color:var(--ember);color:var(--ember);}
+button.ember.on{background:var(--ember);color:var(--bg);}
+
+/* ---------- saved maps ---------- */
+.savedlist{display:flex;flex-direction:column;gap:6px;}
+.savedrow{display:flex;align-items:center;gap:6px;background:var(--bone);border:1px solid var(--line);border-radius:8px;padding:6px 8px;}
+.savedrow b{font-size:11.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.savedrow small{font-family:'Space Mono',monospace;font-size:9px;color:var(--ink2);white-space:nowrap;}
+.savedrow button{font-size:9.5px;padding:4px 7px;border-radius:6px;}
+.empty{font-size:11px;color:var(--ink2);font-style:italic;}
+
+/* ---------- status / toast ---------- */
+.status{font-family:'Space Mono',monospace;font-size:10.5px;color:var(--ink2);letter-spacing:.04em;margin-top:8px;min-height:16px;}
+.toast{position:fixed;top:14px;left:50%;transform:translateX(-50%) translateY(-80px);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:24px;font-size:12.5px;font-weight:600;z-index:60;transition:transform .35s cubic-bezier(.2,.9,.3,1.2);max-width:88vw;text-align:center;box-shadow:var(--shadow);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+.legend{font-size:10.5px;color:var(--ink2);line-height:1.5;margin-top:10px;}
+.hid{display:none!important;}
+
+@media (max-width:860px){
+  .layout{flex-direction:column;}
+  .side{width:100%;flex-direction:row;flex-wrap:wrap;}
+  .side .panel{flex:1;min-width:240px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">DESIGNER-WERKSTATT<small>STROMLINIEN · EINE KARTE, FÜNF GEWERKE</small></div>
+  <div class="hright">
+    <div class="quellen" id="quellen" title="Einträge mit Quellenangabe (Fundstellen, Ereignisse, Arten, Plättchen). Eine Einladung, keine Schranke.">Quellenlage: –</div>
+    <div class="namebox">
+      <label for="mapname">Karte</label>
+      <input type="text" id="mapname" value="Alpenrhein" spellcheck="false">
+    </div>
+  </div>
+</header>
+
+<div class="lensbar" id="lensbar"></div>
+
+<div class="layout">
+  <div class="side">
+    <div class="panel" id="sidePanel"><!-- lens-specific --></div>
+    <div class="panel">
+      <span class="plabel">Gespeicherte Karten</span>
+      <div class="savedlist" id="savedlist"></div>
+    </div>
+  </div>
+
+  <div class="main panel">
+    <div class="campaign" id="campaign"></div>
+
+    <!-- ===== map view (Landschaft / Natur / Technologie) ===== -->
+    <div id="mapView">
+      <div class="epmeta" id="epmeta">
+        <div class="field"><label>Kernthema der Epoche</label><input type="text" id="epName" oninput="epochs[curEp].name=this.value;renderCampaign();"></div>
+        <div class="field" style="max-width:200px;"><label>Zeitraum</label><input type="text" id="epYears" oninput="epochs[curEp].years=this.value;renderCampaign();"></div>
+      </div>
+      <div class="toolbar" id="landToolbar">
+        <div class="sizebox">SPALTEN <input type="number" id="inCols" min="2" max="16" value="5" onchange="resizeGrid()"></div>
+        <div class="sizebox">REIHEN <input type="number" id="inRows" min="2" max="24" value="8" onchange="resizeGrid()"></div>
+        <button class="small" onclick="deriveUfer()">Ufer ableiten</button>
+        <button class="small" id="btnCopyPrev" onclick="copyPrevEpoch(this)">Aus voriger Epoche übernehmen</button>
+        <button class="small danger" id="btnClear" onclick="clearEpoch(this)">Epoche leeren</button>
+      </div>
+      <div class="mapwrap"><div class="map" id="map"></div></div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <!-- ===== events view (Ereignisse) ===== -->
+    <div id="eventsView" class="hid">
+      <div class="evsec">
+        <span class="plabel">◆ Anker-Ereignisse · Epoche <span id="evEpochLbl"></span> — belegt, geschehen immer</span>
+        <div id="anchorList"></div>
+        <button class="small" onclick="addEvent('anker')">+ Anker-Ereignis</button>
+      </div>
+      <div class="evsec">
+        <span class="plabel">☾ Streu-Ereignisse · Nachtdeck (Gewicht = Ziehwahrscheinlichkeit)</span>
+        <div id="streuList"></div>
+        <button class="small" onclick="addEvent('streu')">+ Streu-Ereignis</button>
+      </div>
+    </div>
+
+    <!-- ===== mechanics view ===== -->
+    <div id="mechView" class="hid">
+      <span class="plabel">Plättchen-Werte (gelten für alle Epochen)</span>
+      <div style="overflow-x:auto;"><table class="mechtable" id="mechTable"></table></div>
+      <div class="rulesbox" id="rulesBox"></div>
+      <p class="hint" style="margin-top:14px;" id="mechHint"></p>
+    </div>
+
+    <!-- ===== ceremony view ===== -->
+    <div id="cerView" class="hid">
+      <div class="cerhead">
+        <span class="plabel" style="margin:0;white-space:nowrap;" id="cerLabel">Zeremonie</span>
+        <input type="text" class="cername" id="cerName" placeholder="Name der Zeremonie, z. B. „Sesshaft werden“" oninput="ceremonies[curCer].name=this.value;renderCampaign();">
+        <span class="arc">Bogen: Ruhe → Entscheidung → Aufbau → Kontakt → Abschluss</span>
+      </div>
+      <div class="cercards" id="cercards"></div>
+      <button class="small addcard" onclick="addCard()">+ Karte hinzufügen</button>
+    </div>
+
+    <div class="toolbar" style="margin-top:12px;margin-bottom:0;">
+      <span style="flex:1"></span>
+      <button class="small" onclick="importJson()">Import JSON</button>
+      <button class="small" onclick="exportJson()">Export JSON</button>
+      <button class="primary" onclick="saveMap()">Speichern</button>
+    </div>
+
+    <p class="legend">Prototyp Designer-Werkstatt. Eine Karte, fünf Gewerke: Kartografie (Gelände je Epoche), Biologie (Flora &amp; Fauna), Archäologie (Plättchen-Katalog &amp; Fundstellen), Geschichte (Anker- &amp; Streu-Ereignisse), Spieldesign (Werte). Belegstatus &amp; Quelle sind sichtbare Angebote, keine Schranken — der Zähler oben zeigt die Quellenlage der Karte. Inhalte sind historisch inspiriert und vereinfacht.</p>
+  </div>
+</div>
+
+<input type="file" id="filein" accept=".json,application/json" style="display:none">
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= GLYPHS (petroglyph-style, wie im Spiel) ================= */
+const G={
+  fisch:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 20 Q16 10 27 16 Q33 19 34 20 Q33 21 27 24 Q16 30 6 20 Z"/><path d="M34 20 L39 14 M34 20 L39 26"/><circle cx="13" cy="18.5" r="1.4" fill="currentColor"/></svg>',
+  ufer:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 26 L20 12 L32 26"/><path d="M20 12 V26"/><path d="M5 32 Q12 29 20 32 Q28 35 35 32"/></svg>',
+  wald:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M13 32 V22 M13 22 L7 24 M13 22 L19 24 M13 15 L8 18 M13 15 L18 18 M13 8 L13 15"/><path d="M28 32 V20 M28 20 L22 23 M28 20 L34 23 M28 12 L23 16 M28 12 L33 16"/></svg>',
+  terrasse:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 32 H35 M9 25 H31 M14 18 H26 M18 11 H22"/></svg>',
+  hoehle:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 32 Q6 12 20 12 Q34 12 34 32"/><path d="M14 32 Q14 20 20 20 Q26 20 26 32"/></svg>',
+  flint:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M20 6 L30 16 L26 34 L14 34 L10 16 Z"/><path d="M20 6 L18 20 L26 34 M18 20 L10 16"/></svg>',
+  pfahl:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 18 L20 8 L32 18 M11 18 H29 V24 H11 Z"/><path d="M13 24 V34 M20 24 V34 M27 24 V34"/><path d="M6 35 Q13 32 20 35 Q27 38 34 35"/></svg>',
+  wolf:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 28 L14 20 L18 22 L26 14 L30 8 L32 14 L28 20 L30 28 M14 20 L12 28 M22 18 L23 28"/></svg>',
+  boot:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 25 Q20 31 34 25 L29 31 Q20 34 11 31 Z"/><path d="M16 25 V12 M16 12 L24 16 L16 20"/></svg>',
+  korn:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 34 V10"/><path d="M20 16 Q14 14 12 8 Q18 10 20 16 Z"/><path d="M20 16 Q26 14 28 8 Q22 10 20 16 Z"/><path d="M20 24 Q14 22 12 16 Q18 18 20 24 Z"/><path d="M20 24 Q26 22 28 16 Q22 18 20 24 Z"/></svg>',
+  krug:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 8 H25 M17 8 Q17 14 13 17 Q10 26 20 33 Q30 26 27 17 Q23 14 23 8"/></svg>',
+  rad:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="20" cy="20" r="13"/><path d="M20 7 V33 M7 20 H33 M11 11 L29 29 M29 11 L11 29"/></svg>',
+  feuer:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M20 6 Q26 14 22 19 Q28 18 28 26 Q28 33 20 34 Q12 33 12 26 Q12 20 16 16 Q15 22 19 22 Q16 12 20 6 Z"/></svg>',
+};
+const TERRAIN={
+  flach:{nm:'Flachland',css:'t-flach'},
+  ufer:{nm:'Ufer',css:'t-ufer'},
+  hang:{nm:'Hang',css:'t-hang'},
+  water:{nm:'Fluss',css:'t-water'},
+  furt:{nm:'Furt',css:'t-water'},
+  lake:{nm:'See',css:'t-lake'},
+};
+const TERRAIN_KEYS=['flach','ufer','hang','water','lake'];
+const HEXDIRS_EVEN=[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]];
+const HEXDIRS_ODD =[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
+const ROMAN=['I','II','III','IV','V','VI','VII','VIII'];
+const ARC=['Ruhe','Entscheidung','Aufbau','Kontakt','Abschluss'];
+const STATI={belegt:'belegt',wahrscheinlich:'wahrscheinlich',rekonstruiert:'rekonstruiert',frei:'frei erfunden'};
+const NUM_EPOCHS=5;
+const LENSES={
+  landschaft:{nm:'Landschaft',role:'Kartografie',hint:'Gelände und vorplatzierte Plättchen je Epoche malen. Rechtsklick entfernt.'},
+  natur:{nm:'Natur',role:'Biologie',hint:'Arten definieren und ihre Lebensräume auf die Karte klicken. Klick schaltet die gewählte Art auf einem Feld an/aus.'},
+  tech:{nm:'Technologie',role:'Archäologie',hint:'Der Plättchen-Katalog: was es wann gab, wo es stehen durfte. Plus Fundstellen auf der Karte.'},
+  ereignisse:{nm:'Ereignisse',role:'Geschichte',hint:'Anker-Ereignisse (geschehen immer, an fester Runde) und Streu-Ereignisse (Nachtdeck) je Epoche.'},
+  mechanik:{nm:'Mechanik',role:'Spieldesign',hint:'Kosten, Erträge, Deck-Gewichte, Startwerte. Zahlen, keine Geschichten.'},
+};
+
+/* ================= SEEDS (aus dem Epoche-I-Prototyp, historisch inspiriert & vereinfacht) ================= */
+const EPOCH_DEFAULTS=[
+  {name:'Überleben am Wasser, Pfahlbauten', years:'10 000–2 000 v. Chr.'},
+  {name:'Rätier, Römer, ferne Macht',       years:'2 000 v. Chr.–500 n. Chr.'},
+  {name:'Klöster, Städte, Konstanz',        years:'500–1500'},
+  {name:'Glaube, Grenzen, Schmuggel',       years:'1500–1800'},
+  {name:'Industrie, Rheinkorrektion',       years:'1800–heute'},
+];
+function seedTiles(){return{
+  fisch:{nm:'Fischgrund',glyph:'fisch',d:'Reusen und Speerplätze an guter Stelle.',cost:0,yN:1,yS:0,yB:0,yK:0,weight:16,fx:'',valid:['water','lake'],nearLake:false,epochs:[1,1,1,1,1],status:'belegt',source:'Fischfang durchgehend belegt'},
+  ufer:{nm:'Lager am Ufer',glyph:'ufer',d:'Feuerstelle, Zelte, Vorräte – das Herz des Stamms.',cost:0,yN:1,yS:0,yB:0,yK:0,weight:24,fx:'',valid:['ufer'],nearLake:false,epochs:[1,1,0,0,0],status:'belegt',source:'Mesolithische Uferlager'},
+  wald:{nm:'Auenwald',glyph:'wald',d:'Weiden und Erlen der Aue: Holz für Feuer und Bau.',cost:0,yN:0,yS:0,yB:1,yK:0,weight:20,fx:'',valid:['ufer','flach'],nearLake:false,epochs:[1,1,1,1,1],status:'belegt',source:'Pollenprofile Wiederbewaldung'},
+  terrasse:{nm:'Hochterrasse',glyph:'terrasse',d:'Erhöhter Rastplatz mit Weitblick.',cost:0,yN:0,yS:1,yB:0,yK:0,weight:15,fx:'Schutz einmalig beim Bau',valid:['flach','hang'],nearLake:false,epochs:[1,1,1,1,1],status:'belegt',source:'Jägerrastplätze Hanglagen'},
+  hoehle:{nm:'Höhle',glyph:'hoehle',d:'Fels über dem Kopf: der älteste Schutz des Tals.',cost:0,yN:0,yS:2,yB:0,yK:0,weight:13,fx:'Schutz einmalig beim Bau',valid:['hang'],nearLake:false,epochs:[1,1,0,0,0],status:'belegt',source:'Höhlennutzung Mesolithikum'},
+  flint:{nm:'Feuerstein',glyph:'flint',d:'Gutes Steinmaterial – Grundlage für Klingen und Werkzeug.',cost:0,yN:0,yS:0,yB:0,yK:0,weight:12,fx:'ermöglicht Werkzeug (−2 Mat → +2 Schutz)',valid:['hang','flach'],nearLake:false,epochs:[1,1,0,0,0],status:'belegt',source:'Silex-Abbau & Tauschwege'},
+  pfahl:{nm:'Pfahlbau',glyph:'pfahl',d:'Ein Haus auf Pfählen im flachen Wasser – die Bauweise vom See.',cost:3,yN:1,yS:1,yB:0,yK:0,weight:0,fx:'ab Anker „Erste Bauern“ (Epoche I)',valid:['lake'],nearLake:true,epochs:[1,1,0,0,0],status:'belegt',source:'UNESCO Pfahlbauten Bodensee'},
+};}
+function seedSpecies(){return[
+  {id:1,nm:'Biber',kind:'fauna',terrains:['ufer','water'],epochs:[1,1,1,0,1],note:'Baumeister der Aue – fällt Weiden, staut Seitenarme. Im 19. Jh. ausgerottet, heute zurück.',status:'belegt',source:'Knochenfunde Seeufersiedlungen'},
+  {id:2,nm:'Weide & Erle (Auenwald)',kind:'flora',terrains:['ufer','flach'],epochs:[1,1,1,1,1],note:'Pioniergehölze der Aue – Material für Bau, Flechtwerk und Feuer.',status:'belegt',source:'Pollenprofile Bodenseeraum'},
+  {id:3,nm:'Wolf',kind:'fauna',terrains:['flach','hang'],epochs:[1,1,1,1,0],note:'Nachtgefahr am Lagerrand – real und als Deutungsrahmen.',status:'wahrscheinlich',source:''},
+];}
+function seedEvents(){return[
+  {id:1,epoch:0,kind:'anker',round:3,weight:0,title:'Die Wälder erobern das Tal',text:'Nach der Eiszeit kehrt der Wald zurück. Wo Tundra war, rauschen jetzt Auen.',effect:'Auenwald liefert +2 Material/Tag; +1 Material sofort',status:'belegt',source:'Pollenanalysen ~8 400 v. Chr.'},
+  {id:2,epoch:0,kind:'anker',round:5,weight:0,title:'Die große Kälte',text:'Ein jäher Klimasturz – in Eisbohrkernen bis heute lesbar.',effect:'Schutzprüfung ≥5: −2 Nahrung, sonst −4',status:'belegt',source:'8,2-ka-Ereignis, Eisbohrkerne'},
+  {id:3,epoch:0,kind:'anker',round:7,weight:0,title:'Die ersten Bauern am See',text:'Fremde mit Saatgut und neuen Bauweisen erreichen das Seeufer.',effect:'Pfahlbau freigeschaltet; +1 Kultur',status:'belegt',source:'Neolithisierung ~4 300 v. Chr.'},
+  {id:4,epoch:0,kind:'anker',round:9,weight:0,title:'Der See steigt',text:'Nasse Jahrhunderte. Das Wasser holt sich die flachen Ufer zurück.',effect:'Fischgründe gestört; Pfahlbauten bestehen die Probe (+2 Kultur)',status:'belegt',source:'Seespiegel-Rekonstruktionen'},
+  {id:5,epoch:0,kind:'streu',round:0,weight:22,title:'Etwas umkreist das Lager',text:'Zweige brechen. Augen im Dunkeln.',effect:'Schutzprüfung ≥4, sonst −2 Nahrung',status:'rekonstruiert',source:''},
+  {id:6,epoch:0,kind:'streu',round:0,weight:16,title:'Frost kriecht ins Lager',text:'Der Atem gefriert an den Fellen.',effect:'−1 Material oder −2 Nahrung',status:'rekonstruiert',source:''},
+];}
+function seedFunds(){return[
+  {id:1,epoch:0,r:6,c:0,nm:'Pfahlbau-Fundstelle · Seeufer',text:'An flachen Ufern wie diesem standen jahrtausendelang Pfahlbaudörfer. Heute UNESCO-Welterbe.',types:'ufer, pfahl',status:'belegt',source:'UNESCO-Welterbe Pfahlbauten'},
+  {id:2,epoch:0,r:1,c:4,nm:'Jägerrastplatz · Hanglage',text:'Auf sonnigen Terrassen hinterließen mittelsteinzeitliche Jäger Feuerstellen und Klingen.',types:'hoehle, terrasse',status:'belegt',source:'Mesolithische Fundstreuung'},
+  {id:3,epoch:0,r:3,c:0,nm:'Silex-Abbaustelle',text:'Gutes Steinmaterial wurde über weite Strecken getauscht – die ersten Handelswege des Tals.',types:'flint',status:'belegt',source:'Silex-Provenienzanalysen'},
+];}
+const CEREMONY_SEED=[
+  {name:'Sesshaft werden',cards:[
+    {title:'Der letzte Sommer',text:'Abschied in Fülle. (+1 Nahrung)',choiceA:'',choiceB:''},
+    {title:'Das Opfer',text:'Provisorische Plättchen (Fischgrund/Höhle) endgültig aufgeben – echte Wahl, was die alte Lebensweise war.',choiceA:'Fischgrund aufgeben',choiceB:'Höhle aufgeben'},
+    {title:'Das Fundament',text:'Pfahlbau/Uferlager wird Siedlungskern. (+Kultur)',choiceA:'',choiceB:''},
+    {title:'Fremde am Fluss',text:'Eine Gruppe bittet um Aufnahme.',choiceA:'Aufnehmen (+Ressourcen, −Schutz)',choiceB:'Abweisen (+Schutz)'},
+    {title:'Realitätsabgleich',text:'Scores, Vergleich mit der Fundlage, Ausblick auf Epoche II.',choiceA:'',choiceB:''},
+  ]},
+];
+
+/* ================= STATE ================= */
+const LS_KEY='stromlinien-maps';
+let COLS=5, ROWS=8;
+let epochs=[], ceremonies=[], catalog={}, species=[], events=[], funds=[];
+let rules={startN:4,startS:1,startB:1,startK:0,goal:20,rounds:10};
+let lens='landschaft';
+let curEp=0, curCer=-1;
+let brush={kind:'terrain',key:'flach'};
+let painting=false;
+let selSpeciesId=null, selFundId=null, placingFund=false, selTileKey=null;
+let nextId=100;
+const uid=()=>nextId++;
+
+function newCells(cols,rows,old){
+  const g=[];
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const prev=old?old.find(o=>o.r===r&&o.c===c):null;
+    g.push(prev?{...prev,species:[...(prev.species||[])]}:{r,c,t:'flach',furt:false,tile:null,species:[]});
+  }
+  return g;
+}
+function emptyCard(){return{title:'',text:'',choiceA:'',choiceB:''};}
+function newMap(){
+  epochs=EPOCH_DEFAULTS.map(d=>({name:d.name,years:d.years,cells:newCells(COLS,ROWS,null)}));
+  ceremonies=[];
+  for(let i=0;i<NUM_EPOCHS-1;i++){
+    const seed=CEREMONY_SEED[i];
+    ceremonies.push(seed?{name:seed.name,cards:seed.cards.map(c=>({...c}))}:{name:'',cards:ARC.map(()=>emptyCard())});
+  }
+  catalog=seedTiles();species=seedSpecies();events=seedEvents();funds=seedFunds();
+  rules={startN:4,startS:1,startB:1,startK:0,goal:20,rounds:10};
+  curEp=0;curCer=-1;selSpeciesId=species[0]?.id??null;selFundId=null;placingFund=false;selTileKey=null;
+}
+const cells=()=>epochs[curEp].cells;
+const cellIn=(list,r,c)=>list.find(o=>o.r===r&&o.c===c);
+function hexNb(cell,list){
+  const dirs=cell.r%2?HEXDIRS_ODD:HEXDIRS_EVEN;
+  return dirs.map(([dr,dc])=>cellIn(list,cell.r+dr,cell.c+dc)).filter(Boolean);
+}
+function isLakeUfer(cell,list){
+  return (cell.t==='flach'||cell.t==='ufer')&&hexNb(cell,list).some(n=>n.t==='lake');
+}
+function tileValidHere(key,cell,list){
+  const def=catalog[key];if(!def)return false;
+  const terr=cell.furt?'water':cell.t;
+  if(def.valid.includes(terr))return true;
+  return def.nearLake&&isLakeUfer(cell,list);
+}
+
+/* ================= HELPERS ================= */
+const $=id=>document.getElementById(id);
+function toast(msg,ms=2200){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),ms);}
+function armed(btn,label,fn){
+  if(btn._armed){clearTimeout(btn._t);btn._armed=false;btn.classList.remove('armed');btn.textContent=label;fn();return;}
+  btn._armed=true;btn.classList.add('armed');btn.textContent='Wirklich? Nochmal klicken';
+  btn._t=setTimeout(()=>{btn._armed=false;btn.classList.remove('armed');btn.textContent=label;},3000);
+}
+function el(tag,cls,txt){const d=document.createElement(tag);if(cls)d.className=cls;if(txt!==undefined)d.textContent=txt;return d;}
+function txtInput(val,ph,onin,cls){const i=document.createElement('input');i.type='text';i.value=val??'';i.placeholder=ph||'';if(cls)i.className=cls;i.oninput=()=>onin(i.value);return i;}
+function numInput(val,onin,min,max){const i=document.createElement('input');i.type='number';i.value=val;if(min!==undefined)i.min=min;if(max!==undefined)i.max=max;i.onchange=()=>onin(+i.value||0);return i;}
+function areaInput(val,ph,onin){const t=document.createElement('textarea');t.value=val??'';t.placeholder=ph||'';t.oninput=()=>onin(t.value);return t;}
+function statusSelect(val,onch){
+  const s=document.createElement('select');
+  for(const[k,nm]of Object.entries(STATI)){const o=document.createElement('option');o.value=k;o.textContent=nm;s.appendChild(o);}
+  s.value=val||'rekonstruiert';s.onchange=()=>onch(s.value);return s;
+}
+function pill(status){return el('span','pill '+status,STATI[status]||status);}
+function fieldWrap(lbl,input){const w=el('div');const l=el('label',null,lbl);w.appendChild(l);w.appendChild(input);return w;}
+
+/* ================= QUELLENLAGE (weiche Anzeige) ================= */
+function renderQuellen(){
+  const items=[
+    ...Object.values(catalog).map(t=>t.source),
+    ...species.map(s=>s.source),
+    ...events.map(e=>e.source),
+    ...funds.map(f=>f.source),
+  ];
+  const done=items.filter(s=>(s||'').trim()).length;
+  $('quellen').innerHTML='Quellenlage: <b>'+done+'</b>/'+items.length+' mit Quelle';
+}
+
+/* ================= LENS BAR ================= */
+function renderLensBar(){
+  const bar=$('lensbar');bar.innerHTML='';
+  for(const[k,L]of Object.entries(LENSES)){
+    const d=el('div','lens'+(lens===k&&curCer<0?' sel':''));
+    d.appendChild(el('b',null,L.nm));
+    d.appendChild(el('small',null,L.role));
+    d.onclick=()=>{lens=k;curCer=-1;placingFund=false;renderAll();};
+    bar.appendChild(d);
+  }
+}
+
+/* ================= CAMPAIGN TIMELINE ================= */
+function renderCampaign(){
+  const elc=$('campaign');elc.innerHTML='';
+  epochs.forEach((ep,i)=>{
+    const chip=el('div','ep-chip'+(curCer<0&&curEp===i?' sel':''));
+    chip.appendChild(el('b',null,'Epoche '+ROMAN[i]));
+    chip.appendChild(el('small',null,(ep.years||'—')+(ep.name?' · '+ep.name:'')));
+    chip.onclick=()=>{curCer=-1;curEp=i;placingFund=false;renderAll();};
+    elc.appendChild(chip);
+    if(i<NUM_EPOCHS-1){
+      const cer=ceremonies[i];
+      const arrow=el('div','cer-chip'+(curCer===i?' sel':'')+(cerHasContent(cer)?' filled':''),'➜');
+      arrow.title='Zeremonie '+ROMAN[i]+'→'+ROMAN[i+1]+(cer.name?' · '+cer.name:'');
+      arrow.onclick=()=>{curCer=i;renderAll();};
+      elc.appendChild(arrow);
+    }
+  });
+}
+function cerHasContent(cer){return !!(cer.name||cer.cards.some(c=>c.title||c.text||c.choiceA||c.choiceB));}
+
+/* ================= MAIN DISPATCH ================= */
+function renderAll(){
+  renderLensBar();renderCampaign();renderQuellen();
+  const views={mapView:false,eventsView:false,mechView:false,cerView:false};
+  if(curCer>=0)views.cerView=true;
+  else if(lens==='ereignisse')views.eventsView=true;
+  else if(lens==='mechanik')views.mechView=true;
+  else views.mapView=true;
+  for(const[id,on]of Object.entries(views))$(id).classList.toggle('hid',!on);
+  renderSide();
+  if(views.mapView){
+    $('epName').value=epochs[curEp].name;
+    $('epYears').value=epochs[curEp].years;
+    $('landToolbar').classList.toggle('hid',lens!=='landschaft');
+    $('btnCopyPrev').classList.toggle('hid',curEp===0);
+    renderMap();
+    $('status').textContent=LENSES[lens].hint;
+  }
+  if(views.eventsView)renderEvents();
+  if(views.mechView)renderMech();
+  if(views.cerView)renderCeremony();
+}
+
+/* ================= SIDE PANEL ================= */
+function renderSide(){
+  const p=$('sidePanel');p.innerHTML='';
+  if(curCer>=0){
+    p.appendChild(el('span','plabel','Zeremonie'));
+    p.appendChild(el('p','hint','Der spielbare Übergang zwischen zwei Epochen: Karten mit eigenem Spannungsbogen. Die letzte Karte ist üblicherweise der Realitätsabgleich. Wahl A/B leer lassen, wenn keine Entscheidung verlangt ist.'));
+    return;
+  }
+  if(lens==='landschaft')return sideLandschaft(p);
+  if(lens==='natur')return sideNatur(p);
+  if(lens==='tech')return sideTech(p);
+  p.appendChild(el('span','plabel',LENSES[lens].nm));
+  p.appendChild(el('p','hint',LENSES[lens].hint));
+  if(lens==='mechanik'){
+    p.appendChild(el('span','plabel','Richtwerte (unverbindlich)')).style.marginTop='12px';
+    p.appendChild(el('p','hint','Erfahrungswerte aus dem Rheintal, keine Schranken: 3–5 Anker pro Epoche; Nachtdeck-Gewichte in Summe ~100; Sesshaftigkeits-Ziel ≈ 2× Rundenzahl; Verlieren muss möglich bleiben, sonst hat die Nacht keine Zähne.'));
+  }
+  if(lens==='ereignisse'){
+    p.appendChild(el('span','plabel','Anker vs. Streu')).style.marginTop='12px';
+    p.appendChild(el('p','hint','Anker sind belegte Ereignisse an fester Runde – sie geschehen immer, ob man bereit ist oder nicht. Streu-Ereignisse füllen das Nachtdeck; das Gewicht steuert, wie oft sie gezogen werden.'));
+  }
+}
+function sideLandschaft(p){
+  p.appendChild(el('span','plabel','Gelände (Pinsel)'));
+  const tp=el('div','swatches');
+  for(const[k,ter]of Object.entries(TERRAIN)){
+    const d=el('div','swatch'+(brush.kind==='terrain'&&brush.key===k?' sel':''));
+    let bg='var(--tile)';
+    if(k==='ufer')bg='#C4D4BC';
+    if(k==='hang')bg='repeating-linear-gradient(135deg,var(--panel2) 0 4px,#c3ccbd 4px 6px)';
+    if(k==='water')bg='var(--river)';
+    if(k==='furt')bg='repeating-linear-gradient(0deg,var(--river) 0 3px,var(--lake) 3px 6px)';
+    if(k==='lake')bg='var(--lake)';
+    const dot=el('div','dot');dot.style.background=bg;
+    d.appendChild(dot);d.appendChild(el('span',null,ter.nm));
+    d.onclick=()=>{brush={kind:'terrain',key:k};renderSide();};
+    tp.appendChild(d);
+  }
+  p.appendChild(tp);
+  const lbl2=el('span','plabel','Plättchen (in Epoche '+ROMAN[curEp]+' verfügbar)');lbl2.style.marginTop='12px';p.appendChild(lbl2);
+  const pp=el('div','swatches');
+  let any=false;
+  for(const[k,t]of Object.entries(catalog)){
+    if(!t.epochs[curEp])continue;any=true;
+    const d=el('div','swatch'+(brush.kind==='tile'&&brush.key===k?' sel':''));
+    const g=el('div','glyph');g.innerHTML=G[t.glyph]||G.flint;
+    d.appendChild(g);d.appendChild(el('span',null,t.nm));
+    d.onclick=()=>{brush={kind:'tile',key:k};renderSide();};
+    pp.appendChild(d);
+  }
+  if(!any)pp.appendChild(el('p','hint','Kein Plättchen für diese Epoche freigegeben – im Gewerk Technologie festlegen.'));
+  p.appendChild(pp);
+  const lbl3=el('span','plabel','Werkzeuge');lbl3.style.marginTop='12px';p.appendChild(lbl3);
+  const tw=el('div','swatches');
+  const er=el('div','swatch wide'+(brush.kind==='erase'?' sel':''));
+  const ed=el('div','dot');ed.style.background='repeating-linear-gradient(45deg,var(--panel2) 0 4px,var(--bad) 4px 6px)';
+  er.appendChild(ed);er.appendChild(el('span',null,'Radierer (Plättchen entfernen)'));
+  er.onclick=()=>{brush={kind:'erase'};renderSide();};
+  tw.appendChild(er);p.appendChild(tw);
+  addChecks(p);
+}
+function addChecks(p){
+  const mk=(id,lbl)=>{
+    const l=el('label','checkrow');
+    const c=document.createElement('input');c.type='checkbox';c.checked=!!window['_chk_'+id];
+    c.onchange=()=>{window['_chk_'+id]=c.checked;renderMap();};
+    l.appendChild(c);l.appendChild(document.createTextNode(' '+lbl));
+    p.appendChild(l);
+  };
+  mk('rules','Platzierungsregeln prüfen');
+  mk('coords','Koordinaten zeigen');
+  mk('diff','Änderungen zur vorigen Epoche');
+}
+window._chk_rules=true;
+function sideNatur(p){
+  p.appendChild(el('span','plabel','Arten (Flora & Fauna)'));
+  const list=el('div','itemlist');
+  for(const s of species){
+    const row=el('div','itemrow'+(selSpeciesId===s.id?' sel':''));
+    row.appendChild(el('span','sdot '+s.kind));
+    row.appendChild(el('b',null,s.nm));
+    row.appendChild(pill(s.status));
+    row.onclick=()=>{selSpeciesId=selSpeciesId===s.id?null:s.id;renderSide();renderMap();};
+    list.appendChild(row);
+  }
+  p.appendChild(list);
+  const add=el('button','small addcard','+ Neue Art');
+  add.onclick=()=>{const s={id:uid(),nm:'Neue Art',kind:'fauna',terrains:[],epochs:[1,1,1,1,1],note:'',status:'rekonstruiert',source:''};species.push(s);selSpeciesId=s.id;renderSide();};
+  add.style.marginTop='8px';p.appendChild(add);
+  const sel=species.find(s=>s.id===selSpeciesId);
+  if(sel){
+    const f=el('div','editform');
+    f.appendChild(fieldWrap('Name',txtInput(sel.nm,'',v=>{sel.nm=v;})));
+    const kindSel=document.createElement('select');
+    for(const[k,nm]of[['flora','Flora'],['fauna','Fauna']]){const o=document.createElement('option');o.value=k;o.textContent=nm;kindSel.appendChild(o);}
+    kindSel.value=sel.kind;kindSel.onchange=()=>{sel.kind=kindSel.value;renderSide();renderMap();};
+    f.appendChild(fieldWrap('Art',kindSel));
+    f.appendChild(fieldWrap('Lebensraum (Gelände)',tagChecks(TERRAIN_KEYS.map(k=>[k,TERRAIN[k].nm]),sel.terrains)));
+    f.appendChild(fieldWrap('Vorkommen (Epochen)',epochChecks(sel.epochs)));
+    f.appendChild(fieldWrap('Notiz / Spielwirkung',areaInput(sel.note,'z. B. „liefert +1 Material am Ufer“ oder reine Atmosphäre',v=>{sel.note=v;})));
+    const fr=el('div','frow');
+    fr.appendChild(fieldWrap('Belegstatus',statusSelect(sel.status,v=>{sel.status=v;renderSide();})));
+    fr.appendChild(fieldWrap('Quelle',txtInput(sel.source,'z. B. Knochenfunde, Pollenprofil',v=>{sel.source=v;renderQuellen();})));
+    f.appendChild(fr);
+    const del=el('button','small danger','Art löschen');
+    del.onclick=()=>armed(del,'Art löschen',()=>{
+      species=species.filter(x=>x!==sel);
+      for(const ep of epochs)for(const c of ep.cells)c.species=c.species.filter(id=>id!==sel.id);
+      selSpeciesId=null;renderSide();renderMap();renderQuellen();
+    });
+    f.appendChild(del);
+    p.appendChild(f);
+  }
+  const h=el('p','hint',LENSES.natur.hint);h.style.marginTop='10px';p.appendChild(h);
+}
+function tagChecks(pairs,arr){
+  const w=el('div','tagchecks');
+  for(const[k,nm]of pairs){
+    const l=document.createElement('label');
+    const c=document.createElement('input');c.type='checkbox';c.checked=arr.includes(k);
+    c.onchange=()=>{const i=arr.indexOf(k);if(c.checked&&i<0)arr.push(k);if(!c.checked&&i>=0)arr.splice(i,1);};
+    l.appendChild(c);l.appendChild(document.createTextNode(nm));
+    w.appendChild(l);
+  }
+  return w;
+}
+function epochChecks(arr){
+  const w=el('div','tagchecks');
+  for(let i=0;i<NUM_EPOCHS;i++){
+    const l=document.createElement('label');
+    const c=document.createElement('input');c.type='checkbox';c.checked=!!arr[i];
+    c.onchange=()=>{arr[i]=c.checked?1:0;};
+    l.appendChild(c);l.appendChild(document.createTextNode(ROMAN[i]));
+    w.appendChild(l);
+  }
+  return w;
+}
+function sideTech(p){
+  p.appendChild(el('span','plabel','Plättchen-Katalog'));
+  const list=el('div','itemlist');
+  for(const[k,t]of Object.entries(catalog)){
+    const row=el('div','itemrow'+(selTileKey===k?' sel':''));
+    const g=el('div','glyph');g.innerHTML=G[t.glyph]||G.flint;
+    row.appendChild(g);row.appendChild(el('b',null,t.nm));row.appendChild(pill(t.status));
+    row.onclick=()=>{selTileKey=selTileKey===k?null:k;renderSide();};
+    list.appendChild(row);
+  }
+  p.appendChild(list);
+  const add=el('button','small addcard','+ Neues Plättchen');
+  add.style.marginTop='8px';
+  add.onclick=()=>{
+    const key='t'+uid();
+    catalog[key]={nm:'Neues Plättchen',glyph:'krug',d:'',cost:0,yN:0,yS:0,yB:0,yK:0,weight:10,fx:'',valid:['flach'],nearLake:false,epochs:[0,1,1,1,1],status:'rekonstruiert',source:''};
+    selTileKey=key;renderSide();renderQuellen();
+  };
+  p.appendChild(add);
+  const t=catalog[selTileKey];
+  if(t){
+    const f=el('div','editform');
+    f.appendChild(fieldWrap('Name',txtInput(t.nm,'',v=>{t.nm=v;})));
+    const gs=document.createElement('select');
+    for(const gk of Object.keys(G)){const o=document.createElement('option');o.value=gk;o.textContent=gk;gs.appendChild(o);}
+    gs.value=t.glyph;gs.onchange=()=>{t.glyph=gs.value;renderSide();renderMap();};
+    f.appendChild(fieldWrap('Glyphe',gs));
+    f.appendChild(fieldWrap('Beschreibung',areaInput(t.d,'Was war das – und woher wissen wir es?',v=>{t.d=v;})));
+    f.appendChild(fieldWrap('Steht auf (Gelände)',tagChecks(TERRAIN_KEYS.map(k=>[k,TERRAIN[k].nm]),t.valid)));
+    const nl=document.createElement('label');nl.className='checkrow';nl.style.marginTop='0';
+    const nc=document.createElement('input');nc.type='checkbox';nc.checked=t.nearLake;nc.onchange=()=>{t.nearLake=nc.checked;};
+    nl.appendChild(nc);nl.appendChild(document.createTextNode(' auch am Seeufer (Nachbar: See)'));
+    f.appendChild(nl);
+    f.appendChild(fieldWrap('Verfügbar in Epochen',epochChecks(t.epochs)));
+    const fr=el('div','frow');
+    fr.appendChild(fieldWrap('Belegstatus',statusSelect(t.status,v=>{t.status=v;renderSide();})));
+    fr.appendChild(fieldWrap('Quelle',txtInput(t.source,'',v=>{t.source=v;renderQuellen();})));
+    f.appendChild(fr);
+    const del=el('button','small danger','Plättchen löschen');
+    del.onclick=()=>armed(del,'Plättchen löschen',()=>{
+      delete catalog[selTileKey];
+      for(const ep of epochs)for(const c of ep.cells)if(c.tile===selTileKey)c.tile=null;
+      selTileKey=null;renderSide();renderMap();renderQuellen();
+    });
+    f.appendChild(del);
+    p.appendChild(f);
+  }
+  /* Fundstellen */
+  const lblF=el('span','plabel','Fundstellen · Epoche '+ROMAN[curEp]);lblF.style.marginTop='14px';p.appendChild(lblF);
+  const fl=el('div','itemlist');
+  for(const fu of funds.filter(x=>x.epoch===curEp)){
+    const row=el('div','itemrow'+(selFundId===fu.id?' sel':''));
+    row.appendChild(el('span',null,'◆'));row.firstChild.style.color='var(--ember)';
+    row.appendChild(el('b',null,fu.nm));row.appendChild(pill(fu.status));
+    row.onclick=()=>{selFundId=selFundId===fu.id?null:fu.id;placingFund=false;renderSide();renderMap();};
+    fl.appendChild(row);
+  }
+  p.appendChild(fl);
+  const addF=el('button','small addcard','+ Neue Fundstelle');
+  addF.style.marginTop='8px';
+  addF.onclick=()=>{const fu={id:uid(),epoch:curEp,r:-1,c:-1,nm:'Neue Fundstelle',text:'',types:'',status:'belegt',source:''};funds.push(fu);selFundId=fu.id;placingFund=true;renderSide();renderMap();toast('Auf ein Feld klicken, um die Fundstelle zu platzieren.');};
+  p.appendChild(addF);
+  const fu=funds.find(x=>x.id===selFundId);
+  if(fu){
+    const f=el('div','editform');
+    f.appendChild(fieldWrap('Name',txtInput(fu.nm,'',v=>{fu.nm=v;renderSide();})));
+    f.appendChild(fieldWrap('Text (erscheint bei Entdeckung)',areaInput(fu.text,'Historisch inspiriert und vereinfacht.',v=>{fu.text=v;})));
+    f.appendChild(fieldWrap('Wird entdeckt durch (Plättchen)',txtInput(fu.types,'z. B. ufer, pfahl',v=>{fu.types=v;})));
+    const fr=el('div','frow');
+    fr.appendChild(fieldWrap('Belegstatus',statusSelect(fu.status,v=>{fu.status=v;renderSide();})));
+    fr.appendChild(fieldWrap('Quelle',txtInput(fu.source,'',v=>{fu.source=v;renderQuellen();})));
+    f.appendChild(fr);
+    const place=el('button','small ember'+(placingFund?' on':''),placingFund?'Klick auf die Karte …':'Auf Karte platzieren');
+    place.onclick=()=>{placingFund=!placingFund;renderSide();};
+    f.appendChild(place);
+    const del=el('button','small danger','Fundstelle löschen');
+    del.onclick=()=>armed(del,'Fundstelle löschen',()=>{funds=funds.filter(x=>x!==fu);selFundId=null;placingFund=false;renderSide();renderMap();renderQuellen();});
+    f.appendChild(del);
+    p.appendChild(f);
+  }
+}
+
+/* ================= MAP ================= */
+function coordLabel(cell){const letters='ABCDEFGHIJKLMNOP';return (letters[cell.c]||cell.c)+(cell.r+1);}
+function renderMap(){
+  const m=$('map');m.innerHTML='';
+  const list=cells();
+  const prev=(window._chk_diff&&curEp>0)?epochs[curEp-1].cells:null;
+  const epFunds=funds.filter(f=>f.epoch===curEp&&f.r>=0);
+  for(let r=0;r<ROWS;r++){
+    const row=el('div','hexrow'+(r%2?' odd':''));
+    for(let c=0;c<COLS;c++){
+      const cell=cellIn(list,r,c);
+      const d=el('div','cell '+TERRAIN[cell.furt?'furt':cell.t].css+(cell.furt?' furt':''));
+      if(cell.furt)d.innerHTML+='<div class="furtlabel">FURT</div>';
+      if(cell.tile){
+        const def=catalog[cell.tile];
+        d.innerHTML+='<div class="glyph">'+(def?G[def.glyph]||G.flint:G.flint)+'</div>';
+        if(window._chk_rules&&(!def||!def.epochs[curEp]||!tileValidHere(cell.tile,cell,list)))d.classList.add('invalid');
+      }
+      const fu=epFunds.find(f=>f.r===r&&f.c===c);
+      if(fu){const fm=el('div','fundmark','◆');fm.title=fu.nm;d.appendChild(fm);}
+      if(cell.species&&cell.species.length){
+        const sr=el('div','speciesrow');
+        for(const sid of cell.species.slice(0,4)){
+          const sp=species.find(s=>s.id===sid);if(!sp)continue;
+          const sd=el('span','sd');sd.style.background=sp.kind==='flora'?'var(--good)':'var(--ember)';
+          if(selSpeciesId===sid)sd.style.boxShadow='0 0 4px var(--ember)';
+          sr.appendChild(sd);
+        }
+        d.appendChild(sr);
+      }
+      if(window._chk_coords)d.appendChild(el('div','coord',coordLabel(cell)));
+      if(prev){
+        const p2=cellIn(prev,r,c);
+        if(p2&&(p2.t!==cell.t||!!p2.furt!==!!cell.furt||p2.tile!==cell.tile)){d.classList.add('diff');d.appendChild(el('div','diffdot'));}
+      }
+      d.onpointerdown=e=>{e.preventDefault();cellClick(cell,e.button===2);if(lens==='landschaft'&&e.button===0)painting=true;};
+      d.onpointerenter=()=>{
+        if(painting&&lens==='landschaft')applyBrush(cell,false);
+        statusFor(cell,fu);
+      };
+      d.oncontextmenu=e=>e.preventDefault();
+      row.appendChild(d);
+    }
+    m.appendChild(row);
+  }
+}
+window.addEventListener('pointerup',()=>painting=false);
+function statusFor(cell,fu){
+  let s='Epoche '+ROMAN[curEp]+' · '+coordLabel(cell)+' · '+TERRAIN[cell.furt?'furt':cell.t].nm;
+  if(cell.tile&&catalog[cell.tile])s+=' · '+catalog[cell.tile].nm;
+  if(fu)s+=' · ◆ '+fu.nm;
+  const sp=(cell.species||[]).map(id=>species.find(x=>x.id===id)?.nm).filter(Boolean);
+  if(sp.length)s+=' · '+sp.join(', ');
+  $('status').textContent=s;
+}
+function cellClick(cell,rightClick){
+  if(lens==='landschaft'){applyBrush(cell,rightClick);return;}
+  if(lens==='natur'){
+    if(!selSpeciesId){toast('Erst links eine Art wählen.');return;}
+    const i=cell.species.indexOf(selSpeciesId);
+    if(rightClick||i>=0)cell.species.splice(i>=0?i:0,i>=0?1:0);
+    else cell.species.push(selSpeciesId);
+    renderMap();return;
+  }
+  if(lens==='tech'){
+    if(placingFund&&selFundId!=null){
+      const fu=funds.find(x=>x.id===selFundId);
+      if(fu){fu.epoch=curEp;fu.r=cell.r;fu.c=cell.c;placingFund=false;renderSide();renderMap();toast('Fundstelle platziert: '+coordLabel(cell));}
+      return;
+    }
+    const fu=funds.find(f=>f.epoch===curEp&&f.r===cell.r&&f.c===cell.c);
+    if(fu){selFundId=fu.id;renderSide();renderMap();}
+  }
+}
+function applyBrush(cell,rightClick){
+  if(rightClick){
+    if(cell.tile)cell.tile=null;
+    else{cell.t='flach';cell.furt=false;}
+  }else if(brush.kind==='erase')cell.tile=null;
+  else if(brush.kind==='terrain'){
+    if(brush.key==='furt'){cell.t='water';cell.furt=true;}
+    else{cell.t=brush.key;cell.furt=false;}
+  }else if(brush.kind==='tile')cell.tile=brush.key;
+  renderMap();
+}
+
+/* ================= EPOCH ACTIONS ================= */
+function resizeGrid(){
+  const c=Math.max(2,Math.min(16,+$('inCols').value||5));
+  const r=Math.max(2,Math.min(24,+$('inRows').value||8));
+  $('inCols').value=c;$('inRows').value=r;
+  COLS=c;ROWS=r;
+  for(const ep of epochs)ep.cells=newCells(c,r,ep.cells);
+  for(const f of funds)if(f.r>=r||f.c>=c){f.r=-1;f.c=-1;}
+  renderMap();
+}
+function clearEpoch(btn){
+  armed(btn,'Epoche leeren',()=>{epochs[curEp].cells=newCells(COLS,ROWS,null);renderMap();toast('Epoche '+ROMAN[curEp]+' geleert.');});
+}
+function copyPrevEpoch(btn){
+  armed(btn,'Aus voriger Epoche übernehmen',()=>{
+    epochs[curEp].cells=epochs[curEp-1].cells.map(c=>({...c,species:[...c.species]}));
+    renderMap();toast('Stand von Epoche '+ROMAN[curEp-1]+' übernommen.');
+  });
+}
+function deriveUfer(){
+  let n=0;const list=cells();
+  for(const cell of list){
+    if(cell.t!=='flach')continue;
+    if(hexNb(cell,list).some(o=>o.t==='water'||o.t==='lake')){cell.t='ufer';n++;}
+  }
+  renderMap();toast(n?n+' Felder als Ufer markiert.':'Kein Flachland neben Wasser gefunden.');
+}
+
+/* ================= EVENTS (Historiker) ================= */
+function renderEvents(){
+  $('evEpochLbl').textContent=ROMAN[curEp];
+  const mkList=(kind,host)=>{
+    host.innerHTML='';
+    const list=events.filter(e=>e.epoch===curEp&&e.kind===kind)
+      .sort((a,b)=>kind==='anker'?a.round-b.round:b.weight-a.weight);
+    if(!list.length)host.appendChild(el('p','hint','Noch keine Einträge.'));
+    for(const ev of list)host.appendChild(evCard(ev));
+  };
+  mkList('anker',$('anchorList'));
+  mkList('streu',$('streuList'));
+}
+function evCard(ev){
+  const d=el('div','evcard');
+  const top=el('div','ev-top');
+  const num=el('span','evnum');
+  if(ev.kind==='anker'){
+    num.appendChild(document.createTextNode('Runde'));
+    num.appendChild(numInput(ev.round,v=>{ev.round=Math.max(1,Math.min(rules.rounds,v));renderEvents();},1,rules.rounds));
+  }else{
+    num.appendChild(document.createTextNode('Gewicht'));
+    num.appendChild(numInput(ev.weight,v=>{ev.weight=Math.max(0,v);},0,99));
+  }
+  top.appendChild(num);
+  top.appendChild(txtInput(ev.title,'Titel',v=>{ev.title=v;}));
+  const del=el('button','small danger','✕');
+  del.onclick=()=>armed(del,'✕',()=>{events=events.filter(x=>x!==ev);renderEvents();renderQuellen();});
+  top.appendChild(del);
+  d.appendChild(top);
+  d.appendChild(areaInput(ev.text,'Was geschieht? (historisch inspiriert und vereinfacht)',v=>{ev.text=v;}));
+  const meta=el('div','ev-meta');
+  meta.appendChild(txtInput(ev.effect,'Spielwirkung, z. B. „−2 Nahrung ohne Schutz ≥4“',v=>{ev.effect=v;}));
+  meta.appendChild(statusSelect(ev.status,v=>{ev.status=v;renderEvents();}));
+  meta.appendChild(txtInput(ev.source,'Quelle',v=>{ev.source=v;renderQuellen();}));
+  meta.appendChild(pill(ev.status));
+  d.appendChild(meta);
+  return d;
+}
+function addEvent(kind){
+  events.push({id:uid(),epoch:curEp,kind,round:kind==='anker'?1:0,weight:kind==='streu'?10:0,title:'',text:'',effect:'',status:kind==='anker'?'belegt':'rekonstruiert',source:''});
+  renderEvents();
+}
+
+/* ================= MECHANICS (Spieldesigner) ================= */
+function renderMech(){
+  const t=$('mechTable');t.innerHTML='';
+  const hr=document.createElement('tr');
+  for(const h of ['','Plättchen','Kosten (Mat)','Nahrung/Tag','Schutz','Material/Tag','Kultur','Deck-Gewicht','Sonderwirkung'])hr.appendChild(el('th',null,h));
+  t.appendChild(hr);
+  for(const[k,def]of Object.entries(catalog)){
+    const tr=document.createElement('tr');
+    const tg=document.createElement('td');const g=el('span','glyph');g.innerHTML=G[def.glyph]||G.flint;tg.appendChild(g);tr.appendChild(tg);
+    const tn=document.createElement('td');tn.appendChild(el('b',null,def.nm));tr.appendChild(tn);
+    const num=(get,set)=>{const td=document.createElement('td');td.appendChild(numInput(get(),set,0,99));tr.appendChild(td);};
+    num(()=>def.cost,v=>def.cost=v);
+    num(()=>def.yN,v=>def.yN=v);
+    num(()=>def.yS,v=>def.yS=v);
+    num(()=>def.yB,v=>def.yB=v);
+    num(()=>def.yK,v=>def.yK=v);
+    num(()=>def.weight,v=>{def.weight=v;renderMechHint();});
+    const tf=document.createElement('td');tf.appendChild(txtInput(def.fx,'—',v=>{def.fx=v;}));tr.appendChild(tf);
+    t.appendChild(tr);
+  }
+  const rb=$('rulesBox');rb.innerHTML='';
+  const rf=(lbl,get,set)=>{const w=el('div','rfield');w.appendChild(el('label',null,lbl));w.appendChild(numInput(get(),set,0,99));rb.appendChild(w);};
+  rf('Start Nahrung',()=>rules.startN,v=>rules.startN=v);
+  rf('Start Schutz',()=>rules.startS,v=>rules.startS=v);
+  rf('Start Material',()=>rules.startB,v=>rules.startB=v);
+  rf('Start Kultur',()=>rules.startK,v=>rules.startK=v);
+  rf('Ziel Sesshaftigkeit',()=>rules.goal,v=>rules.goal=v);
+  rf('Runden pro Epoche',()=>rules.rounds,v=>rules.rounds=Math.max(1,v));
+  renderMechHint();
+}
+function renderMechHint(){
+  const wsum=Object.values(catalog).reduce((a,t)=>a+(+t.weight||0),0);
+  const anchorCount=events.filter(e=>e.epoch===curEp&&e.kind==='anker').length;
+  $('mechHint').textContent='Zur Orientierung: Deck-Gewichte in Summe '+wsum+' (Rheintal-Referenz ~100) · Epoche '+ROMAN[curEp]+' hat '+anchorCount+' Anker (Richtwert 3–5). Nur Hinweise – entscheiden tut ihr.';
+}
+
+/* ================= CEREMONY ================= */
+function renderCeremony(){
+  const cer=ceremonies[curCer];
+  $('cerLabel').textContent='Zeremonie '+ROMAN[curCer]+'→'+ROMAN[curCer+1];
+  $('cerName').value=cer.name;
+  const wrap=$('cercards');wrap.innerHTML='';
+  cer.cards.forEach((card,i)=>{
+    const d=el('div','cercard');
+    const top=el('div','cc-top');
+    top.appendChild(el('span','cc-num','Karte '+(ROMAN[i]||i+1)+(ARC[i]?' · '+ARC[i]:'')));
+    top.appendChild(txtInput(card.title,'Titel',v=>{card.title=v;renderCampaign();}));
+    const btns=el('div','cc-btns');
+    const mk=(lbl,fn,cls)=>{const b=el('button',cls,lbl);b.onclick=fn;btns.appendChild(b);};
+    if(i>0)mk('↑',()=>{[cer.cards[i-1],cer.cards[i]]=[cer.cards[i],cer.cards[i-1]];renderCeremony();});
+    if(i<cer.cards.length-1)mk('↓',()=>{[cer.cards[i+1],cer.cards[i]]=[cer.cards[i],cer.cards[i+1]];renderCeremony();});
+    mk('✕',()=>{cer.cards.splice(i,1);renderCeremony();renderCampaign();},'danger');
+    top.appendChild(btns);
+    d.appendChild(top);
+    d.appendChild(areaInput(card.text,'Was geschieht auf dieser Karte?',v=>{card.text=v;renderCampaign();}));
+    const ch=el('div','cc-choices');
+    ch.appendChild(txtInput(card.choiceA,'Wahl A (optional)',v=>card.choiceA=v));
+    ch.appendChild(txtInput(card.choiceB,'Wahl B (optional)',v=>card.choiceB=v));
+    d.appendChild(ch);
+    wrap.appendChild(d);
+  });
+}
+function addCard(){ceremonies[curCer].cards.push(emptyCard());renderCeremony();}
+
+/* ================= SAVE / LOAD ================= */
+function serialize(){
+  return{
+    name:$('mapname').value.trim()||'Unbenannt',
+    version:3,
+    cols:COLS,rows:ROWS,
+    rules:{...rules},
+    tiles:JSON.parse(JSON.stringify(catalog)),
+    species:JSON.parse(JSON.stringify(species)),
+    events:JSON.parse(JSON.stringify(events)),
+    funds:JSON.parse(JSON.stringify(funds)),
+    epochs:epochs.map(ep=>({name:ep.name,years:ep.years,
+      cells:ep.cells.map(c=>({r:c.r,c:c.c,t:c.t,furt:c.furt,tile:c.tile,species:[...c.species]}))})),
+    ceremonies:ceremonies.map(cer=>({name:cer.name,cards:cer.cards.map(c=>({...c}))})),
+    savedAt:new Date().toISOString(),
+  };
+}
+function sanitizeCells(raw,cols,rows){
+  const g=newCells(cols,rows,null);
+  for(const c of raw||[]){
+    const cell=cellIn(g,c.r,c.c);
+    if(!cell)continue;
+    if(c.t==='furt'){cell.t='water';cell.furt=true;}
+    else{cell.t=(TERRAIN[c.t]&&c.t!=='furt')?c.t:'flach';cell.furt=!!c.furt;}
+    cell.tile=c.tile||null;
+    cell.species=Array.isArray(c.species)?[...c.species]:[];
+  }
+  return g;
+}
+function applyMapData(data){
+  if(!data||!data.cols||!data.rows)throw new Error('bad format');
+  COLS=data.cols;ROWS=data.rows;
+  $('inCols').value=COLS;$('inRows').value=ROWS;
+  $('mapname').value=data.name||'Unbenannt';
+  newMap();
+  if(data.version>=2&&Array.isArray(data.epochs)){
+    epochs=EPOCH_DEFAULTS.map((d,i)=>{
+      const src=data.epochs[i]||{};
+      return{name:src.name??d.name,years:src.years??d.years,cells:sanitizeCells(src.cells,COLS,ROWS)};
+    });
+    ceremonies=[];
+    for(let i=0;i<NUM_EPOCHS-1;i++){
+      const src=(data.ceremonies||[])[i]||{};
+      const cards=Array.isArray(src.cards)&&src.cards.length?src.cards:ARC.map(()=>emptyCard());
+      ceremonies.push({name:src.name||'',cards:cards.map(c=>({title:c.title||'',text:c.text||'',choiceA:c.choiceA||'',choiceB:c.choiceB||''}))});
+    }
+  }else if(Array.isArray(data.cells)){
+    const base=sanitizeCells(data.cells,COLS,ROWS);
+    epochs.forEach(ep=>ep.cells=base.map(c=>({...c,species:[...c.species]})));
+  }else throw new Error('bad format');
+  if(data.version>=3){
+    if(data.tiles&&typeof data.tiles==='object')catalog=data.tiles;
+    if(Array.isArray(data.species))species=data.species;
+    if(Array.isArray(data.events))events=data.events;
+    if(Array.isArray(data.funds))funds=data.funds;
+    if(data.rules)rules={...rules,...data.rules};
+  }
+  /* Zellen-Plättchen ohne Katalogeintrag bereinigen; IDs fortzählen */
+  for(const ep of epochs)for(const c of ep.cells){
+    if(c.tile&&!catalog[c.tile])c.tile=null;
+    c.species=c.species.filter(id=>species.some(s=>s.id===id));
+  }
+  nextId=1+Math.max(100,...species.map(s=>s.id||0),...events.map(e=>e.id||0),...funds.map(f=>f.id||0));
+  curEp=0;curCer=-1;selSpeciesId=species[0]?.id??null;selFundId=null;placingFund=false;selTileKey=null;
+  renderAll();
+}
+function loadStore(){try{return JSON.parse(localStorage.getItem(LS_KEY))||{};}catch{return{};}}
+function saveStore(s){localStorage.setItem(LS_KEY,JSON.stringify(s));}
+function saveMap(){
+  const data=serialize();
+  const store=loadStore();
+  store[data.name]=data;
+  saveStore(store);
+  renderSaved();
+  toast('„'+data.name+'" gespeichert.');
+}
+function loadMap(name){
+  const store=loadStore();
+  if(!store[name])return;
+  try{applyMapData(store[name]);toast('„'+name+'" geladen.');}
+  catch{toast('Konnte „'+name+'" nicht laden.');}
+}
+function deleteMap(name,btn){
+  armed(btn,'✕',()=>{
+    const store=loadStore();delete store[name];saveStore(store);renderSaved();toast('„'+name+'" gelöscht.');
+  });
+}
+function renderSaved(){
+  const host=$('savedlist');host.innerHTML='';
+  const store=loadStore();
+  const names=Object.keys(store).sort();
+  if(!names.length){host.appendChild(el('div','empty','Noch keine Karten gespeichert.'));return;}
+  for(const name of names){
+    const m=store[name];
+    const row=el('div','savedrow');
+    row.appendChild(el('b',null,name));
+    const date=m.savedAt?new Date(m.savedAt).toLocaleDateString('de-CH'):'';
+    row.appendChild(el('small',null,m.cols+'×'+m.rows+' · v'+(m.version||1)+' · '+date));
+    const bLoad=el('button',null,'Laden');bLoad.onclick=()=>loadMap(name);
+    const bDel=el('button','danger','✕');bDel.onclick=()=>deleteMap(name,bDel);
+    row.appendChild(bLoad);row.appendChild(bDel);
+    host.appendChild(row);
+  }
+}
+
+/* ================= EXPORT / IMPORT ================= */
+function exportJson(){
+  const data=serialize();
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=data.name.replace(/[^\wäöüÄÖÜß-]+/g,'-').toLowerCase()+'.map.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('JSON exportiert.');
+}
+function importJson(){$('filein').click();}
+$('filein').addEventListener('change',e=>{
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{applyMapData(JSON.parse(rd.result));toast('Karte importiert.');}
+    catch{toast('Import fehlgeschlagen – ungültiges Format.');}
+  };
+  rd.readAsText(f);
+  e.target.value='';
+});
+
+/* ================= INIT ================= */
+newMap();
+renderAll();
+renderSaved();
+</script>
+</body>
+</html>

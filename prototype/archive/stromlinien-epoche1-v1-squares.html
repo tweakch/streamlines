@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>STROMLINIEN · Epoche I</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+:root{
+  --bg:#DCE3D8; --panel:#ECEFE6; --panel2:#E2E7DC; --ink:#22302C; --ink2:#5A6B64;
+  --river:#7FB2AC; --riverdeep:#5E9793; --lake:#8FBDB6;
+  --ember:#C96F2E; --emberglow:rgba(224,138,60,.0);
+  --bone:#F2EDE0; --line:#B8C2B4; --good:#4E7D5B; --bad:#9C4A33;
+  --tile:#CDD6C8; --tileink:#33443E;
+  --shadow:0 2px 10px rgba(30,45,40,.12);
+}
+body.night{
+  --bg:#0D151D; --panel:#141F28; --panel2:#101A22; --ink:#E6E1D2; --ink2:#8B9690;
+  --river:#2E5457; --riverdeep:#24444a; --lake:#2F5A5C;
+  --ember:#E08A3C; --emberglow:rgba(224,138,60,.28);
+  --bone:#1B2731; --line:#2C3B44; --good:#7FB08B; --bad:#D07B5E;
+  --tile:#1E2C34; --tileink:#C9D2C6;
+  --shadow:0 2px 14px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:manipulation;}
+html,body{margin:0;padding:0;}
+html{overscroll-behavior:none;}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:'Instrument Sans',system-ui,sans-serif;
+  transition:background 1.4s ease, color 1.4s ease;
+  min-height:100vh;
+  min-height:100dvh;
+}
+@media (prefers-reduced-motion: reduce){
+  *{transition:none!important; animation:none!important;}
+}
+.wrap{max-width:480px;margin:0 auto;padding:10px 10px calc(168px + env(safe-area-inset-bottom));}
+
+/* ---------- header ---------- */
+header{display:flex;justify-content:space-between;align-items:flex-end;padding:6px 2px 10px;}
+.brand{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:15px;letter-spacing:.14em;}
+.brand small{display:block;font-family:'Space Mono',monospace;font-weight:400;font-size:10px;letter-spacing:.08em;color:var(--ink2);margin-top:2px;}
+.year{font-family:'Space Mono',monospace;text-align:right;}
+.year b{font-size:22px;font-weight:700;display:block;line-height:1;}
+.year span{font-size:10px;color:var(--ink2);letter-spacing:.1em;}
+.phase-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--ember);margin-right:5px;vertical-align:1px;box-shadow:0 0 8px var(--emberglow);}
+
+/* ---------- timeline ---------- */
+.timeline{display:flex;gap:4px;margin:4px 0 12px;}
+.tl-seg{flex:1;height:22px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);position:relative;display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:10px;color:var(--ink2);transition:background 1.4s ease;}
+.tl-seg.done{background:var(--river);color:#fff;border-color:transparent;}
+.tl-seg.now{outline:2px solid var(--ember);outline-offset:1px;color:var(--ink);font-weight:700;}
+.tl-seg.anchor::after{content:'◆';position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--ember);}
+
+/* ---------- resources ---------- */
+.res{display:flex;gap:6px;margin-bottom:12px;}
+.chip{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 4px;text-align:center;box-shadow:var(--shadow);transition:background 1.4s ease;}
+.chip b{font-family:'Space Mono',monospace;font-size:17px;display:block;line-height:1.1;}
+.chip span{font-size:9.5px;letter-spacing:.06em;color:var(--ink2);text-transform:uppercase;}
+.chip.flash{animation:flash .7s ease;}
+@keyframes flash{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+
+/* ---------- progress ---------- */
+.prog{margin-bottom:12px;}
+.prog .lbl{display:flex;justify-content:space-between;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:4px;}
+.prog .bar{height:10px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);overflow:hidden;}
+.prog .fill{height:100%;background:linear-gradient(90deg,var(--riverdeep),var(--river));width:0%;transition:width .8s ease;}
+
+/* ---------- map ---------- */
+.map{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:14px;}
+.cell{aspect-ratio:1;border-radius:7px;background:var(--tile);border:1px solid var(--line);position:relative;display:flex;align-items:center;justify-content:center;transition:background 1.4s ease, box-shadow .25s;}
+.cell.water{background:var(--river);border-color:var(--riverdeep);}
+.cell.lake{background:var(--lake);border-color:var(--riverdeep);}
+.cell.hang{background:var(--panel2);}
+.cell.hang::before{content:'';position:absolute;inset:0;border-radius:6px;background:repeating-linear-gradient(135deg,transparent 0 5px,rgba(90,107,100,.13) 5px 7px);}
+.cell.valid{box-shadow:0 0 0 2px var(--ember), 0 0 14px var(--emberglow);cursor:pointer;}
+.cell.valid:active{transform:scale(.95);}
+.cell .glyph{width:66%;height:66%;color:var(--tileink);z-index:1;}
+.cell.placed .glyph{color:var(--ink);}
+.cell.reveal{animation:revealpulse 1.6s ease;}
+@keyframes revealpulse{0%{box-shadow:0 0 0 0 var(--ember)}50%{box-shadow:0 0 0 6px transparent}100%{box-shadow:none}}
+.riverlabel{position:absolute;font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.1em;color:rgba(255,255,255,.85);bottom:2px;left:0;right:0;text-align:center;pointer-events:none;}
+.cell.furt{background:repeating-linear-gradient(0deg,var(--river) 0 4px,var(--lake) 4px 8px);}
+.cell.furt::after{content:'FURT';position:absolute;top:2px;left:0;right:0;text-align:center;font-family:'Space Mono',monospace;font-size:7px;letter-spacing:.14em;color:rgba(255,255,255,.9);pointer-events:none;}
+.person{position:absolute;top:-5px;right:-5px;width:20px;height:20px;border-radius:50%;background:var(--ember);color:#14100a;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;z-index:3;box-shadow:0 1px 4px rgba(0,0,0,.35);border:1.5px solid var(--bg);}
+.peoplebar{display:flex;gap:6px;margin-bottom:12px;align-items:center;}
+.pbtn{flex:1;display:flex;align-items:center;gap:8px;background:var(--panel);border:1.5px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer;transition:border-color .2s, background 1.4s ease;user-select:none;}
+.pbtn.sel{border-color:var(--ember);box-shadow:0 0 10px var(--emberglow);}
+.pbtn.moved{opacity:.45;}
+.pbtn .pico{width:24px;height:24px;border-radius:50%;background:var(--ember);color:#14100a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
+.pbtn .ptxt{line-height:1.15;}
+.pbtn .ptxt b{font-size:11.5px;display:block;}
+.pbtn .ptxt span{font-size:9px;color:var(--ink2);font-family:'Space Mono',monospace;}
+
+/* ---------- hand ---------- */
+.handwrap{position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:1px solid var(--line);transition:background 1.4s ease;z-index:30;padding-bottom:env(safe-area-inset-bottom);}
+.hand{max-width:480px;margin:0 auto;padding:8px 10px;display:flex;gap:8px;align-items:stretch;}
+.tcard{flex:1;background:var(--bone);border:1.5px solid var(--line);border-radius:9px;padding:6px 4px 5px;text-align:center;cursor:pointer;transition:transform .15s, border-color .15s, background 1.4s ease;user-select:none;}
+.tcard.sel{border-color:var(--ember);transform:translateY(-6px);box-shadow:0 6px 14px var(--emberglow),var(--shadow);}
+.tcard .glyph{width:34px;height:34px;color:var(--ink);margin:0 auto;}
+.tcard .nm{font-size:10px;font-weight:600;letter-spacing:.02em;margin-top:2px;line-height:1.15;}
+.tcard .fx{font-size:9px;color:var(--ink2);font-family:'Space Mono',monospace;}
+.actionrow{max-width:480px;margin:0 auto;display:flex;gap:8px;padding:0 10px 10px;}
+button{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:13px;letter-spacing:.04em;border-radius:9px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);padding:10px 12px;cursor:pointer;transition:all .2s;}
+button:active{transform:scale(.97);}
+button.primary{background:var(--ink);color:var(--bg);flex:1;}
+body.night button.primary{background:var(--ember);border-color:var(--ember);color:#14100a;}
+button:disabled{opacity:.35;pointer-events:none;}
+button.small{font-size:11px;padding:8px 10px;}
+
+/* ---------- log/toast ---------- */
+.toast{position:fixed;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%) translateY(-80px);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:24px;font-size:12.5px;font-weight:600;z-index:60;transition:transform .4s cubic-bezier(.2,.9,.3,1.2);max-width:88vw;text-align:center;box-shadow:var(--shadow);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+/* ---------- overlays ---------- */
+.overlay{position:fixed;inset:0;background:rgba(8,13,18,0);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;pointer-events:none;opacity:0;visibility:hidden;transition:background 1.4s ease, opacity .9s ease, visibility 0s linear 1.4s;}
+.overlay.on{background:rgba(8,13,18,.88);pointer-events:auto;opacity:1;visibility:visible;transition:background 1.4s ease, opacity .9s ease, visibility 0s;}
+.ncard{width:100%;max-width:400px;perspective:1000px;}
+.ncard-inner{position:relative;transform-style:preserve-3d;transition:transform 1.1s cubic-bezier(.3,0,.2,1);border-radius:14px;}
+.ncard.flip .ncard-inner{transform:rotateY(180deg);}
+.nface{backface-visibility:hidden;border-radius:14px;padding:26px 22px;min-height:300px;display:flex;flex-direction:column;justify-content:center;text-align:center;}
+.nback{background:#101A22;border:1px solid #2C3B44;color:#8B9690;position:absolute;inset:0;}
+.nback .moon{font-size:40px;margin-bottom:12px;animation:breathe 3s ease infinite;}
+@keyframes breathe{0%,100%{opacity:.5}50%{opacity:1}}
+.nfront{background:#17232D;border:1px solid #3A4B54;color:#E6E1D2;transform:rotateY(180deg);position:relative;}
+.nfront.anchor{border:2px solid var(--ember);box-shadow:0 0 34px rgba(224,138,60,.35);}
+.nfront .tag{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.16em;color:var(--ember);margin-bottom:10px;text-transform:uppercase;}
+.nfront h2{font-family:'Bricolage Grotesque',sans-serif;font-size:23px;font-weight:800;margin:0 0 12px;line-height:1.15;}
+.nfront p{font-size:13.5px;line-height:1.55;color:#C7CFC3;margin:0 0 8px;}
+.nfront .result{margin-top:14px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;}
+.result.good{color:var(--good);} .result.bad{color:#E08A6A;}
+.nfront button{margin-top:18px;background:var(--ember);border-color:var(--ember);color:#14100a;}
+.nightmsg{position:fixed;top:22%;left:0;right:0;text-align:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:16px;letter-spacing:.18em;color:#8B9690;opacity:0;transition:opacity 1s;z-index:51;pointer-events:none;text-transform:uppercase;}
+.nightmsg.show{opacity:1;}
+
+/* ---------- fullscreen (intro/ceremony/end) ---------- */
+.full{position:fixed;inset:0;background:var(--bg);z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:max(22px,env(safe-area-inset-top)) 20px calc(30px + env(safe-area-inset-bottom));transition:background 1.4s ease;overflow-y:auto;-webkit-overflow-scrolling:touch;height:100dvh;}
+.full-inner{max-width:420px;width:100%;margin:auto 0;}
+.full h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:34px;line-height:1.02;margin:0 0 4px;}
+.full .sub{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.18em;color:var(--ember);text-transform:uppercase;margin-bottom:18px;}
+.full p{font-size:14px;line-height:1.6;color:var(--ink);margin:0 0 12px;}
+.full p.dim{color:var(--ink2);font-size:12.5px;}
+.rule{height:1px;background:var(--line);margin:16px 0;}
+.cnum{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.2em;color:var(--ink2);margin-bottom:6px;}
+.choice{display:block;width:100%;text-align:left;margin-bottom:10px;padding:13px 14px;border-radius:10px;background:var(--panel);border:1.5px solid var(--line);font-family:'Instrument Sans',sans-serif;font-weight:600;font-size:13.5px;color:var(--ink);}
+.choice small{display:block;font-weight:400;font-size:11.5px;color:var(--ink2);margin-top:3px;font-family:'Space Mono',monospace;}
+.choice:active{border-color:var(--ember);}
+.scorebox{display:flex;gap:10px;margin:14px 0;}
+.score{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center;}
+.score b{font-family:'Space Mono',monospace;font-size:26px;display:block;}
+.score span{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);}
+.legend{font-size:10.5px;color:var(--ink2);line-height:1.5;margin-top:14px;}
+.hid{display:none!important;}
+.fundnote{background:var(--panel);border-left:3px solid var(--ember);border-radius:0 8px 8px 0;padding:10px 12px;font-size:12px;line-height:1.5;margin:10px 0;}
+.fundnote b{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--ember);display:block;margin-bottom:3px;text-transform:uppercase;}
+
+/* ---------- small screens ---------- */
+@media (max-width:390px){
+  .wrap{padding-left:8px;padding-right:8px;}
+  .map{gap:4px;}
+  .brand{font-size:13px;}
+  .year b{font-size:19px;}
+  .chip b{font-size:15px;}
+  .chip span{font-size:8.5px;}
+  .tcard .glyph{width:28px;height:28px;}
+  .tcard .nm{font-size:9px;}
+  .tcard .fx{font-size:8px;}
+  .actionrow button{font-size:11px;padding:9px 8px;}
+  button.small{font-size:9.5px;padding:8px 6px;}
+  .full h1{font-size:28px;}
+  .nfront h2{font-size:20px;}
+  .nfront{padding:20px 16px;min-height:260px;}
+}
+@media (max-height:700px){
+  .nface{min-height:240px;padding:18px 16px;}
+  .full-inner{padding:8px 0;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ INTRO ============ -->
+<div class="full" id="intro">
+  <div class="full-inner">
+    <div class="sub">Epoche I · 10 000 – 2 000 v. Chr.</div>
+    <h1>Das Tal,<br>bevor es Namen trug.</h1>
+    <p>Der Gletscher ist fort. Ein junger Fluss sucht seinen Weg zum großen See. Dein kleiner Stamm folgt ihm.</p>
+    <p><b>Am Tag</b> legst du ein Plättchen und sicherst Nahrung, Schutz, Baumaterial.<br><b>In der Nacht</b> deckst du auf, was im Dunkeln geschah.</p>
+    <p class="dim"><b>Zwei Menschen</b> gehören zu dir: Die <b>Sammlerin ✦</b> bewirtschaftet ein Plättchen (+1 Ertrag), der <b>Jäger ➤</b> gibt +2 Schutz, wo immer er steht. Sie ziehen höchstens zwei Schritte pro Tag – nur an den <b>Furten</b> kommen sie über den Fluss.</p>
+    <p class="dim"><b>Verbünde</b>: Fischgrund oder Wald neben einem Lager liefern mehr. Höhle neben Terrasse schützt besser. Zwei Pfahlbauten nebeneinander werden zum Dorf. Die Furt verbindet auch Plättchen über den Fluss hinweg.</p>
+    <p class="dim">◆ An manchen Stellen der Zeit warten <b>belegte Ereignisse</b> – sie geschehen immer, ob du bereit bist oder nicht. Beim ersten Mal wirst du überrascht. Beim zweiten Mal bist du ein Zeitreisender.</p>
+    <p class="dim">Irgendwo im Tal liegen drei echte Fundstellen verborgen. Wer richtig baut, entdeckt sie.</p>
+    <button class="primary" style="width:100%" onclick="startGame()">Der erste Morgen bricht an</button>
+    <p class="legend">Prototyp. Ereignisse &amp; Fundstellen sind historisch inspiriert und für das Spiel vereinfacht – Jahreszahlen gerundet.</p>
+  </div>
+</div>
+
+<!-- ============ GAME ============ -->
+<div class="wrap hid" id="game">
+  <header>
+    <div class="brand">STROMLINIEN<small>EPOCHE I · ALPENRHEIN</small></div>
+    <div class="year"><b id="yr">10 000</b><span><span class="phase-dot"></span><span id="phaselbl">v. Chr. · TAG</span></span></div>
+  </header>
+
+  <div class="timeline" id="timeline"></div>
+
+  <div class="res">
+    <div class="chip" id="chipN"><b id="rN">4</b><span>Nahrung</span></div>
+    <div class="chip" id="chipS"><b id="rS">1</b><span>Schutz</span></div>
+    <div class="chip" id="chipB"><b id="rB">1</b><span>Material</span></div>
+    <div class="chip" id="chipK"><b id="rK">0</b><span>Kultur</span></div>
+  </div>
+
+  <div class="prog">
+    <div class="lbl"><span>Sesshaftigkeit</span><span id="progtxt">0 / 20</span></div>
+    <div class="bar"><div class="fill" id="progfill"></div></div>
+  </div>
+
+  <div class="peoplebar">
+    <div class="pbtn" id="pb_sammler" onclick="selPersonToggle('sammler')">
+      <div class="pico">✦</div><div class="ptxt"><b>Sammlerin</b><span id="pt_sammler">nicht im Tal</span></div>
+    </div>
+    <div class="pbtn" id="pb_jaeger" onclick="selPersonToggle('jaeger')">
+      <div class="pico">➤</div><div class="ptxt"><b>Jäger</b><span id="pt_jaeger">nicht im Tal</span></div>
+    </div>
+  </div>
+
+  <div class="map" id="map"></div>
+</div>
+
+<!-- ============ HAND ============ -->
+<div class="handwrap hid" id="handwrap">
+  <div class="hand" id="hand"></div>
+  <div class="actionrow">
+    <button class="small" id="btnWerkzeug" onclick="buildWerkzeug()" disabled>Werkzeug (−2 Mat, +2 Schutz)</button>
+    <button class="primary" id="btnNight" onclick="beginNight()">Nacht anbrechen lassen</button>
+  </div>
+</div>
+
+<!-- ============ NIGHT ============ -->
+<div class="nightmsg" id="nightmsg">Die Nacht bricht an …</div>
+<div class="overlay" id="nightoverlay">
+  <div class="ncard" id="ncard">
+    <div class="ncard-inner">
+      <div class="nface nback"><div class="moon">☾</div><div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.2em;">WAS GESCHIEHT IM DUNKELN?</div></div>
+      <div class="nface nfront" id="nfront"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CEREMONY / END ============ -->
+<div class="full hid" id="cerem"><div class="full-inner" id="ceremInner"></div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= DATA ================= */
+const COLS=5, ROWS=8;
+const YEARS=[10000,9200,8400,7600,6800,6200,5200,4300,3400,2600]; // per round start
+const ROUNDS=10;
+
+// glyphs: petroglyph-style inline SVG (stroke)
+const G={
+  fisch:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 20 Q16 10 27 16 Q33 19 34 20 Q33 21 27 24 Q16 30 6 20 Z"/><path d="M34 20 L39 14 M34 20 L39 26"/><circle cx="13" cy="18.5" r="1.4" fill="currentColor"/></svg>',
+  ufer:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 26 L20 12 L32 26"/><path d="M20 12 V26"/><path d="M5 32 Q12 29 20 32 Q28 35 35 32"/></svg>',
+  wald:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M13 32 V22 M13 22 L7 24 M13 22 L19 24 M13 15 L8 18 M13 15 L18 18 M13 8 L13 15"/><path d="M28 32 V20 M28 20 L22 23 M28 20 L34 23 M28 12 L23 16 M28 12 L33 16"/></svg>',
+  terrasse:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 32 H35 M9 25 H31 M14 18 H26 M18 11 H22"/></svg>',
+  hoehle:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 32 Q6 12 20 12 Q34 12 34 32"/><path d="M14 32 Q14 20 20 20 Q26 20 26 32"/></svg>',
+  flint:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M20 6 L30 16 L26 34 L14 34 L10 16 Z"/><path d="M20 6 L18 20 L26 34 M18 20 L10 16"/></svg>',
+  pfahl:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 18 L20 8 L32 18 M11 18 H29 V24 H11 Z"/><path d="M13 24 V34 M20 24 V34 M27 24 V34"/><path d="M6 35 Q13 32 20 35 Q27 38 34 35"/></svg>',
+  wolf:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 28 L14 20 L18 22 L26 14 L30 8 L32 14 L28 20 L30 28 M14 20 L12 28 M22 18 L23 28"/></svg>',
+};
+
+const TILES={
+  fisch:{nm:'Fischgrund',fx:'+1 Nahrung/Tag',glyph:'fisch',valid:c=>c.t==='water'||c.t==='lake'},
+  ufer:{nm:'Lager am Ufer',fx:'+1 Nahrung/Tag',glyph:'ufer',valid:c=>c.t==='ufer'},
+  wald:{nm:'Auenwald',fx:'+1 Material/Tag',glyph:'wald',valid:c=>c.t==='ufer'||c.t==='flach'},
+  terrasse:{nm:'Hochterrasse',fx:'+1 Schutz',glyph:'terrasse',valid:c=>c.t==='flach'||c.t==='hang'},
+  hoehle:{nm:'Höhle',fx:'+2 Schutz',glyph:'hoehle',valid:c=>c.t==='hang'},
+  flint:{nm:'Feuerstein',fx:'ermöglicht Werkzeug',glyph:'flint',valid:c=>c.t==='hang'||c.t==='flach'},
+  pfahl:{nm:'Pfahlbau',fx:'−3 Mat · +1 N/Tag · +1 Schutz',glyph:'pfahl',valid:c=>(c.t==='lake'||c.lakeUfer)},
+};
+const DECKW=[['ufer',24],['wald',20],['fisch',16],['terrasse',15],['hoehle',13],['flint',12]];
+
+/* Fundstellen (vereinfacht, historisch inspiriert) */
+const FUND=[
+  {r:6,c:0,types:['ufer','pfahl'],name:'Pfahlbau-Fundstelle · Seeufer',
+   txt:'An flachen Ufern wie diesem standen jahrtausendelang Pfahlbaudörfer – ihre Hölzer sind aufs Jahr genau datierbar. Heute UNESCO-Welterbe.',k:2,auth:2},
+  {r:1,c:4,types:['hoehle','terrasse'],name:'Jägerrastplatz · Hanglage',
+   txt:'Auf sonnigen Terrassen über dem Tal hinterließen mittelsteinzeitliche Jäger Feuerstellen und Klingen – lange bevor jemand sesshaft war.',k:1,auth:2},
+  {r:3,c:0,types:['flint'],name:'Silex-Abbaustelle',
+   txt:'Gutes Steinmaterial war kostbar und wurde über weite Strecken getauscht – die ersten Handelswege des Tals, lange vor jeder Straße.',k:1,auth:2},
+];
+
+/* Anker-Ereignisse (belegt, vereinfacht) – geschehen IMMER in dieser Runde */
+const ANCHORS={
+  3:{tag:'Belegtes Ereignis · ~8 400 v. Chr.',h:'Die Wälder erobern das Tal',
+     p:'Nach der Eiszeit kehrt der Wald zurück. Wo Tundra war, rauschen jetzt Auen. Holz gibt es im Überfluss.',
+     fx(){S.woodBoost=true;S.B+=1;return {txt:'Auenwald liefert ab jetzt +2 Material/Tag. (+1 Material)',good:true};}},
+  5:{tag:'Belegtes Ereignis · ~6 200 v. Chr.',h:'Die große Kälte',
+     p:'Ein jäher Klimasturz – in Eisbohrkernen bis heute lesbar. Jahrzehnte aus Frost und Missjagd. Niemand im Tal hat so etwas je erlebt.',
+     fx(){if(getS()>=5){S.N=Math.max(0,S.N-2);return{txt:'Euer Schutz hält stand. −2 Nahrung.',good:true};}else{S.N=Math.max(0,S.N-4);return{txt:'Ungeschützt trifft euch die Kälte. −4 Nahrung.',good:false};}}},
+  7:{tag:'Belegtes Ereignis · ~4 300 v. Chr.',h:'Die ersten Bauern am See',
+     p:'Fremde mit Saatgut und neuen Bauweisen erreichen das Seeufer. Ihre Häuser stehen auf Pfählen im flachen Wasser.',
+     fx(){S.pfahlUnlocked=true;S.pending.push('pfahl','pfahl');S.K+=1;return{txt:'PFAHLBAU freigeschaltet – zwei Plättchen kommen auf deine Hand. (+1 Kultur)',good:true};}},
+  9:{tag:'Belegtes Ereignis · ~3 400 v. Chr.',h:'Der See steigt',
+     p:'Nasse Jahrhunderte. Das Wasser holt sich die flachen Ufer zurück.',
+     fx(){S.fishBlocked=true;if(S.tiles.some(t=>t.type==='pfahl')){S.K+=2;return{txt:'Eure Pfahlbauten stehen über der Flut – die Bauweise besteht die Probe. (+2 Kultur, Fischgründe morgen gestört)',good:true};}else{S.B=Math.max(0,S.B-2);return{txt:'Das Ufer versinkt. −2 Material, Fischgründe morgen gestört.',good:false};}}},
+};
+
+/* Streu-Nächte */
+const NIGHTS=[
+  {w:22,tag:'Die Nacht',h:'Etwas umkreist das Lager',glyph:'wolf',
+   p:'Zweige brechen. Augen im Dunkeln. Der Hund knurrt, das Feuer wird kleiner.',
+   fx(){if(getS()>=4){return{txt:'Eure Wälle, Feuer und der Jäger halten es fern. Nichts verloren.',good:true};}else{S.N=Math.max(0,S.N-2);return{txt:'Am Morgen fehlen Vorräte. −2 Nahrung.',good:false};}}},
+  {w:16,tag:'Die Nacht',h:'Frost kriecht ins Lager',
+   p:'Der Atem gefriert an den Fellen. Wer Holz hat, verbrennt es. Wer keins hat, friert.',
+   fx(){if(S.B>=3){S.B-=1;return{txt:'Ihr verbrennt Vorräte und haltet durch. −1 Material.',good:true};}else{S.N=Math.max(0,S.N-2);return{txt:'Die Kälte zehrt an euch. −2 Nahrung.',good:false};}}},
+  {w:18,tag:'Die Nacht',h:'Stille',
+   p:'Nur der Fluss spricht. Die Sterne stehen so klar, dass die Ältesten Geschichten in sie hineinlesen.',
+   fx(){return{txt:'Nichts geschieht. Manchmal ist das das größte Geschenk.',good:true};}},
+  {w:16,tag:'Die Nacht',h:'Gute Jagd im Morgengrauen',
+   p:'Noch vor Sonnenaufgang stellt ihr eine Hirschkuh am Wasser.',
+   fx(){S.N+=2;return{txt:'+2 Nahrung.',good:true};}},
+  {w:14,tag:'Die Nacht',h:'Fremde am Feuer',
+   p:'Eine kleine Gruppe bittet um Platz am Feuer. Sie kennen Stellen, die ihr nicht kennt.',
+   fx(){S.extraDraw=true;return{txt:'Morgen ziehst du ein zusätzliches Plättchen.',good:true};}},
+  {w:14,tag:'Die Nacht',h:'Ein Fund im Kies',
+   p:'Bernstein, glatt wie Wasser. Er kommt von weit her – jemand hat ihn hierher getragen.',
+   fx(){S.K+=1;return{txt:'+1 Kultur.',good:true};}},
+];
+
+/* ================= STATE ================= */
+let S;
+function newState(){return{
+  round:1, phase:'day', N:4,S:1,B:1,K:0, prog:0,
+  placedThisDay:0, hand:[], pending:[], tiles:[],
+  woodBoost:false, pfahlUnlocked:false, fishBlocked:false, extraDraw:false,
+  hungry:0, authGot:0, authMax:0, fundFound:0, werkzeug:false,
+  people:{sammler:{cell:null,moved:false},jaeger:{cell:null,moved:false}},
+  combos:[],
+  grid:buildGrid(),
+};}
+function buildGrid(){
+  const g=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    let t='flach';
+    if(r<=5&&c===2)t='water';
+    if(r>=6&&c>=1&&c<=3)t='lake';
+    if(r<=3&&(c===0||c===4))t='hang';
+    g.push({r,c,t,tile:null,lakeUfer:false,furt:(c===2&&(r===2||r===4))});
+  }
+  // mark ufer
+  for(const cell of g){
+    if(cell.t!=='flach'&&cell.t!=='hang')continue;
+    const adj=g.filter(o=>Math.abs(o.r-cell.r)+Math.abs(o.c-cell.c)===1);
+    if(adj.some(o=>o.t==='water'||o.t==='lake')){
+      if(cell.t==='flach')cell.t='ufer'; else cell.uferHang=true;
+      if(adj.some(o=>o.t==='lake'))cell.lakeUfer=true;
+    }
+  }
+  return g;
+}
+const cellAt=(r,c)=>S.grid.find(o=>o.r===r&&o.c===c);
+function orthNb(cell){return S.grid.filter(o=>Math.abs(o.r-cell.r)+Math.abs(o.c-cell.c)===1);}
+/* Nachbarschaft inkl. Furt: eine Furt verbindet ihre beiden Ufer */
+function adjCells(cell){
+  const set=new Set();
+  for(const n of orthNb(cell)){
+    set.add(n);
+    if(n.furt)for(const nn of orthNb(n))if(nn!==cell)set.add(nn);
+  }
+  if(cell.furt)for(const n of orthNb(cell))set.add(n);
+  return[...set];
+}
+function getS(){return S.S+(S.people.jaeger.cell?2:0);}
+/* Verbund-Boni: statisch (einmalig) bei Entstehung */
+function checkCombos(cell){
+  const tk=cell.tile, adj=adjCells(cell).filter(c=>c.tile);
+  const has=k=>adj.some(c=>c.tile===k);
+  const key=(a,b,c1,c2)=>[a+':'+c1.r+','+c1.c,b+':'+c2.r+','+c2.c].sort().join('|');
+  function once(k,fx,msg){if(!S.combos.includes(k)){S.combos.push(k);fx();setTimeout(()=>toast('VERBUND · '+msg,2600),900);}}
+  if(tk==='hoehle'&&has('terrasse')){const o=adj.find(c=>c.tile==='terrasse');once(key('hoehle','terrasse',cell,o),()=>{S.S+=1;flashChip('chipS');},'Höhle + Terrasse: +1 Schutz');}
+  if(tk==='terrasse'&&has('hoehle')){const o=adj.find(c=>c.tile==='hoehle');once(key('hoehle','terrasse',o,cell),()=>{S.S+=1;flashChip('chipS');},'Höhle + Terrasse: +1 Schutz');}
+  if(tk==='pfahl'&&has('pfahl')){const o=adj.find(c=>c.tile==='pfahl');once(key('pfahl','pfahl',cell,o),()=>{S.K+=1;flashChip('chipK');},'Zwei Pfahlbauten: ein Dorf entsteht. +1 Kultur');}
+}
+/* laufende Verbund-Erträge (im Tageseinkommen) */
+function comboIncome(t){
+  const adj=adjCells(t.cell).filter(c=>c.tile);
+  const nearCamp=adj.some(c=>c.tile==='ufer'||c.tile==='pfahl');
+  if(t.type==='fisch'&&nearCamp)return{n:1,b:0};
+  if(t.type==='wald'&&nearCamp)return{n:0,b:1};
+  return{n:0,b:0};
+}
+
+/* ================= HELPERS ================= */
+const $=id=>document.getElementById(id);
+function toast(msg,ms=2200){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),ms);}
+function drawTile(){
+  if(S.pending.length)return S.pending.shift();
+  const tot=DECKW.reduce((a,[,w])=>a+w,0);let x=Math.random()*tot;
+  for(const[k,w]of DECKW){x-=w;if(x<=0)return k;}return 'ufer';
+}
+function fmtYear(y){return y.toLocaleString('de-CH').replace(/[’,.]/g,' ');}
+
+/* ================= RENDER ================= */
+function renderAll(){renderRes();renderTimeline();renderMap();renderHand();renderPeople();
+  $('yr').textContent=fmtYear(YEARS[S.round-1]);
+  $('progtxt').textContent=S.prog+' / 20';
+  $('progfill').style.width=Math.min(100,S.prog/20*100)+'%';
+  $('btnWerkzeug').disabled=!(S.tiles.some(t=>t.type==='flint')&&S.B>=2&&!S.werkzeug);
+  $('btnNight').disabled=S.placedThisDay===0;
+  $('btnNight').textContent=S.placedThisDay===0?'Erst ein Plättchen legen …':'Nacht anbrechen lassen';
+}
+function renderRes(){$('rN').textContent=S.N;$('rS').textContent=getS()+(S.people.jaeger.cell?'':'');$('rB').textContent=S.B;$('rK').textContent=S.K;}
+function flashChip(id){const el=$(id);el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');}
+function renderTimeline(){
+  const tl=$('timeline');tl.innerHTML='';
+  for(let i=1;i<=ROUNDS;i++){
+    const d=document.createElement('div');d.className='tl-seg';
+    if(i<S.round)d.classList.add('done');
+    if(i===S.round)d.classList.add('now');
+    if(ANCHORS[i])d.classList.add('anchor');
+    d.textContent=i<S.round||i===S.round?i:(ANCHORS[i]?'?':i);
+    tl.appendChild(d);
+  }
+}
+function renderMap(){
+  const m=$('map');m.innerHTML='';
+  const moveTargets=selPerson?personTargets(selPerson):null;
+  for(const cell of S.grid){
+    const d=document.createElement('div');
+    d.className='cell '+(cell.furt?'furt':cell.t==='water'?'water':cell.t==='lake'?'lake':cell.t==='hang'?'hang':'');
+    if(cell.tile){d.classList.add('placed');d.innerHTML='<div class="glyph">'+G[TILES[cell.tile].glyph]+'</div>';}
+    for(const[pid,p]of Object.entries(S.people)){
+      if(p.cell===cell)d.innerHTML+='<div class="person">'+(pid==='sammler'?'✦':'➤')+'</div>';
+    }
+    if(cell.r===0&&cell.c===2)d.innerHTML+='<div class="riverlabel">LANDQUART</div>';
+    if(cell.r===7&&cell.c===2)d.innerHTML+='<div class="riverlabel">BODENSEE</div>';
+    if(moveTargets&&moveTargets.has(cell)){
+      d.classList.add('valid');d.onclick=()=>movePerson(cell);
+    }else if(selIdx!==null&&!cell.tile){
+      const tk=S.hand[selIdx];
+      if(tk&&TILES[tk].valid(cell)&&!(tk==='pfahl'&&!S.pfahlUnlocked)){
+        d.classList.add('valid');
+        d.onclick=()=>placeTile(cell);
+      }
+    }
+    m.appendChild(d);
+  }
+}
+let selIdx=null, selPerson=null;
+/* Bewegungsziele: erster Einsatz = beliebiges eigenes Plättchen; danach max 2 Schritte über verbundene Plättchen (Furt zählt als Brücke) */
+function personTargets(pid){
+  const p=S.people[pid];
+  if(p.moved)return new Set();
+  const placed=S.tiles.map(t=>t.cell);
+  if(!p.cell)return new Set(placed);
+  const set=new Set();const q=[[p.cell,0]];const seen=new Set([p.cell]);
+  while(q.length){
+    const[c,d]=q.shift();
+    if(d>=2)continue;
+    for(const n of adjCells(c)){
+      if(seen.has(n))continue;seen.add(n);
+      if(n.tile){set.add(n);q.push([n,d+1]);}
+      else if(n.furt)q.push([n,d+1]); // Furt ist begehbar, aber kein Ziel
+    }
+  }
+  set.delete(p.cell);
+  return set;
+}
+function selPersonToggle(pid){
+  if(S.phase!=='day')return;
+  if(S.people[pid].moved){toast('Heute schon bewegt – morgen wieder.');return;}
+  selPerson=selPerson===pid?null:pid;selIdx=null;
+  renderHand();renderMap();renderPeople();
+  if(selPerson){
+    const t=personTargets(pid);
+    if(t.size===0)toast('Kein erreichbares Plättchen – erst bauen.');
+    else toast(pid==='sammler'?'Sammlerin: +1 Ertrag auf Wald, Feuerstein, Fischgrund oder Lager.':'Jäger: +2 Schutz, solange er im Tal steht.');
+  }
+}
+function movePerson(cell){
+  const p=S.people[selPerson];
+  const first=!p.cell;
+  p.cell=cell;p.moved=true;
+  toast((selPerson==='sammler'?'Die Sammlerin':'Der Jäger')+(first?' betritt das Tal.':' zieht weiter.'));
+  selPerson=null;
+  renderAll();
+}
+function renderPeople(){
+  for(const pid of['sammler','jaeger']){
+    const el=$('pb_'+pid),p=S.people[pid];
+    el.classList.toggle('sel',selPerson===pid);
+    el.classList.toggle('moved',p.moved&&selPerson!==pid);
+    $('pt_'+pid).textContent=p.cell?(p.moved?'im Einsatz · bewegt':'im Einsatz'):'nicht im Tal';
+  }
+}
+function renderHand(){
+  const h=$('hand');h.innerHTML='';
+  S.hand.forEach((tk,i)=>{
+    const t=TILES[tk];
+    const d=document.createElement('div');d.className='tcard'+(selIdx===i?' sel':'');
+    d.innerHTML='<div class="glyph">'+G[t.glyph]+'</div><div class="nm">'+t.nm+'</div><div class="fx">'+t.fx+'</div>';
+    d.onclick=()=>{selIdx=selIdx===i?null:i;selPerson=null;renderHand();renderMap();renderPeople();};
+    h.appendChild(d);
+  });
+}
+
+/* ================= PLACEMENT ================= */
+function authFor(tk,cell){
+  const f=FUND.find(f=>f.r===cell.r&&f.c===cell.c&&f.types.includes(tk)&&!f.found);
+  let pts=0,max=3,note=null;
+  if(tk==='fisch'){pts=2;max=2;}
+  else if(tk==='pfahl'){pts=(cell.t==='lake'||cell.lakeUfer)?3:1;max=3;}
+  else if(tk==='hoehle'){pts=cell.t==='hang'?2:0;max=2;}
+  else if(tk==='terrasse'){pts=cell.t==='hang'?2:1;max=2;}
+  else if(tk==='ufer'){pts=1;max=1;}
+  else if(tk==='wald'){pts=cell.t==='ufer'?1:0;max=1;}
+  else if(tk==='flint'){pts=cell.t==='hang'?1:0;max=2;}
+  if(f){pts+=f.auth;f.found=true;S.fundFound++;S.K+=f.k;note=f;}
+  return{pts,max,note};
+}
+function placeTile(cell){
+  const tk=S.hand[selIdx];
+  if(tk==='pfahl'){if(S.B<3){toast('Pfahlbau braucht 3 Material.');return;}S.B-=3;S.S+=1;}
+  if(tk==='hoehle')S.S+=2;
+  if(tk==='terrasse')S.S+=1;
+  cell.tile=tk;S.tiles.push({type:tk,cell});
+  S.hand.splice(selIdx,1);selIdx=null;S.placedThisDay++;
+  checkCombos(cell);
+  const a=authFor(tk,cell);S.authGot+=a.pts;S.authMax+=a.max;
+  if(a.note){
+    toast('FUNDSTELLE ENTDECKT · +'+a.note.k+' Kultur',3000);
+    setTimeout(()=>showFund(a.note),350);
+  }else{
+    toast(a.pts>=a.max?'+'+a.pts+' Authentizität – so bauten sie wirklich':a.pts>0?'+'+a.pts+' Authentizität':'Hier gab es das nie. +0 Authentizität');
+  }
+  renderAll();
+}
+function showFund(f){
+  const fr=$('nfront');
+  $('ncard').classList.remove('flip');
+  fr.className='nface nfront anchor';
+  fr.innerHTML='<div class="tag">Fundstelle entdeckt</div><h2>'+f.name+'</h2><p>'+f.txt+'</p><div class="result good">+'+f.k+' Kultur · +'+f.auth+' Authentizität</div><button onclick="closeOverlay()">Weiterbauen</button>';
+  $('nightoverlay').classList.add('on');
+  requestAnimationFrame(()=>setTimeout(()=>$('ncard').classList.add('flip'),80));
+}
+function closeOverlay(){
+  $('nightoverlay').classList.remove('on');$('ncard').classList.remove('flip');
+  if(S.phase==='morning')startDay();
+}
+function buildWerkzeug(){
+  if(S.B<2)return;S.B-=2;S.S+=2;S.werkzeug=true;
+  toast('Werkzeuge aus Feuerstein – +2 Schutz');flashChip('chipS');renderAll();
+}
+
+/* ================= DAY / NIGHT LOOP ================= */
+function startGame(){
+  S=newState();
+  for(let i=0;i<3;i++)S.hand.push(drawTile());
+  if(!S.hand.some(t=>t==='fisch'||t==='ufer'))S.hand[0]='ufer';
+  $('intro').classList.add('hid');$('game').classList.remove('hid');$('handwrap').classList.remove('hid');
+  document.body.classList.remove('night');
+  renderAll();
+  toast('Tippe ein Plättchen an, dann eine leuchtende Stelle im Tal.',3400);
+}
+function dayIncome(){
+  let n=0,b=0;
+  const sCell=S.people.sammler.cell;
+  for(const t of S.tiles){
+    if(t.type==='fisch'&&!S.fishBlocked)n++;
+    if(t.type==='ufer')n++;
+    if(t.type==='pfahl')n++;
+    if(t.type==='wald')b+=S.woodBoost?2:1;
+    const cb=comboIncome(t);
+    if(t.type==='fisch'&&S.fishBlocked){}else{n+=cb.n;b+=cb.b;}
+    if(sCell===t.cell){ // Sammlerin bewirtschaftet
+      if(t.type==='wald'||t.type==='flint')b++;
+      else if((t.type==='fisch'&&!S.fishBlocked)||t.type==='ufer')n++;
+    }
+  }
+  S.fishBlocked=false;
+  S.N+=n;S.B+=b;
+  if(n)flashChip('chipN');if(b)flashChip('chipB');
+}
+function startDay(){
+  S.phase='day';S.placedThisDay=0;selPerson=null;
+  S.people.sammler.moved=false;S.people.jaeger.moved=false;
+  document.body.classList.remove('night');
+  $('phaselbl').textContent='v. Chr. · TAG';
+  const draws=S.extraDraw?2:1;S.extraDraw=false;
+  for(let i=0;i<draws;i++)if(S.hand.length<4)S.hand.push(drawTile());
+  while(S.hand.length<3)S.hand.push(drawTile());
+  dayIncome();
+  renderAll();
+}
+function beginNight(){
+  S.phase='night';
+  document.body.classList.add('night');
+  $('phaselbl').textContent='v. Chr. · NACHT';
+  const msg=$('nightmsg');msg.classList.add('show');
+  setTimeout(()=>{msg.classList.remove('show');
+    $('nightoverlay').classList.add('on');
+    setTimeout(revealNight,1300);
+  },1400);
+}
+function pickNight(){
+  const a=ANCHORS[S.round];
+  if(a)return{...a,anchor:true,glyph:null};
+  const tot=NIGHTS.reduce((s,n)=>s+n.w,0);let x=Math.random()*tot;
+  for(const n of NIGHTS){x-=n.w;if(x<=0)return n;}
+  return NIGHTS[2];
+}
+function revealNight(){
+  const ev=pickNight();
+  const res=ev.fx();
+  S.N=Math.max(0,S.N-1); // der Stamm isst
+  const fr=$('nfront');
+  fr.className='nface nfront'+(ev.anchor?' anchor':'');
+  fr.innerHTML='<div class="tag">'+(ev.anchor?'◆ '+ev.tag:ev.tag)+'</div>'
+    +(ev.glyph?'<div style="width:44px;height:44px;margin:0 auto 8px;color:#E08A3C">'+G[ev.glyph]+'</div>':'')
+    +'<h2>'+ev.h+'</h2><p>'+ev.p+'</p>'
+    +'<div class="result '+(res.good?'good':'bad')+'">'+res.txt+'</div>'
+    +'<p style="font-size:11px;color:#8B9690;margin-top:10px">Der Stamm isst: −1 Nahrung</p>'
+    +'<button onclick="endNight()">Den Morgen erwarten</button>';
+  $('ncard').classList.add('flip');
+  renderRes();
+}
+function endNight(){
+  $('nightoverlay').classList.remove('on');$('ncard').classList.remove('flip');
+  // hunger check
+  if(S.N<=0){S.hungry++;toast('Die Vorräte sind leer. Der Stamm hungert ('+S.hungry+'/2).',3000);}
+  else S.hungry=0;
+  if(S.hungry>=2){gameOver();return;}
+  // progress
+  const gain=Math.max(0,Math.min(3,Math.min(S.N,getS(),S.B)));
+  S.prog+=gain;
+  // next round
+  S.round++;
+  if(S.round>ROUNDS){startCeremony();return;}
+  S.phase='morning';
+  setTimeout(()=>{startDay();
+    if(gain>0)toast('Sesshaftigkeit +'+gain+' (schwächste Ressource zählt)');
+    else toast('Keine Sesshaftigkeit – eine Ressource liegt bei null.');
+  },600);
+}
+function gameOver(){
+  const c=$('cerem'),ci=$('ceremInner');
+  document.body.classList.add('night');
+  c.classList.remove('hid');$('handwrap').classList.add('hid');
+  ci.innerHTML='<div class="sub">'+fmtYear(YEARS[Math.min(S.round,ROUNDS)-1])+' v. Chr.</div>'
+    +'<h1>Der Stamm zieht weiter.</h1>'
+    +'<p>Zwei Winter ohne Vorräte – das Tal gibt euch nichts mehr. Ihr folgt dem Wild nach Norden. Vielleicht kehren eure Enkel zurück.</p>'
+    +'<p class="dim">So endeten die meisten Geschichten dieser Zeit. Die Archäologie findet nur die, die blieben.</p>'
+    +'<div class="rule"></div>'
+    +'<button class="primary" style="width:100%" onclick="location.reload()">Noch einmal – diesmal weißt du, was kommt</button>';
+}
+
+/* ================= CEREMONY ================= */
+let cstep=0;
+function startCeremony(){
+  cstep=0;$('handwrap').classList.add('hid');
+  document.body.classList.remove('night');
+  $('cerem').classList.remove('hid');
+  ceremStep();
+}
+function ceremStep(){
+  const ci=$('ceremInner');cstep++;
+  if(cstep===1){
+    ci.innerHTML=cHead(1,'Der letzte Sommer')
+      +'<p>Die Alten spüren es zuerst: Diese Art zu leben geht zu Ende. Ein letztes Mal zieht der Stamm jagend durchs ganze Tal.</p>'
+      +'<div class="fundnote"><b>+1 Nahrung</b>Ein Abschied in Fülle.</div>'
+      +cBtn('Weiter');
+    S.N++;
+  }
+  else if(cstep===2){
+    const opts=S.tiles.filter(t=>t.type==='fisch'||t.type==='hoehle');
+    let html=cHead(2,'Das Opfer')
+      +'<p>Wer bleibt, muss loslassen. Wähle, was der alten Lebensweise geopfert wird – es verschwindet für immer vom Tal.</p>';
+    if(opts.length===0){
+      html+='<p class="dim">Ihr besitzt nichts Provisorisches mehr – das Opfer wurde längst gebracht.</p>'+cBtn('Weiter');
+    }else{
+      opts.slice(0,3).forEach((t,i)=>{
+        html+='<button class="choice" onclick="ceremSacrifice('+S.tiles.indexOf(t)+')">'+TILES[t.type].nm+' aufgeben<small>'+(t.type==='hoehle'?'−2 Schutz':'−1 Nahrung/Tag')+'</small></button>';
+      });
+    }
+    ci.innerHTML=html;return;
+  }
+  else if(cstep===3){
+    const pf=S.tiles.find(t=>t.type==='pfahl');
+    const uf=S.tiles.find(t=>t.type==='ufer');
+    let body;
+    if(pf){S.K+=2;body='<p>Euer Pfahlbau wird zum Kern eines Dorfes, das Jahrhunderte stehen wird. Kinder werden geboren, die nie etwas anderes kennen als: <i>hier</i>.</p><div class="fundnote"><b>+2 Kultur</b>Ein Ort bekommt Dauer.</div>';}
+    else if(uf){S.K+=1;body='<p>Euer Uferlager wird fest: Pfosten statt Zelte, Vorratsgruben statt Bündel.</p><div class="fundnote"><b>+1 Kultur</b>Der Anfang von Dauer.</div>';}
+    else{body='<p class="dim">Kein Lager, das bleiben könnte. Die Sesshaftigkeit wird andere finden – nicht euch.</p>';}
+    ci.innerHTML=cHead(3,'Das Fundament')+body+cBtn('Weiter');
+  }
+  else if(cstep===4){
+    ci.innerHTML=cHead(4,'Fremde am Fluss')
+      +'<p>Eine Familie steht am Ufer. Andere Sprache, andere Werkzeuge, dieselbe Müdigkeit. Sie bitten um einen Platz.</p>'
+      +'<button class="choice" onclick="ceremChoice(true)">Aufnehmen<small>+2 Nahrung, +1 Kultur · aber Unruhe: −1 Schutz</small></button>'
+      +'<button class="choice" onclick="ceremChoice(false)">Abweisen<small>+1 Schutz · das Tal bleibt, wie es ist</small></button>';
+    return;
+  }
+  else if(cstep===5){finalScreen();return;}
+}
+function ceremSacrifice(idx){
+  const t=S.tiles[idx];
+  if(t.type==='hoehle')S.S=Math.max(0,S.S-2);
+  t.cell.tile=null;S.tiles.splice(idx,1);
+  toast(TILES[t.type].nm+' geopfert.');
+  ceremStep();
+}
+function ceremChoice(take){
+  if(take){S.N+=2;S.K+=1;S.S=Math.max(0,S.S-1);toast('Die Fremden bleiben. Das Tal wird größer als ein Stamm.');}
+  else{S.S+=1;toast('Sie ziehen weiter, seewärts.');}
+  ceremStep();
+}
+function cHead(n,t){return '<div class="cnum">ZEREMONIE · KARTE '+['I','II','III','IV','V'][n-1]+' / V</div><h1 style="font-size:27px">'+t+'</h1>';}
+function cBtn(l){return '<div class="rule"></div><button class="primary" style="width:100%" onclick="ceremStep()">'+l+'</button>';}
+
+function finalScreen(){
+  const vals=[S.N,getS(),S.B,S.K];
+  const avg=vals.reduce((a,b)=>a+b,0)/4;
+  const bal=avg>0?Math.round(Math.min(...vals)/avg*100):0;
+  const auth=S.authMax>0?Math.round(S.authGot/S.authMax*100):0;
+  let tier,tiertxt;
+  if(S.prog>=16){tier='Die Pfahlbauer';tiertxt='Euer Dorf steht auf Pfählen im flachen Wasser – genau dort, wo Jahrtausende später Taucher seine Reste finden werden. Epoche II wartet: Von Süden her erzählen Händler von einem Volk, das Straßen baut.';}
+  else if(S.prog>=10){tier='Am Ufer angekommen';tiertxt='Ihr seid geblieben – noch nicht fest verwurzelt, aber das Tal kennt jetzt eure Namen. Die nächste Epoche wird entscheiden, ob es sie behält.';}
+  else{tier='Das Tal bleibt wild';tiertxt='Ihr habt überlebt, mehr nicht. Andere werden es sein, deren Spuren die Archäologie findet. Aber jetzt kennst du das Tal – und weißt, wann die Kälte kommt.';}
+  $('ceremInner').innerHTML='<div class="cnum">ZEREMONIE · KARTE V / V</div>'
+    +'<div class="sub">Realitätsabgleich · 2 000 v. Chr.</div>'
+    +'<h1 style="font-size:30px">'+tier+'</h1>'
+    +'<p>'+tiertxt+'</p>'
+    +'<div class="scorebox"><div class="score"><b>'+bal+'%</b><span>Balance</span></div>'
+    +'<div class="score"><b>'+auth+'%</b><span>Authentizität</span></div>'
+    +'<div class="score"><b>'+S.fundFound+'/3</b><span>Fundstellen</span></div></div>'
+    +'<p class="dim"><b>Balance</b>: schwächste Ressource geteilt durch Durchschnitt – wer nichts vernachlässigt, gewinnt. <b>Authentizität</b>: Wie oft hast du gebaut, wo Menschen wirklich bauten?</p>'
+    +(S.fundFound<3?'<p class="dim">Es liegen noch '+(3-S.fundFound)+' Fundstellen unentdeckt im Tal …</p>':'<p class="dim">Alle Fundstellen entdeckt – das Tal hat dir alles gezeigt.</p>')
+    +'<div class="rule"></div>'
+    +'<button class="primary" style="width:100%" onclick="location.reload()">Noch einmal durch die Zeit reisen</button>'
+    +'<p class="legend">◆ Belegte Ereignisse geschehen in jeder Partie zur selben Zeit. Wer sie kennt, spielt anders.<br>Prototyp – Daten historisch inspiriert und vereinfacht, Jahre gerundet.</p>';
+}
+</script>
+</body>
+</html>

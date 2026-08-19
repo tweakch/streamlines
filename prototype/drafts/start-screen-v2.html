@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>STROMLINIEN · Startbildschirm v2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+:root{
+  --bg:#DCE3D8; --panel:#ECEFE6; --panel2:#E2E7DC; --ink:#22302C; --ink2:#5A6B64;
+  --river:#7FB2AC; --riverdeep:#5E9793; --lake:#8FBDB6;
+  --ember:#C96F2E; --emberglow:rgba(201,111,46,.25);
+  --bone:#F2EDE0; --line:#B8C2B4;
+  --tile:#CDD6C8; --ufer:#D6DDC9; --tileink:#33443E;
+  --fog:#C6CCC1; --fogline:#BAC1B6;
+  --shadow:0 2px 10px rgba(30,45,40,.12);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;}
+html{overscroll-behavior:none;}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:'Instrument Sans',system-ui,sans-serif;
+  overflow:hidden; height:100dvh;
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;}}
+
+/* ============ world map (canvas) ============ */
+#worldwrap{position:fixed;inset:0;}
+#world{position:absolute;inset:0;width:100%;height:100%;cursor:grab;touch-action:none;}
+#world.panning{cursor:grabbing;}
+
+.hud-top{position:fixed;top:max(12px,env(safe-area-inset-top));left:14px;right:14px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:5;}
+.brand{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px;letter-spacing:.14em;}
+.brand small{display:block;font-family:'Space Mono',monospace;font-weight:400;font-size:10px;letter-spacing:.08em;color:var(--ink2);margin-top:2px;}
+.hint{font-family:'Space Mono',monospace;font-size:10px;color:var(--ink2);text-align:right;line-height:1.6;letter-spacing:.04em;}
+@media (max-width:520px){.hint span.desk{display:none;}}
+
+.hud-bottom{position:fixed;left:50%;transform:translateX(-50%);bottom:max(14px,env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:8px;z-index:5;width:min(460px,94vw);}
+.report{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 14px;box-shadow:var(--shadow);font-size:11.5px;line-height:1.55;}
+.report .r-head{display:flex;justify-content:space-between;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.08em;color:var(--ink2);text-transform:uppercase;margin-bottom:3px;}
+.report .r-water{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;}
+.report .r-water.ok{color:#4E7D5B;} .report .r-water.no{color:#9C4A33;}
+.report ul{margin:4px 0 0;padding-left:16px;}
+.report li{margin-bottom:1px;}
+.report .r-none{color:var(--ink2);font-style:italic;}
+.btnrow{display:flex;gap:8px;width:100%;}
+button{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:12.5px;letter-spacing:.03em;border-radius:9px;border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);padding:10px 10px;cursor:pointer;transition:all .2s;box-shadow:var(--shadow);}
+button:active{transform:scale(.97);}
+button.primary{background:var(--ink);color:var(--bg);flex:1.2;font-size:13.5px;}
+button.sec{flex:1;}
+button:disabled{opacity:.4;pointer-events:none;}
+button.round{width:42px;height:42px;padding:0;border-radius:50%;font-size:19px;line-height:1;flex:none;font-family:'Space Mono',monospace;}
+.zoomcol{position:fixed;right:14px;bottom:max(14px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;z-index:5;}
+@media (max-width:640px){.zoomcol{display:none;}}
+.seedrow{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);letter-spacing:.08em;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;}
+.seedrow button{font-size:9.5px;padding:4px 10px;border-radius:14px;border-width:1px;font-family:'Space Mono',monospace;font-weight:400;box-shadow:none;}
+
+.toast{position:fixed;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%) translateY(-80px);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:24px;font-size:12.5px;font-weight:600;z-index:60;transition:transform .4s cubic-bezier(.2,.9,.3,1.2);max-width:88vw;text-align:center;box-shadow:var(--shadow);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+/* ============ epoch panel ============ */
+.overlay{position:fixed;inset:0;background:rgba(20,30,26,.55);z-index:40;display:none;align-items:center;justify-content:center;padding:16px;}
+.overlay.on{display:flex;}
+.epcard{width:100%;max-width:460px;max-height:88dvh;overflow-y:auto;background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:18px 18px 14px;box-shadow:0 8px 30px rgba(0,0,0,.25);}
+.epcard h2{font-family:'Bricolage Grotesque',sans-serif;font-size:19px;font-weight:800;margin:0 0 2px;}
+.epcard .sub{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--ember);text-transform:uppercase;margin-bottom:12px;}
+.eprow{border-top:1px dashed var(--line);padding:10px 0;}
+.eprow .ep-head{display:flex;align-items:baseline;gap:8px;}
+.eprow .ep-num{font-family:'Space Mono',monospace;font-size:10px;color:var(--ink2);}
+.eprow b{font-family:'Bricolage Grotesque',sans-serif;font-size:13.5px;font-weight:700;}
+.eprow .ep-years{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);margin-left:auto;white-space:nowrap;}
+.eprow .ep-dots{font-size:11px;color:var(--ember);letter-spacing:.15em;margin:2px 0;}
+.eprow p{font-size:11.5px;color:var(--ink2);line-height:1.5;margin:2px 0 0;}
+.epcard .legend{font-size:10px;color:var(--ink2);line-height:1.5;margin-top:10px;}
+.epcard button{width:100%;margin-top:12px;}
+
+/* ============ board view (DOM-hexes, reused from stromlinien-epoche1) ============ */
+#board{position:fixed;inset:0;background:var(--bg);z-index:20;display:none;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#board.on{display:block;}
+.wrap{max-width:520px;margin:0 auto;padding:12px 12px calc(24px + env(safe-area-inset-bottom));}
+header{display:flex;justify-content:space-between;align-items:flex-end;padding:6px 2px 10px;}
+.coords{font-family:'Space Mono',monospace;text-align:right;font-size:10px;color:var(--ink2);letter-spacing:.06em;line-height:1.5;}
+
+.map{--hexw:60px;--hexh:calc(var(--hexw)*1.1547);--hexgap:4px;margin:10px 0 14px;}
+.hexrow{display:flex;gap:var(--hexgap);}
+.hexrow.odd{margin-left:calc(var(--hexw)/2 + var(--hexgap)/2);}
+.hexrow + .hexrow{margin-top:calc(var(--hexh)*-0.25 + var(--hexgap));}
+.cell{position:relative;width:var(--hexw);height:var(--hexh);flex:none;display:flex;align-items:center;justify-content:center;--edge:var(--line);--fill:var(--tile);}
+.cell::before{content:'';position:absolute;inset:0;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--edge);}
+.cell::after{content:'';position:absolute;inset:1.5px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background-color:var(--fill);}
+.cell.ghost{visibility:hidden;}
+.cell.water{--fill:var(--river);--edge:var(--riverdeep);}
+.cell.lake{--fill:var(--lake);--edge:var(--riverdeep);}
+.cell.hang{--fill:var(--panel2);}
+.cell.hang::after{background-image:repeating-linear-gradient(135deg,transparent 0 5px,rgba(90,107,100,.13) 5px 7px);}
+.cell.ufer{--fill:var(--ufer);}
+.cell.furt::after{background-image:repeating-linear-gradient(0deg,var(--river) 0 4px,var(--lake) 4px 8px);}
+.cell.furt .furtlabel{position:absolute;top:16%;left:0;right:0;text-align:center;font-family:'Space Mono',monospace;font-size:7px;letter-spacing:.14em;color:rgba(255,255,255,.9);pointer-events:none;z-index:1;}
+.person{position:absolute;top:6%;right:6%;width:20px;height:20px;border-radius:50%;background:var(--ember);color:#14100a;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;z-index:3;box-shadow:0 1px 4px rgba(0,0,0,.35);border:1.5px solid var(--bg);}
+.hintmark{position:absolute;bottom:8%;left:0;right:0;text-align:center;font-size:11px;color:var(--ember);z-index:2;pointer-events:none;}
+.cell.spawn{animation:spawnpulse 1.8s ease;}
+@keyframes spawnpulse{0%{filter:drop-shadow(0 0 0 var(--ember))}45%{filter:drop-shadow(0 0 10px var(--ember))}100%{filter:none}}
+
+.boardnote{background:var(--panel);border-left:3px solid var(--ember);border-radius:0 8px 8px 0;padding:10px 12px;font-size:12px;line-height:1.55;margin:4px 0 14px;}
+.boardnote .bn-title{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--ember);display:block;margin-bottom:3px;text-transform:uppercase;}
+.legend{font-size:10.5px;color:var(--ink2);line-height:1.5;margin-top:14px;}
+.actionrow{display:flex;gap:8px;margin-top:6px;}
+</style>
+</head>
+<body>
+
+<!-- ============ WORLD SELECT & SHAPE ============ -->
+<div id="worldwrap">
+  <canvas id="world"></canvas>
+  <div class="hud-top">
+    <div class="brand">STROMLINIEN<small>WÄHLE &amp; FORME DEIN TAL</small></div>
+    <div class="hint">ziehen = Karte bewegen<br>tippen = Feld dazu / weg<br>Rad / Pinch = zoomen<span class="desk"><br>Pfeiltasten = bewegen</span></div>
+  </div>
+  <div class="zoomcol">
+    <button class="round" onclick="zoomBy(1.35)" aria-label="Hineinzoomen">+</button>
+    <button class="round" onclick="zoomBy(1/1.35)" aria-label="Herauszoomen">−</button>
+  </div>
+  <div class="hud-bottom">
+    <div class="seedrow">WELT <span id="seedlbl"></span>
+      <button onclick="reseed()">andere Welt ↻</button>
+      <button onclick="resetFog()">Nebel zurücksetzen</button>
+    </div>
+    <div class="report" id="report"></div>
+    <div class="btnrow">
+      <button class="sec" onclick="resetSection()">⬡ Neu formen</button>
+      <button class="sec" onclick="openEpochs()">Epochen-Ausblick</button>
+      <button class="primary" id="btnStart" onclick="startHere()">Hier starten</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ EPOCH FORECAST ============ -->
+<div class="overlay" id="epoverlay" onclick="if(event.target===this)closeEpochs()">
+  <div class="epcard">
+    <div class="sub">Ausblick für das gewählte Gebiet</div>
+    <h2>Fünf Epochen, ein Tal</h2>
+    <div id="eplist"></div>
+    <p class="legend">Der Ausblick liest die Landschaft, nicht die Zukunft: grobe Erwartungen ohne Orte. Historisch inspiriert und vereinfacht.</p>
+    <button onclick="closeEpochs()">Schliessen</button>
+  </div>
+</div>
+
+<!-- ============ LOADED SECTION ============ -->
+<div id="board">
+  <div class="wrap">
+    <header>
+      <div class="brand">STROMLINIEN<small>DEIN TAL</small></div>
+      <div class="coords" id="boardcoords"></div>
+    </header>
+    <div class="map" id="boardmap"></div>
+    <div class="boardnote" id="boardnote"></div>
+    <div class="actionrow">
+      <button onclick="backToWorld()">← Zurück zur Karte</button>
+      <button class="primary" onclick="rerollPeople()">Anderer Startplatz ⟳</button>
+    </div>
+    <p class="legend">Prototyp Startbildschirm v2. Gelände prozedural erzeugt – historisch inspirierte Plättchen &amp; Ereignisse folgen erst im Spiel selbst.</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= WORLD GEN =================
+   Endlose Hex-Welt, pointy-top, odd-r offset (identisch zu
+   stromlinien-epoche1.html / app/src/stromlinien/grid.ts).
+   Deterministisch pro Seed: gleiche Koordinate → gleiches Gelände. */
+const HEXAGON_R=3;                      // Startform: Sechseck mit Radius 3 = 37 Felder
+const MIN_TILES=12, MAX_TILES=55;
+const SQ3=Math.sqrt(3);
+const par=r=>((r%2)+2)%2;
+/* Sechseck-Nachbarschaft: odd-r offset — Tabellen identisch zur epoche1 */
+const HEXDIRS_EVEN=[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]];
+const HEXDIRS_ODD =[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
+const dirsOf=r=>par(r)?HEXDIRS_ODD:HEXDIRS_EVEN;
+
+let seed=Math.floor(Math.random()*0x7fffffff);
+const seedParam=new URLSearchParams(location.search).get('seed');
+if(seedParam)seed=parseInt(seedParam,10)||seed;
+
+function hash(x,y,s){
+  let h=Math.imul(x|0,374761393)^Math.imul(y|0,668265263)^Math.imul(s|0,1440662683);
+  h=Math.imul(h^(h>>>13),1274126177); h^=h>>>16;
+  return (h>>>0)/4294967296;
+}
+const smooth=t=>t*t*(3-2*t);
+function vnoise(x,y,s){
+  const xi=Math.floor(x),yi=Math.floor(y),u=smooth(x-xi),v=smooth(y-yi);
+  const a=hash(xi,yi,s),b=hash(xi+1,yi,s),c=hash(xi,yi+1,s),d=hash(xi+1,yi+1,s);
+  return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;
+}
+function fbm(x,y,s){
+  return vnoise(x,y,s)*0.55+vnoise(x*2.13+31,y*2.13+17,s+7)*0.28+vnoise(x*4.41+11,y*4.41+53,s+13)*0.17;
+}
+const cx=(c,r)=>c+0.5*par(r);
+const cy=r=>r*0.8660254;
+
+let bcache=new Map(), fcache=new Map(), hcache=new Map();
+function baseTerrain(c,r){
+  const key=c+','+r; const hit=bcache.get(key); if(hit)return hit;
+  const x=cx(c,r), y=cy(r);
+  const e=fbm(x*0.055,y*0.055,seed);
+  let t;
+  if(e<0.30)t='lake';
+  else{
+    const rv=fbm(x*0.033+100,y*0.033+100,seed+101);
+    if(Math.abs(rv-0.5)<0.014&&e<0.80)t=hash(c,r,seed+55)<0.10?'furt':'water';
+    else if(e>0.72)t='hang';
+    else t='flach';
+  }
+  if(bcache.size>250000)bcache.clear();
+  bcache.set(key,t);
+  return t;
+}
+const isWater=t=>t==='water'||t==='furt'||t==='lake';
+function terrain(c,r){
+  const key=c+','+r; const hit=fcache.get(key); if(hit)return hit;
+  let t=baseTerrain(c,r);
+  if(t==='flach'){
+    for(const[dr,dc]of dirsOf(r)){if(isWater(baseTerrain(c+dc,r+dr))){t='ufer';break;}}
+  }
+  if(fcache.size>250000)fcache.clear();
+  fcache.set(key,t);
+  return t;
+}
+
+/* ================= ZEICHEN (Hinweise) =================
+   Deterministische Zeichen nahe markantem Gelände. Ungespielt sehen alle
+   gleich aus und verraten weder Ort noch Art — im gewählten Gebiet liefert
+   jedes Zeichen EINE Aussage über das GESAMTE Gebiet (grobe Stufen).
+   Erst gespielte Zeichen zeigen auf der Weltkarte ihre wahre Art. */
+function hintAt(c,r){
+  const key=c+','+r; if(hcache.has(key))return hcache.get(key);
+  let h=null;
+  if(hash(c,r,seed+777)<0.045){
+    const t=baseTerrain(c,r);
+    let nearW=isWater(t);
+    if(!nearW)for(const[dr,dc]of dirsOf(r)){if(isWater(baseTerrain(c+dc,r+dr))){nearW=true;break;}}
+    if(nearW)h='wasser';
+    else if(t==='hang')h=hash(c,r,seed+778)<0.30?'fund':'stein';
+    else h=hash(c,r,seed+778)<0.12?'fund':'land';
+  }
+  if(hcache.size>250000)hcache.clear();
+  hcache.set(key,h);
+  return h;
+}
+const HINTTXT={
+  wasser:s=>'Wasser im Gebiet: '+bucket(s.water+s.furt+s.lake)+(s.furt>0?' – und eine flache Stelle zum Übersetzen.':'.'),
+  stein:s=>'Steiniger Grund und Hänge: '+bucket(s.hang)+'.',
+  land:s=>'Offenes Land für Lager und Wald: '+bucket(s.flach+s.ufer)+'.',
+  fund:()=>'Die Alten erzählen von etwas Verborgenem in diesem Gebiet.',
+};
+function bucket(n){return n===0?'keines':n<=2?'wenig':n<=5?'etwas':'reichlich';}
+
+/* ================= AUSWAHL (Sektion) ================= */
+let sel=new Set();                       // Keys "c,r" des gewählten Gebiets
+let played=new Set();                    // gespielte Felder (localStorage, pro Seed)
+const storeKey=()=>'sot-start-v2-played-'+seed;
+function loadPlayed(){
+  try{played=new Set(JSON.parse(localStorage.getItem(storeKey())||'[]'));}
+  catch(e){played=new Set();}
+}
+function savePlayed(){try{localStorage.setItem(storeKey(),JSON.stringify([...played]));}catch(e){}}
+function resetFog(){played=new Set();savePlayed();toast('Der Nebel liegt wieder über allem.');requestDraw();}
+
+/* offset (odd-r) ↔ cube, für die Sechseck-Grundform */
+function hexagonCells(cc,cr,R){
+  const x0=cc-((cr-(cr&1))/2), z0=cr, cells=[];
+  for(let dx=-R;dx<=R;dx++)for(let dy=Math.max(-R,-dx-R);dy<=Math.min(R,-dx+R);dy++){
+    const dz=-dx-dy, x=x0+dx, z=z0+dz;
+    cells.push([x+((z-(z&1))/2),z]);     // [col,row]
+  }
+  return cells;
+}
+function resetSection(){
+  const rc=Math.round(view.y/0.8660254);
+  const cc=Math.round(view.x-0.5*par(rc));
+  sel=new Set(hexagonCells(cc,rc,HEXAGON_R).map(([c,r])=>c+','+r));
+  updateReport();requestDraw();
+}
+function selNeighbors(k){
+  const[c,r]=k.split(',').map(Number);
+  return dirsOf(r).map(([dr,dc])=>(c+dc)+','+(r+dr));
+}
+function staysConnected(without){
+  const rest=[...sel].filter(k=>k!==without);
+  if(!rest.length)return false;
+  const seen=new Set([rest[0]]), q=[rest[0]];
+  while(q.length){
+    const k=q.pop();
+    for(const n of selNeighbors(k))if(sel.has(n)&&n!==without&&!seen.has(n)){seen.add(n);q.push(n);}
+  }
+  return seen.size===rest.length;
+}
+function toggleCell(c,r){
+  const k=c+','+r;
+  if(sel.has(k)){
+    if(sel.size<=MIN_TILES)return toast('Kleiner geht nicht – mindestens '+MIN_TILES+' Felder.');
+    if(!staysConnected(k))return toast('Das Gebiet muss zusammenhängen.');
+    sel.delete(k);
+  }else{
+    if(sel.size>=MAX_TILES)return toast('Grösser geht nicht – höchstens '+MAX_TILES+' Felder.');
+    if(!selNeighbors(k).some(n=>sel.has(n)))return toast('Nur Felder am Rand des Gebiets.');
+    sel.add(k);
+  }
+  updateReport();requestDraw();
+}
+
+/* Gebiets-Statistik (echtes Gelände; angezeigt wird nur Vages) */
+function sectionStats(){
+  const s={water:0,furt:0,lake:0,hang:0,flach:0,ufer:0,n:sel.size,hints:[]};
+  for(const k of sel){
+    const[c,r]=k.split(',').map(Number);
+    s[terrain(c,r)]++;
+    const h=hintAt(c,r);
+    if(h)s.hints.push({c,r,cat:h});
+  }
+  return s;
+}
+let stats=null;
+function updateReport(){
+  stats=sectionStats();
+  const el=document.getElementById('report');
+  const waterOk=stats.water+stats.furt>0;
+  let h='<div class="r-head"><span>Gewähltes Gebiet · '+stats.n+' Felder</span>'
+    +'<span class="r-water '+(waterOk?'ok':'no')+'">'+(waterOk?'✓ Wasser zu hören':'✕ kein Wasser zu hören')+'</span></div>';
+  const cats=[...new Set(stats.hints.map(x=>x.cat))];
+  if(cats.length){
+    h+='<ul>'+cats.map(cat=>{
+      const n=stats.hints.filter(x=>x.cat===cat).length;
+      return '<li>◈'+(n>1?'×'+n+' ':' ')+HINTTXT[cat](stats)+'</li>';
+    }).join('')+'</ul>';
+  }else{
+    h+='<div class="r-none">Keine Zeichen im Gebiet – ihr geht ohne Kundschaft.</div>';
+  }
+  el.innerHTML=h;
+  document.getElementById('btnStart').disabled=!waterOk;
+  document.getElementById('seedlbl').textContent='#'+seed.toString(36).toUpperCase();
+}
+
+/* ================= EPOCHEN-AUSBLICK ================= */
+const dots=s=>'●'.repeat(s)+'○'.repeat(5-s);
+const cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+function epochForecast(s){
+  const fluss=s.water+s.furt, wasser=fluss+s.lake, land=s.flach+s.ufer;
+  return[
+    {name:'Überleben am Wasser, Pfahlbauten',years:'10 000–2 000 v. Chr.',
+     score:cl(1+(wasser>0?1:0)+(wasser>2?1:0)+(s.lake>0?1:0)+(s.hang>0?1:0),1,5),
+     txt:'Fischgründe: '+bucket(wasser)+' · Seeufer für Pfahlbauten: '+bucket(s.lake)
+       +' · Höhlen und Terrassen am Hang: '+bucket(s.hang)+(wasser===0?' – ohne Wasser wird der Anfang hart.':'')},
+    {name:'Rätier, Römer, ferne Macht',years:'2 000 v. Chr.–500 n. Chr.',
+     score:cl(1+(s.furt>0?2:0)+(land>3?1:0)+(land>7?1:0),1,5),
+     txt:(s.furt>0?'Furten ziehen Wege an – Saumpfade, später eine Römerstrasse. ':'Keine Furt: der grosse Verkehr zieht anderswo vorbei. ')
+       +'Boden für Gehöfte: '+bucket(land)+'.'},
+    {name:'Klöster, Städte, Konstanz',years:'500–1500',
+     score:cl(1+(land>3?1:0)+(land>7?1:0)+(s.furt>0?1:0)+(s.hang>0?1:0),1,5),
+     txt:'Dorf-, Kloster- und Marktland: '+bucket(land)
+       +(s.furt>0?' · an der Furt kann ein Marktort wachsen':'')
+       +(s.hang>0?' · Weinberge an sonnigen Hängen: '+bucket(s.hang):'')+'.'},
+    {name:'Glaube, Grenzen, Schmuggel',years:'1500–1800',
+     score:cl(1+(fluss>0?2:0)+(s.hang>0?1:0)+(s.lake>0?1:0),1,5),
+     txt:(fluss>0?'Der Fluss wird Grenze – Zollstellen, Fähren, Schmuggelpfade: '+bucket(fluss)+'. ':'Ohne Fluss keine Grenze – ruhige Zeiten. ')
+       +(s.hang>0?'Alpwirtschaft am Hang: '+bucket(s.hang)+'.':'')},
+    {name:'Industrie, Rheinkorrektion',years:'1800–heute',
+     score:cl(1+(fluss>0?1:0)+(fluss>2?1:0)+(land>5?1:0)+(land>9?1:0),1,5),
+     txt:(fluss>0?'Hochwasser und Rheinkorrektion, dann Wasserkraft: '+bucket(fluss)+'. ':'')
+       +'Raum für Bahn, Fabriken, wachsende Dörfer: '+bucket(land)+'.'},
+  ];
+}
+function openEpochs(){
+  const list=document.getElementById('eplist');
+  list.innerHTML=epochForecast(stats).map((e,i)=>
+    '<div class="eprow"><div class="ep-head"><span class="ep-num">'+['I','II','III','IV','V'][i]+'</span><b>'+e.name+'</b><span class="ep-years">'+e.years+'</span></div>'
+    +'<div class="ep-dots">'+dots(e.score)+'</div><p>'+e.txt+'</p></div>').join('');
+  document.getElementById('epoverlay').classList.add('on');
+}
+function closeEpochs(){document.getElementById('epoverlay').classList.remove('on');}
+
+/* ================= CAMERA / CANVAS ================= */
+const cvs=document.getElementById('world'), ctx=cvs.getContext('2d');
+const view={x:0.5,y:3.5,z:30};
+const ZMIN=10, ZMAX=64;
+let W=0,H=0,DPR=1;
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  W=window.innerWidth;H=window.innerHeight;
+  cvs.width=W*DPR;cvs.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  requestDraw();
+}
+window.addEventListener('resize',resize);
+
+const COL={
+  flach:'#CDD6C8', ufer:'#D6DDC9', hang:'#E2E7DC',
+  water:'#7FB2AC', lake:'#8FBDB6',
+  edge:'#B8C2B4', edgewater:'#5E9793', bg:'#DCE3D8',
+  fog:'#C6CCC1', fogline:'#BDC4B9', mark:'#54645D',
+  ember:'#C96F2E', stripe:'rgba(90,107,100,.13)'
+};
+function hexPath(sx,sy,z){
+  const hh=z/SQ3;
+  ctx.beginPath();
+  ctx.moveTo(sx,sy-hh);
+  ctx.lineTo(sx+z/2,sy-hh/2);
+  ctx.lineTo(sx+z/2,sy+hh/2);
+  ctx.lineTo(sx,sy+hh);
+  ctx.lineTo(sx-z/2,sy+hh/2);
+  ctx.lineTo(sx-z/2,sy-hh/2);
+  ctx.closePath();
+}
+/* Hex-Ecken & Kante je Nachbarrichtung (für den Gebietsrand) */
+function corners(sx,sy,z){
+  const hh=z/SQ3;
+  return[[sx,sy-hh],[sx+z/2,sy-hh/2],[sx+z/2,sy+hh/2],[sx,sy+hh],[sx-z/2,sy+hh/2],[sx-z/2,sy-hh/2]];
+}
+/* Richtung [dr,dc] → Kantenindex (Ecke i → i+1): NE=0,E=1,SE=2,SW=3,W=4,NW=5 */
+function edgeIndex(r,dr,dc){
+  const odd=par(r);
+  if(dr===0)return dc===1?1:4;
+  if(dr===-1)return (odd?dc===1:dc===0)?0:5;
+  return (odd?dc===1:dc===0)?2:3;
+}
+
+let drawQueued=false;
+function requestDraw(){if(!drawQueued){drawQueued=true;requestAnimationFrame(draw);}}
+function draw(){
+  drawQueued=false;
+  const z=view.z, hh=z/SQ3;
+  ctx.fillStyle=COL.bg;ctx.fillRect(0,0,W,H);
+  const wxMin=view.x-W/(2*z), wxMax=view.x+W/(2*z);
+  const wyMin=view.y-H/(2*z), wyMax=view.y+H/(2*z);
+  const r0=Math.floor(wyMin/0.8660254)-1, r1=Math.ceil(wyMax/0.8660254)+1;
+  const c0=Math.floor(wxMin)-1, c1=Math.ceil(wxMax)+1;
+  ctx.lineWidth=Math.max(0.6,z*0.035);
+  const detail=z>=20, marks=z>=13;
+  for(let r=r0;r<=r1;r++){
+    for(let c=c0;c<=c1;c++){
+      const k=c+','+r, revealed=played.has(k);
+      const sx=(cx(c,r)-view.x)*z+W/2, sy=(cy(r)-view.y)*z+H/2;
+      hexPath(sx,sy,z);
+      if(revealed){
+        const t=terrain(c,r);
+        ctx.fillStyle=COL[t==='furt'?'water':t]||COL.flach;
+        ctx.fill();
+        ctx.strokeStyle=isWater(t)?COL.edgewater:COL.edge;
+        ctx.stroke();
+        if(detail&&t==='furt'){
+          ctx.strokeStyle=COL.lake;ctx.lineWidth=Math.max(1.5,z*0.09);
+          for(const f of[-0.28,0,0.28]){
+            ctx.beginPath();ctx.moveTo(sx-z*0.32,sy+hh*f);ctx.lineTo(sx+z*0.32,sy+hh*f);ctx.stroke();
+          }
+          ctx.lineWidth=Math.max(0.6,z*0.035);
+        }
+        if(detail&&t==='hang'){
+          ctx.strokeStyle=COL.stripe;ctx.lineWidth=Math.max(1,z*0.05);
+          for(const f of[-0.3,0,0.3]){
+            ctx.beginPath();ctx.moveTo(sx-z*0.22+f*z,sy-hh*0.25);ctx.lineTo(sx+z*0.02+f*z,sy+hh*0.25);ctx.stroke();
+          }
+          ctx.lineWidth=Math.max(0.6,z*0.035);
+        }
+      }else{
+        /* Nebel des Ungespielten: leicht körnig, ohne Gelände */
+        const v=hash(c,r,seed+999)*0.05-0.025;
+        ctx.fillStyle=shade(COL.fog,v);
+        ctx.fill();
+        ctx.strokeStyle=COL.fogline;
+        ctx.stroke();
+      }
+      /* Zeichen: ungespielt anonym (Stele), gespielt mit wahrer Art */
+      if(marks){
+        const h=hintAt(c,r);
+        if(h)drawHint(sx,sy,z,revealed?h:null);
+      }
+    }
+  }
+  /* Gebiets-Überzug + Rand */
+  ctx.fillStyle='rgba(201,111,46,.07)';
+  for(const k of sel){
+    const[c,r]=k.split(',').map(Number);
+    const sx=(cx(c,r)-view.x)*z+W/2, sy=(cy(r)-view.y)*z+H/2;
+    if(sx<-z||sx>W+z||sy<-z||sy>H+z)continue;
+    hexPath(sx,sy,z);ctx.fill();
+  }
+  ctx.strokeStyle=COL.ember;ctx.lineWidth=Math.max(2,z*0.07);ctx.lineCap='round';
+  ctx.beginPath();
+  for(const k of sel){
+    const[c,r]=k.split(',').map(Number);
+    const sx=(cx(c,r)-view.x)*z+W/2, sy=(cy(r)-view.y)*z+H/2;
+    if(sx<-2*z||sx>W+2*z||sy<-2*z||sy>H+2*z)continue;
+    const cs=corners(sx,sy,z);
+    for(const[dr,dc]of dirsOf(r)){
+      if(sel.has((c+dc)+','+(r+dr)))continue;
+      const i=edgeIndex(r,dr,dc), a=cs[i], b=cs[(i+1)%6];
+      ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);
+    }
+  }
+  ctx.stroke();ctx.lineCap='butt';
+}
+function shade(hex,f){
+  const n=parseInt(hex.slice(1),16);
+  const ch=i=>Math.max(0,Math.min(255,Math.round(((n>>i)&255)*(1+f))));
+  return 'rgb('+ch(16)+','+ch(8)+','+ch(0)+')';
+}
+function drawHint(sx,sy,z,cat){
+  const s=z*0.2;
+  ctx.save();
+  if(!cat){ /* anonyme Stele: Raute auf Strich */
+    ctx.strokeStyle=COL.mark;ctx.lineWidth=Math.max(1,z*0.05);
+    ctx.beginPath();ctx.moveTo(sx,sy+s);ctx.lineTo(sx,sy-s*0.1);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(sx,sy-s);ctx.lineTo(sx+s*0.55,sy-s*0.45);ctx.lineTo(sx,sy+s*0.1);ctx.lineTo(sx-s*0.55,sy-s*0.45);ctx.closePath();
+    ctx.stroke();
+  }else if(cat==='wasser'){
+    ctx.strokeStyle='#3E6D68';ctx.lineWidth=Math.max(1,z*0.05);
+    for(const o of[-0.35,0.35]){
+      ctx.beginPath();ctx.moveTo(sx-s,sy+o*s);
+      ctx.quadraticCurveTo(sx-s/2,sy+(o-0.5)*s,sx,sy+o*s);
+      ctx.quadraticCurveTo(sx+s/2,sy+(o+0.5)*s,sx+s,sy+o*s);
+      ctx.stroke();
+    }
+  }else if(cat==='stein'){
+    ctx.strokeStyle=COL.mark;ctx.lineWidth=Math.max(1,z*0.05);
+    ctx.beginPath();ctx.moveTo(sx-s,sy+s*0.7);ctx.lineTo(sx,sy-s*0.8);ctx.lineTo(sx+s,sy+s*0.7);ctx.closePath();ctx.stroke();
+  }else if(cat==='land'){
+    ctx.strokeStyle='#5E7A4E';ctx.lineWidth=Math.max(1,z*0.05);
+    ctx.beginPath();ctx.moveTo(sx,sy+s);ctx.lineTo(sx,sy-s);ctx.moveTo(sx,sy-s*0.2);ctx.lineTo(sx-s*0.6,sy-s*0.7);ctx.moveTo(sx,sy-s*0.2);ctx.lineTo(sx+s*0.6,sy-s*0.7);ctx.stroke();
+  }else{ /* fund */
+    ctx.fillStyle=COL.ember;
+    ctx.beginPath();ctx.moveTo(sx,sy-s);ctx.lineTo(sx+s*0.7,sy);ctx.lineTo(sx,sy+s);ctx.lineTo(sx-s*0.7,sy);ctx.closePath();ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ================= INTERACTION ================= */
+const pointers=new Map();
+let pinchDist=0;
+cvs.addEventListener('pointerdown',e=>{
+  cvs.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,dist:0});
+  if(pointers.size===2){const[a,b]=[...pointers.values()];pinchDist=Math.hypot(a.x-b.x,a.y-b.y);}
+  cvs.classList.add('panning');
+});
+cvs.addEventListener('pointermove',e=>{
+  if(!pointers.has(e.pointerId))return;
+  const p=pointers.get(e.pointerId);
+  const dx=e.clientX-p.x, dy=e.clientY-p.y;
+  p.x=e.clientX;p.y=e.clientY;p.dist+=Math.abs(dx)+Math.abs(dy);
+  if(pointers.size===1){
+    view.x-=dx/view.z; view.y-=dy/view.z;
+  }else if(pointers.size===2){
+    const[a,b]=[...pointers.values()];
+    const d=Math.hypot(a.x-b.x,a.y-b.y);
+    if(pinchDist>0)applyZoom(d/pinchDist,(a.x+b.x)/2,(a.y+b.y)/2);
+    pinchDist=d;
+    view.x-=dx/(2*view.z); view.y-=dy/(2*view.z);
+  }
+  requestDraw();
+});
+function endPointer(e){
+  const p=pointers.get(e.pointerId);
+  const tap=p&&pointers.size===1&&p.dist<7;
+  pointers.delete(e.pointerId);pinchDist=0;
+  if(!pointers.size)cvs.classList.remove('panning');
+  if(tap&&e.type==='pointerup'){
+    const cell=cellAtScreen(e.clientX,e.clientY);
+    if(cell)toggleCell(cell[0],cell[1]);
+  }
+}
+cvs.addEventListener('pointerup',endPointer);
+cvs.addEventListener('pointercancel',endPointer);
+cvs.addEventListener('wheel',e=>{
+  e.preventDefault();
+  applyZoom(Math.exp(-e.deltaY*0.0016),e.clientX,e.clientY);
+  requestDraw();
+},{passive:false});
+function cellAtScreen(px,py){
+  const wx=(px-W/2)/view.z+view.x, wy=(py-H/2)/view.z+view.y;
+  let best=null,bd=1e9;
+  const rc=Math.round(wy/0.8660254);
+  for(let r=rc-1;r<=rc+1;r++){
+    const cc=Math.round(wx-0.5*par(r));
+    for(let c=cc-1;c<=cc+1;c++){
+      const dx=cx(c,r)-wx, dy=cy(r)-wy, d=dx*dx+dy*dy;
+      if(d<bd){bd=d;best=[c,r];}
+    }
+  }
+  return best;
+}
+function applyZoom(f,px,py){
+  const z0=view.z, z1=Math.min(ZMAX,Math.max(ZMIN,z0*f));
+  if(z1===z0)return;
+  view.x+=(px-W/2)*(1/z0-1/z1);
+  view.y+=(py-H/2)*(1/z0-1/z1);
+  view.z=z1;
+}
+function zoomBy(f){applyZoom(f,W/2,H/2);requestDraw();}
+window.addEventListener('keydown',e=>{
+  if(document.getElementById('board').classList.contains('on'))return;
+  const step=40/view.z;
+  if(e.key==='ArrowLeft')view.x-=step;
+  else if(e.key==='ArrowRight')view.x+=step;
+  else if(e.key==='ArrowUp')view.y-=step;
+  else if(e.key==='ArrowDown')view.y+=step;
+  else if(e.key==='+'||e.key==='=')return zoomBy(1.35);
+  else if(e.key==='-')return zoomBy(1/1.35);
+  else return;
+  requestDraw();
+});
+function reseed(){
+  seed=Math.floor(Math.random()*0x7fffffff);
+  bcache.clear();fcache.clear();hcache.clear();
+  loadPlayed();
+  findRiverStart();
+  resetSection();
+}
+function toast(msg,ms=2200){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),ms);
+}
+
+/* ================= START: Gebiet laden ================= */
+let section=null, people={sammler:null,jaeger:null};
+function startHere(){
+  if(!stats||stats.water+stats.furt===0)return;
+  const cells=[...sel].map(k=>{
+    const[c,r]=k.split(',').map(Number);
+    return{c,r,t:terrain(c,r),hint:hintAt(c,r)};
+  });
+  section={cells,seed};
+  for(const k of sel)played.add(k);   // gespielt: der Nebel hebt sich hier
+  savePlayed();
+  placePeople();
+  document.getElementById('board').classList.add('on');
+  renderBoard(true);
+}
+function placePeople(){
+  const land=section.cells.filter(x=>!isWater(x.t));
+  const pool=land.length>=2?land:section.cells.slice();
+  const i=Math.floor(Math.random()*pool.length);
+  let j=Math.floor(Math.random()*(pool.length-1));
+  if(j>=i)j++;
+  people.sammler=pool[i];
+  people.jaeger=pool[j%pool.length];
+}
+function rerollPeople(){placePeople();renderBoard(true);}
+function backToWorld(){document.getElementById('board').classList.remove('on');updateReport();requestDraw();}
+
+function sizeBoardHexes(m,cols){
+  const w=m.clientWidth;if(!w)return;
+  const gap=4;
+  m.style.setProperty('--hexw',Math.floor((w-(cols-0.5)*gap)/(cols+0.5))+'px');
+}
+window.addEventListener('resize',()=>{
+  const m=document.getElementById('boardmap');
+  if(section&&m.offsetParent)renderBoard(false);
+});
+function renderBoard(spawnPulse){
+  const m=document.getElementById('boardmap');m.innerHTML='';
+  const rows=section.cells.map(x=>x.r), cols=section.cells.map(x=>x.c);
+  const rMin=Math.min(...rows),rMax=Math.max(...rows),cMin=Math.min(...cols),cMax=Math.max(...cols);
+  sizeBoardHexes(m,cMax-cMin+1);
+  const byKey=new Map(section.cells.map(x=>[x.c+','+x.r,x]));
+  for(let r=rMin;r<=rMax;r++){
+    const row=document.createElement('div');
+    row.className='hexrow'+(par(r)?' odd':'');
+    for(let c=cMin;c<=cMax;c++){
+      const cell=byKey.get(c+','+r);
+      const d=document.createElement('div');
+      if(!cell){d.className='cell ghost';row.appendChild(d);continue;}
+      d.className='cell '+(cell.t==='furt'?'water furt':cell.t==='flach'?'':cell.t);
+      if(cell.t==='furt')d.innerHTML='<div class="furtlabel">FURT</div>';
+      if(cell.hint)d.innerHTML+='<div class="hintmark">◈</div>';
+      if(people.sammler===cell){d.innerHTML+='<div class="person">✦</div>';if(spawnPulse)d.classList.add('spawn');}
+      if(people.jaeger===cell){d.innerHTML+='<div class="person">➤</div>';if(spawnPulse)d.classList.add('spawn');}
+      row.appendChild(d);
+    }
+    m.appendChild(row);
+  }
+  document.getElementById('boardcoords').innerHTML=
+    'WELT #'+section.seed.toString(36).toUpperCase()+'<br>'+section.cells.length+' Felder · Spalten '
+    +cMin+'…'+cMax+' · Reihen '+rMin+'…'+rMax;
+  const rivers=section.cells.filter(x=>x.t==='water'||x.t==='furt').length;
+  const hints=section.cells.filter(x=>x.hint).length;
+  document.getElementById('boardnote').innerHTML=
+    '<span class="bn-title">Der Stamm kommt an</span>Die <b>Sammlerin ✦</b> und der <b>Jäger ➤</b> betreten das Tal – jeder auf einem zufälligen Feld. '
+    +'Der Fluss ('+rivers+' '+(rivers===1?'Feld':'Felder')+') sichert Wasser und Fischgründe.'
+    +(hints?' <b>'+hints+' Zeichen ◈</b> '+(hints===1?'wartet':'warten')+' darauf, im Spiel gedeutet zu werden.':'')
+    +' Auf der Weltkarte ist dieses Gebiet nun aufgedeckt.';
+}
+
+/* ================= INIT ================= */
+function findRiverStart(){
+  for(let tries=0;tries<400;tries++){
+    const rc=Math.round(view.y/0.8660254);
+    const cc=Math.round(view.x-0.5*par(rc));
+    const hasRiver=hexagonCells(cc,rc,HEXAGON_R).some(([c,r])=>{
+      const t=baseTerrain(c,r);return t==='water'||t==='furt';
+    });
+    if(hasRiver)return;
+    view.x+=2*HEXAGON_R+1;
+  }
+}
+resize();
+loadPlayed();
+findRiverStart();
+resetSection();
+/* Debug: ?autostart lädt das aktuelle Gebiet sofort, ?epochs öffnet den Ausblick (für Tests/Screenshots) */
+if(location.search.includes('autostart'))startHere();
+else if(location.search.includes('epochs'))openEpochs();
+</script>
+</body>
+</html>
