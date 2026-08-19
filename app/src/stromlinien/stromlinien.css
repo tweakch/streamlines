@@ -207,9 +207,13 @@
   margin-bottom: 14px;
 }
 .sl .map {
-  --hexw: calc((100cqw - 18px) / 5.5);
-  --hexh: calc(var(--hexw) * 1.1547);
+  /* Spaltenzahl kommt vom geformten Gebiet (inline --cols). */
+  --cols: 5;
   --hexgap: 4px;
+  --hexw: calc(
+    (100cqw - (var(--cols) - 0.5) * var(--hexgap)) / (var(--cols) + 0.5)
+  );
+  --hexh: calc(var(--hexw) * 1.1547);
 }
 .sl .hexrow {
   display: flex;
@@ -274,6 +278,21 @@
     var(--lake) 4px 8px
   );
 }
+.sl .cell.ghost {
+  visibility: hidden;
+  pointer-events: none;
+}
+.sl .hintmark {
+  position: absolute;
+  bottom: 8%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--ember);
+  z-index: 2;
+  pointer-events: none;
+}
 .sl .cell.valid {
   cursor: pointer;
   --edge: var(--ember);
@@ -308,6 +327,9 @@
   text-align: center;
   pointer-events: none;
   z-index: 1;
+}
+.sl .riverlabel.dark {
+  color: var(--ink2);
 }
 .sl .furtlabel {
   position: absolute;
@@ -974,7 +996,8 @@
     grid-row: 1 / span 2;
     align-self: center;
     justify-self: center;
-    width: min(100%, calc((100dvh - 76px) / 1.32));
+    /* Seitenverhältnis des Gebiets kommt inline als --aspect. */
+    width: min(100%, calc((100dvh - 76px) / var(--aspect, 1.32)));
     margin: 0;
   }
   .sl .handwrap {
@@ -1003,7 +1026,6 @@
   }
   .sl .map {
     --hexgap: 3px;
-    --hexw: calc((100cqw - 13.5px) / 5.5);
   }
   .sl .brand {
     font-size: 13px;

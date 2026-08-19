@@ -27,13 +27,34 @@ function Glyph({ name, className }: { name: string; className?: string }) {
   )
 }
 
-export function StromlinienGame() {
-  const [state, dispatch] = useReducer(reducer, undefined, newState)
+export function StromlinienGame({
+  region,
+  onExit,
+}: {
+  region: RegionCell[]
+  onExit: () => void
+}) {
+  const [state, dispatch] = useReducer(reducer, region, newState)
   const [selIdx, setSelIdx] = useState<number | null>(null)
   const [selPerson, setSelPerson] = useState<PersonId | null>(null)
   const [inspectIdx, setInspectIdx] = useState<number | null>(null)
 
   const night = state.phase === 'night' || state.phase === 'gameover'
+
+  /* Das Spielfeld ist das geformte Weltkarten-Gebiet: gerendert wird sein
+     Begrenzungsrechteck, Lücken bleiben unsichtbare Geisterzellen. */
+  const bounds = useMemo(() => gridBounds(state.cells), [state.cells])
+  const byPos = useMemo(
+    () => new Map(state.cells.map((c) => [`${c.r},${c.c}`, c])),
+    [state.cells],
+  )
+  const regionFunds = useMemo(
+    () => fundIndexesInRegion(state.cells),
+    [state.cells],
+  )
+  const mapCols = bounds.cMax - bounds.cMin + 1
+  const mapRows = bounds.rMax - bounds.rMin + 1
+  const mapAspect = (1.1547 * (0.75 * mapRows + 0.25)) / (mapCols + 0.5)
 
   /* Nacht-Sequenz: Botschaft blendet per CSS ein/aus, danach Ereignis aufdecken */
   useEffect(() => {
@@ -147,8 +168,11 @@ export function StromlinienGame() {
               wirst du überrascht. Beim zweiten Mal bist du ein Zeitreisender.
             </p>
             <p className="dim">
-              Irgendwo im Tal liegen drei echte Fundstellen verborgen. Wer
-              richtig baut, entdeckt sie.
+              {regionFunds.length > 0
+                ? regionFunds.length === 1
+                  ? 'In eurem Tal liegt eine echte Fundstelle verborgen. Wer richtig baut, entdeckt sie.'
+                  : `In eurem Tal liegen ${regionFunds.length} echte Fundstellen verborgen. Wer richtig baut, entdeckt sie.`
+                : 'In eurem Tal ist keine Fundstelle belegt – die Archäologie fand ihre Spuren anderswo. Baut trotzdem, wie es die Zeit erlaubt hätte.'}
             </p>
             <button
               className="primary"
@@ -156,6 +180,12 @@ export function StromlinienGame() {
               onClick={() => startFresh('START')}
             >
               Der erste Morgen bricht an
+            </button>
+            <button
+              style={{ width: '100%', marginTop: 8 }}
+              onClick={onExit}
+            >
+              ← Zurück zur Weltkarte
             </button>
             <p className="legend">
               Prototyp. Ereignisse &amp; Fundstellen sind historisch inspiriert
@@ -192,6 +222,12 @@ export function StromlinienGame() {
             >
               Noch einmal – diesmal weißt du, was kommt
             </button>
+            <button
+              style={{ width: '100%', marginTop: 8 }}
+              onClick={onExit}
+            >
+              ← Zurück zur Weltkarte
+            </button>
           </div>
         </div>
       </div>
@@ -205,10 +241,12 @@ export function StromlinienGame() {
           <div className="full-inner">
             <Ceremony
               state={state}
+              regionFundCount={regionFunds.length}
               onNext={() => dispatch({ type: 'CEREM_NEXT' })}
               onSacrifice={(i) => dispatch({ type: 'CEREM_SACRIFICE', tileIdx: i })}
               onChoice={(take) => dispatch({ type: 'CEREM_CHOICE', take })}
               onRestart={() => startFresh('RESTART')}
+              onExit={onExit}
             />
           </div>
         </div>
@@ -332,52 +370,64 @@ export function StromlinienGame() {
         )}
         </div>
 
-        <div className="mapwrap">
-          <div className="map">
-            {Array.from({ length: ROWS }, (_, r) => (
-              <div key={r} className={`hexrow${r % 2 ? ' odd' : ''}`}>
-                {Array.from({ length: COLS }, (_, c) => {
-                  const cell = state.cells[cellIndex(r, c)]
-                  const valid =
-                    (moveTargets?.has(cell.idx) ?? false) || isValidPlacement(cell)
-                  const cls = cell.furt
-                    ? 'furt'
-                    : cell.t === 'water'
-                      ? 'water'
-                      : cell.t === 'lake'
-                        ? 'lake'
-                        : cell.t === 'hang'
-                          ? 'hang'
-                          : ''
-                  return (
-                    <div
-                      key={c}
-                      className={`cell ${cls}${cell.tile ? ' placed' : ''}${
-                        valid ? ' valid' : ''
-                      }${cell.idx === inspectIdx ? ' inspect' : ''}`}
-                      onClick={() => clickCell(cell)}
-                    >
-                      {cell.furt && <div className="furtlabel">FURT</div>}
-                      {cell.tile && <Glyph name={TILES[cell.tile].glyph} />}
-                      {(['sammler', 'jaeger'] as const).map(
-                        (pid) =>
-                          state.people[pid].cellIdx === cell.idx && (
-                            <div key={pid} className="person">
-                              {pid === 'sammler' ? '✦' : '➤'}
-                            </div>
-                          ),
-                      )}
-                      {r === 0 && c === 2 && (
-                        <div className="riverlabel">LANDQUART</div>
-                      )}
-                      {r === 7 && c === 2 && (
-                        <div className="riverlabel">BODENSEE</div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            ))}
+        <div
+          className="mapwrap"
+          style={{ '--aspect': mapAspect } as CSSProperties}
+        >
+          <div className="map" style={{ '--cols': mapCols } as CSSProperties}>
+            {Array.from({ length: mapRows }, (_, ri) => {
+              const r = bounds.rMin + ri
+              return (
+                <div key={r} className={`hexrow${r % 2 ? ' odd' : ''}`}>
+                  {Array.from({ length: mapCols }, (_, ci) => {
+                    const c = bounds.cMin + ci
+                    const cell = byPos.get(`${r},${c}`)
+                    if (!cell) return <div key={c} className="cell ghost" />
+                    const valid =
+                      (moveTargets?.has(cell.idx) ?? false) || isValidPlacement(cell)
+                    const cls = cell.furt
+                      ? 'furt'
+                      : cell.t === 'water'
+                        ? 'water'
+                        : cell.t === 'lake'
+                          ? 'lake'
+                          : cell.t === 'hang'
+                            ? 'hang'
+                            : ''
+                    return (
+                      <div
+                        key={c}
+                        className={`cell ${cls}${cell.tile ? ' placed' : ''}${
+                          valid ? ' valid' : ''
+                        }${cell.idx === inspectIdx ? ' inspect' : ''}`}
+                        onClick={() => clickCell(cell)}
+                      >
+                        {cell.furt && <div className="furtlabel">FURT</div>}
+                        {cell.tile && <Glyph name={TILES[cell.tile].glyph} />}
+                        {cell.hint && <div className="hintmark">◈</div>}
+                        {(['sammler', 'jaeger'] as const).map(
+                          (pid) =>
+                            state.people[pid].cellIdx === cell.idx && (
+                              <div key={pid} className="person">
+                                {pid === 'sammler' ? '✦' : '➤'}
+                              </div>
+                            ),
+                        )}
+                        {cell.landmark && (
+                          <div
+                            className={`riverlabel${
+                              cell.t === 'water' || cell.t === 'lake' ? '' : ' dark'
+                            }`}
+                          >
+                            {cell.landmark.toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })}
           </div>
         </div>
 
@@ -453,10 +503,8 @@ function TileInfo({
 }) {
   const ter = cell.furt ? TERRAIN.furt : TERRAIN[cell.t]
   const title = cell.tile ? TILES[cell.tile].nm : ter.nm
-  let loc = 'ABCDE'[cell.c] + (cell.r + 1)
-  if (cell.r === 0 && cell.c === 2) loc += ' · Landquart'
-  if (cell.r === 7 && cell.c === 2) loc += ' · Bodensee'
-  else if (cell.lakeUfer && !cell.tile) loc += ' · Seeufer'
+  let loc = cell.landmark ?? `${cell.c}·${cell.r}`
+  if (cell.lakeUfer && !cell.landmark && !cell.tile) loc += ' · Seeufer'
 
   const people = (['sammler', 'jaeger'] as const).filter(
     (pid) => state.people[pid].cellIdx === cell.idx,
@@ -509,6 +557,12 @@ function TileInfo({
           <p className="ti-desc">Noch unbebaut.</p>
         )}
       </div>
+      {cell.hint && (
+        <div className="ti-sec">
+          <span className="ti-lbl">Zeichen ◈</span>
+          <p className="ti-desc">{HINT_INSPECT[cell.hint]}</p>
+        </div>
+      )}
       {people.length > 0 && (
         <div className="ti-sec">
           <span className="ti-lbl">Menschen</span>
@@ -610,16 +664,20 @@ function OverlayCard({
 
 function Ceremony({
   state,
+  regionFundCount,
   onNext,
   onSacrifice,
   onChoice,
   onRestart,
+  onExit,
 }: {
-  state: ReturnType<typeof newState>
+  state: GameState
+  regionFundCount: number
   onNext: () => void
   onSacrifice: (tileIdx: number) => void
   onChoice: (take: boolean) => void
   onRestart: () => void
+  onExit: () => void
 }) {
   if (state.phase === 'final') {
     const f = finalScore(state)
@@ -638,19 +696,30 @@ function Ceremony({
             <b>{f.auth}%</b>
             <span>Authentizität</span>
           </div>
-          <div className="score">
-            <b>{f.fundFound}/3</b>
-            <span>Fundstellen</span>
-          </div>
+          {regionFundCount > 0 && (
+            <div className="score">
+              <b>
+                {f.fundFound}/{regionFundCount}
+              </b>
+              <span>Fundstellen</span>
+            </div>
+          )}
         </div>
         <p className="dim">
           <b>Balance</b>: schwächste Ressource geteilt durch Durchschnitt – wer
           nichts vernachlässigt, gewinnt. <b>Authentizität</b>: Wie oft hast du
           gebaut, wo Menschen wirklich bauten?
         </p>
-        {f.fundFound < 3 ? (
+        {regionFundCount === 0 ? (
           <p className="dim">
-            Es liegen noch {3 - f.fundFound} Fundstellen unentdeckt im Tal …
+            In diesem Tal war keine Fundstelle belegt – die Geschichte hat ihre
+            Spuren anderswo hinterlassen.
+          </p>
+        ) : f.fundFound < regionFundCount ? (
+          <p className="dim">
+            {regionFundCount - f.fundFound === 1
+              ? 'Eine Fundstelle liegt noch unentdeckt im Tal …'
+              : `Es liegen noch ${regionFundCount - f.fundFound} Fundstellen unentdeckt im Tal …`}
           </p>
         ) : (
           <p className="dim">
@@ -660,6 +729,9 @@ function Ceremony({
         <div className="rule" />
         <button className="primary" style={{ width: '100%' }} onClick={onRestart}>
           Noch einmal durch die Zeit reisen
+        </button>
+        <button style={{ width: '100%', marginTop: 8 }} onClick={onExit}>
+          ← Zurück zur Weltkarte
         </button>
         <p className="legend">
           ◆ Belegte Ereignisse geschehen in jeder Partie zur selben Zeit. Wer sie
