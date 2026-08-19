@@ -80,12 +80,17 @@ npm run build # tsc -b && vite build  ← run this to typecheck
 npm run lint
 ```
 
+- `app/src/shell/` — the game shell / meta-UI (port of `shell-v2` prototype):
+  title screen with resume card, Klan creation (profile), campaign/rules/about
+  screens, router in `App.tsx`, and persistence (`storage.ts`: profiles,
+  schema-versioned autosave after every action, fog per profile).
 - `app/src/stromlinien/` — the current core game (ports of `stromlinien-epoche1`
   and `start-screen-v2` prototypes): designed world map (`world.ts`, Alpenrhein
   Landquart–Konstanz, fixed world coordinates — "gestaltete Welt" decision),
-  start screen with fog-of-the-unplayed and shapeable region (`StartScreen.tsx`),
+  world-map hub with fog-of-the-unplayed and shapeable region (`StartScreen.tsx`),
   then hex tile placement, day/night loop, anchor events, Fundstellen on the
-  chosen region.
+  chosen region. In-game: ⬡ one-tap exit, ☰ Lager menu (slides from right),
+  skippable night sequence.
 - `app/src/game/` + `app/src/components/` — the earlier evidence/research game
   ("Shadows of Truth" research loop). Kept for reference; not wired into `App.tsx`.
 

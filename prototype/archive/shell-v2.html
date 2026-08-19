@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>STROMLINIEN · Shell v2 — Meta-UI mit kurzen Wegen</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+:root{
+  --bg:#dce3d8; --panel:#ecefe6; --panel2:#e2e7dc; --ink:#22302c; --ink2:#5a6b64;
+  --river:#7fb2ac; --riverdeep:#5e9793; --ember:#c96f2e; --emberglow:rgba(201,111,46,.25);
+  --bone:#f2ede0; --line:#b8c2b4; --good:#4e7d5b; --bad:#9c4a33; --tile:#cdd6c8;
+  --shadow:0 2px 10px rgba(30,45,40,.12);
+  /* Primär-Zone: auf JEDEM Screen an derselben Stelle (Daumenzone unten). */
+  --zone-w:min(430px,92vw);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;}
+/* Guideline: das Dokument scrollt nie — Screens scrollen innen. */
+html{overflow:hidden;}
+body{background:var(--bg);color:var(--ink);font-family:'Instrument Sans',system-ui,sans-serif;height:100dvh;overflow:hidden;}
+h1,h2,h3{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;margin:0;}
+p{margin:0;}
+button{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:13px;letter-spacing:.03em;border-radius:9px;border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);padding:11px 14px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
+button:active{transform:scale(.97);}
+button.primary{background:var(--ink);color:var(--bg);}
+button.ghost{background:transparent;box-shadow:none;border-color:var(--line);}
+button.danger{border-color:var(--bad);color:var(--bad);background:transparent;box-shadow:none;}
+button:disabled{opacity:.4;pointer-events:none;}
+input[type=text]{font-family:'Instrument Sans',sans-serif;font-size:15px;border:1.5px solid var(--line);border-radius:9px;padding:12px;background:var(--bone);color:var(--ink);width:100%;}
+input[type=text]:focus{outline:none;border-color:var(--ember);}
+.mono{font-family:'Space Mono',monospace;}
+
+/* ============ Screens ============ */
+.screen{position:fixed;inset:0;display:none;flex-direction:column;overflow:hidden;}
+.screen.on{display:flex;}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 16px 12px;}
+.narrow{width:var(--zone-w);margin:0 auto;}
+
+/* Kopfzeile: „Zurück" IMMER oben links, gleiche Position auf allen Screens. */
+.head{display:flex;align-items:center;gap:10px;padding:max(12px,env(safe-area-inset-top)) 14px 10px;flex-shrink:0;}
+.head .back{width:40px;height:40px;padding:0;border-radius:10px;font-size:17px;box-shadow:none;border-color:var(--line);background:transparent;flex-shrink:0;}
+.head h2{font-size:17px;flex:1;min-width:0;}
+.head .tagr{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);letter-spacing:.1em;text-transform:uppercase;flex-shrink:0;}
+.brand{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:15px;letter-spacing:.12em;}
+.brand small{display:block;font-family:'Space Mono',monospace;font-weight:400;font-size:9.5px;letter-spacing:.06em;color:var(--ink2);margin-top:2px;}
+
+/* Primär-Zone unten — identische Geometrie auf allen Screens. */
+.zone{flex-shrink:0;padding:8px 16px calc(14px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:8px;}
+.zone > *{width:var(--zone-w);}
+.zone .cta{width:var(--zone-w);}
+.zone .pair{display:flex;gap:8px;}
+.zone .pair .primary{flex:2;}
+.zone .pair .ghost{flex:1;}
+.zone .subrow{display:flex;gap:8px;justify-content:center;}
+.zone .subrow button{flex:1;font-size:10.5px;padding:8px 10px;box-shadow:none;}
+
+/* ============ TITEL ============ */
+#scr-titel .art{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:16px;min-height:0;}
+#scr-titel .kicker{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.22em;color:var(--ember);text-transform:uppercase;}
+#scr-titel h1{font-size:clamp(40px,12vw,66px);line-height:.95;margin:8px 0 6px;letter-spacing:.02em;}
+#scr-titel .tag{color:var(--ink2);font-size:13.5px;max-width:32ch;}
+.riverline{width:min(280px,66vw);height:5px;border-radius:3px;margin:18px auto 14px;background:linear-gradient(90deg,transparent,var(--river) 18%,var(--riverdeep) 50%,var(--river) 82%,transparent);background-size:200% 100%;animation:flow 5s linear infinite;}
+@keyframes flow{from{background-position:200% 0}to{background-position:0 0}}
+.hexdeco{display:flex;gap:5px;justify-content:center;opacity:.5;}
+.hexdeco i{width:20px;height:23px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--tile);}
+.hexdeco i.w{background:var(--river);}
+.hexdeco i.h{background:var(--panel2);}
+.titelfoot{font-family:'Space Mono',monospace;font-size:10px;color:var(--ink2);letter-spacing:.05em;text-align:center;}
+.titelfoot a{color:var(--ink2);text-decoration:none;border-bottom:1px dotted var(--ink2);cursor:pointer;}
+
+/* ============ Resume-Karte (Titel + Weltkarte) ============ */
+.resume{background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 6px 20px rgba(30,45,40,.14);text-align:left;}
+.resume .tg{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:var(--ember);text-transform:uppercase;margin-bottom:3px;}
+.resume h3{font-size:16px;margin-bottom:3px;}
+.resume .meta{font-family:'Space Mono',monospace;font-size:10.5px;color:var(--ink2);}
+.resume .bar{height:7px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);overflow:hidden;margin:9px 0 0;}
+.resume .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--riverdeep),var(--river));}
+/* Wiedereinstiegs-Kontext: was zuletzt geschah */
+.resume .last{display:flex;gap:7px;align-items:flex-start;margin-top:10px;padding-top:9px;border-top:1px dashed var(--line);font-size:11.5px;color:var(--ink2);line-height:1.45;}
+.resume .last .k{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ember);flex-shrink:0;padding-top:1px;}
+
+/* ============ ERSTSTART / KLAN ============ */
+.sec{background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:var(--shadow);}
+.sec .num{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ember);margin-bottom:6px;}
+.sec h3{font-size:15px;margin-bottom:4px;}
+.sec p{font-size:12px;color:var(--ink2);line-height:1.5;margin-bottom:10px;}
+.sec.soon{opacity:.6;border-style:dashed;box-shadow:none;background:transparent;}
+.sec.soon .num{color:var(--ink2);}
+.sec.soon .chipline{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;}
+.sec.soon .chipline span{font-family:'Space Mono',monospace;font-size:9.5px;border:1px dashed var(--line);border-radius:12px;padding:3px 9px;color:var(--ink2);}
+.hint{font-size:11px;color:var(--bad);min-height:14px;margin-top:6px;}
+.onbhead{padding:4px 0 12px;}
+.onbhead .sub{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.16em;color:var(--ember);text-transform:uppercase;margin-bottom:8px;}
+.onbhead h1{font-size:26px;line-height:1.12;}
+
+/* ============ WELTKARTE (Hub + Formen in einem) ============ */
+.worldtop{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:max(12px,env(safe-area-inset-top)) 14px 8px;flex-shrink:0;}
+.profilechip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1.5px solid var(--line);border-radius:20px;padding:6px 12px 6px 6px;cursor:pointer;box-shadow:var(--shadow);flex-shrink:0;}
+.profilechip .av{width:26px;height:26px;border-radius:50%;background:var(--ember);color:#14100a;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
+.profilechip .nm{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.04em;}
+.worldmap{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;}
+.worldmap .fill{position:absolute;inset:0;background:radial-gradient(ellipse 52% 32% at 50% 46%,var(--emberglow),transparent 68%),radial-gradient(ellipse 60% 26% at 50% 6%,var(--river),transparent 62%),linear-gradient(180deg,var(--panel2),var(--bg));}
+.regionmock{position:relative;width:140px;height:160px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--tile);display:flex;align-items:center;justify-content:center;text-align:center;font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);line-height:1.7;box-shadow:0 0 0 2px var(--ember);}
+.worldmap .note{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);opacity:.8;}
+.report{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 13px;font-size:11.5px;box-shadow:var(--shadow);}
+.report .rh{display:flex;justify-content:space-between;gap:8px;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.07em;color:var(--ink2);text-transform:uppercase;}
+.report .ok{color:var(--good);font-weight:700;}
+
+/* ============ KAMPAGNE ============ */
+.eprow{display:flex;align-items:center;gap:11px;background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:12px 13px;box-shadow:var(--shadow);}
+.eprow.locked{opacity:.55;background:var(--panel2);box-shadow:none;}
+.eprow.now{border-color:var(--ember);}
+.eprow .n{font-family:'Space Mono',monospace;font-size:13px;color:var(--ember);width:22px;flex-shrink:0;text-align:center;}
+.eprow.locked .n{color:var(--ink2);}
+.eprow .info{flex:1;min-width:0;}
+.eprow .info b{display:block;font-size:13px;line-height:1.25;}
+.eprow .info span{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);}
+.eprow .st{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink2);flex-shrink:0;text-align:right;line-height:1.5;}
+.zerem{display:flex;align-items:center;gap:9px;margin:5px 0 5px 22px;font-family:'Space Mono',monospace;font-size:9px;color:var(--ink2);letter-spacing:.06em;}
+.zerem::before{content:'';width:1px;height:13px;background:var(--line);}
+.kamplegend{font-size:11px;color:var(--ink2);line-height:1.55;margin-top:12px;}
+
+/* ============ SPIEL ============ */
+.gamebar{display:flex;align-items:center;gap:8px;padding:max(10px,env(safe-area-inset-top)) 12px 8px;background:var(--panel);border-bottom:1px solid var(--line);flex-shrink:0;}
+.gamebar .brand{flex:1;min-width:0;}
+.gamebar .yr{font-family:'Space Mono',monospace;text-align:right;font-size:9.5px;color:var(--ink2);white-space:nowrap;}
+.gamebar .yr b{display:block;font-size:14px;color:var(--ink);line-height:1;}
+/* Ein-Klick-Ausstieg + Menü liegen NEBENEINANDER oben rechts;
+   das Panel fährt darunter von rechts ein (kurzer Weg statt Diagonale). */
+.iconbtn{width:38px;height:38px;border-radius:10px;font-size:16px;padding:0;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.gamemap{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--ink2);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.06em;text-align:center;min-height:0;}
+.minihex{display:flex;flex-direction:column;align-items:center;}
+.minihex .r{display:flex;gap:4px;}
+.minihex .r+.r{margin-top:-12px;}
+.minihex .r.odd{margin-left:25px;}
+.minihex i{width:46px;height:52px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--tile);}
+.minihex i.w{background:var(--river);}
+.minihex i.h{background:var(--panel2);}
+
+/* ============ Aux-Inhalte ============ */
+.rul{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:9px;box-shadow:var(--shadow);}
+.rul b{font-size:13.5px;display:block;margin-bottom:3px;}
+.rul p{font-size:12.5px;color:var(--ink2);line-height:1.55;}
+.rul .g{color:var(--ember);}
+.ueber p{font-size:13px;line-height:1.6;color:var(--ink2);margin-bottom:12px;}
+.ueber b{color:var(--ink);}
+.ueber .box{background:var(--panel);border-left:3px solid var(--ember);border-radius:0 8px 8px 0;padding:10px 13px;font-size:12px;line-height:1.55;margin:12px 0;}
+.switchrow{display:flex;align-items:flex-start;gap:12px;padding:12px;border:1.5px solid var(--line);border-radius:10px;background:var(--bone);margin-bottom:12px;}
+.switchrow .txt{flex:1;}
+.switchrow .txt b{font-size:13px;display:block;}
+.switchrow .txt span{font-size:11.5px;color:var(--ink2);line-height:1.45;display:block;margin-top:2px;}
+.toggle{width:44px;height:26px;border-radius:13px;background:var(--line);border:none;position:relative;cursor:pointer;flex-shrink:0;padding:0;box-shadow:none;transition:background .2s;}
+.toggle.on{background:var(--good);}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s;}
+.toggle.on::after{transform:translateX(18px);}
+.codebox{background:var(--bone);border:1.5px dashed var(--ember);border-radius:10px;padding:13px;text-align:center;margin:12px 0;}
+.codebox .lbl{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:5px;}
+.codebox .code{font-family:'Space Mono',monospace;font-weight:700;font-size:14.5px;letter-spacing:.05em;word-break:break-all;}
+.syncnote{font-size:11px;color:var(--ink2);line-height:1.5;margin-top:12px;}
+.rowbtn{display:flex;gap:8px;margin-top:8px;}
+.rowbtn button{flex:1;}
+
+/* ============ Overlays ============ */
+.overlay{position:fixed;inset:0;background:rgba(20,30,26,0);pointer-events:none;opacity:0;transition:all .28s ease;display:flex;z-index:40;}
+.overlay.on{background:rgba(20,30,26,.5);pointer-events:auto;opacity:1;}
+/* Menü fährt von RECHTS ein — unter dem ☰-Auslöser oben rechts. */
+.overlay.right{justify-content:flex-end;}
+.menupanel{width:min(310px,82vw);height:100%;background:var(--panel);box-shadow:-6px 0 30px rgba(0,0,0,.25);transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.9,.3,1);padding:max(18px,env(safe-area-inset-top)) 16px 18px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;}
+.overlay.on .menupanel{transform:translateX(0);}
+.menupanel h2{font-size:18px;}
+.menupanel .sub{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--ink2);text-transform:uppercase;margin-bottom:10px;}
+.menu-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;justify-content:flex-start;padding:12px 13px;box-shadow:none;border-color:var(--line);}
+.menu-item .ic{font-size:15px;width:19px;text-align:center;flex-shrink:0;}
+.menu-item small{display:block;font-weight:400;font-size:10.5px;color:var(--ink2);margin-top:1px;}
+.menu-spacer{flex:1;}
+.menu-foot{font-size:10px;color:var(--ink2);font-family:'Space Mono',monospace;line-height:1.5;padding:8px 3px 0;border-top:1px dashed var(--line);}
+.centerwrap{margin:auto;padding:16px;width:100%;display:flex;justify-content:center;}
+.sheet{width:min(380px,92vw);background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:17px;box-shadow:0 8px 30px rgba(0,0,0,.25);}
+.sheet h3{font-size:16px;margin-bottom:5px;}
+.sheet .lead{font-size:12.5px;color:var(--ink2);line-height:1.5;margin-bottom:13px;}
+.profrow{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:8px;cursor:pointer;}
+.profrow:hover{background:var(--panel2);}
+.profrow.active{background:var(--emberglow);}
+.profrow .av{width:28px;height:28px;border-radius:50%;background:var(--river);color:#0d1e1c;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
+.profrow .info{flex:1;}
+.profrow .info b{display:block;font-size:13px;}
+.profrow .info span{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);}
+
+/* Tastatur-Hinweis (nur Desktop) */
+.kbd{display:none;font-family:'Space Mono',monospace;font-size:9px;color:var(--ink2);letter-spacing:.08em;text-align:center;opacity:.75;}
+@media (min-width:760px) and (pointer:fine){.kbd{display:block;}}
+
+.debugfab{position:fixed;bottom:max(10px,env(safe-area-inset-bottom));left:10px;z-index:91;width:28px;height:28px;padding:0;border-radius:50%;font-size:12px;background:rgba(20,30,26,.75);color:var(--bg);border:none;box-shadow:none;opacity:.5;}
+.debugstrip{position:fixed;bottom:max(44px,calc(env(safe-area-inset-bottom) + 36px));left:10px;z-index:90;display:none;gap:4px;background:rgba(20,30,26,.9);padding:6px;border-radius:14px;flex-wrap:wrap;max-width:72vw;}
+.debugstrip.on{display:flex;}
+.debugstrip button{font-size:8.5px;padding:4px 7px;border-radius:12px;box-shadow:none;background:var(--bone);border-width:1px;}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
+</style>
+</head>
+<body>
+
+<!-- ============ TITEL ============ -->
+<div class="screen" id="scr-titel">
+  <div class="art">
+    <div class="kicker">Ein Fluss · Zwölftausend Jahre</div>
+    <h1>STROM<br>LINIEN</h1>
+    <p class="tag">Die Geschichte des Alpenrheintals — Plättchen für Plättchen, Nacht für Nacht.</p>
+    <div class="riverline"></div>
+    <div class="hexdeco"><i class="h"></i><i></i><i class="w"></i><i class="w"></i><i></i><i></i><i class="h"></i></div>
+  </div>
+  <div class="zone">
+    <div class="resume" id="titelResume" style="display:none" onclick="go('spiel')">
+      <div class="tg">Laufende Partie</div>
+      <h3 id="tResTitle">Gebiet an der Schaaner Furt</h3>
+      <div class="meta" id="tResMeta">Epoche I · Runde 4 / 10 · Tag</div>
+      <div class="bar"><i id="tResBar" style="width:38%"></i></div>
+      <div class="last" id="tResLast"><span class="k">zuletzt</span><span id="tResLastTxt">—</span></div>
+    </div>
+    <button class="primary cta" id="titelCta">Spielen</button>
+    <div class="subrow" id="titelSub">
+      <button onclick="go('welt')" id="titelWorld" style="display:none">Weltkarte</button>
+      <button onclick="openAux('regeln')">Regeln</button>
+      <button onclick="openAux('sync')">Chronik</button>
+      <button onclick="openAux('ueber')">Über</button>
+    </div>
+    <div class="kbd">Enter = Hauptaktion · Esc = zurück</div>
+  </div>
+</div>
+
+<!-- ============ KLAN GRÜNDEN ============ -->
+<div class="screen" id="scr-erststart">
+  <div class="head">
+    <button class="back" onclick="go('titel')" aria-label="Zurück">←</button>
+    <h2>Klan gründen</h2>
+    <span class="tagr">Schritt 1</span>
+  </div>
+  <div class="scroll"><div class="narrow">
+    <div class="onbhead">
+      <div class="sub">Willkommen am Alpenrhein</div>
+      <h1>Wie nennt man euren Stamm?</h1>
+    </div>
+    <div class="sec">
+      <div class="num">01 · Name</div>
+      <p>Unter diesem Namen liegen euer Nebel des Ungespielten, laufende Partien und eure Chronik — <b>zunächst nur auf diesem Gerät</b>. Kein Konto, keine Anmeldung.</p>
+      <input type="text" id="nameinput" placeholder="z. B. Die Ufergänger" maxlength="28">
+      <div class="hint" id="namehint"></div>
+    </div>
+    <div class="sec soon">
+      <div class="num">02 · Herkunft &amp; Ausrüstung — später</div>
+      <h3>Was der Klan mitbringt</h3>
+      <p>Hier entstehen die Startparameter: würfeln, was euch die Herkunft mitgibt, und Deck sowie Ausrüstungskarten zusammenstellen. Der Platz ist vorgesehen — die Mechanik folgt.</p>
+      <div class="chipline"><span>Startwerte würfeln</span><span>Deck wählen</span><span>Ausrüstung</span></div>
+    </div>
+  </div></div>
+  <div class="zone">
+    <button class="primary cta" onclick="createProfile()">Klan gründen</button>
+    <div class="subrow"><button onclick="openAux('sync')">Ich habe einen Chronik-Code</button></div>
+  </div>
+</div>
+
+<!-- ============ WELTKARTE (Hub UND Gebietswahl) ============ -->
+<div class="screen" id="scr-welt">
+  <div class="worldtop">
+    <div class="brand">STROMLINIEN<small>WÄHLE &amp; FORME DEIN TAL</small></div>
+    <div class="profilechip" onclick="openSwitcher()">
+      <div class="av" id="chipAv">?</div>
+      <div class="nm" id="chipName">–</div>
+    </div>
+  </div>
+  <div class="worldmap">
+    <div class="fill"></div>
+    <div class="regionmock" id="regionMock">GEBIET<br>37 FELDER<br><span style="opacity:.65">(echter Screen:<br>StartScreen.tsx)</span></div>
+    <div class="note">Weltkarte, Nebel und Gebietswahl sind hier ein Mock — in der App ein Screen.</div>
+  </div>
+  <div class="zone">
+    <!-- Ganze Karte ist Klickziel (grosses Ziel = kurzer Weg, Fitts). -->
+    <div class="resume" id="weltResume" style="display:none" onclick="go('spiel')">
+      <div class="tg">Laufende Partie · tippen zum Fortsetzen</div>
+      <h3 id="wResTitle">Gebiet an der Schaaner Furt</h3>
+      <div class="meta" id="wResMeta">Epoche I · Runde 4 / 10 · Tag</div>
+      <div class="bar"><i id="wResBar" style="width:38%"></i></div>
+      <div class="last" id="wResLast"><span class="k">zuletzt</span><span id="wResLastTxt">—</span></div>
+    </div>
+    <div class="report" id="weltReport">
+      <div class="rh"><span>Gewähltes Gebiet · 37 Felder</span><span class="ok">✓ Wasser zu hören</span></div>
+    </div>
+    <div class="pair" id="weltPair">
+      <button class="ghost" id="weltSecondary" onclick="go('kampagne')">Epochen</button>
+      <button class="primary" id="weltPrimary" onclick="weltPrimary()">Hier starten</button>
+    </div>
+    <div class="subrow">
+      <button onclick="openAux('sync')">☁ Chronik</button>
+      <button onclick="openAux('regeln')">Regeln</button>
+      <button onclick="go('titel')">Titelbild</button>
+      <!-- Destruktives NIE neben dem Primär-Button: eigene, kleine Zeile. -->
+      <button id="weltAbandon" class="danger" style="display:none" onclick="openConfirm()">Aufgeben</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ KAMPAGNE (Info-Station, nicht im Pflichtweg) ============ -->
+<div class="screen" id="scr-kampagne">
+  <div class="head">
+    <button class="back" onclick="goBack()" aria-label="Zurück">←</button>
+    <h2>Fünf Epochen, ein Tal</h2>
+    <span class="tagr" id="kampWho"></span>
+  </div>
+  <div class="scroll"><div class="narrow" id="kampList"></div>
+    <p class="kamplegend narrow">Jede Epoche ist ein eigenes Modul; die <b>Zeremonie</b> dazwischen trägt euer Tal in die nächste Zeit. Verschlossene Epochen öffnen sich, wenn die vorige abgeschlossen ist. Historisch inspiriert und vereinfacht.</p>
+  </div>
+  <div class="zone">
+    <button class="primary cta" id="kampCta" onclick="startEpoch()">Epoche I spielen</button>
+  </div>
+</div>
+
+<!-- ============ SPIEL ============ -->
+<div class="screen" id="scr-spiel">
+  <div class="gamebar">
+    <div class="brand">STROMLINIEN<small id="gameSub">EPOCHE I · ALPENRHEIN</small></div>
+    <div class="yr" id="gameYear"><b>7 600</b>v. Chr. · Tag</div>
+    <button class="iconbtn ghost" onclick="leaveToWorld()" aria-label="Zur Weltkarte" title="Zur Weltkarte (gespeichert)">⬡</button>
+    <button class="iconbtn" onclick="openMenu()" aria-label="Menü">☰</button>
+  </div>
+  <div class="gamemap">
+    <div class="minihex">
+      <div class="r"><i class="h"></i><i></i><i class="w"></i><i></i><i class="h"></i></div>
+      <div class="r odd"><i></i><i class="w"></i><i></i><i></i><i class="h"></i></div>
+      <div class="r"><i></i><i class="w"></i><i></i><i></i><i></i></div>
+    </div>
+    <div id="gameInfo">Spielfeld (Mock) — Runde 4 · Tag</div>
+  </div>
+  <div class="zone">
+    <div class="pair">
+      <button class="ghost" onclick="endRound()">Debug: Runde beenden</button>
+      <button class="primary" onclick="toast('Hier läge der echte Kernloop')">Nacht anbrechen lassen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ REGELN ============ -->
+<div class="screen" id="scr-regeln">
+  <div class="head">
+    <button class="back" onclick="closeAux()" aria-label="Zurück">←</button>
+    <h2>Regeln</h2><span class="tagr">Kurzfassung</span>
+  </div>
+  <div class="scroll"><div class="narrow">
+    <div class="rul"><b>Tag &amp; Nacht</b><p>Am <span class="g">Tag</span> legst du ein Plättchen, kassierst Einkommen und bewegst deine Menschen. In der <span class="g">Nacht</span> deckst du auf, was im Dunkeln geschah — der Stamm isst −1 Nahrung.</p></div>
+    <div class="rul"><b>Vier Ressourcen</b><p>Nahrung, Schutz, Baumaterial, Kultur. Fortschritt („Sesshaftigkeit") bringt pro Runde nur die <span class="g">schwächste</span> Ressource — wer eine vernachlässigt, kommt nicht voran.</p></div>
+    <div class="rul"><b>Zwei Menschen</b><p>Die <span class="g">Sammlerin ✦</span> bewirtschaftet ihr Plättchen (+1 Ertrag), der <span class="g">Jäger ➤</span> gibt +2 Schutz, solange er im Tal steht. Höchstens zwei Schritte pro Tag; über den Fluss nur an <span class="g">Furten</span>.</p></div>
+    <div class="rul"><b>Verbünde</b><p>Nachbarschaft zählt: Fischgrund oder Wald neben einem Lager liefern mehr, Höhle neben Terrasse schützt besser, zwei Pfahlbauten werden zum Dorf.</p></div>
+    <div class="rul"><b>◆ Belegte Ereignisse</b><p>Manche Nächte geschehen in jeder Partie zur selben Zeit — sie sind wirklich passiert. Beim ersten Mal überraschen sie dich, beim zweiten bist du ein Zeitreisender.</p></div>
+    <div class="rul"><b>Fundstellen</b><p>Echte (vereinfachte) Fundplätze liegen verdeckt im Tal. Wer das passende Plättchen am richtigen Ort baut, entdeckt sie — Kultur und Authentizität steigen.</p></div>
+    <div class="rul"><b>Die Zeremonie</b><p>Am Ende jeder Epoche pausiert Tag/Nacht: Fünf Karten tragen euer Tal in die nächste Zeit — mit echten Entscheidungen und dem Realitätsabgleich.</p></div>
+  </div></div>
+</div>
+
+<!-- ============ CHRONIK & SYNC ============ -->
+<div class="screen" id="scr-sync">
+  <div class="head">
+    <button class="back" onclick="closeAux()" aria-label="Zurück">←</button>
+    <h2>Chronik &amp; Sync</h2><span class="tagr">Opt-in</span>
+  </div>
+  <div class="scroll"><div class="narrow">
+    <p style="font-size:12.5px;color:var(--ink2);line-height:1.5;margin:2px 0 13px">Gespielt wird immer auf diesem Gerät. Die Cloud ist nur eine Kopie — zum Weiterspielen woanders.</p>
+    <div class="switchrow">
+      <div class="txt"><b>Chronik sichern</b><span id="syncExplain">Aus. Nichts verlässt dieses Gerät.</span></div>
+      <button class="toggle" id="syncToggle" onclick="toggleSync()" aria-label="Sync umschalten"></button>
+    </div>
+    <div id="syncOn" style="display:none">
+      <div class="codebox"><div class="lbl">Euer Chronik-Code</div><div class="code" id="codeText">–</div></div>
+      <div class="rowbtn">
+        <button class="ghost" onclick="copyCode()">Code kopieren</button>
+        <button class="primary" onclick="toast('Chronik gesichert (Mock)')">Jetzt sichern</button>
+      </div>
+    </div>
+    <hr style="border:none;border-top:1px dashed var(--line);margin:15px 0">
+    <b style="font-size:13px">Chronik holen</b>
+    <p style="font-size:11.5px;color:var(--ink2);margin:4px 0 8px">Code vom anderen Gerät eingeben.</p>
+    <input type="text" class="mono" id="codeInput" placeholder="furt-adler-see-wolf-7291" autocapitalize="off" spellcheck="false">
+    <div class="rowbtn"><button class="primary" onclick="toast('Rundlauf mit Mock-Server: siehe profil-hub-v2')">Holen</button></div>
+    <p class="syncnote">Voller Ablauf — Konflikt „Zwei Chroniken", Offline-Fall, Rundlauf <i>sichern → Gerät leeren → holen</i> — im Prototyp <span class="mono">profil-hub-v2</span>. Diese Seite zeigt nur den Platz in der Shell.</p>
+  </div></div>
+</div>
+
+<!-- ============ ÜBER ============ -->
+<div class="screen" id="scr-ueber">
+  <div class="head">
+    <button class="back" onclick="closeAux()" aria-label="Zurück">←</button>
+    <h2>Über dieses Spiel</h2><span class="tagr">Shell v2</span>
+  </div>
+  <div class="scroll"><div class="narrow ueber">
+    <p><b>STROMLINIEN</b> erzählt die Geschichte des Alpenrheintals von Landquart bis Konstanz — von den ersten Lagern am Wasser bis zur Rheinkorrektion. Gespielt wird auf einer gestalteten Weltkarte mit echten Orten.</p>
+    <div class="box"><b>Historisch inspiriert und vereinfacht.</b> Ereignisse, Fundstellen und Jahreszahlen sind für das Spiel vereinfacht und gerundet. Was als „belegt" markiert ist, bezeichnet den angestrebten Datenstandard — die Recherche läuft.</div>
+    <p>Belegte Ereignisse geschehen in jeder Partie zur selben Zeit; Fundstellen liegen dort, wo wirklich gegraben wurde. Das Spiel belohnt historisch plausibles Bauen — es verbietet nichts.</p>
+    <p>Mehr zum Design — was entschieden ist und was geplant: im <a href="../drafts/stromlinien-handbuch.html?mode=publish" style="color:var(--ink)">Handbuch</a> <span class="mono" style="font-size:10px">(deployt: /handbuch/)</span>.</p>
+  </div></div>
+</div>
+
+<!-- ============ LAGER-MENÜ (von rechts) ============ -->
+<div class="overlay right" id="menuOverlay" onclick="if(event.target===this)closeMenu()">
+  <div class="menupanel">
+    <h2>Das Lager</h2>
+    <div class="sub" id="menuSub">Runde 4 · Tag</div>
+    <button class="menu-item" onclick="closeMenu()"><span class="ic">▶</span><span>Fortsetzen<small>zurück zum Spiel</small></span></button>
+    <button class="menu-item" onclick="closeMenu();openAux('regeln')"><span class="ic">📜</span><span>Regeln<small>Tag/Nacht, Verbünde, Zeremonie</small></span></button>
+    <button class="menu-item" onclick="closeMenu();go('kampagne')"><span class="ic">≡</span><span>Epochen<small>Kampagnen-Übersicht</small></span></button>
+    <div class="menu-spacer"></div>
+    <button class="menu-item danger" onclick="closeMenu();openConfirm()"><span class="ic">✕</span><span>Partie aufgeben<small>unwiderruflich</small></span></button>
+    <div class="menu-foot">Verlassen geht direkt über ⬡ oben — Autosave macht es verlustfrei.</div>
+  </div>
+</div>
+
+<!-- ============ PROFIL-UMSCHALTER ============ -->
+<div class="overlay" id="switcherOverlay" onclick="if(event.target===this)closeSwitcher()">
+  <div class="centerwrap"><div class="sheet">
+    <h3>Stämme auf diesem Gerät</h3>
+    <div id="profileList"></div>
+    <button class="ghost" style="width:100%;margin-top:8px" onclick="closeSwitcher();go('erststart')">+ Neuer Klan</button>
+  </div></div>
+</div>
+
+<!-- ============ AUFGEBEN ============ -->
+<div class="overlay" id="abandonOverlay" onclick="if(event.target===this)closeConfirm()">
+  <div class="centerwrap"><div class="sheet">
+    <h3>Partie wirklich aufgeben?</h3>
+    <p class="lead">Der Fortschritt geht verloren. Das Gebiet bleibt auf der Weltkarte aufgedeckt.</p>
+    <div class="rowbtn">
+      <button class="ghost" onclick="closeConfirm()">Abbrechen</button>
+      <button class="danger" style="border:1.5px solid var(--bad)" onclick="abandonRun()">Ja, aufgeben</button>
+    </div>
+  </div></div>
+</div>
+
+<button class="debugfab" onclick="document.getElementById('debugstrip').classList.toggle('on')" aria-label="Debug">⚙</button>
+<div class="debugstrip" id="debugstrip"></div>
+
+<script>
+/* =====================================================================
+   Shell v2 — dieselben Screens wie v1, aber kürzere Wege:
+   · Weltkarte IST der Hub (Gebietswahl nicht mehr eigener Screen)
+   · Kampagne ist Info-Station, nicht Pflichtstation
+   · Primär-Zone unten, identische Geometrie auf allen Screens
+   · „Zurück" immer oben links; Menü fährt von RECHTS unter seinem Auslöser
+   · ⬡ = Ein-Klick-Ausstieg (verlustfrei), Resume-Karte auf dem Titelbild
+   ===================================================================== */
+const KEY='sot-shell-v2';
+const EPOCHS=[
+  {n:'I',name:'Überleben am Wasser, Pfahlbauten',years:'10 000–2 000 v. Chr.'},
+  {n:'II',name:'Rätier, Römer, ferne Macht',years:'2 000 v. Chr.–500 n. Chr.'},
+  {n:'III',name:'Klöster, Städte, Konstanz',years:'500–1500'},
+  {n:'IV',name:'Glaube, Grenzen, Schmuggel',years:'1500–1800'},
+  {n:'V',name:'Industrie, Rheinkorrektion',years:'1800–heute'},
+];
+const ZEREM=['„Sesshaft werden"','„Rückzug und Neuanfang"','(Zeremonie III→IV)','(Zeremonie IV→V)'];
+/* Wiedereinstiegs-Kontext: eine Zeile aus der Chronik. */
+const CHRONIK=[
+  'Frost kroch ins Lager — ihr verbranntet Vorräte (−1 Material).',
+  'Etwas umkreiste das Lager. Eure Wälle hielten es fern.',
+  'Stille. Nur der Fluss sprach.',
+  'Gute Jagd im Morgengrauen (+2 Nahrung).',
+  'Fremde am Feuer — sie kannten Stellen, die ihr nicht kanntet.',
+  '◆ Die Wälder eroberten das Tal — Auenwald liefert jetzt mehr.',
+];
+
+function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{"profiles":[],"active":null}');}catch(e){return{profiles:[],active:null};}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+let S=load();
+function me(){return S.profiles.find(p=>p.id===S.active)||null;}
+function initials(n){return n.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase()||'?';}
+const WORDS=['furt','adler','see','wolf','ried','hang','stein','aue','reuse','feuer','nebel','birke','kies','tal','moos','otter'];
+function makeCode(){const p=()=>WORDS[Math.floor(Math.random()*WORDS.length)];return[p(),p(),p(),p()].join('-')+'-'+(1000+Math.floor(Math.random()*9000));}
+
+/* ---------- Router mit Rücksprung ---------- */
+let current='titel', backStack=[];
+function go(id){
+  if(id!==current)backStack.push(current);
+  showRaw(id);
+}
+function showRaw(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id==='scr-'+id));
+  current=id;render();
+}
+function goBack(){
+  const prev=backStack.pop();
+  showRaw(prev||'titel');
+}
+function openAux(id){go(id);}
+function closeAux(){goBack();}
+
+/* ---------- Primäraktion je Screen (für Enter/Leertaste) ---------- */
+const PRIMARY={
+  titel:()=>document.getElementById('titelCta').click(),
+  erststart:()=>createProfile(),
+  welt:()=>weltPrimary(),
+  kampagne:()=>startEpoch(),
+  spiel:()=>toast('Hier läge der echte Kernloop'),
+};
+
+/* ---------- Rendern ---------- */
+function render(){
+  const p=me(), run=!!(p&&p.hasRun);
+  /* Titel */
+  const cta=document.getElementById('titelCta');
+  const tRes=document.getElementById('titelResume');
+  document.getElementById('titelWorld').style.display=p?'block':'none';
+  if(run){
+    tRes.style.display='block';
+    document.getElementById('tResTitle').textContent=p.region||'Gebiet an der Schaaner Furt';
+    document.getElementById('tResMeta').textContent='Epoche I · Runde '+p.round+' / 10 · Tag';
+    document.getElementById('tResBar').style.width=Math.round(p.round/10*100)+'%';
+    document.getElementById('tResLastTxt').textContent=p.lastEvent||'Der erste Morgen bricht an.';
+    document.getElementById('tResLast').style.display=p.lastEvent?'flex':'none';
+    cta.textContent='Weiterspielen';cta.onclick=()=>go('spiel');
+  }else{
+    tRes.style.display='none';
+    cta.textContent='Spielen';
+    cta.onclick=()=>go(p?'welt':'erststart');
+  }
+  /* Weltkarte */
+  if(p){
+    document.getElementById('chipAv').textContent=initials(p.name);
+    document.getElementById('chipName').textContent=p.name;
+  }
+  document.getElementById('weltResume').style.display=run?'block':'none';
+  document.getElementById('weltReport').style.display=run?'none':'block';
+  document.getElementById('regionMock').style.opacity=run?'.45':'1';
+  const wp=document.getElementById('weltPrimary'), ws=document.getElementById('weltSecondary');
+  document.getElementById('weltAbandon').style.display=run?'block':'none';
+  if(run){
+    document.getElementById('wResTitle').textContent=p.region||'Gebiet an der Schaaner Furt';
+    document.getElementById('wResMeta').textContent='Epoche I · Runde '+p.round+' / 10 · Tag';
+    document.getElementById('wResBar').style.width=Math.round(p.round/10*100)+'%';
+    document.getElementById('wResLastTxt').textContent=p.lastEvent||'Der erste Morgen bricht an.';
+    document.getElementById('wResLast').style.display=p.lastEvent?'flex':'none';
+    wp.textContent='Fortsetzen';
+  }else{
+    wp.textContent='Hier starten';
+  }
+  ws.textContent='Epochen';ws.onclick=()=>go('kampagne');
+  /* Kampagne */
+  document.getElementById('kampWho').textContent=p?p.name:'';
+  document.getElementById('kampCta').textContent=run?('Epoche I fortsetzen · Runde '+p.round):'Epoche I spielen';
+  document.getElementById('kampList').innerHTML=EPOCHS.map((e,i)=>{
+    const first=i===0;
+    const st=first?(run?'läuft · Runde '+p.round:'bereit'):'verschlossen<br>nach Epoche '+EPOCHS[i-1].n;
+    const row='<div class="eprow'+(first?' now':' locked')+'"'+(first?' onclick="startEpoch()"':'')+'>'
+      +'<div class="n">'+e.n+'</div><div class="info"><b>'+e.name+'</b><span>'+e.years+'</span></div>'
+      +'<div class="st">'+st+'</div></div>';
+    return row+(i<ZEREM.length?'<div class="zerem">Zeremonie '+ZEREM[i]+'</div>':'');
+  }).join('');
+  /* Spiel */
+  if(p){
+    document.getElementById('gameInfo').textContent='Spielfeld (Mock) — Runde '+(p.round||1)+' · Tag';
+    document.getElementById('menuSub').textContent='Runde '+(p.round||1)+' · Tag';
+  }
+  /* Sync */
+  document.getElementById('syncToggle').classList.toggle('on',!!(p&&p.syncEnabled));
+  document.getElementById('syncOn').style.display=(p&&p.syncEnabled)?'block':'none';
+  document.getElementById('syncExplain').textContent=(p&&p.syncEnabled)
+    ?'An. Eine Kopie liegt unter eurem Code in der Cloud.':'Aus. Nichts verlässt dieses Gerät.';
+  if(p&&p.code)document.getElementById('codeText').textContent=p.code;
+  renderProfiles();
+}
+function renderProfiles(){
+  document.getElementById('profileList').innerHTML=S.profiles.map(p=>
+    '<div class="profrow'+(p.id===S.active?' active':'')+'" onclick="switchProfile(\''+p.id+'\')">'
+    +'<div class="av">'+initials(p.name)+'</div>'
+    +'<div class="info"><b>'+p.name+'</b><span>'+(p.hasRun?('Epoche I · Runde '+p.round):'kein aktives Spiel')+'</span></div>'
+    +(p.id===S.active?'<span style="color:var(--good);font-size:11px">●</span>':'')+'</div>'
+  ).join('')||'<p style="font-size:12px;color:var(--ink2)">Noch kein Klan auf diesem Gerät.</p>';
+}
+
+/* ---------- Aktionen ---------- */
+function createProfile(){
+  const name=document.getElementById('nameinput').value.trim();
+  if(!name){document.getElementById('namehint').textContent='Bitte einen Namen eingeben.';return;}
+  const id='p'+Date.now();
+  S.profiles.push({id,name,hasRun:false,round:1,syncEnabled:false,code:null,region:null,lastEvent:null});
+  S.active=id;save();
+  document.getElementById('nameinput').value='';
+  document.getElementById('namehint').textContent='';
+  backStack=[];go('welt');
+}
+function switchProfile(id){S.active=id;save();closeSwitcher();render();toast('Klan gewechselt');}
+/* Weltkarte: „Hier starten" führt DIREKT ins Spiel (Kampagne ist optional). */
+function weltPrimary(){
+  const p=me();if(!p)return go('erststart');
+  if(!p.hasRun){p.hasRun=true;p.round=1;p.region='Gebiet an der Schaaner Furt';p.lastEvent=null;save();}
+  go('spiel');
+}
+function startEpoch(){
+  const p=me();if(!p)return go('erststart');
+  if(!p.hasRun){p.hasRun=true;p.round=1;p.region=p.region||'Gebiet an der Schaaner Furt';save();}
+  go('spiel');
+}
+function endRound(){
+  const p=me();if(!p)return;
+  p.hasRun=true;p.round=Math.min(10,(p.round||1)+1);
+  p.lastEvent=CHRONIK[Math.floor(Math.random()*CHRONIK.length)];
+  save();render();toast('Runde '+p.round+' — gespeichert');
+}
+/* Ein-Klick-Ausstieg: verlustfrei, darum ohne Rückfrage. */
+function leaveToWorld(){toast('Gespeichert');backStack=[];showRaw('welt');}
+function abandonRun(){
+  const p=me();if(p){p.hasRun=false;p.round=1;p.region=null;p.lastEvent=null;save();}
+  closeConfirm();backStack=[];showRaw('welt');toast('Partie aufgegeben');
+}
+function toggleSync(){
+  const p=me();if(!p){toast('Erst einen Klan gründen');return;}
+  p.syncEnabled=!p.syncEnabled;
+  if(p.syncEnabled&&!p.code)p.code=makeCode();
+  save();render();
+  toast(p.syncEnabled?'Sync an — jetzt einmal sichern':'Sync aus — die Kopie bleibt bestehen');
+}
+function copyCode(){
+  const p=me();if(!p||!p.code)return;
+  if(navigator.clipboard)navigator.clipboard.writeText(p.code).then(()=>toast('Code kopiert'),()=>toast('Kopieren nicht möglich'));
+}
+
+/* ---------- Overlays ---------- */
+function anyOverlayOpen(){return[...document.querySelectorAll('.overlay')].some(o=>o.classList.contains('on'));}
+function closeOverlays(){document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('on'));}
+function openMenu(){document.getElementById('menuOverlay').classList.add('on');}
+function closeMenu(){document.getElementById('menuOverlay').classList.remove('on');}
+function openSwitcher(){renderProfiles();document.getElementById('switcherOverlay').classList.add('on');}
+function closeSwitcher(){document.getElementById('switcherOverlay').classList.remove('on');}
+function openConfirm(){document.getElementById('abandonOverlay').classList.add('on');}
+function closeConfirm(){document.getElementById('abandonOverlay').classList.remove('on');}
+
+/* ---------- Tastatur: Enter = Hauptaktion, Esc = zurück ---------- */
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(anyOverlayOpen()){closeOverlays();return;}
+    if(current!=='titel'){goBack();}
+    return;
+  }
+  if(e.key==='Enter'||e.key===' '){
+    const t=e.target;
+    if(t&&(t.tagName==='INPUT'||t.tagName==='BUTTON'||t.tagName==='TEXTAREA')){
+      if(t.tagName==='INPUT'&&e.key==='Enter'&&PRIMARY[current]){e.preventDefault();PRIMARY[current]();}
+      return;
+    }
+    if(anyOverlayOpen())return;
+    if(PRIMARY[current]){e.preventDefault();PRIMARY[current]();}
+  }
+});
+
+let toastEl=null;
+function toast(msg){
+  if(!toastEl){
+    toastEl=document.createElement('div');
+    toastEl.style.cssText='position:fixed;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:24px;font-size:12.5px;font-weight:600;z-index:80;box-shadow:var(--shadow);transition:opacity .3s;max-width:90vw;text-align:center;';
+    document.body.appendChild(toastEl);
+  }
+  toastEl.textContent=msg;toastEl.style.opacity='1';
+  clearTimeout(toastEl._h);toastEl._h=setTimeout(()=>toastEl.style.opacity='0',2200);
+}
+
+/* ---------- Debug ---------- */
+const SCREENS=['titel','erststart','welt','kampagne','spiel','regeln','sync','ueber'];
+document.getElementById('debugstrip').innerHTML=
+  SCREENS.map(s=>'<button onclick="go(\''+s+'\')">'+s+'</button>').join('')
+  +'<button onclick="openMenu()">menu</button><button onclick="dbgDemo()">demo</button><button onclick="dbgEmpty()">leer</button>';
+function dbgDemo(){
+  S={profiles:[{id:'demo1',name:'Die Ufergänger',hasRun:true,round:4,syncEnabled:true,code:'furt-adler-see-wolf-7291',region:'Gebiet an der Schaaner Furt',lastEvent:CHRONIK[0]}],active:'demo1'};
+  save();render();
+}
+function dbgEmpty(){S={profiles:[],active:null};save();backStack=[];showRaw('titel');}
+
+const q=new URLSearchParams(location.search);
+if(q.has('empty'))dbgEmpty();
+if(q.has('demo'))dbgDemo();
+let start='titel';
+for(const s of SCREENS)if(q.has(s))start=s;
+showRaw(start);
+if(q.has('menu')){showRaw('spiel');openMenu();}
+</script>
+</body>
+</html>

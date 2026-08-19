@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>STROMLINIEN · Shell v1 — die Screens rund ums Spiel</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+:root{
+  --bg:#dce3d8; --panel:#ecefe6; --panel2:#e2e7dc; --ink:#22302c; --ink2:#5a6b64;
+  --river:#7fb2ac; --riverdeep:#5e9793; --ember:#c96f2e; --emberglow:rgba(201,111,46,.25);
+  --bone:#f2ede0; --line:#b8c2b4; --good:#4e7d5b; --bad:#9c4a33; --tile:#cdd6c8;
+  --shadow:0 2px 10px rgba(30,45,40,.12);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;}
+/* Guideline: das Dokument scrollt nie — Screens scrollen innen. */
+html{overflow:hidden;}
+body{background:var(--bg);color:var(--ink);font-family:'Instrument Sans',system-ui,sans-serif;height:100dvh;overflow:hidden;}
+h1,h2,h3{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;margin:0;}
+p{margin:0;}
+button{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:13px;letter-spacing:.03em;border-radius:9px;border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);padding:11px 14px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
+button:active{transform:scale(.97);}
+button.primary{background:var(--ink);color:var(--bg);}
+button.ghost{background:transparent;box-shadow:none;border-color:var(--line);}
+button.danger{border-color:var(--bad);color:var(--bad);background:transparent;box-shadow:none;}
+button:disabled{opacity:.4;pointer-events:none;}
+input[type=text]{font-family:'Instrument Sans',sans-serif;font-size:15px;border:1.5px solid var(--line);border-radius:9px;padding:11px 12px;background:var(--bone);color:var(--ink);width:100%;}
+input[type=text]:focus{outline:none;border-color:var(--ember);}
+.mono{font-family:'Space Mono',monospace;}
+
+/* ============ Screens (Router) ============ */
+.screen{position:fixed;inset:0;display:none;flex-direction:column;overflow:hidden;}
+.screen.on{display:flex;}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 18px calc(24px + env(safe-area-inset-bottom));}
+.narrow{max-width:430px;margin:0 auto;width:100%;}
+
+/* Kopfzeile für Aux-Screens */
+.auxhead{display:flex;align-items:center;gap:10px;padding:max(12px,env(safe-area-inset-top)) 14px 10px;flex-shrink:0;}
+.auxhead .back{width:40px;height:40px;padding:0;border-radius:10px;font-size:17px;box-shadow:none;border-color:var(--line);background:transparent;}
+.auxhead h2{font-size:18px;flex:1;}
+.auxhead .mono{font-size:9.5px;color:var(--ink2);letter-spacing:.1em;text-transform:uppercase;}
+
+/* ============ TITEL ============ */
+#scr-titel{align-items:center;justify-content:center;text-align:center;padding:20px;}
+#scr-titel .kicker{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.22em;color:var(--ember);text-transform:uppercase;}
+#scr-titel h1{font-size:clamp(44px,13vw,74px);line-height:.95;margin:10px 0 6px;letter-spacing:.02em;}
+#scr-titel .tag{color:var(--ink2);font-size:14px;max-width:34ch;margin:0 auto;}
+.riverline{width:min(300px,70vw);height:5px;border-radius:3px;margin:22px auto;background:linear-gradient(90deg,transparent,var(--river) 18%,var(--riverdeep) 50%,var(--river) 82%,transparent);background-size:200% 100%;animation:flow 5s linear infinite;}
+@keyframes flow{from{background-position:200% 0}to{background-position:0 0}}
+.hexdeco{display:flex;gap:5px;justify-content:center;margin-bottom:26px;opacity:.5;}
+.hexdeco i{width:22px;height:25px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--tile);}
+.hexdeco i.w{background:var(--river);}
+.hexdeco i.h{background:var(--panel2);}
+#scr-titel .cta{display:flex;flex-direction:column;gap:9px;width:min(300px,80vw);margin:0 auto;}
+#scr-titel .cta button{width:100%;}
+#scr-titel .cta .resume-sub{display:block;font-weight:400;font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.06em;margin-top:2px;opacity:.75;}
+.titelfoot{position:absolute;bottom:max(16px,env(safe-area-inset-bottom));left:0;right:0;text-align:center;font-family:'Space Mono',monospace;font-size:10px;color:var(--ink2);letter-spacing:.05em;}
+.titelfoot a{color:var(--ink2);text-decoration:none;border-bottom:1px dotted var(--ink2);cursor:pointer;}
+.titelfoot .v{display:block;margin-top:8px;opacity:.7;}
+
+/* ============ ERSTSTART ============ */
+#scr-erststart{align-items:center;justify-content:center;padding:20px;}
+.onb{width:100%;max-width:390px;}
+.onb .sub{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.16em;color:var(--ember);text-transform:uppercase;margin-bottom:10px;}
+.onb h1{font-size:28px;line-height:1.1;margin-bottom:10px;}
+.onb p{font-size:14px;color:var(--ink2);line-height:1.55;margin:0 0 18px;}
+.onb label{display:block;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--ink2);text-transform:uppercase;margin-bottom:6px;}
+.onb .hint{font-size:11px;color:var(--bad);margin-top:6px;min-height:14px;}
+.onb button{width:100%;margin-top:8px;}
+
+/* ============ HUB (Weltkarte) ============ */
+.hudtop{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:max(12px,env(safe-area-inset-top)) 14px 10px;flex-shrink:0;}
+.brand{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:15px;letter-spacing:.12em;}
+.brand small{display:block;font-family:'Space Mono',monospace;font-weight:400;font-size:9.5px;letter-spacing:.06em;color:var(--ink2);margin-top:2px;}
+.profilechip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1.5px solid var(--line);border-radius:20px;padding:6px 12px 6px 6px;cursor:pointer;box-shadow:var(--shadow);flex-shrink:0;}
+.profilechip .av{width:26px;height:26px;border-radius:50%;background:var(--ember);color:#14100a;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
+.profilechip .nm{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.04em;}
+.worldmock{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.worldmock .fill{position:absolute;inset:0;background:radial-gradient(ellipse 60% 30% at 50% 8%,var(--river),transparent 60%),linear-gradient(180deg,var(--panel2) 0%,var(--bg) 100%);opacity:.9;}
+.worldmock .hint{position:relative;font-family:'Space Mono',monospace;font-size:11px;color:var(--ink2);text-align:center;letter-spacing:.06em;line-height:1.7;}
+.hubcard{position:absolute;left:50%;bottom:88px;transform:translateX(-50%);width:min(400px,88vw);background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:0 8px 24px rgba(0,0,0,.18);}
+.hubcard .tg{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:var(--ember);text-transform:uppercase;margin-bottom:4px;}
+.hubcard h3{font-size:17px;margin-bottom:4px;}
+.hubcard .meta{font-family:'Space Mono',monospace;font-size:11px;color:var(--ink2);margin-bottom:10px;}
+.hubcard .bar{height:8px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);overflow:hidden;margin-bottom:12px;}
+.hubcard .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--riverdeep),var(--river));}
+.hubcard .row{display:flex;gap:8px;}
+.hubcard .row button{flex:1;}
+.startbtn{position:absolute;left:50%;bottom:88px;transform:translateX(-50%);}
+.hubnav{display:flex;justify-content:center;gap:8px;padding:12px;flex-wrap:wrap;flex-shrink:0;}
+.hubnav button{font-size:10.5px;padding:8px 12px;box-shadow:none;}
+
+/* ============ FORMEN (Platzhalter für den echten Weltkarten-Screen) ============ */
+.formmock{flex:1;position:relative;display:flex;align-items:center;justify-content:center;}
+.formmock .fill{position:absolute;inset:0;background:radial-gradient(ellipse 50% 34% at 50% 42%,var(--emberglow),transparent 70%),linear-gradient(180deg,var(--panel2),var(--bg));}
+.formhex{position:relative;width:150px;height:170px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--tile);outline:none;border:none;box-shadow:none;display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:10px;color:var(--ink2);text-align:center;line-height:1.6;}
+.formfoot{padding:0 18px calc(16px + env(safe-area-inset-bottom));flex-shrink:0;}
+.formfoot .report{max-width:430px;margin:0 auto 10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:11.5px;box-shadow:var(--shadow);}
+.formfoot .report .rh{display:flex;justify-content:space-between;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.08em;color:var(--ink2);text-transform:uppercase;}
+.formfoot .report .ok{color:var(--good);font-weight:700;}
+.formfoot .row{display:flex;gap:8px;max-width:430px;margin:0 auto;}
+.formfoot .row button{flex:1;}
+
+/* ============ KAMPAGNE ============ */
+.eprow{display:flex;align-items:center;gap:12px;background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:9px;box-shadow:var(--shadow);}
+.eprow.locked{opacity:.55;background:var(--panel2);box-shadow:none;}
+.eprow .n{font-family:'Space Mono',monospace;font-size:13px;color:var(--ember);width:22px;flex-shrink:0;text-align:center;}
+.eprow.locked .n{color:var(--ink2);}
+.eprow .info{flex:1;min-width:0;}
+.eprow .info b{display:block;font-size:13.5px;line-height:1.25;}
+.eprow .info span{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);}
+.eprow .st{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);flex-shrink:0;text-align:right;line-height:1.5;}
+.eprow .st .play{display:inline-block;border:1.5px solid var(--ink);border-radius:8px;padding:6px 11px;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:11.5px;color:var(--ink);letter-spacing:.03em;text-transform:none;}
+.eprow:not(.locked){cursor:pointer;}
+.eprow:not(.locked):active{transform:scale(.99);}
+.zerem{display:flex;align-items:center;gap:8px;margin:2px 0 11px 10px;font-family:'Space Mono',monospace;font-size:9px;color:var(--ink2);letter-spacing:.06em;}
+.zerem::before{content:'';width:1px;height:14px;background:var(--line);margin-left:10px;}
+.kamplegend{font-size:11px;color:var(--ink2);line-height:1.55;margin-top:14px;}
+
+/* ============ SPIEL (Mock) ============ */
+.gamebar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:max(10px,env(safe-area-inset-top)) 14px 8px;background:var(--panel);border-bottom:1px solid var(--line);flex-shrink:0;}
+.gamebar .yr{font-family:'Space Mono',monospace;text-align:right;font-size:10px;color:var(--ink2);}
+.gamebar .yr b{display:block;font-size:15px;color:var(--ink);line-height:1;}
+.menubtn{width:40px;height:40px;border-radius:10px;font-size:17px;padding:0;flex-shrink:0;}
+.gamemap{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;color:var(--ink2);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.06em;text-align:center;}
+.minihex{display:flex;flex-direction:column;align-items:center;}
+.minihex .r{display:flex;gap:4px;}
+.minihex .r+.r{margin-top:-12px;}
+.minihex i{width:46px;height:52px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--tile);}
+.minihex .r.odd{margin-left:25px;}
+.minihex i.w{background:var(--river);}
+.minihex i.h{background:var(--panel2);}
+.gamefoot{padding:10px 14px calc(12px + env(safe-area-inset-bottom));display:flex;gap:8px;background:var(--panel);border-top:1px solid var(--line);flex-shrink:0;}
+.gamefoot button{flex:1;}
+
+/* ============ REGELN / ÜBER ============ */
+.rul{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:10px;box-shadow:var(--shadow);}
+.rul b{font-size:13.5px;display:block;margin-bottom:3px;}
+.rul p{font-size:12.5px;color:var(--ink2);line-height:1.55;}
+.rul .g{color:var(--ember);}
+.ueber p{font-size:13px;line-height:1.6;color:var(--ink2);margin-bottom:12px;}
+.ueber b{color:var(--ink);}
+.ueber .box{background:var(--panel);border-left:3px solid var(--ember);border-radius:0 8px 8px 0;padding:10px 13px;font-size:12px;line-height:1.55;margin:12px 0;}
+
+/* ============ SYNC ============ */
+.switchrow{display:flex;align-items:flex-start;gap:12px;padding:12px;border:1.5px solid var(--line);border-radius:10px;background:var(--bone);margin-bottom:12px;}
+.switchrow .txt{flex:1;}
+.switchrow .txt b{font-size:13px;display:block;}
+.switchrow .txt span{font-size:11.5px;color:var(--ink2);line-height:1.45;display:block;margin-top:2px;}
+.toggle{width:44px;height:26px;border-radius:13px;background:var(--line);border:none;position:relative;cursor:pointer;flex-shrink:0;padding:0;box-shadow:none;transition:background .2s;}
+.toggle.on{background:var(--good);}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s;}
+.toggle.on::after{transform:translateX(18px);}
+.codebox{background:var(--bone);border:1.5px dashed var(--ember);border-radius:10px;padding:14px;text-align:center;margin:12px 0;}
+.codebox .lbl{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:6px;}
+.codebox .code{font-family:'Space Mono',monospace;font-weight:700;font-size:15px;letter-spacing:.06em;word-break:break-all;}
+.syncnote{font-size:11px;color:var(--ink2);line-height:1.5;margin-top:12px;}
+.rowbtn{display:flex;gap:8px;margin-top:8px;}
+.rowbtn button{flex:1;}
+
+/* ============ Overlays ============ */
+.overlay{position:fixed;inset:0;background:rgba(20,30,26,0);pointer-events:none;opacity:0;transition:all .3s ease;display:flex;z-index:40;}
+.overlay.on{background:rgba(20,30,26,.5);pointer-events:auto;opacity:1;}
+.menupanel{width:min(320px,84vw);height:100%;background:var(--panel);box-shadow:6px 0 30px rgba(0,0,0,.25);transform:translateX(-100%);transition:transform .32s cubic-bezier(.2,.9,.3,1);padding:max(20px,env(safe-area-inset-top)) 18px 20px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;}
+.overlay.on .menupanel{transform:translateX(0);}
+.menupanel h2{font-size:19px;}
+.menupanel .sub{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--ink2);text-transform:uppercase;margin-bottom:10px;}
+.menu-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;justify-content:flex-start;padding:12px 14px;box-shadow:none;border-color:var(--line);}
+.menu-item .ic{font-size:15px;width:20px;text-align:center;}
+.menu-item small{display:block;font-weight:400;font-size:10.5px;color:var(--ink2);margin-top:1px;}
+.menu-spacer{flex:1;}
+.menu-foot{font-size:10px;color:var(--ink2);font-family:'Space Mono',monospace;line-height:1.5;padding:8px 4px 0;border-top:1px dashed var(--line);}
+.centerwrap{margin:auto;padding:16px;width:100%;display:flex;justify-content:center;}
+.sheet{width:min(390px,92vw);background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.25);}
+.sheet h3{font-size:16px;margin-bottom:6px;}
+.sheet .lead{font-size:12.5px;color:var(--ink2);line-height:1.5;margin-bottom:14px;}
+.profrow{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:8px;cursor:pointer;}
+.profrow:hover{background:var(--panel2);}
+.profrow.active{background:var(--emberglow);}
+.profrow .av{width:28px;height:28px;border-radius:50%;background:var(--river);color:#0d1e1c;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
+.profrow .info{flex:1;}
+.profrow .info b{display:block;font-size:13px;}
+.profrow .info span{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);}
+
+.debugfab{position:fixed;bottom:max(10px,env(safe-area-inset-bottom));left:10px;z-index:91;width:30px;height:30px;padding:0;border-radius:50%;font-size:13px;background:rgba(20,30,26,.8);color:var(--bg);border:none;box-shadow:none;opacity:.55;}
+.debugstrip{position:fixed;bottom:max(48px,calc(env(safe-area-inset-bottom) + 38px));left:10px;z-index:90;display:none;gap:4px;background:rgba(20,30,26,.9);padding:6px;border-radius:14px;flex-wrap:wrap;max-width:70vw;}
+.debugstrip.on{display:flex;}
+.debugstrip button{font-size:8.5px;padding:4px 7px;border-radius:12px;box-shadow:none;background:var(--bone);border-width:1px;}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
+</style>
+</head>
+<body>
+
+<!-- ============ TITEL (Title Screen) ============ -->
+<div class="screen" id="scr-titel">
+  <div class="kicker">Ein Fluss · Zwölftausend Jahre</div>
+  <h1>STROM<br>LINIEN</h1>
+  <p class="tag">Die Geschichte des Alpenrheintals — Plättchen für Plättchen, Nacht für Nacht.</p>
+  <div class="riverline"></div>
+  <div class="hexdeco"><i class="h"></i><i></i><i class="w"></i><i class="w"></i><i></i><i></i><i class="h"></i></div>
+  <div class="cta">
+    <button class="primary" id="titelCta" onclick="titelPrimary()">Spielen</button>
+    <button class="ghost" id="titelWorld" onclick="show('hub')" style="display:none">Zur Weltkarte</button>
+  </div>
+  <div class="titelfoot">
+    <a onclick="openAux('regeln')">Regeln</a> · <a onclick="openAux('sync')">Chronik</a> · <a onclick="openAux('ueber')">Über</a>
+    <span class="v">Prototyp Shell v1 · historisch inspiriert und vereinfacht</span>
+  </div>
+</div>
+
+<!-- ============ ERSTSTART (Profil anlegen) ============ -->
+<div class="screen" id="scr-erststart">
+  <div class="onb">
+    <div class="sub">Willkommen am Alpenrhein</div>
+    <h1>Wie nennt man<br>euren Stamm?</h1>
+    <p>Unter diesem Namen liegen euer Nebel des Ungespielten, laufende Partien und eure Chronik — <b>zunächst nur auf diesem Gerät</b>. Kein Konto, keine Anmeldung.</p>
+    <label for="nameinput">Stammesname</label>
+    <input type="text" id="nameinput" placeholder="z. B. Die Ufergänger" maxlength="28">
+    <div class="hint" id="namehint"></div>
+    <button class="primary" onclick="createProfile()">Stamm gründen</button>
+    <button class="ghost" onclick="openAux('sync')">Ich habe einen Chronik-Code</button>
+    <button class="ghost" onclick="show('titel')">← Zurück</button>
+  </div>
+</div>
+
+<!-- ============ HUB (Weltkarte) ============ -->
+<div class="screen" id="scr-hub">
+  <div class="hudtop">
+    <div class="brand">STROMLINIEN<small>WÄHLE &amp; FORME DEIN TAL</small></div>
+    <div class="profilechip" onclick="openSwitcher()">
+      <div class="av" id="chipAv">?</div>
+      <div class="nm" id="chipName">–</div>
+    </div>
+  </div>
+  <div class="worldmock">
+    <div class="fill"></div>
+    <div class="hint" id="hubHint">Weltkarte (Mock) — Nebel des Ungespielten<br><span style="opacity:.7">steht für den echten Weltkarten-Screen der App</span></div>
+    <div class="hubcard" id="resumeCard" style="display:none">
+      <div class="tg">Laufende Partie</div>
+      <h3 id="resumeTitle">Gebiet an der Schaaner Furt</h3>
+      <div class="meta" id="resumeMeta">Epoche I · Runde 4 / 10 · Tag</div>
+      <div class="bar"><i id="resumeBar" style="width:38%"></i></div>
+      <div class="row">
+        <button class="ghost danger" onclick="openConfirm('abandon')">Aufgeben</button>
+        <button class="primary" onclick="show('spiel')">Fortsetzen</button>
+      </div>
+    </div>
+    <button class="primary startbtn" id="startBtn" style="display:none" onclick="show('formen')">Neues Gebiet formen</button>
+  </div>
+  <div class="hubnav">
+    <button onclick="show('kampagne')">Epochen</button>
+    <button onclick="openAux('sync')">☁ Chronik &amp; Sync</button>
+    <button onclick="openAux('regeln')">Regeln</button>
+    <button onclick="show('titel')">Titelbild</button>
+  </div>
+</div>
+
+<!-- ============ FORMEN (Platzhalter Gebietswahl) ============ -->
+<div class="screen" id="scr-formen">
+  <div class="auxhead">
+    <button class="back" onclick="show('hub')" aria-label="Zurück">←</button>
+    <h2>Forme dein Tal</h2>
+    <span class="mono">Mock</span>
+  </div>
+  <div class="formmock">
+    <div class="fill"></div>
+    <div class="formhex">GEBIET<br>37 FELDER<br><span style="opacity:.6">(echter Screen:<br>StartScreen.tsx)</span></div>
+  </div>
+  <div class="formfoot">
+    <div class="report">
+      <div class="rh"><span>Gewähltes Gebiet · 37 Felder</span><span class="ok">✓ Wasser zu hören</span></div>
+    </div>
+    <div class="row">
+      <button class="ghost" onclick="show('hub')">Abbrechen</button>
+      <button class="primary" onclick="show('kampagne')">Weiter: Epochen dieses Tals</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ KAMPAGNE (Epochen-Auswahl) ============ -->
+<div class="screen" id="scr-kampagne">
+  <div class="auxhead">
+    <button class="back" onclick="show('hub')" aria-label="Zurück">←</button>
+    <h2>Fünf Epochen, ein Tal</h2>
+    <span class="mono" id="kampWho"></span>
+  </div>
+  <div class="scroll"><div class="narrow" id="kampList"></div>
+    <p class="kamplegend narrow">Jede Epoche ist ein eigenes Modul; die <b>Zeremonie</b> dazwischen trägt euer Tal in die nächste Zeit. Verschlossene Epochen öffnen sich, wenn die vorige abgeschlossen ist. Historisch inspiriert und vereinfacht.</p>
+  </div>
+</div>
+
+<!-- ============ SPIEL (Mock) ============ -->
+<div class="screen" id="scr-spiel">
+  <div class="gamebar">
+    <div class="brand">STROMLINIEN<small id="gameSub">EPOCHE I · ALPENRHEIN</small></div>
+    <div class="yr" id="gameYear"><b>7 600</b>v. Chr. · Tag</div>
+    <button class="menubtn" onclick="openMenu()" aria-label="Menü">☰</button>
+  </div>
+  <div class="gamemap">
+    <div class="minihex">
+      <div class="r"><i class="h"></i><i></i><i class="w"></i><i></i><i class="h"></i></div>
+      <div class="r odd"><i></i><i class="w"></i><i></i><i></i><i class="h"></i></div>
+      <div class="r"><i></i><i class="w"></i><i></i><i></i><i></i></div>
+    </div>
+    <div id="gameInfo">Spielfeld (Mock) — Runde 4 · Tag</div>
+  </div>
+  <div class="gamefoot">
+    <button class="ghost" onclick="endRound()">Debug: Runde beenden</button>
+    <button class="primary" onclick="toast('Hier läge der echte Kernloop')">Nacht anbrechen lassen</button>
+  </div>
+</div>
+
+<!-- ============ REGELN (Aux) ============ -->
+<div class="screen" id="scr-regeln">
+  <div class="auxhead">
+    <button class="back" onclick="closeAux()" aria-label="Zurück">←</button>
+    <h2>Regeln</h2>
+    <span class="mono">Kurzfassung</span>
+  </div>
+  <div class="scroll"><div class="narrow">
+    <div class="rul"><b>Tag &amp; Nacht</b><p>Am <span class="g">Tag</span> legst du ein Plättchen, kassierst Einkommen und bewegst deine Menschen. In der <span class="g">Nacht</span> deckst du auf, was im Dunkeln geschah — der Stamm isst −1 Nahrung.</p></div>
+    <div class="rul"><b>Vier Ressourcen</b><p>Nahrung, Schutz, Baumaterial, Kultur. Fortschritt („Sesshaftigkeit") bringt pro Runde nur die <span class="g">schwächste</span> Ressource — wer eine vernachlässigt, kommt nicht voran.</p></div>
+    <div class="rul"><b>Zwei Menschen</b><p>Die <span class="g">Sammlerin ✦</span> bewirtschaftet ihr Plättchen (+1 Ertrag), der <span class="g">Jäger ➤</span> gibt +2 Schutz, solange er im Tal steht. Höchstens zwei Schritte pro Tag; über den Fluss nur an <span class="g">Furten</span>.</p></div>
+    <div class="rul"><b>Verbünde</b><p>Nachbarschaft zählt: Fischgrund oder Wald neben einem Lager liefern mehr, Höhle neben Terrasse schützt besser, zwei Pfahlbauten werden zum Dorf.</p></div>
+    <div class="rul"><b>◆ Belegte Ereignisse</b><p>Manche Nächte geschehen in jeder Partie zur selben Zeit — sie sind wirklich passiert. Beim ersten Mal überraschen sie dich, beim zweiten bist du ein Zeitreisender.</p></div>
+    <div class="rul"><b>Fundstellen</b><p>Echte (vereinfachte) Fundplätze liegen verdeckt im Tal. Wer das passende Plättchen am richtigen Ort baut, entdeckt sie — Kultur und Authentizität steigen.</p></div>
+    <div class="rul"><b>Die Zeremonie</b><p>Am Ende jeder Epoche pausiert Tag/Nacht: Fünf Karten tragen euer Tal in die nächste Zeit — mit echten Entscheidungen und dem Realitätsabgleich.</p></div>
+  </div></div>
+</div>
+
+<!-- ============ CHRONIK & SYNC (Aux) ============ -->
+<div class="screen" id="scr-sync">
+  <div class="auxhead">
+    <button class="back" onclick="closeAux()" aria-label="Zurück">←</button>
+    <h2>Chronik &amp; Sync</h2>
+    <span class="mono">Opt-in</span>
+  </div>
+  <div class="scroll"><div class="narrow">
+    <p style="font-size:12.5px;color:var(--ink2);line-height:1.5;margin:4px 0 14px">Gespielt wird immer auf diesem Gerät. Die Cloud ist nur eine Kopie — zum Weiterspielen woanders.</p>
+    <div class="switchrow">
+      <div class="txt"><b>Chronik sichern</b><span id="syncExplain">Aus. Nichts verlässt dieses Gerät.</span></div>
+      <button class="toggle" id="syncToggle" onclick="toggleSync()" aria-label="Sync umschalten"></button>
+    </div>
+    <div id="syncOn" style="display:none">
+      <div class="codebox"><div class="lbl">Euer Chronik-Code</div><div class="code" id="codeText">–</div></div>
+      <div class="rowbtn">
+        <button class="ghost" onclick="copyCode()">Code kopieren</button>
+        <button class="primary" onclick="toast('Chronik gesichert (Mock)')">Jetzt sichern</button>
+      </div>
+    </div>
+    <hr style="border:none;border-top:1px dashed var(--line);margin:16px 0">
+    <b style="font-size:13px">Chronik holen</b>
+    <p style="font-size:11.5px;color:var(--ink2);margin:4px 0 8px">Code vom anderen Gerät eingeben.</p>
+    <input type="text" class="mono" id="codeInput" placeholder="furt-adler-see-wolf-7291" autocapitalize="off" spellcheck="false">
+    <div class="rowbtn"><button class="primary" onclick="toast('Rundlauf mit Mock-Server: siehe profil-hub-v2')">Holen</button></div>
+    <p class="syncnote">Voller Ablauf — Konflikt „Zwei Chroniken", Offline-Fall, Rundlauf <i>sichern → Gerät leeren → holen</i> — im Prototyp <span class="mono">profil-hub-v2</span>. Diese Seite zeigt nur den Platz in der Shell.</p>
+  </div></div>
+</div>
+
+<!-- ============ ÜBER (Aux) ============ -->
+<div class="screen" id="scr-ueber">
+  <div class="auxhead">
+    <button class="back" onclick="closeAux()" aria-label="Zurück">←</button>
+    <h2>Über dieses Spiel</h2>
+    <span class="mono">Shell v1</span>
+  </div>
+  <div class="scroll"><div class="narrow ueber">
+    <p><b>STROMLINIEN</b> erzählt die Geschichte des Alpenrheintals von Landquart bis Konstanz — von den ersten Lagern am Wasser bis zur Rheinkorrektion. Gespielt wird auf einer gestalteten Weltkarte mit echten Orten.</p>
+    <div class="box"><b>Historisch inspiriert und vereinfacht.</b> Ereignisse, Fundstellen und Jahreszahlen sind für das Spiel vereinfacht und gerundet. Was als „belegt" markiert ist, bezeichnet den angestrebten Datenstandard — die Recherche läuft.</div>
+    <p>Belegte Ereignisse geschehen in jeder Partie zur selben Zeit; Fundstellen liegen dort, wo wirklich gegraben wurde. Das Spiel belohnt historisch plausibles Bauen — es verbietet nichts.</p>
+    <p>Mehr zum Design — was entschieden ist und was geplant: im <a href="../drafts/stromlinien-handbuch.html?mode=publish" style="color:var(--ink)">Handbuch</a> <span class="mono" style="font-size:10px">(deployt: /handbuch/)</span>.</p>
+    <p class="mono" style="font-size:10px;opacity:.7">Prototyp Shell v1 · Alle Daten bleiben auf diesem Gerät, solange Sync aus ist.</p>
+  </div></div>
+</div>
+
+<!-- ============ LAGER-MENÜ (Overlay im Spiel) ============ -->
+<div class="overlay" id="menuOverlay" onclick="if(event.target===this)closeMenu()">
+  <div class="menupanel">
+    <h2>Das Lager</h2>
+    <div class="sub" id="menuSub">Runde 4 · Tag</div>
+    <button class="menu-item" onclick="closeMenu()"><span class="ic">▶</span><span>Fortsetzen<small>zurück zum Spiel</small></span></button>
+    <button class="menu-item" onclick="closeMenu();openAux('regeln')"><span class="ic">📜</span><span>Regeln<small>Tag/Nacht, Verbünde, Zeremonie</small></span></button>
+    <button class="menu-item" onclick="closeMenu();toast('Gespeichert');show('hub')"><span class="ic">⬡</span><span>Zur Weltkarte<small>speichert automatisch</small></span></button>
+    <button class="menu-item" onclick="closeMenu();openConfirm('abandon')"><span class="ic">✕</span><span>Partie aufgeben<small>unwiderruflich</small></span></button>
+    <div class="menu-spacer"></div>
+    <div class="menu-foot">Autosave nach jeder Aktion — Schließen verliert nie mehr als die aktuelle Eingabe.</div>
+  </div>
+</div>
+
+<!-- ============ PROFIL-UMSCHALTER ============ -->
+<div class="overlay" id="switcherOverlay" onclick="if(event.target===this)closeSwitcher()">
+  <div class="centerwrap"><div class="sheet">
+    <h3>Stämme auf diesem Gerät</h3>
+    <div id="profileList"></div>
+    <button class="ghost" style="width:100%;margin-top:8px" onclick="closeSwitcher();show('erststart')">+ Neuer Stamm</button>
+  </div></div>
+</div>
+
+<!-- ============ AUFGEBEN-CONFIRM ============ -->
+<div class="overlay" id="abandonOverlay" onclick="if(event.target===this)closeConfirm()">
+  <div class="centerwrap"><div class="sheet">
+    <h3>Partie wirklich aufgeben?</h3>
+    <p class="lead">Der Fortschritt geht verloren. Das Gebiet bleibt auf der Weltkarte aufgedeckt.</p>
+    <div class="rowbtn">
+      <button class="ghost" onclick="closeConfirm()">Abbrechen</button>
+      <button class="danger" style="border:1.5px solid var(--bad)" onclick="abandonRun()">Ja, aufgeben</button>
+    </div>
+  </div></div>
+</div>
+
+<button class="debugfab" onclick="document.getElementById('debugstrip').classList.toggle('on')" aria-label="Debug-Navigation">⚙</button>
+<div class="debugstrip" id="debugstrip"></div>
+
+<script>
+/* =====================================================================
+   Shell v1 — alle Screens rund ums Spiel in einem Fluss:
+   titel → erststart → hub → formen → kampagne → spiel (+ Lager-Menü)
+   Aux: regeln, sync, ueber (mit Rücksprung zum Aufruf-Ort).
+   Das Spiel selbst und die Weltkarte sind Mocks — die echten Screens
+   existieren bereits in der App (StromlinienGame.tsx, StartScreen.tsx).
+   ===================================================================== */
+const KEY='sot-shell-v1';
+const EPOCHS=[
+  {n:'I',name:'Überleben am Wasser, Pfahlbauten',years:'10 000–2 000 v. Chr.'},
+  {n:'II',name:'Rätier, Römer, ferne Macht',years:'2 000 v. Chr.–500 n. Chr.'},
+  {n:'III',name:'Klöster, Städte, Konstanz',years:'500–1500'},
+  {n:'IV',name:'Glaube, Grenzen, Schmuggel',years:'1500–1800'},
+  {n:'V',name:'Industrie, Rheinkorrektion',years:'1800–heute'},
+];
+const ZEREM=['„Sesshaft werden"','„Rückzug und Neuanfang"','(Zeremonie III→IV)','(Zeremonie IV→V)'];
+
+/* ---------- Zustand ---------- */
+function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{"profiles":[],"active":null}');}catch(e){return{profiles:[],active:null};}}
+function save(s){try{localStorage.setItem(KEY,JSON.stringify(s));}catch(e){}}
+let S=load();
+function me(){return S.profiles.find(p=>p.id===S.active)||null;}
+function initials(n){return n.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase()||'?';}
+const WORDS=['furt','adler','see','wolf','ried','hang','stein','aue','reuse','feuer','nebel','birke','kies','tal','moos','otter'];
+function makeCode(){const p=()=>WORDS[Math.floor(Math.random()*WORDS.length)];return[p(),p(),p(),p()].join('-')+'-'+(1000+Math.floor(Math.random()*9000));}
+
+/* ---------- Router ---------- */
+let current='titel', auxReturn='titel';
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id==='scr-'+id));
+  current=id;
+  render();
+}
+function openAux(id){auxReturn=current;show(id);}
+function closeAux(){show(auxReturn||'titel');}
+
+/* ---------- Rendern ---------- */
+function render(){
+  const p=me();
+  /* Titel-CTA je nach Zustand */
+  const cta=document.getElementById('titelCta');
+  const world=document.getElementById('titelWorld');
+  if(!p){cta.textContent='Spielen';cta.onclick=()=>show('erststart');world.style.display='none';}
+  else if(p.hasRun){
+    cta.innerHTML='Weiterspielen<span class="resume-sub">'+p.name+' · Epoche I · Runde '+p.round+'</span>';
+    cta.onclick=()=>show('spiel');world.style.display='block';
+  }else{cta.textContent='Spielen';cta.onclick=()=>show('hub');world.style.display='block';}
+  /* Hub */
+  if(p){
+    document.getElementById('chipAv').textContent=initials(p.name);
+    document.getElementById('chipName').textContent=p.name;
+  }
+  const run=!!(p&&p.hasRun);
+  document.getElementById('resumeCard').style.display=run?'block':'none';
+  document.getElementById('startBtn').style.display=(p&&!run)?'block':'none';
+  document.getElementById('hubHint').style.display=run?'none':'block';
+  if(run){
+    document.getElementById('resumeMeta').textContent='Epoche I · Runde '+p.round+' / 10 · Tag';
+    document.getElementById('resumeBar').style.width=Math.round(p.round/10*100)+'%';
+  }
+  /* Kampagne */
+  document.getElementById('kampWho').textContent=p?p.name:'';
+  document.getElementById('kampList').innerHTML=EPOCHS.map((e,i)=>{
+    const first=i===0;
+    const st=first
+      ?(run?'<span class="play">Fortsetzen · R'+p.round+'</span>':'<span class="play">Spielen</span>')
+      :'verschlossen<br>nach Epoche '+EPOCHS[i-1].n;
+    const row='<div class="eprow'+(first?'':' locked')+'"'+(first?' onclick="startEpoch()"':'')+'>'
+      +'<div class="n">'+e.n+'</div><div class="info"><b>'+e.name+'</b><span>'+e.years+'</span></div>'
+      +'<div class="st">'+st+'</div></div>';
+    const z=i<ZEREM.length?'<div class="zerem">Zeremonie '+ZEREM[i]+'</div>':'';
+    return row+z;
+  }).join('');
+  /* Spiel */
+  if(p){
+    document.getElementById('gameInfo').textContent='Spielfeld (Mock) — Runde '+(p.round||1)+' · Tag';
+    document.getElementById('menuSub').textContent='Runde '+(p.round||1)+' · Tag';
+  }
+  /* Sync */
+  document.getElementById('syncToggle').classList.toggle('on',!!(p&&p.syncEnabled));
+  document.getElementById('syncOn').style.display=(p&&p.syncEnabled)?'block':'none';
+  document.getElementById('syncExplain').textContent=(p&&p.syncEnabled)
+    ?'An. Eine Kopie liegt unter eurem Code in der Cloud.'
+    :'Aus. Nichts verlässt dieses Gerät.';
+  if(p&&p.code)document.getElementById('codeText').textContent=p.code;
+  renderProfiles();
+}
+function renderProfiles(){
+  document.getElementById('profileList').innerHTML=S.profiles.map(p=>
+    '<div class="profrow'+(p.id===S.active?' active':'')+'" onclick="switchProfile(\''+p.id+'\')">'
+    +'<div class="av">'+initials(p.name)+'</div>'
+    +'<div class="info"><b>'+p.name+'</b><span>'+(p.hasRun?('Epoche I · Runde '+p.round):'kein aktives Spiel')+'</span></div>'
+    +(p.id===S.active?'<span style="color:var(--good);font-size:11px">●</span>':'')+'</div>'
+  ).join('')||'<p style="font-size:12px;color:var(--ink2)">Noch kein Stamm auf diesem Gerät.</p>';
+}
+
+/* ---------- Aktionen ---------- */
+function titelPrimary(){/* wird in render() gesetzt */}
+function createProfile(){
+  const name=document.getElementById('nameinput').value.trim();
+  if(!name){document.getElementById('namehint').textContent='Bitte einen Namen eingeben.';return;}
+  const id='p'+Date.now();
+  S.profiles.push({id,name,hasRun:false,round:1,syncEnabled:false,code:null});
+  S.active=id;save(S);
+  document.getElementById('nameinput').value='';
+  document.getElementById('namehint').textContent='';
+  show('hub');
+}
+function switchProfile(id){S.active=id;save(S);closeSwitcher();render();toast('Stamm gewechselt');}
+function startEpoch(){
+  const p=me();if(!p)return;
+  if(!p.hasRun){p.hasRun=true;p.round=1;save(S);}
+  show('spiel');
+}
+function endRound(){
+  const p=me();if(!p)return;
+  p.hasRun=true;p.round=Math.min(10,(p.round||1)+1);save(S);render();
+  toast('Runde '+p.round+' — gespeichert');
+}
+function abandonRun(){
+  const p=me();if(p){p.hasRun=false;p.round=1;save(S);}
+  closeConfirm();show('hub');toast('Partie aufgegeben');
+}
+function toggleSync(){
+  const p=me();if(!p){toast('Erst einen Stamm gründen');return;}
+  p.syncEnabled=!p.syncEnabled;
+  if(p.syncEnabled&&!p.code)p.code=makeCode();
+  save(S);render();
+  toast(p.syncEnabled?'Sync an — jetzt einmal sichern':'Sync aus — die Kopie bleibt bestehen');
+}
+function copyCode(){
+  const p=me();if(!p||!p.code)return;
+  if(navigator.clipboard)navigator.clipboard.writeText(p.code).then(()=>toast('Code kopiert'),()=>toast('Kopieren nicht möglich'));
+}
+
+/* ---------- Overlays ---------- */
+function openMenu(){document.getElementById('menuOverlay').classList.add('on');}
+function closeMenu(){document.getElementById('menuOverlay').classList.remove('on');}
+function openSwitcher(){renderProfiles();document.getElementById('switcherOverlay').classList.add('on');}
+function closeSwitcher(){document.getElementById('switcherOverlay').classList.remove('on');}
+function openConfirm(){document.getElementById('abandonOverlay').classList.add('on');}
+function closeConfirm(){document.getElementById('abandonOverlay').classList.remove('on');}
+
+let toastEl=null;
+function toast(msg){
+  if(!toastEl){
+    toastEl=document.createElement('div');
+    toastEl.style.cssText='position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:24px;font-size:12.5px;font-weight:600;z-index:80;box-shadow:var(--shadow);transition:opacity .3s;max-width:90vw;text-align:center;';
+    document.body.appendChild(toastEl);
+  }
+  toastEl.textContent=msg;toastEl.style.opacity='1';
+  clearTimeout(toastEl._h);toastEl._h=setTimeout(()=>toastEl.style.opacity='0',2200);
+}
+
+/* ---------- Debug: jeder Screen per Query-Param erreichbar ---------- */
+const SCREENS=['titel','erststart','hub','formen','kampagne','spiel','regeln','sync','ueber'];
+const strip=document.getElementById('debugstrip');
+strip.innerHTML=SCREENS.map(s=>'<button onclick="show(\''+s+'\')">'+s+'</button>').join('')
+  +'<button onclick="openMenu()">menu</button><button onclick="dbgDemo()">demo</button><button onclick="dbgEmpty()">leer</button>';
+function dbgDemo(){
+  S={profiles:[{id:'demo1',name:'Die Ufergänger',hasRun:true,round:4,syncEnabled:true,code:'furt-adler-see-wolf-7291'}],active:'demo1'};
+  save(S);render();
+}
+function dbgEmpty(){S={profiles:[],active:null};save(S);render();show('titel');}
+
+/* Init */
+const q=new URLSearchParams(location.search);
+if(q.has('empty'))dbgEmpty();
+if(q.has('demo'))dbgDemo();
+render();
+let start='titel';
+for(const s of SCREENS)if(q.has(s))start=s;
+show(start);
+if(q.has('menu')){show('spiel');openMenu();}
+document.getElementById('nameinput').addEventListener('keydown',e=>{if(e.key==='Enter')createProfile();});
+</script>
+</body>
+</html>
