@@ -1,2 +1,6 @@
 # Transient MCP / browser-tool artefacts
 .playwright-mcp/
+
+# Karten-Pipeline: Rohdaten-Downloads (GeoTIFFs etc.) und Fetch-Dependencies
+pipeline/data/
+pipeline/fetch/node_modules/

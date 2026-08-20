@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Der ganze Rhein — Quelle bis Nordsee (v1)</title>
+<style>
+  :root{
+    --bg:#12161a; --panel:#1b2228; --line:#2a333b; --ink:#d8dfe4; --dim:#8b98a3;
+    --gold:#e3c576;
+    --hexw:24px;
+    /* Abschnittsfarben */
+    --c-alpen:#8fd6c8; --c-bodensee:#6fb7e8; --c-hoch:#7ec97f; --c-ober:#e8c46f;
+    --c-mittel:#e8896f; --c-nieder:#c78fe8; --c-delta:#8fa2e8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;
+       display:flex;flex-direction:column;overflow:hidden}
+
+  header{padding:10px 14px 8px;border-bottom:1px solid var(--line);background:var(--panel);flex:0 0 auto}
+  header h1{font:600 17px/1.2 Georgia,'Times New Roman',serif;letter-spacing:.02em}
+  header .sub{color:var(--dim);font-size:11.5px;margin-top:2px}
+
+  .legend{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border:1px solid var(--line);
+        border-radius:999px;background:#161c21;color:var(--ink);font-size:11px;cursor:pointer;user-select:none}
+  .chip .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  .chip.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+  .chip.tool{color:var(--dim)}
+  .chip.tool.on{color:var(--ink)}
+
+  .maparea{flex:1 1 auto;overflow:auto;position:relative;-webkit-overflow-scrolling:touch}
+  #board{position:relative;margin:14px auto 90px}
+  .hex{position:absolute;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+       cursor:pointer}
+  .hex.t-flach{background:#26312a}
+  .hex.t-ufer{background:#33422f}
+  .hex.t-berg{background:#3b4046}
+  .hex.t-meer{background:#173042}
+  .hex.t-see{background:#255064}
+  .hex.t-fluss{background:var(--secfill,#4a90b0)}
+  .hex.zufluss{background:#39647c}
+  .hex.dim{filter:saturate(.15) brightness(.55)}
+  .hex.picked{filter:brightness(1.6) saturate(1.3);z-index:5}
+
+  .lbl{position:absolute;transform:translate(-50%,-100%);pointer-events:none;z-index:6;
+       font-size:10px;color:#f2e7c9;text-shadow:0 1px 3px #000,0 0 6px #000;white-space:nowrap;
+       display:flex;flex-direction:column;align-items:center;gap:0}
+  .lbl::after{content:'◆';color:var(--gold);font-size:8px;text-shadow:0 1px 2px #000}
+  .lbl.below{transform:translate(-50%,0);flex-direction:column-reverse}
+  .kmlbl{position:absolute;transform:translate(-50%,-50%);pointer-events:none;z-index:4;
+         font-size:8.5px;color:#9fc4d8;text-shadow:0 1px 2px #000;background:#0f1a20cc;
+         border-radius:6px;padding:0 4px}
+  body.nolabels .lbl{display:none}
+  body:not(.km) .kmlbl{display:none}
+
+  #marker{position:absolute;z-index:8;transform:translate(-50%,-50%);pointer-events:none;
+          width:12px;height:12px;border-radius:50%;background:var(--gold);
+          box-shadow:0 0 10px 3px #e3c57688;display:none}
+
+  #inspector{position:fixed;left:10px;right:10px;bottom:10px;max-width:520px;margin:0 auto;z-index:20;
+             background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+             box-shadow:0 6px 24px #000a;display:none}
+  #inspector.show{display:block}
+  #inspector h2{font:600 14px/1.2 Georgia,serif;color:var(--gold)}
+  #inspector .meta{color:var(--dim);font-size:11px;margin:2px 0 4px}
+  #inspector p{font-size:12.5px}
+  #inspector .x{position:absolute;top:6px;right:10px;color:var(--dim);cursor:pointer;font-size:16px}
+
+  #hud{position:fixed;top:auto;bottom:10px;left:10px;z-index:21;background:#0f1a20e6;border:1px solid var(--line);
+       border-radius:10px;padding:6px 10px;font-size:12px;display:none}
+  #hud b{color:var(--gold)}
+  body.demo #hud{display:block}
+  body.demo #inspector{display:none}
+
+  footer{position:fixed;right:10px;bottom:6px;color:#5c6a75;font-size:10px;z-index:2;pointer-events:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>Der ganze Rhein — vom Quellgebiet bis zur Nordsee</h1>
+  <div class="sub">Geographie stark vereinfacht (v1) · sieben Abschnitte · Feld antippen für Details</div>
+  <div class="legend" id="legend"></div>
+</header>
+
+<div class="maparea" id="maparea"><div id="board"><div id="marker"></div></div></div>
+
+<div id="inspector"><span class="x" id="inspClose">×</span><h2 id="inspTitle"></h2><div class="meta" id="inspMeta"></div><p id="inspTxt"></p></div>
+<div id="hud">Der Fluss unterwegs: <b id="hudSec"></b> · <span id="hudKm"></span></div>
+<footer>rhein-gesamt-v1 · historisch &amp; geographisch inspiriert, stark vereinfacht</footer>
+
+<script>
+'use strict';
+/* ============================================================
+   Der ganze Rhein als Hexkarte, v1.
+   Nicht handgezeichnet, sondern aus Wegpunkten generiert:
+   pro Abschnitt eine Wegpunktliste (odd-r offset [col,row]),
+   dazwischen Hex-Linien (cube lerp). Pointy-top, odd-r —
+   identische Nachbarschaft wie app/src/stromlinien/grid.ts.
+   ============================================================ */
+const W=40, H=64, TOTAL_KM=1230;
+
+/* ---- Abschnitte mit Wegpunkten (Quelle → Mündung) ---- */
+const SECS=[
+ {id:'alpen',   name:'Alpenrhein',  color:'var(--c-alpen)',
+  txt:'Junger Gebirgsfluss: Vorder- und Hinterrhein vereinen sich bei Reichenau, das Tal führt an Chur vorbei nach Norden zum See.',
+  pts:[[31,60],[33,58],[35,57],[36,56],[36,54],[36,51],[36,50]]},
+ {id:'bodensee',name:'Bodensee',    color:'var(--c-bodensee)',
+  txt:'Der Rhein durchquert den See: er beruhigt sich, lagert sein Geschiebe ab und verlässt ihn bei Konstanz.',
+  pts:[[36,50],[34,48],[32,48]], lake:true},
+ {id:'hoch',    name:'Hochrhein',   color:'var(--c-hoch)',
+  txt:'Von Konstanz nach Westen bis Basel: Stromschnellen und der Rheinfall bei Schaffhausen.',
+  pts:[[32,48],[30,48],[28,49],[24,50]]},
+ {id:'ober',    name:'Oberrhein',   color:'var(--c-ober)',
+  txt:'Am Rheinknie bei Basel wendet sich der Fluss nach Norden in die breite Oberrheinische Tiefebene.',
+  pts:[[24,50],[24,45],[25,39],[29,34],[29,29],[29,26],[28,24],[26,24]]},
+ {id:'mittel',  name:'Mittelrhein', color:'var(--c-mittel)',
+  txt:'Das enge Durchbruchstal durch das Schiefergebirge: Burgen, Weinberge, die Loreley.',
+  pts:[[26,24],[25,22],[24,20],[21,16]]},
+ {id:'nieder',  name:'Niederrhein', color:'var(--c-nieder)',
+  txt:'Breiter Strom durch flaches Land: Köln, Düsseldorf, Duisburg und der grösste Binnenhafen Europas.',
+  pts:[[21,16],[20,13],[19,11],[19,8],[15,4]]},
+ {id:'delta',   name:'Deltarhein',  color:'var(--c-delta)',
+  txt:'Im Delta teilt sich der Rhein in Arme (Waal, Lek) und erreicht bei Hoek van Holland die Nordsee.',
+  pts:[[15,4],[14,3],[5,3],[4,2]]},
+];
+
+/* ---- Nebenläufe: Quellflüsse, Deltaarme, grosse Zuflüsse (nur Stummel) ---- */
+const BRANCHES=[
+ {name:'Hinterrhein', art:'Quellfluss', sec:'alpen', pts:[[35,61],[35,59],[35,57]]},
+ {name:'Lek',         art:'Deltaarm',   sec:'delta', pts:[[13,2],[9,2],[6,2],[5,3]]},
+ {name:'Aare',        art:'Zufluss',    pts:[[26,52],[27,50],[28,49]]},
+ {name:'Neckar',      art:'Zufluss',    pts:[[31,30],[30,29],[29,29]]},
+ {name:'Main',        art:'Zufluss',    pts:[[31,24],[29,24],[28,24]]},
+ {name:'Mosel',       art:'Zufluss',    pts:[[22,22],[23,21],[24,20]]},
+ {name:'Ruhr',        art:'Zufluss',    pts:[[21,7],[20,8],[19,8]]},
+];
+
+/* ---- Landmarken (auf Wegpunkten, damit sie sicher am Wasser liegen) ---- */
+const LANDMARKS=[
+ {c:31,r:60,name:'Tomasee',        note:'Quelle des Vorderrheins am Oberalppass, 2345 m ü. M.'},
+ {c:35,r:61,name:'Paradiesgletscher',note:'Quellgebiet des Hinterrheins am Rheinwaldhorn.',below:true},
+ {c:35,r:57,name:'Reichenau',      note:'Vorder- und Hinterrhein fliessen zusammen — ab hier Alpenrhein.',below:true},
+ {c:36,r:56,name:'Chur',           note:'Älteste Stadt der Schweiz, am Alpenrhein.'},
+ {c:32,r:48,name:'Konstanz',       note:'Der Rhein verlässt den Bodensee.',below:true},
+ {c:30,r:48,name:'Rheinfall',      note:'Grösster Wasserfall Europas, bei Schaffhausen.'},
+ {c:24,r:50,name:'Basel',          note:'Das Rheinknie — der Fluss wendet sich nach Norden.'},
+ {c:25,r:39,name:'Strassburg',     note:'Handelsstadt am Oberrhein.'},
+ {c:29,r:29,name:'Mannheim',       note:'Hier mündet der Neckar.'},
+ {c:28,r:24,name:'Mainz',          note:'Hier mündet der Main.'},
+ {c:25,r:22,name:'Loreley',        note:'Schieferfelsen im engen Tal — Sagenort.'},
+ {c:24,r:20,name:'Koblenz',        note:'Deutsches Eck — hier mündet die Mosel.'},
+ {c:20,r:13,name:'Köln',           note:'Römische Gründung, Dom am Strom.'},
+ {c:19,r:8, name:'Duisburg',       note:'Hier mündet die Ruhr in den Rhein.'},
+ {c:5, r:3, name:'Rotterdam',      note:'Hafenstadt im Rheindelta.',below:true},
+ {c:4, r:2, name:'Nordsee',        note:'Hoek van Holland — der Rhein mündet ins Meer.'},
+];
+
+/* ---- Hex-Geometrie: odd-r offset ↔ cube (wie grid.ts / world.ts) ---- */
+const DIRS_EVEN=[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]];
+const DIRS_ODD =[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
+const dirsOf=r=>(r%2?DIRS_ODD:DIRS_EVEN);
+const toCube=([c,r])=>{const x=c-((r-(r&1))/2);return[x,-x-r,r]};
+const fromCube=([x,y,z])=>[x+((z-(z&1))/2),z];
+const cubeDist=(a,b)=>Math.max(Math.abs(a[0]-b[0]),Math.abs(a[1]-b[1]),Math.abs(a[2]-b[2]));
+function cubeRound([x,y,z]){
+  let rx=Math.round(x),ry=Math.round(y),rz=Math.round(z);
+  const dx=Math.abs(rx-x),dy=Math.abs(ry-y),dz=Math.abs(rz-z);
+  if(dx>dy&&dx>dz)rx=-ry-rz; else if(dy>dz)ry=-rx-rz; else rz=-rx-ry;
+  return[rx,ry,rz];
+}
+function hexLine(a,b){
+  const A=toCube(a),B=toCube(b),N=Math.max(1,cubeDist(A,B)),out=[];
+  for(let i=0;i<=N;i++){
+    const t=i/N;
+    out.push(fromCube(cubeRound([A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t,A[2]+(B[2]-A[2])*t])));
+  }
+  return out;
+}
+
+/* ---- Welt bauen ---- */
+const T=Array.from({length:H},()=>Array.from({length:W},()=>({
+  t:'flach',sec:null,km:null,landmark:null,branch:null})));
+
+/* Bergland als grobe Zonen; die Flusstäler werden danach freigeschnitten. */
+const MOUNTAINS=[
+ {c0:0, c1:39,r0:52,r1:63,name:'Alpen'},
+ {c0:26,c1:33,r0:38,r1:49,name:'Schwarzwald'},
+ {c0:19,c1:23,r0:36,r1:48,name:'Vogesen'},
+ {c0:17,c1:29,r0:14,r1:24,name:'Schiefergebirge'},
+];
+for(const m of MOUNTAINS)
+  for(let r=m.r0;r<=m.r1;r++)for(let c=m.c0;c<=m.c1;c++)T[r][c].t='berg';
+
+/* Nordsee: schräge Küste oben links. */
+const SEA_MAX_COL=[8,6,3,1,1,1,0,0,0];
+for(let r=0;r<SEA_MAX_COL.length;r++)for(let c=0;c<=SEA_MAX_COL[r];c++)T[r][c].t='meer';
+
+/* Bodensee. */
+const LAKE=[[46,33,35],[47,32,37],[48,32,37],[49,33,37],[50,35,37]];
+for(const[r,c0,c1]of LAKE)for(let c=c0;c<=c1;c++)T[r][c].t='see';
+
+/* Hauptlauf rastern (dedupliziert) + km zuweisen. */
+const mainPath=[];
+for(const sec of SECS)
+  for(let i=0;i<sec.pts.length-1;i++)
+    for(const[c,r]of hexLine(sec.pts[i],sec.pts[i+1])){
+      const last=mainPath[mainPath.length-1];
+      if(last&&last.c===c&&last.r===r)continue;
+      mainPath.push({c,r,sec:sec.id});
+    }
+mainPath.forEach((p,i)=>p.km=Math.round(i/(mainPath.length-1)*TOTAL_KM));
+
+/* Nebenläufe rastern. */
+const branchCells=[];
+for(const b of BRANCHES)
+  for(let i=0;i<b.pts.length-1;i++)
+    for(const[c,r]of hexLine(b.pts[i],b.pts[i+1]))
+      branchCells.push({c,r,b});
+
+/* Täler freischneiden: Wasserzelle + Nachbarn verlieren das Bergland. */
+const carve=(c,r)=>{
+  if(T[r]?.[c]?.t==='berg')T[r][c].t='flach';
+  for(const[dr,dc]of dirsOf(r)){const n=T[r+dr]?.[c+dc];if(n&&n.t==='berg')n.t='flach';}
+};
+for(const p of mainPath)carve(p.c,p.r);
+for(const p of branchCells)carve(p.c,p.r);
+
+/* Wasser eintragen: See und Meer bleiben, sonst Fluss. */
+for(const p of branchCells){
+  const cell=T[p.r][p.c];
+  if(cell.t==='see'||cell.t==='meer')continue;
+  cell.t='fluss';cell.branch=p.b;cell.sec=p.b.sec??cell.sec;
+}
+for(const p of mainPath){
+  const cell=T[p.r][p.c];
+  cell.sec=p.sec;cell.km=p.km;cell.branch=null;
+  if(cell.t!=='see'&&cell.t!=='meer')cell.t='fluss';
+}
+
+/* Ufer ableiten: Land neben Fluss oder See. */
+for(let r=0;r<H;r++)for(let c=0;c<W;c++){
+  const cell=T[r][c];
+  if(cell.t!=='flach')continue;
+  for(const[dr,dc]of dirsOf(r)){
+    const n=T[r+dr]?.[c+dc];
+    if(n&&(n.t==='fluss'||n.t==='see')){cell.t='ufer';break;}
+  }
+}
+for(const lm of LANDMARKS){T[lm.r][lm.c].landmark=lm;}
+
+/* ============================================================
+   Darstellung
+   ============================================================ */
+const Q=new URLSearchParams(location.search);
+const board=document.getElementById('board'),maparea=document.getElementById('maparea');
+const SECBYID=Object.fromEntries(SECS.map(s=>[s.id,s]));
+let hexw=parseInt(Q.get('hexw')||'0',10)||Math.max(10,Math.min(24,Math.floor((innerWidth-24)/W)));
+
+const hexEls=[];
+function centerOf(c,r,w){const h=w*1.1547;return[c*w+(r%2?w/2:0)+w/2, r*h*.75+h/2];}
+function build(){
+  board.querySelectorAll('.hex,.lbl,.kmlbl').forEach(e=>e.remove());
+  hexEls.length=0;
+  const w=hexw,h=w*1.1547;
+  board.style.width=(W*w+w/2)+'px';
+  board.style.height=(H*h*.75+h*.25)+'px';
+  const frag=document.createDocumentFragment();
+  for(let r=0;r<H;r++)for(let c=0;c<W;c++){
+    const cell=T[r][c],d=document.createElement('div');
+    d.className='hex t-'+cell.t;
+    if(cell.t==='fluss'){
+      if(cell.branch&&cell.branch.art==='Zufluss')d.classList.add('zufluss');
+      else if(cell.sec)d.style.setProperty('--secfill',
+        `color-mix(in srgb, ${SECBYID[cell.sec].color} 60%, #10262e)`);
+    }
+    if(cell.sec)d.dataset.sec=cell.sec;
+    d.style.cssText+=`;width:${w}px;height:${h}px;left:${c*w+(r%2?w/2:0)}px;top:${r*h*.75}px`;
+    d.dataset.c=c;d.dataset.r=r;
+    frag.appendChild(d);hexEls.push(d);
+  }
+  for(const lm of LANDMARKS){
+    const[x,y]=centerOf(lm.c,lm.r,w),e=document.createElement('div');
+    e.className='lbl'+(lm.below?' below':'');e.textContent=lm.name;
+    e.style.left=x+'px';e.style.top=(y+(lm.below?h*.28:-h*.28))+'px';
+    frag.appendChild(e);
+  }
+  for(let mark=100;mark<TOTAL_KM;mark+=100){
+    const p=mainPath.find(p=>p.km>=mark);if(!p)break;
+    const[x,y]=centerOf(p.c,p.r,w),e=document.createElement('div');
+    e.className='kmlbl';e.textContent=mark;
+    e.style.left=x+'px';e.style.top=y+'px';
+    frag.appendChild(e);
+  }
+  board.appendChild(frag);
+  applyHighlight();
+}
+
+/* ---- Legende ---- */
+const legend=document.getElementById('legend');
+let activeSec=Q.get('abschnitt')||null;
+for(const s of SECS){
+  const chip=document.createElement('span');
+  chip.className='chip';chip.dataset.sec=s.id;
+  chip.innerHTML=`<span class="dot" style="background:${s.color}"></span>${s.name}`;
+  chip.onclick=()=>{activeSec=activeSec===s.id?null:s.id;applyHighlight();if(activeSec)scrollToSec(s);};
+  legend.appendChild(chip);
+}
+function mkTool(label,on,fn){
+  const chip=document.createElement('span');
+  chip.className='chip tool'+(on?' on':'');chip.textContent=label;
+  chip.onclick=()=>{chip.classList.toggle('on');fn(chip.classList.contains('on'));};
+  legend.appendChild(chip);return chip;
+}
+mkTool('Namen',!Q.has('labels')||Q.get('labels')!=='0',v=>document.body.classList.toggle('nolabels',!v));
+document.body.classList.toggle('nolabels',Q.get('labels')==='0');
+mkTool('km',Q.has('km'),v=>document.body.classList.toggle('km',v));
+document.body.classList.toggle('km',Q.has('km'));
+mkTool('Den Fluss entlang',false,v=>v?startDemo():stopDemo());
+mkTool('−',false,()=>{hexw=Math.max(8,hexw-4);build();});
+mkTool('+',false,()=>{hexw=Math.min(44,hexw+4);build();});
+
+function applyHighlight(){
+  legend.querySelectorAll('.chip[data-sec]').forEach(ch=>ch.classList.toggle('on',ch.dataset.sec===activeSec));
+  for(const el of hexEls){
+    const isWater=el.classList.contains('t-fluss')||el.classList.contains('t-see');
+    el.classList.toggle('dim',!!activeSec&&isWater&&el.dataset.sec!==activeSec);
+  }
+}
+function scrollToSec(s){
+  const mid=s.pts[Math.floor(s.pts.length/2)],[x,y]=centerOf(mid[0],mid[1],hexw);
+  maparea.scrollTo({left:x-maparea.clientWidth/2,top:y-maparea.clientHeight/2,behavior:'smooth'});
+}
+
+/* ---- Inspektor ---- */
+const insp=document.getElementById('inspector');
+const TERRNAME={flach:'Flachland',ufer:'Ufer',berg:'Bergland',meer:'Nordsee',see:'Bodensee',fluss:'Fluss'};
+let picked=null;
+function inspect(c,r){
+  const cell=T[r][c];
+  if(picked)picked.classList.remove('picked');
+  picked=hexEls[r*W+c];picked.classList.add('picked');
+  const sec=cell.sec?SECBYID[cell.sec]:null;
+  document.getElementById('inspTitle').textContent=
+    cell.landmark?cell.landmark.name:
+    cell.branch?cell.branch.name+' ('+cell.branch.art+')':TERRNAME[cell.t];
+  document.getElementById('inspMeta').textContent=
+    [sec?'Abschnitt: '+sec.name:null,
+     cell.km!=null?'≈ km '+cell.km+' ab der Quelle':null,
+     '('+c+','+r+')'].filter(Boolean).join(' · ');
+  document.getElementById('inspTxt').textContent=
+    cell.landmark?cell.landmark.note:
+    sec?sec.txt:
+    cell.t==='berg'?'Bergland — der Fluss sucht sich seinen Weg darum herum oder hindurch.':
+    cell.t==='meer'?'Die Nordsee — hier endet die Reise des Rheins.':
+    'Offenes Land im Einzugsgebiet des Rheins.';
+  insp.classList.add('show');
+}
+document.getElementById('inspClose').onclick=()=>{insp.classList.remove('show');if(picked)picked.classList.remove('picked');picked=null;};
+board.addEventListener('click',e=>{
+  const el=e.target.closest('.hex');if(!el)return;
+  inspect(+el.dataset.c,+el.dataset.r);
+});
+
+/* ---- Demo: eine Marke wandert die Quelle hinab bis zum Meer ---- */
+const marker=document.getElementById('marker');
+let demoTimer=null,demoI=0;
+function startDemo(){
+  document.body.classList.add('demo');marker.style.display='block';demoI=0;
+  demoTimer=setInterval(()=>{
+    if(demoI>=mainPath.length){stopDemo();return;}
+    const p=mainPath[demoI++],[x,y]=centerOf(p.c,p.r,hexw);
+    marker.style.left=x+'px';marker.style.top=y+'px';
+    document.getElementById('hudSec').textContent=SECBYID[p.sec].name;
+    document.getElementById('hudKm').textContent='≈ km '+p.km;
+    maparea.scrollTo({left:x-maparea.clientWidth/2,top:y-maparea.clientHeight/2});
+  },70);
+}
+function stopDemo(){
+  clearInterval(demoTimer);demoTimer=null;
+  document.body.classList.remove('demo');marker.style.display='none';
+}
+
+/* ---- Start ---- */
+build();
+if(activeSec&&SECBYID[activeSec])scrollToSec(SECBYID[activeSec]);
+if(Q.has('inspect')){const[c,r]=Q.get('inspect').split(',').map(Number);if(T[r]?.[c])inspect(c,r);}
+if(Q.has('demo'))startDemo();
+</script>
+</body>
+</html>

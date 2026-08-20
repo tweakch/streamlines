@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Feld-Labor v1</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+/* ============================================================
+   Palette — identisch zur App (stromlinien.css)
+   ============================================================ */
+:root{
+  --bg:#dce3d8; --panel:#ecefe6; --panel2:#e2e7dc; --ink:#22302c; --ink2:#5a6b64;
+  --river:#7fb2ac; --riverdeep:#5e9793; --lake:#8fbdb6; --ember:#c96f2e;
+  --bone:#f2ede0; --line:#b8c2b4; --good:#4e7d5b; --bad:#9c4a33;
+  --tile:#cdd6c8; --tileink:#33443e; --berg:#a9b3a8; --bergdeep:#8d9a8c;
+  --shadow:0 2px 10px rgba(30,45,40,.12);
+  --washink:rgba(30,45,40,.5);
+}
+body.night{
+  --bg:#0d151d; --panel:#141f28; --panel2:#101a22; --ink:#e6e1d2; --ink2:#8b9690;
+  --river:#2e5457; --riverdeep:#24444a; --lake:#2f5a5c; --ember:#e08a3c;
+  --bone:#1b2731; --line:#2c3b44; --good:#7fb08b; --bad:#d07b5e;
+  --tile:#1e2c34; --tileink:#c9d2c6; --berg:#26333c; --bergdeep:#1b262d;
+  --shadow:0 2px 14px rgba(0,0,0,.5);
+  --washink:rgba(230,225,210,.42);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;}
+body{background:var(--bg);color:var(--ink);font-family:'Instrument Sans',system-ui,sans-serif;
+  height:100dvh;overflow:hidden;transition:background .6s ease,color .6s ease;}
+h1,h2,h3,h4{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;margin:0;}
+.mono{font-family:'Space Mono',monospace;}
+button{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:12px;letter-spacing:.03em;
+  border-radius:9px;border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);
+  padding:8px 11px;cursor:pointer;transition:transform .12s,background .2s,color .2s,border-color .2s;}
+button:active{transform:scale(.97);}
+button.ghost{background:transparent;border-color:var(--line);box-shadow:none;}
+button:disabled{opacity:.4;pointer-events:none;}
+
+/* ============================================================
+   Bühne: mobil eine Spalte, Desktop mit Seitenpanel
+   ============================================================ */
+.stage{display:grid;grid-template-columns:minmax(0,1fr);height:100dvh;}
+.main{overflow-y:auto;overflow-x:hidden;padding-bottom:40px;}
+@media(min-width:900px){
+  .stage{grid-template-columns:minmax(0,1fr) 0;transition:grid-template-columns .28s cubic-bezier(.2,.9,.3,1);}
+  .stage.side{grid-template-columns:minmax(0,1fr) 380px;}
+}
+
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding:10px 14px 8px;}
+.brand{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:14px;letter-spacing:.13em;}
+.brand small{display:block;font-family:'Space Mono',monospace;font-weight:400;font-size:9.5px;
+  letter-spacing:.07em;color:var(--ink2);margin-top:2px;}
+.epochpick{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;}
+.epochpick button{font-size:10.5px;padding:5px 8px;border-radius:7px;box-shadow:none;border-color:var(--line);}
+.epochpick button.on{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+
+/* ---------- Brett: Rosette aus 7 Feldern ---------- */
+.boardwrap{position:sticky;top:0;z-index:6;background:var(--bg);
+  padding:6px 10px 4px;border-bottom:1px solid var(--line);transition:background .6s ease;}
+.board{display:flex;align-items:center;justify-content:center;min-height:190px;}
+.rosette{--hexw:78px;--hexgap:5px;--hexh:calc(var(--hexw)*1.1547);position:relative;}
+.hexrow{display:flex;gap:var(--hexgap);}
+.hexrow.odd{margin-left:calc(var(--hexw)/2 + var(--hexgap)/2);}
+.hexrow + .hexrow{margin-top:calc(var(--hexh)*-0.25 + var(--hexgap));}
+
+/* ---------- Das Feld selbst: Schichtenmodell ---------- */
+/* Alle Marken sind in em bemessen und skalieren mit der Hexbreite —
+   sonst ersticken kleine Felder an Marken in Erwachsenengrösse. */
+.cell{position:relative;width:var(--hexw);height:var(--hexh);flex:none;
+  display:flex;align-items:center;justify-content:center;
+  font-size:clamp(7px,calc(var(--hexw)*.135),15px);
+  --edge:var(--line);--fill:var(--tile);cursor:pointer;transition:filter .25s;}
+.cell::before,.cell::after{content:'';position:absolute;
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);}
+.cell::before{inset:0;background:var(--edge);transition:background .25s;}
+.cell::after{inset:1.5px;background-color:var(--fill);transition:background-color .5s ease;}
+.cell.ghost{visibility:hidden;pointer-events:none;}
+.cell.water{--fill:var(--river);--edge:var(--riverdeep);}
+.cell.lake{--fill:var(--lake);--edge:var(--riverdeep);}
+.cell.hang{--fill:var(--panel2);}
+.cell.hang::after{background-image:repeating-linear-gradient(135deg,transparent 0 5px,rgba(90,107,100,.13) 5px 7px);}
+.cell.berg{--fill:var(--berg);--edge:var(--bergdeep);}
+.cell.berg::after{background-image:repeating-linear-gradient(115deg,transparent 0 4px,rgba(60,72,66,.16) 4px 8px);}
+.cell.furt::after{background-image:repeating-linear-gradient(0deg,var(--river) 0 4px,var(--lake) 4px 8px);}
+.cell.sel{--edge:var(--ink);filter:drop-shadow(0 0 7px rgba(30,45,40,.4));}
+body.night .cell.sel{filter:drop-shadow(0 0 7px rgba(230,225,210,.32));}
+
+/* Schicht 1: Aufdruck (Arten-Tönung, Ereignis-Schleier) */
+.lay{position:absolute;inset:1.5px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+  z-index:1;pointer-events:none;}
+.tint{background-image:repeating-linear-gradient(58deg,transparent 0 6px,rgba(78,125,91,.22) 6px 9px);}
+.wash.ev-wild{background:rgba(201,111,46,.22);}
+.wash.ev-schnee{background:rgba(255,255,255,.42);}
+.wash.ev-verlandung{background:rgba(198,178,124,.34);}
+.wash.ev-seuche{background:rgba(156,74,51,.26);}
+.wash.ev-schlamm{background:rgba(120,92,60,.3);}
+body.night .wash.ev-schnee{background:rgba(220,232,240,.24);}
+
+/* Schicht 2: Kern — das Plättchen */
+.glyph{position:relative;z-index:2;width:50%;height:50%;color:var(--tileink);}
+.glyph svg{width:100%;height:100%;display:block;}
+.cell.placed .glyph{color:var(--ink);}
+
+/* Schicht 3: Kanten — Verbünde / Störungen */
+.link{position:absolute;z-index:3;height:.38em;min-height:2px;border-radius:99px;pointer-events:none;
+  background:var(--good);box-shadow:0 0 0 1.5px var(--bg);}
+.link.mal{background:var(--bad);}
+.link.thin{height:.26em;}
+/* Kantenmitten des Spitz-oben-Sechsecks: W (0,50) · O (100,50) ·
+   NW (25,12.5) · NO (75,12.5) · SW (25,87.5) · SO (75,87.5).
+   Der Balken sitzt mittig auf der Kante – halb im eigenen, halb im Nachbarfeld:
+   so liest er sich als Verbindung, nicht als Verzierung. */
+.link{width:26%;}
+.link.d-W{left:0;top:50%;transform:translate(-50%,-50%) rotate(90deg);}
+.link.d-E{left:100%;top:50%;transform:translate(-50%,-50%) rotate(90deg);}
+.link.d-NW{left:25%;top:12.5%;transform:translate(-50%,-50%) rotate(-30deg);}
+.link.d-NE{left:75%;top:12.5%;transform:translate(-50%,-50%) rotate(30deg);}
+.link.d-SW{left:25%;top:87.5%;transform:translate(-50%,-50%) rotate(30deg);}
+.link.d-SE{left:75%;top:87.5%;transform:translate(-50%,-50%) rotate(-30deg);}
+
+/* Schicht 4: Slots — Marken in festen Ecken */
+.slot{position:absolute;z-index:4;display:flex;align-items:center;justify-content:center;
+  font-family:'Space Mono',monospace;pointer-events:none;}
+/* Achtung, Geometrie: beim Spitz-oben-Sechseck sind die vier Boxecken LEER.
+   Innerhalb der Silhouette liegt nur, was zwischen 20% und 80% Höhe an den
+   Rand darf – darum sitzen alle Marken auf einem Ring bei ~22%. */
+.krone{top:21%;right:6%;gap:2px;}
+.pers{width:1.65em;height:1.65em;border-radius:50%;background:var(--ember);color:#14100a;
+  font-family:'Instrument Sans',sans-serif;font-size:1em;font-weight:700;display:flex;
+  align-items:center;justify-content:center;border:1.5px solid var(--bg);
+  box-shadow:0 1px 3px rgba(0,0,0,.3);}
+.pers.more{background:var(--ink);color:var(--bg);font-size:.8em;}
+.wange{top:21%;left:6%;}
+.evmark{width:1.75em;height:1.75em;border-radius:.45em;background:var(--panel);border:1.5px solid var(--bad);
+  color:var(--bad);font-size:1em;display:flex;align-items:center;justify-content:center;position:relative;}
+.evmark .dur{position:absolute;bottom:-.45em;right:-.4em;background:var(--bad);color:var(--bone);
+  font-size:.72em;line-height:1;padding:.1em .3em;border-radius:.5em;}
+.ferse{bottom:22%;left:8%;gap:.22em;}
+.sdot{width:.55em;height:.55em;min-width:4px;min-height:4px;border-radius:50%;}
+.sdot.flora{background:var(--good);}
+.sdot.fauna{background:var(--ember);}
+.fuss{bottom:7%;left:0;right:0;font-size:.95em;color:var(--ember);}
+.fuss.fund{color:var(--ember);text-shadow:0 0 5px rgba(201,111,46,.6);}
+.zahl{bottom:19%;right:7%;font-size:1.05em;font-weight:700;color:var(--good);}
+.zahl.neg{color:var(--bad);}
+.achtung{top:22%;right:9%;width:.75em;height:.75em;min-width:7px;min-height:7px;
+  border-radius:50%;background:var(--ember);border:1.5px solid var(--bg);}
+.lmk{position:absolute;z-index:4;bottom:20%;left:0;right:0;text-align:center;
+  font-family:'Space Mono',monospace;font-size:max(6px,.52em);letter-spacing:.1em;color:var(--ink2);
+  pointer-events:none;text-transform:uppercase;}
+.cell.water .lmk,.cell.lake .lmk{color:rgba(255,255,255,.85);}
+
+/* Slot-Raster (Designer-Hilfe) */
+.slotgrid{position:absolute;inset:0;z-index:7;pointer-events:none;}
+.sg{position:absolute;font-family:'Space Mono',monospace;font-size:7.5px;letter-spacing:.06em;
+  color:var(--ember);background:var(--panel);border:1px solid var(--ember);border-radius:4px;
+  padding:1px 3px;white-space:nowrap;}
+.sg.g-kern{top:50%;left:50%;transform:translate(-50%,-50%);}
+.sg.g-krone{top:12%;right:-6px;}
+.sg.g-wange{top:12%;left:-6px;}
+.sg.g-ferse{bottom:14%;left:-6px;}
+.sg.g-fuss{bottom:-9px;left:50%;transform:translateX(-50%);}
+.sg.g-zahl{bottom:12%;right:-6px;}
+
+/* ---------- Ablesung unter dem Brett ---------- */
+.readout{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;
+  font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);padding:0 4px 4px;
+  justify-content:center;}
+.readout b{color:var(--ink);}
+.readout .warn{color:var(--bad);}
+
+/* ---------- Werkbank ---------- */
+.werkbank{padding:12px 14px 30px;display:flex;flex-direction:column;gap:10px;}
+.wtarget{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  font-family:'Space Mono',monospace;font-size:10px;color:var(--ink2);letter-spacing:.06em;}
+.wtarget b{font-family:'Bricolage Grotesque',sans-serif;font-size:13px;letter-spacing:.04em;color:var(--ink);}
+.wtarget button{font-size:10px;padding:5px 9px;box-shadow:none;border-color:var(--line);}
+.grp{background:var(--panel);border:1px solid var(--line);border-radius:11px;overflow:hidden;box-shadow:var(--shadow);}
+.ghead{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;}
+.ghead .lbl{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink2);display:flex;align-items:center;gap:7px;}
+.ghead .cnt{background:var(--ember);color:#fff;border-radius:9px;font-size:9px;padding:1px 6px;}
+.ghead .chev{font-size:10px;color:var(--ink2);transition:transform .2s;}
+.grp.open .chev{transform:rotate(180deg);}
+.gbody{display:none;padding:2px 12px 12px;border-top:1px dashed var(--line);}
+.grp.open .gbody{display:block;}
+.chips{display:flex;flex-wrap:wrap;gap:5px;padding-top:9px;}
+.chip{font-family:'Instrument Sans',sans-serif;font-size:11px;font-weight:600;padding:6px 9px;
+  border:1.5px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);
+  cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s;}
+.chip:active{transform:scale(.96);}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+.chip.on.good{background:var(--good);border-color:var(--good);color:var(--bone);}
+.chip.on.bad{background:var(--bad);border-color:var(--bad);color:var(--bone);}
+.chip .ic{font-size:12px;}
+.chip .tagi{font-family:'Space Mono',monospace;font-size:7.5px;letter-spacing:.05em;opacity:.7;
+  border:1px solid currentColor;border-radius:3px;padding:0 2px;}
+.chip.off-habitat{opacity:.45;}
+.rowline{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:10px;
+  font-size:11.5px;}
+.rowline .cap{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink2);}
+.stepper{display:flex;align-items:center;gap:6px;}
+.stepper button{width:26px;height:26px;padding:0;border-radius:7px;font-size:13px;box-shadow:none;border-color:var(--line);}
+.stepper b{font-family:'Space Mono',monospace;font-size:12px;min-width:26px;text-align:center;}
+input[type=range]{width:100%;accent-color:var(--ember);}
+.dirgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding-top:9px;}
+.dirbtn{font-family:'Space Mono',monospace;font-size:10px;padding:7px 4px;border:1.5px solid var(--line);
+  border-radius:8px;background:transparent;color:var(--ink2);cursor:pointer;}
+.dirbtn.plus{border-color:var(--good);color:var(--good);background:rgba(78,125,91,.1);}
+.dirbtn.minus{border-color:var(--bad);color:var(--bad);background:rgba(156,74,51,.1);}
+.note{font-size:11px;line-height:1.5;color:var(--ink2);padding-top:9px;}
+.note b{color:var(--ink);}
+.note code{font-family:'Space Mono',monospace;font-size:10px;background:var(--panel2);padding:1px 4px;border-radius:4px;}
+.note ul{margin:5px 0 0;padding-left:16px;}
+.note li{margin-bottom:3px;}
+.seg{display:flex;gap:0;border:1.5px solid var(--line);border-radius:8px;overflow:hidden;}
+.seg button{border:none;border-radius:0;box-shadow:none;background:transparent;padding:6px 9px;font-size:10.5px;}
+.seg button.on{background:var(--ink);color:var(--bg);}
+
+/* ============================================================
+   FELD-EXPLORER — nicht-diegetisch
+   mobil: Vollbild · Desktop: Seitenpanel
+   ============================================================ */
+.explorer{position:fixed;inset:0;z-index:60;background:var(--bone);
+  display:flex;flex-direction:column;transform:translateY(100%);
+  transition:transform .3s cubic-bezier(.2,.9,.3,1);}
+.explorer.on{transform:translateY(0);}
+@media(min-width:900px){
+  .explorer{position:relative;inset:auto;transform:none;display:none;
+    border-left:1px solid var(--line);box-shadow:-6px 0 24px rgba(30,45,40,.08);}
+  .explorer.on{display:flex;}
+  .exclose{display:none !important;}
+}
+.exhead{flex-shrink:0;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;
+  border-bottom:1px solid var(--line);background:var(--panel);
+  display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px;}
+.exkicker{grid-column:1/-1;font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.16em;
+  color:var(--ink2);text-transform:uppercase;display:flex;justify-content:space-between;}
+.exkicker span:last-child{color:var(--ember);}
+.extitle{min-width:0;}
+.extitle b{display:block;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px;
+  line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.extitle span{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);letter-spacing:.07em;}
+.exnav,.exclose{width:30px;height:30px;padding:0;border-radius:8px;font-size:12px;box-shadow:none;
+  border-color:var(--line);display:flex;align-items:center;justify-content:center;}
+.exbody{flex:1;overflow-y:auto;padding:12px 14px 16px;}
+.exfoot{flex-shrink:0;border-top:1px solid var(--line);background:var(--panel);
+  padding:10px 12px calc(12px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:6px;}
+.exfoot .fcap{font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink2);}
+.exfoot .frow{display:flex;gap:6px;}
+.exfoot .frow button{flex:1;font-size:11.5px;}
+.exfoot .frow button.primary{background:var(--ink);color:var(--bg);}
+
+.hero{display:flex;align-items:center;gap:14px;padding-bottom:12px;border-bottom:1px dashed var(--line);}
+.hero .rosette{--hexw:clamp(96px,27vw,146px);--hexgap:0;flex:none;}
+@media(min-width:900px){.hero .rosette{--hexw:112px;}}
+.hero .cell{cursor:default;}
+.herotxt{min-width:0;font-size:11.5px;line-height:1.5;color:var(--ink2);}
+.herotxt .tbadge{display:inline-block;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.08em;
+  text-transform:uppercase;border:1px solid var(--line);border-radius:5px;padding:2px 5px;
+  margin-bottom:6px;color:var(--ink);}
+
+.ex-sec{padding:11px 0;border-bottom:1px dashed var(--line);}
+.ex-sec:last-child{border-bottom:none;}
+.ex-lbl{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink2);margin-bottom:7px;display:flex;justify-content:space-between;align-items:baseline;}
+.ex-lbl em{font-style:normal;color:var(--ember);letter-spacing:.06em;}
+.ex-row{display:flex;align-items:flex-start;gap:9px;padding:5px 0;font-size:12px;line-height:1.45;}
+.ex-row .ic{flex:none;width:20px;text-align:center;font-size:14px;color:var(--ink);}
+.ex-row .ic svg{width:18px;height:18px;stroke:currentColor;}
+.ex-row .tx{min-width:0;flex:1;}
+.ex-row .tx b{display:block;font-size:12px;font-weight:600;}
+.ex-row .tx span{font-size:10.5px;color:var(--ink2);}
+.ex-row .val{flex:none;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;}
+.ex-row .val.pos{color:var(--good);}
+.ex-row .val.neg{color:var(--bad);}
+.ex-row.mute{opacity:.5;}
+.empty{font-size:11px;color:var(--ink2);font-style:italic;}
+.led{border-top:1px solid var(--line);margin-top:6px;padding-top:6px;display:flex;
+  justify-content:space-between;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;}
+.led .sum.pos{color:var(--good);}
+.led .sum.neg{color:var(--bad);}
+.reslist{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+.respill{font-family:'Space Mono',monospace;font-size:10px;border:1px solid var(--line);border-radius:6px;
+  padding:2px 6px;background:var(--panel);}
+.respill.pos{border-color:var(--good);color:var(--good);}
+.respill.neg{border-color:var(--bad);color:var(--bad);}
+.quelle{font-size:10px;color:var(--ink2);font-style:italic;margin-top:6px;}
+.dieg{font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink2);border:1px dashed var(--line);border-radius:6px;padding:5px 7px;margin-top:10px;}
+
+/* ---------- Debug ---------- */
+.debugstrip{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:80;display:flex;
+  gap:4px;background:rgba(20,30,26,.86);padding:5px;border-radius:18px;flex-wrap:wrap;
+  justify-content:center;max-width:94vw;}
+.debugstrip button{font-size:9px;padding:4px 8px;border-radius:13px;box-shadow:none;background:var(--bone);border-color:transparent;}
+.debugstrip.hid{display:none;}
+.dbgtoggle{position:fixed;bottom:8px;left:8px;z-index:81;width:28px;height:28px;padding:0;border-radius:50%;
+  font-size:12px;background:rgba(20,30,26,.86);color:var(--bone);border-color:transparent;}
+#toast{position:fixed;top:max(12px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);
+  background:var(--ink);color:var(--bg);padding:8px 15px;border-radius:22px;font-size:12px;font-weight:600;
+  z-index:90;box-shadow:var(--shadow);opacity:0;transition:opacity .3s;pointer-events:none;}
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <main class="main">
+    <header>
+      <div class="brand">FELD-LABOR<small>SCHICHTEN · SLOTS · EXPLORER</small></div>
+      <div class="epochpick" id="epochpick"></div>
+    </header>
+
+    <div class="boardwrap">
+      <div class="board"><div class="rosette" id="rosette"></div></div>
+      <div class="readout" id="readout"></div>
+    </div>
+
+    <div class="werkbank" id="werkbank">
+      <div class="wtarget">
+        <span>WERKBANK · WIRKT AUF</span><b id="wtName">MITTE</b>
+        <button class="ghost" id="btnAll">auf alle Felder</button>
+        <button class="ghost" id="btnOpenEx">Explorer öffnen</button>
+        <button class="ghost" id="btnClear">Feld leeren</button>
+      </div>
+      <div id="groups"></div>
+    </div>
+  </main>
+
+  <aside class="explorer" id="explorer">
+    <div class="exhead">
+      <div class="exkicker"><span>⌗ Feld-Explorer</span><span>Werkzeug</span></div>
+      <button class="exnav" id="exPrev" title="voriges Feld">◀</button>
+      <div class="extitle"><b id="exName">–</b><span id="exCoord">–</span></div>
+      <button class="exnav" id="exNext" title="nächstes Feld">▶</button>
+      <button class="exclose" id="exClose" title="schliessen">✕</button>
+    </div>
+    <div class="exbody" id="exBody"></div>
+    <div class="exfoot" id="exFoot"></div>
+  </aside>
+</div>
+
+<button class="dbgtoggle" id="dbgToggle">⚙</button>
+<div class="debugstrip" id="debugstrip"></div>
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   1 · DATEN — Kataloge (bewusst datengetrieben, wie in der App)
+   ============================================================ */
+
+const GLYPHS={
+  fisch:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 20 Q16 10 27 16 Q33 19 34 20 Q33 21 27 24 Q16 30 6 20 Z"/><path d="M34 20 L39 14 M34 20 L39 26"/><circle cx="13" cy="18.5" r="1.4" fill="currentColor"/></svg>',
+  ufer:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 26 L20 12 L32 26"/><path d="M20 12 V26"/><path d="M5 32 Q12 29 20 32 Q28 35 35 32"/></svg>',
+  wald:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M13 32 V22 M13 22 L7 24 M13 22 L19 24 M13 15 L8 18 M13 15 L18 18 M13 8 L13 15"/><path d="M28 32 V20 M28 20 L22 23 M28 20 L34 23 M28 12 L23 16 M28 12 L33 16"/></svg>',
+  terrasse:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 32 H35 M9 25 H31 M14 18 H26 M18 11 H22"/></svg>',
+  hoehle:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 32 Q6 12 20 12 Q34 12 34 32"/><path d="M14 32 Q14 20 20 20 Q26 20 26 32"/></svg>',
+  flint:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M20 6 L30 16 L26 34 L14 34 L10 16 Z"/><path d="M20 6 L18 20 L26 34 M18 20 L10 16"/></svg>',
+  pfahl:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 18 L20 8 L32 18 M11 18 H29 V24 H11 Z"/><path d="M13 24 V34 M20 24 V34 M27 24 V34"/><path d="M6 35 Q13 32 20 35 Q27 38 34 35"/></svg>',
+  acker:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 31 Q13 27 20 31 Q27 35 35 31"/><path d="M5 25 Q13 21 20 25 Q27 29 35 25"/><path d="M13 19 V9 M13 13 L9 10 M13 13 L17 10 M27 19 V9 M27 13 L23 10 M27 13 L31 10"/></svg>',
+  weg:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M13 35 Q22 27 15 20 Q8 13 19 5"/><path d="M27 35 Q36 27 29 20 Q22 13 33 5"/></svg>',
+};
+
+const TERRAIN={
+  flach:{nm:'Flachland',desc:'Offenes Tal zwischen Fluss und Hang. Platz für Auenwald, Hochterrasse und Feuerstein.'},
+  ufer:{nm:'Ufer',desc:'Fruchtbarer Streifen am Wasser – der beste Platz für ein Lager.'},
+  hang:{nm:'Hang',desc:'Sonniger Hang über dem Tal. Platz für Höhle, Hochterrasse und Feuerstein.'},
+  water:{nm:'Fluss',desc:'Der junge Alpenrhein. Nur Fischgründe finden hier Halt; Menschen überqueren ihn nur an Furten.'},
+  lake:{nm:'See',desc:'Flaches Uferwasser des großen Sees – Fischgründe, und später Häuser auf Pfählen.'},
+  berg:{nm:'Berg',desc:'Nicht bebaubar, für Menschen nicht begehbar – der Rand, der aus dem Tal ein Tal macht.',idea:true},
+};
+const TERRAIN_KEYS=['flach','ufer','hang','water','lake','berg'];
+
+/* res: primäre Ressource · base: Grundertrag · epoch: ab welcher Epoche */
+const TILES={
+  fisch:{nm:'Fischgrund',res:'n',base:1,glyph:'fisch',t:['water','lake'],epoch:1,desc:'Reusen und Speerplätze an guter Stelle – der Fluss ernährt, wer ihn lesen kann.'},
+  ufer:{nm:'Lager am Ufer',res:'n',base:1,glyph:'ufer',t:['ufer'],epoch:1,desc:'Feuerstelle, Zelte, Vorräte – das Herz des Stamms am Wasser.'},
+  wald:{nm:'Auenwald',res:'b',base:1,glyph:'wald',t:['ufer','flach'],epoch:1,desc:'Weiden und Erlen der Aue: Holz für Feuer, Werkzeug und Bau.'},
+  terrasse:{nm:'Hochterrasse',res:'s',base:1,glyph:'terrasse',t:['flach','hang'],epoch:1,desc:'Erhöhter Rastplatz mit Weitblick – wer oben sitzt, wird nicht überrascht.'},
+  hoehle:{nm:'Höhle',res:'s',base:2,glyph:'hoehle',t:['hang'],epoch:1,desc:'Fels über dem Kopf: der älteste Schutz, den das Tal kennt.'},
+  flint:{nm:'Feuerstein',res:'b',base:1,glyph:'flint',t:['hang','flach'],epoch:1,desc:'Gutes Steinmaterial – Grundlage für Klingen, Schaber, Werkzeug.'},
+  pfahl:{nm:'Pfahlbau',res:'n',base:1,glyph:'pfahl',t:['lake','ufer'],epoch:2,desc:'Ein Haus auf Pfählen im flachen Wasser – die neue Bauweise vom See.'},
+  acker:{nm:'Acker',res:'n',base:2,glyph:'acker',t:['flach','ufer'],epoch:2,idea:true,desc:'Gerodete Fläche mit Emmer und Gerste – der Boden wird zum Besitz.'},
+  weg:{nm:'Saumweg',res:'k',base:1,glyph:'weg',t:['flach','ufer','hang'],epoch:3,idea:true,desc:'Ein getretener Pfad übers Land – Salz, Silex und Nachrichten wandern darauf.'},
+};
+const TILE_KEYS=Object.keys(TILES);
+
+const RES={n:'Nahrung',s:'Schutz',b:'Material',k:'Kultur'};
+
+/* Menschen — verschiedene Typen, wachsend über die Epochen.
+   Glyphen hier als Zeichen; im Port werden es Petroglyphen-SVGs. */
+const PEOPLE={
+  sammler:{nm:'Sammlerin',g:'✦',epoch:1,fx:'+1 auf den Ertrag ihres Feldes',mode:'primary'},
+  jaeger:{nm:'Jäger',g:'➤',epoch:1,fx:'+1 Schutz · blockt Ausbreitung von Ereignissen',mode:'s'},
+  wanderer:{nm:'Wanderer',g:'⌇',epoch:1,fx:'zieht weiter – kein Ertrag, aber eine Entscheidung',mode:'none'},
+  baeuerin:{nm:'Bäuerin',g:'⚘',epoch:2,fx:'+1 Nahrung auf Land mit Plättchen',mode:'n'},
+  haendler:{nm:'Händler',g:'⇄',epoch:3,fx:'+1 Kultur, wenn ein Weg oder eine Furt anliegt',mode:'k'},
+  krieger:{nm:'Krieger',g:'⚔',epoch:3,fx:'+1 Schutz, aber isst mit',mode:'s'},
+};
+const PEOPLE_KEYS=Object.keys(PEOPLE);
+
+/* Arten: verstärken das Plättchen in ihrem Lebensraum (map-editor-v3 / mechanik-labor) */
+const SPECIES={
+  weide:{nm:'Weide & Erle',kind:'flora',t:['ufer','flach'],epoch:1,note:'Pioniergehölze der Aue – Material für Bau, Flechtwerk und Feuer.',src:'Pollenprofile Bodenseeraum',status:'belegt'},
+  schilf:{nm:'Schilfgürtel',kind:'flora',t:['ufer','lake'],epoch:1,note:'Dach, Flechtwerk, Versteck – und Kinderstube der Fische.',src:'',status:'wahrscheinlich'},
+  emmer:{nm:'Emmer',kind:'flora',t:['flach','ufer'],epoch:2,note:'Frühe Getreideart der ersten Bauern am See.',src:'Getreidefunde Seeufersiedlungen',status:'belegt'},
+  eiche:{nm:'Eichenmischwald',kind:'flora',t:['flach','hang'],epoch:2,note:'Bauholz und Eichelmast – der Wald nach der Aue.',src:'Dendrodaten Pfahlbauhölzer',status:'belegt'},
+  biber:{nm:'Biber',kind:'fauna',t:['ufer','water'],epoch:1,note:'Baumeister der Aue – fällt Weiden, staut Seitenarme.',src:'Knochenfunde Seeufersiedlungen',status:'belegt'},
+  wolf:{nm:'Wolf',kind:'fauna',t:['flach','hang'],epoch:1,note:'Nachtgefahr am Lagerrand – real und als Deutungsrahmen.',src:'',status:'wahrscheinlich'},
+  hirsch:{nm:'Rothirsch',kind:'fauna',t:['flach','hang','ufer'],epoch:1,note:'Wichtigstes Jagdwild – Fleisch, Fell, Geweih als Werkstoff.',src:'Knochenspektren',status:'belegt'},
+  lachs:{nm:'Lachs',kind:'fauna',t:['water','lake'],epoch:1,note:'Zog einst bis in die Alpentäler – berechenbare Nahrung im Jahr.',src:'',status:'rekonstruiert'},
+};
+const SPECIES_KEYS=Object.keys(SPECIES);
+
+/* Ereignisse: bleibende Zustände mit Restdauer (nacht-effekte-v1) */
+const EVENTS={
+  wild:{nm:'Wild zieht weiter',g:'➤',dur:2,spread:'Land',fix:2,res:'n',val:-1,txt:'Die Herden meiden das Feld. Wer hier jagt, jagt vergebens.'},
+  schnee:{nm:'Schneebruch',g:'❄',dur:2,spread:null,fix:2,res:'b',val:-1,txt:'Nasser Schnee hat die Kronen gebrochen – Holz liegt, aber unbrauchbar.'},
+  verlandung:{nm:'Verlandung',g:'⌇',dur:3,spread:'Wasser',fix:2,res:'n',val:-1,txt:'Der Arm versandet. Reusen stehen im Trockenen.'},
+  seuche:{nm:'Wildseuche',g:'⊗',dur:3,spread:'Land',fix:3,res:'n',val:-2,txt:'Kadaver am Waldrand. Niemand isst, was hier fällt.'},
+  schlamm:{nm:'Hochwasserschlamm',g:'≈',dur:2,spread:'Ufer',fix:2,res:'n',val:-1,txt:'Das Wasser war da und ging – zurück blieb Schlick über allem.'},
+};
+const EVENT_KEYS=Object.keys(EVENTS);
+
+/* ============================================================
+   2 · GITTER — Rosette: Mitte + 6 Nachbarn (pointy-top, odd-r)
+   Nachbarn ungerader Reihe: W(0,-1) O(0,+1) NW(-1,0) NO(-1,+1) SW(+1,0) SO(+1,+1)
+   ============================================================ */
+const CENTER='1,1';
+const DIRS={NW:'0,1',NE:'0,2',W:'1,0',E:'1,2',SW:'2,1',SE:'2,2'};
+const DIRNAME={NW:'Nordwest',NE:'Nordost',W:'West',E:'Ost',SW:'Südwest',SE:'Südost'};
+const DIRSHORT={NW:'NW',NE:'NO',W:'W',E:'O',SW:'SW',SE:'SO'};
+const PRESENT=[CENTER,...Object.values(DIRS)];
+const ORDER=[CENTER,DIRS.NW,DIRS.NE,DIRS.E,DIRS.SE,DIRS.SW,DIRS.W];
+const LABEL={};LABEL[CENTER]='Mitte';for(const d in DIRS)LABEL[DIRS[d]]=DIRNAME[d];
+
+function blank(t){
+  return {t:t||'flach',furt:false,tile:null,people:[],species:[],
+    event:null,evLeft:0,hint:null,fund:null,landmark:null,
+    links:{NW:0,NE:0,W:0,E:0,SW:0,SE:0}};
+}
+let F={},sel=CENTER,explorerOpen=false;
+let view={size:'auto',manual:78,lod:'auto',zahl:true,slots:false,night:false};
+
+/* ============================================================
+   3 · EPOCHEN-VORLAGEN — dieselbe Zelle, wachsende Komplexität
+   ============================================================ */
+const PRESETS={
+  1:{nm:'I Mesolithikum',build(){
+    F=Object.fromEntries(PRESENT.map(k=>[k,blank('flach')]));
+    F[CENTER]=Object.assign(blank('ufer'),{tile:'ufer',people:['sammler'],species:['weide'],
+      landmark:'Am Kies',links:{NW:0,NE:0,W:1,E:0,SW:0,SE:0}});
+    F[DIRS.W]=Object.assign(blank('water'),{tile:'fisch',species:['lachs']});
+    F[DIRS.NW]=Object.assign(blank('water'),{furt:true,landmark:'Furt'});
+    F[DIRS.E]=Object.assign(blank('flach'),{tile:'wald',species:['weide']});
+    F[DIRS.NE]=Object.assign(blank('hang'),{hint:'stein'});
+    F[DIRS.SE]=Object.assign(blank('hang'),{tile:'hoehle',people:['jaeger']});
+    F[DIRS.SW]=Object.assign(blank('flach'),{});
+  }},
+  2:{nm:'II Jungsteinzeit',build(){
+    PRESETS[1].build();
+    Object.assign(F[CENTER],{tile:'pfahl',people:['sammler','baeuerin'],species:['weide','biber'],
+      event:'schlamm',evLeft:2,fund:'Pfahlbau-Fundstelle · Rheindelta',
+      links:{NW:1,NE:0,W:1,E:1,SW:0,SE:0}});
+    Object.assign(F[DIRS.SW],{tile:'acker',species:['emmer']});
+    Object.assign(F[DIRS.NE],{tile:'flint',hint:'stein'});
+    Object.assign(F[DIRS.E],{species:['weide','eiche']});
+  }},
+  3:{nm:'III Bronze/Eisen',build(){
+    PRESETS[2].build();
+    Object.assign(F[CENTER],{people:['sammler','baeuerin','haendler'],
+      species:['weide','biber','emmer'],event:'seuche',evLeft:3,
+      links:{NW:1,NE:-1,W:1,E:1,SW:1,SE:0}});
+    Object.assign(F[DIRS.SE],{people:['krieger']});
+    Object.assign(F[DIRS.SW],{tile:'weg',people:['haendler']});
+  }},
+  4:{nm:'IV Römer',build(){
+    PRESETS[3].build();
+    Object.assign(F[CENTER],{people:['sammler','baeuerin','haendler','krieger'],
+      species:['weide','biber','emmer','eiche'],event:'schlamm',evLeft:2,hint:'fund',
+      links:{NW:1,NE:-1,W:1,E:1,SW:1,SE:-1}});
+    Object.assign(F[DIRS.NE],{event:'schnee',evLeft:1});
+    Object.assign(F[DIRS.E],{tile:'weg',people:['haendler','krieger']});
+  }},
+  5:{nm:'V Volllast',build(){
+    PRESETS[4].build();
+    for(const k of PRESENT){
+      const f=F[k];
+      if(f.t==='berg')continue;
+      f.people=PEOPLE_KEYS.slice(0,4);
+      f.species=SPECIES_KEYS.filter(s=>SPECIES[s].t.includes(f.t)).slice(0,4);
+      if(!f.event){f.event=EVENT_KEYS[(PRESENT.indexOf(k))%EVENT_KEYS.length];f.evLeft=2;}
+      f.links={NW:1,NE:-1,W:1,E:1,SW:1,SE:-1};
+      if(!f.tile){const cand=TILE_KEYS.filter(t=>TILES[t].t.includes(f.t));if(cand.length)f.tile=cand[0];}
+      f.hint=f.hint||'land';
+    }
+    Object.assign(F[CENTER],{fund:'Pfahlbau-Fundstelle · Rheindelta',landmark:'Am Kies'});
+  }},
+};
+let curEpoch=2;
+
+/* ============================================================
+   4 · ERTRAG — was das Feld heute wirklich bringt
+   ============================================================ */
+function fitsHabitat(f,sk){return SPECIES[sk].t.includes(f.t);}
+function linkSum(f){return Object.values(f.links).reduce((a,b)=>a+b,0);}
+
+function computeYield(f,key){
+  const rows=[],tot={n:0,s:0,b:0,k:0};
+  const add=(label,note,res,val,mute)=>{rows.push({label,note,res,val,mute});if(!mute&&res)tot[res]+=val;};
+  const T=f.tile?TILES[f.tile]:null;
+  const prim=T?T.res:null;
+
+  if(T){
+    const legal=T.t.includes(f.t);
+    add(T.nm,legal?'Grundertrag':'liegt auf '+TERRAIN[f.t].nm+' – halber Ertrag',prim,
+      legal?T.base:Math.floor(T.base/2),false);
+  }else{
+    rows.push({label:'Kein Plättchen',note:'nur Gelände',res:null,val:0,mute:true});
+  }
+
+  /* Verbünde & Störungen an den Kanten */
+  for(const d in f.links){
+    const v=f.links[d];if(!v)continue;
+    if(!prim){add('Kante '+DIRSHORT[d],'ohne Plättchen ohne Wirkung',null,0,true);continue;}
+    add(v>0?'Verbund '+DIRSHORT[d]:'Störung '+DIRSHORT[d],
+      v>0?'zwei Plättchen greifen ineinander':'benachbarte Nutzung stört',prim,v,false);
+  }
+
+  /* Arten */
+  for(const sk of f.species){
+    const S=SPECIES[sk],ok=fitsHabitat(f,sk);
+    if(!prim){add(S.nm,'ohne Plättchen ohne Wirkung',null,0,true);continue;}
+    if(!ok){add(S.nm,'Lebensraum passt nicht – keine Wirkung',null,0,true);continue;}
+    add(S.nm,'Art im Lebensraum verstärkt das Plättchen',prim,1,false);
+  }
+
+  /* Menschen */
+  for(const pk of f.people){
+    const P=PEOPLE[pk];
+    if(P.mode==='none'){add(P.nm,P.fx,null,0,true);continue;}
+    const res=P.mode==='primary'?prim:P.mode;
+    if(!res){add(P.nm,'ohne Plättchen ohne Wirkung',null,0,true);continue;}
+    if(pk==='haendler'&&!(f.tile==='weg'||f.furt||neighbourHasWeg(key))){
+      add(P.nm,'kein Weg und keine Furt in der Nähe',null,0,true);continue;}
+    if(pk==='baeuerin'&&(f.t==='water'||f.t==='lake'||!f.tile)){
+      add(P.nm,'braucht Land mit Plättchen',null,0,true);continue;}
+    add(P.nm,P.fx,res,1,false);
+  }
+
+  /* Ereignis */
+  if(f.event){
+    const E=EVENTS[f.event];
+    add(E.nm,'noch '+f.evLeft+' '+(f.evLeft===1?'Nacht':'Nächte')+(E.spread?' · breitet sich aus ('+E.spread+')':''),
+      E.res,E.val,false);
+  }
+
+  const sum=tot.n+tot.s+tot.b+tot.k;
+  return {rows,tot,sum};
+}
+function neighbourHasWeg(key){
+  if(key!==CENTER)return false;
+  return Object.values(DIRS).some(k=>F[k]&&F[k].tile==='weg');
+}
+
+/* ============================================================
+   5 · DAS FELD ZEICHNEN — Schichten + Slot-Budget je Detailstufe
+   ============================================================ */
+const LOD_SLOTS={
+  S:['grund','kern','kanten','zahl','achtung'],
+  M:['kern','grund','kanten','krone','wange','fuss','zahl'],
+  L:['kern','grund','kanten','krone','wange','ferse','fuss','zahl','marke'],
+};
+const SLOT_NM={kern:'Kern',grund:'Grund',kanten:'Kanten',krone:'Krone',wange:'Wange',
+  ferse:'Ferse',fuss:'Fuss',zahl:'Zahl',achtung:'Achtung',marke:'Marke'};
+
+let hexw=78,boardw=0;
+function lodFor(w){return w<52?'S':w<76?'M':'L';}
+function curLod(){return view.lod==='auto'?lodFor(hexw):view.lod.toUpperCase();}
+function has(slot,lod){return LOD_SLOTS[lod].includes(slot);}
+
+function needsAttention(f){
+  return !!f.event||(f.fund&&true)||Object.values(f.links).some(v=>v<0);
+}
+
+function hexHTML(key,opt){
+  opt=opt||{};
+  const f=F[key];
+  if(!f)return '<div class="cell ghost"></div>';
+  const lod=opt.lod||curLod();
+  const cls=['cell',f.t];
+  if(f.furt)cls.push('furt');
+  if(f.tile)cls.push('placed');
+  if(key===sel&&!opt.hero)cls.push('sel');
+  let h='';
+
+  /* Schicht 1 — Grund: Arten-Tönung, Ereignis-Schleier */
+  if(has('grund',lod)&&f.species.some(s=>fitsHabitat(f,s)&&SPECIES[s].kind==='flora'))
+    h+='<div class="lay tint"></div>';
+  if(f.event)h+='<div class="lay wash ev-'+f.event+'"></div>';
+
+  /* Schicht 2 — Kern: das Plättchen */
+  if(f.tile)h+='<div class="glyph">'+GLYPHS[TILES[f.tile].glyph]+'</div>';
+
+  /* Schicht 3 — Kanten: Verbünde / Störungen */
+  if(has('kanten',lod))for(const d in f.links){
+    const v=f.links[d];if(!v)continue;
+    h+='<div class="link d-'+d+(v<0?' mal':'')+(lod==='S'?' thin':'')+'"></div>';
+  }
+
+  /* Schicht 4 — Slots */
+  /* Krone-Budget: L höchstens ZWEI Scheiben, M höchstens EINE.
+     Passt die Gruppe nicht, wird sie zur Zahl – nie eine Reihe aus Marken. */
+  if(has('krone',lod)&&f.people.length){
+    const cap=lod==='L'?2:1,n=f.people.length;
+    let inner;
+    if(n<=cap)inner=f.people.map(p=>'<span class="pers">'+PEOPLE[p].g+'</span>').join('');
+    else if(cap===2)inner='<span class="pers">'+PEOPLE[f.people[0]].g+
+      '</span><span class="pers more">+'+(n-1)+'</span>';
+    else inner='<span class="pers more">'+n+'</span>';
+    h+='<div class="slot krone">'+inner+'</div>';
+  }
+  if(has('wange',lod)&&f.event){
+    h+='<div class="slot wange"><span class="evmark">'+EVENTS[f.event].g+
+       '<span class="dur">'+f.evLeft+'</span></span></div>';
+  }
+  if(has('ferse',lod)&&f.species.length){
+    const dots=f.species.slice(0,3).map(s=>'<span class="sdot '+SPECIES[s].kind+'"></span>').join('');
+    h+='<div class="slot ferse">'+dots+'</div>';
+  }
+  if(has('fuss',lod)&&(f.hint||f.fund)){
+    h+='<div class="slot fuss'+(f.fund?' fund':'')+'">◈</div>';
+  }
+  if(has('zahl',lod)&&view.zahl&&f.tile){
+    const y=computeYield(f,key);
+    if(y.sum!==0)h+='<div class="slot zahl'+(y.sum<0?' neg':'')+'">'+(y.sum>0?'+':'')+y.sum+'</div>';
+  }
+  if(has('achtung',lod)&&needsAttention(f)){
+    h+='<div class="slot achtung"></div>';
+  }
+  if(has('marke',lod)&&f.landmark&&!f.tile)h+='<div class="lmk">'+f.landmark+'</div>';
+
+  /* Designer-Hilfe: Slot-Raster */
+  if(view.slots&&key===CENTER&&!opt.hero){
+    h+='<div class="slotgrid">'+LOD_SLOTS[lod].filter(s=>SLOT_NM[s]&&s!=='grund'&&s!=='kanten'&&s!=='achtung'&&s!=='marke')
+      .map(s=>'<span class="sg g-'+s+'">'+SLOT_NM[s]+'</span>').join('')+'</div>';
+  }
+
+  const click=opt.hero?'':' onclick="pick(\''+key+'\')"';
+  return '<div class="'+cls.join(' ')+'"'+click+' data-k="'+key+'">'+h+'</div>';
+}
+
+function renderBoard(){
+  const rows=[[null,'0,1','0,2'],['1,0','1,1','1,2'],[null,'2,1','2,2']];
+  document.getElementById('rosette').innerHTML=rows.map((row,r)=>
+    '<div class="hexrow'+(r%2?' odd':'')+'">'+
+    row.map(k=>k?hexHTML(k):'<div class="cell ghost"></div>').join('')+
+    '</div>').join('');
+  document.getElementById('rosette').style.setProperty('--hexw',hexw+'px');
+  renderReadout();
+}
+
+/* Die versetzte (ungerade) Reihe ist die breiteste:
+   3 Hexe + 2 Lücken + halber Versatz = 3.5*hexw + 2.5*gap */
+function sizeBoard(){
+  const wrap=document.querySelector('.board');
+  if(!wrap)return;
+  boardw=Math.min(wrap.clientWidth,document.documentElement.clientWidth);
+  if(view.size==='auto'){
+    const gap=5,avail=boardw-8;
+    hexw=Math.max(26,Math.min(118,Math.floor((avail-2.5*gap)/3.5)));
+  }else hexw=view.manual;
+  renderBoard();
+}
+
+function renderReadout(){
+  const lod=curLod();
+  const slots=LOD_SLOTS[lod].map(s=>SLOT_NM[s]).join(' · ');
+  const f=F[sel],y=computeYield(f,sel);
+  const load=f.people.length+f.species.length+(f.event?1:0)+
+    Object.values(f.links).filter(v=>v).length+(f.tile?1:0)+((f.hint||f.fund)?1:0);
+  document.getElementById('readout').innerHTML=
+    '<span>Brett <b>'+boardw+'px</b></span>'+
+    '<span>Hexbreite <b>'+hexw+'px</b></span>'+
+    '<span>Detailstufe <b>'+lod+'</b>'+(view.lod==='auto'?' (auto)':' (fix)')+'</span>'+
+    '<span>Slots: <b>'+slots+'</b></span>'+
+    '<span>Last auf '+LABEL[sel].toUpperCase()+': <b'+(load>7?' class="warn"':'')+'>'+load+' Merkmale</b></span>'+
+    '<span>Feldwert <b>'+(y.sum>0?'+':'')+y.sum+'</b></span>';
+}
+
+/* ============================================================
+   6 · FELD-EXPLORER — nicht-diegetisch, mobil Vollbild / Desktop Panel
+   ============================================================ */
+function pick(key){sel=key;openExplorer();renderAll();}
+
+function openExplorer(){
+  explorerOpen=true;
+  document.getElementById('explorer').classList.add('on');
+  document.getElementById('stage').classList.add('side');
+  requestAnimationFrame(sizeBoard);
+}
+function closeExplorer(){
+  explorerOpen=false;
+  document.getElementById('explorer').classList.remove('on');
+  document.getElementById('stage').classList.remove('side');
+  requestAnimationFrame(sizeBoard);
+}
+
+function row(ic,title,note,val,cls){
+  return '<div class="ex-row'+(cls?' '+cls:'')+'">'+
+    '<div class="ic">'+ic+'</div><div class="tx"><b>'+title+'</b>'+
+    (note?'<span>'+note+'</span>':'')+'</div>'+
+    (val?'<div class="val '+(val.startsWith('−')||val.startsWith('-')?'neg':'pos')+'">'+val+'</div>':'')+
+    '</div>';
+}
+function sec(label,extra,body){
+  return '<section class="ex-sec"><div class="ex-lbl"><span>'+label+'</span>'+
+    (extra?'<em>'+extra+'</em>':'')+'</div>'+body+'</section>';
+}
+function sgn(v){return (v>0?'+':'−')+Math.abs(v);}
+
+function renderExplorer(){
+  const f=F[sel],T=f.tile?TILES[f.tile]:null,y=computeYield(f,sel);
+  const terr=f.furt?{nm:'Furt',desc:'Eine flache Stelle im Fluss. Menschen können hier übersetzen, und Verbünde wirken über die Furt hinweg.'}:TERRAIN[f.t];
+  document.getElementById('exName').textContent=f.landmark||terr.nm;
+  document.getElementById('exCoord').textContent='⌗ '+sel.replace(',',' · S')
+    .replace(/^(\d)/,'R$1')+' · '+LABEL[sel].toUpperCase();
+
+  let h='';
+
+  /* Kopf: das Feld gross — hier trägt das Schichtenmodell */
+  h+='<div class="hero"><div class="rosette">'+hexHTML(sel,{hero:true,lod:'L'})+'</div>'+
+     '<div class="herotxt"><span class="tbadge">'+terr.nm+(TERRAIN[f.t].idea?' · Idee':'')+'</span>'+
+     terr.desc+'</div></div>';
+
+  /* Plättchen */
+  h+=sec('Plättchen',T?null:'leer',
+    T?row('<span style="display:inline-block;width:18px;height:18px;color:var(--ink)">'+GLYPHS[T.glyph]+'</span>',
+        T.nm+(T.idea?' (Idee)':''),T.desc,sgn(T.t.includes(f.t)?T.base:Math.floor(T.base/2))+' '+RES[T.res])
+     :'<div class="empty">Noch nichts gebaut. '+
+       (TILE_KEYS.filter(k=>TILES[k].t.includes(f.t)).length?'Möglich hier: '+
+        TILE_KEYS.filter(k=>TILES[k].t.includes(f.t)).map(k=>TILES[k].nm).join(', ')+'.':'Hier lässt sich nichts bauen.')+'</div>');
+
+  /* Menschen */
+  h+=sec('Menschen',f.people.length?f.people.length+' im Feld':null,
+    f.people.length?f.people.map(p=>row(PEOPLE[p].g,PEOPLE[p].nm,PEOPLE[p].fx,'',
+      PEOPLE[p].mode==='none'?'mute':'')).join('')
+    :'<div class="empty">Niemand hier.</div>');
+
+  /* Arten */
+  h+=sec('Flora & Fauna',f.species.length?f.species.length+' Arten':null,
+    f.species.length?f.species.map(s=>{
+      const S=SPECIES[s],ok=fitsHabitat(f,s);
+      return row('<span class="sdot '+S.kind+'" style="display:inline-block"></span>',
+        S.nm,(ok?'Lebensraum: '+S.t.map(t=>TERRAIN[t].nm).join(', '):'passt nicht zu '+terr.nm)+
+        ' · '+S.note,ok?'+1':'',ok?'':'mute');
+    }).join('')
+    :'<div class="empty">Keine Arten erfasst.</div>');
+
+  /* Ereignisse */
+  h+=sec('Ereignisse',f.event?'noch '+f.evLeft:null,
+    f.event?(()=>{const E=EVENTS[f.event];
+      return row(E.g,E.nm,E.txt+(E.spread?' · breitet sich nachts aus ('+E.spread+')':' · breitet sich nicht aus'),
+        sgn(E.val)+' '+RES[E.res])+
+        '<div class="quelle">Restdauer '+f.evLeft+' '+(f.evLeft===1?'Nacht':'Nächte')+
+        ' · Beheben kostet '+E.fix+' Material'+
+        (f.people.includes('jaeger')?' · der Jäger hier blockt die Ausbreitung':'')+'</div>';})()
+    :'<div class="empty">Ruhiges Feld.</div>');
+
+  /* Kanten */
+  const links=Object.entries(f.links).filter(([,v])=>v);
+  h+=sec('Verbünde & Störungen',links.length?links.length+' Kanten':null,
+    links.length?links.map(([d,v])=>{
+      const nk=neighbourKeyOf(sel,d),nf=nk?F[nk]:null;
+      const who=nf?(nf.tile?'mit '+TILES[nf.tile].nm+' ('+LABEL[nk]+')':'mit '+LABEL[nk]+' – dort liegt nichts')
+        :'Nachbarfeld ausserhalb der Rosette';
+      return row('⬡',(v>0?'Verbund nach ':'Störung nach ')+DIRNAME[d],who,
+        sgn(v)+(T?' '+RES[T.res]:''),T?'':'mute');
+    }).join('')
+    :'<div class="empty">Keine Kante wirkt.</div>');
+
+  /* Ertrag */
+  h+=sec('Feldwert heute',null,
+    y.rows.map(r=>row(r.val>0?'▲':r.val<0?'▼':'·',r.label,r.note,
+      r.res&&!r.mute?sgn(r.val)+' '+RES[r.res]:'',r.mute?'mute':'')).join('')+
+    '<div class="led"><span>Summe</span><span class="sum '+(y.sum<0?'neg':'pos')+'">'+
+    (y.sum>0?'+':'')+y.sum+'</span></div>'+
+    '<div class="reslist">'+Object.keys(RES).map(k=>
+      '<span class="respill'+(y.tot[k]>0?' pos':y.tot[k]<0?' neg':'')+'">'+RES[k]+' '+
+      (y.tot[k]>0?'+':'')+y.tot[k]+'</span>').join('')+'</div>');
+
+  /* Wissen */
+  if(f.fund||f.hint||f.landmark){
+    let w='';
+    if(f.fund)w+=row('◈','Fundstelle: '+f.fund,
+      'An flachen Ufern wie diesem standen jahrtausendelang Pfahlbaudörfer – ihre Hölzer sind aufs Jahr genau datierbar.','+2 Kultur');
+    if(f.hint)w+=row('◈','Zeichen der Alten ('+f.hint+')','Ein Hinweis, kein Beweis – hier lohnt genaues Hinsehen.');
+    if(f.landmark)w+=row('⌖','Landmarke: '+f.landmark,'Feste Weltkoordinate der gestalteten Karte.');
+    w+='<div class="quelle">Historisch inspiriert und vereinfacht.</div>';
+    h+=sec('Wissen',null,w);
+  }
+
+  h+='<div class="dieg">Der Explorer ist ein Werkzeug, kein Ort der Welt: '+
+     'er erklärt und rechnet, er erzählt nicht.</div>';
+
+  document.getElementById('exBody').innerHTML=h;
+
+  /* Fuss: Handlungen (diegetisch, in einer Zone) */
+  const acts=[];
+  if(f.event)acts.push({t:'Beheben (−'+EVENTS[f.event].fix+' Material)',f:'fixEvent()',p:true});
+  if(!f.tile&&TILE_KEYS.some(k=>TILES[k].t.includes(f.t)))acts.push({t:'Plättchen legen',f:'toast(\'Plättchen legen – Mock\')',p:!f.event});
+  if(!f.people.includes('sammler'))acts.push({t:'Sammlerin hierher',f:'sendSammler()'});
+  document.getElementById('exFoot').innerHTML=
+    '<div class="fcap">Handlungen</div><div class="frow">'+
+    (acts.length?acts.map(a=>'<button'+(a.p?' class="primary"':'')+' onclick="'+a.f+'">'+a.t+'</button>').join('')
+      :'<button class="ghost" disabled>Nichts zu tun</button>')+'</div>';
+}
+
+function fixEvent(){
+  const f=F[sel];if(!f.event)return;
+  toast(EVENTS[f.event].nm+' behoben (−'+EVENTS[f.event].fix+' Material)');
+  f.event=null;f.evLeft=0;renderAll();
+}
+function sendSammler(){
+  for(const k of PRESENT)F[k].people=F[k].people.filter(p=>p!=='sammler');
+  F[sel].people.unshift('sammler');toast('Sammlerin ✦ zieht auf '+LABEL[sel]);renderAll();
+}
+
+/* ============================================================
+   7 · WERKBANK
+   ============================================================ */
+let openGroups={landschaft:true,plaettchen:true,menschen:false,arten:false,ereignis:false,kanten:false,darstellung:false,regeln:false};
+let applyAll=false;
+
+function targets(){return applyAll?PRESENT:[sel];}
+function edit(fn){targets().forEach(k=>fn(F[k],k));renderAll();}
+
+function grp(id,label,cnt,body){
+  return '<div class="grp'+(openGroups[id]?' open':'')+'" id="grp-'+id+'">'+
+    '<div class="ghead" onclick="toggleGrp(\''+id+'\')"><span class="lbl">'+label+
+    (cnt?'<span class="cnt">'+cnt+'</span>':'')+'</span><span class="chev">▾</span></div>'+
+    '<div class="gbody">'+body+'</div></div>';
+}
+function toggleGrp(id){openGroups[id]=!openGroups[id];renderWerkbank();}
+
+function renderWerkbank(){
+  const f=F[sel];
+  document.getElementById('wtName').textContent=(applyAll?'ALLE FELDER':LABEL[sel].toUpperCase());
+  document.getElementById('btnAll').classList.toggle('on',applyAll);
+
+  let h='';
+
+  /* Landschaft */
+  h+=grp('landschaft','Landschaft',null,
+    '<div class="chips">'+TERRAIN_KEYS.map(t=>
+      '<button class="chip'+(f.t===t?' on':'')+'" onclick="setTerrain(\''+t+'\')">'+TERRAIN[t].nm+
+      (TERRAIN[t].idea?'<span class="tagi">Idee</span>':'')+'</button>').join('')+'</div>'+
+    '<div class="chips">'+
+      '<button class="chip'+(f.furt?' on':'')+'" onclick="tog(\'furt\')">Furt</button>'+
+      '<button class="chip'+(f.hint?' on':'')+'" onclick="togHint()">Zeichen ◈</button>'+
+      '<button class="chip'+(f.fund?' on':'')+'" onclick="togFund()">Fundstelle</button>'+
+      '<button class="chip'+(f.landmark?' on':'')+'" onclick="togLmk()">Landmarke</button>'+
+    '</div>');
+
+  /* Plättchen */
+  h+=grp('plaettchen','Plättchen',null,
+    '<div class="chips">'+
+      '<button class="chip'+(!f.tile?' on':'')+'" onclick="setTile(null)">keins</button>'+
+      TILE_KEYS.map(k=>{
+        const T=TILES[k],fits=T.t.includes(f.t);
+        return '<button class="chip'+(f.tile===k?' on':'')+(fits?'':' off-habitat')+
+          '" onclick="setTile(\''+k+'\')" title="'+(fits?'passt':'passt nicht zu '+TERRAIN[f.t].nm)+'">'+
+          T.nm+(T.idea?'<span class="tagi">Idee</span>':'')+'</button>';}).join('')+
+    '</div>'+
+    '<div class="note">Ausgegraut = Gelände passt nicht. Legen bleibt erlaubt – es kostet nur Ertrag '+
+    '(<b>Genauigkeit über Belohnung</b>).</div>');
+
+  /* Menschen */
+  h+=grp('menschen','Menschen',f.people.length||null,
+    '<div class="chips">'+PEOPLE_KEYS.map(p=>
+      '<button class="chip'+(f.people.includes(p)?' on':'')+'" onclick="togPerson(\''+p+'\')">'+
+      '<span class="ic">'+PEOPLE[p].g+'</span>'+PEOPLE[p].nm+
+      '<span class="tagi">'+['I','II','III','IV','V'][PEOPLE[p].epoch-1]+'</span></button>').join('')+
+    '</div><div class="note">Slot <b>Krone</b> (oben rechts) trägt bei Detailstufe <b>L zwei '+
+    'Scheiben</b>, bei <b>M eine</b>: zwei Figuren, oder eine Figur und <code>+n</code>, oder bei M '+
+    'nur die Anzahl. Nie eine Reihe aus Marken – wer alle sehen will, öffnet den Explorer.</div>');
+
+  /* Arten */
+  h+=grp('arten','Flora & Fauna',f.species.length||null,
+    '<div class="chips">'+SPECIES_KEYS.map(s=>{
+      const S=SPECIES[s],ok=S.t.includes(f.t);
+      return '<button class="chip'+(f.species.includes(s)?' on '+(S.kind==='flora'?'good':'bad'):'')+
+        (ok?'':' off-habitat')+'" onclick="togSpecies(\''+s+'\')">'+
+        '<span class="sdot '+S.kind+'"></span>'+S.nm+'</button>';}).join('')+
+    '</div><div class="note">Arten belegen keinen eigenen Kern: Flora tönt den <b>Grund</b>, '+
+    'die <b>Ferse</b> (unten links) trägt höchstens drei Punkte. Namen stehen nur im Explorer.</div>');
+
+  /* Ereignisse */
+  h+=grp('ereignis','Ereignisse',f.event?1:null,
+    '<div class="chips">'+
+      '<button class="chip'+(!f.event?' on':'')+'" onclick="setEvent(null)">keins</button>'+
+      EVENT_KEYS.map(e=>'<button class="chip'+(f.event===e?' on bad':'')+'" onclick="setEvent(\''+e+'\')">'+
+      '<span class="ic">'+EVENTS[e].g+'</span>'+EVENTS[e].nm+'</button>').join('')+
+    '</div>'+
+    (f.event?'<div class="rowline"><span class="cap">Restdauer</span>'+
+      '<span class="stepper"><button onclick="dur(-1)">−</button><b>'+f.evLeft+
+      '</b><button onclick="dur(1)">+</button></span></div>':''));
+
+  /* Kanten */
+  const ls=Object.values(f.links).filter(v=>v).length;
+  h+=grp('kanten','Kanten: Verbünde & Störungen',ls||null,
+    '<div class="dirgrid">'+['NW','NE','W','E','SW','SE'].map(d=>{
+      const v=f.links[d];
+      return '<button class="dirbtn'+(v>0?' plus':v<0?' minus':'')+'" onclick="cycleLink(\''+d+'\')">'+
+        DIRSHORT[d]+' '+(v>0?'+1':v<0?'−1':'–')+'</button>';}).join('')+
+    '</div><div class="note">Klick schaltet <b>– → Verbund → Störung</b>; die <b>Gegenkante des '+
+    'Nachbarn wird mitgesetzt</b> – eine Kante gehört zwei Feldern. Der Balken sitzt mittig auf der '+
+    'Sechseck-Seite: grün = Bonus, rot = Malus. Kanten bleiben als einziger Slot auch bei '+
+    'Detailstufe S – Beziehungen sind Spielentscheidungen.</div>');
+
+  /* Darstellung */
+  h+=grp('darstellung','Darstellung',null,
+    '<div class="rowline"><span class="cap">Hexbreite</span><span class="seg">'+
+      '<button class="'+(view.size==='auto'?'on':'')+'" onclick="setSize(\'auto\')">auto</button>'+
+      '<button class="'+(view.size==='manual'?'on':'')+'" onclick="setSize(\'manual\')">fix</button>'+
+    '</span></div>'+
+    (view.size==='manual'?'<input type="range" min="26" max="124" value="'+view.manual+
+      '" oninput="setManual(this.value)">':'')+
+    '<div class="rowline"><span class="cap">Detailstufe</span><span class="seg">'+
+      ['auto','s','m','l'].map(l=>'<button class="'+(view.lod===l?'on':'')+
+      '" onclick="setLod(\''+l+'\')">'+l.toUpperCase()+'</button>').join('')+
+    '</span></div>'+
+    '<div class="chips">'+
+      '<button class="chip'+(view.zahl?' on':'')+'" onclick="togView(\'zahl\')">Feldwert am Feld</button>'+
+      '<button class="chip'+(view.slots?' on':'')+'" onclick="togView(\'slots\')">Slot-Raster</button>'+
+      '<button class="chip'+(view.night?' on':'')+'" onclick="togView(\'night\')">Nacht</button>'+
+    '</div>'+
+    '<div class="chips">'+
+      '<button class="chip" onclick="stress()">Volllast auf dieses Feld</button>'+
+      '<button class="chip" onclick="applyPreset(curEpoch)">Epoche neu laden</button>'+
+    '</div>');
+
+  /* Regeln der Darstellung */
+  h+=grp('regeln','Regeln der Darstellung',null,
+    '<div class="note"><b>Ein Feld sagt drei Dinge, alles Weitere sagt der Explorer.</b>'+
+    '<ul>'+
+    '<li><b>Identität</b> – was ist das? → Grund (Gelände) + Kern (Plättchen-Glyphe)</li>'+
+    '<li><b>Dringlichkeit</b> – braucht es mich? → Wange (Ereignis mit Restdauer), Achtung-Punkt, rote Kante</li>'+
+    '<li><b>Ertrag</b> – was bringt es? → Zahl (Feldwert), grüne Kanten</li>'+
+    '</ul>'+
+    'Feste Slots, damit Spieler Positionen lernen: <code>Kern</code> Mitte · <code>Krone</code> oben rechts '+
+    '(Menschen) · <code>Wange</code> oben links (Ereignis) · <code>Ferse</code> unten links (Arten) · '+
+    '<code>Fuss</code> unten Mitte (Zeichen ◈) · <code>Zahl</code> unten rechts (Feldwert) · '+
+    '<code>Kanten</code> sechs Seiten (Verbünde).<br><br>'+
+    'Nie mehr als <b>zwei Figuren</b>, <b>drei Artenpunkte</b>, <b>ein Ereignis</b> gleichzeitig – '+
+    'Überzähliges wird zu <code>+n</code>. Detailstufe folgt der Hexbreite: '+
+    '<code>S &lt;52px</code> (Grund, Kern, Kanten, Zahl, Achtung) · <code>M 52–75px</code> · '+
+    '<code>L ≥76px</code>. Der <b>Grund</b> bleibt auf jeder Stufe: Gelände und Ereignis-Schleier '+
+    'kosten keinen Platz. '+
+    'Auf Mobile mit grossem Gebiet landet man bei S; der Explorer trägt dort die ganze Information.</div>');
+
+  document.getElementById('groups').innerHTML=h;
+}
+
+/* --- Werkbank-Aktionen --- */
+function setTerrain(t){edit(f=>{f.t=t;if(t!=='water'&&t!=='lake')f.furt=false;});}
+function tog(k){edit(f=>{f[k]=!f[k];});}
+function togHint(){edit(f=>{f.hint=f.hint?null:'land';});}
+function togFund(){edit(f=>{f.fund=f.fund?null:'Pfahlbau-Fundstelle · Rheindelta';});}
+function togLmk(){edit(f=>{f.landmark=f.landmark?null:'Am Kies';});}
+function setTile(k){edit(f=>{f.tile=k;});}
+function togPerson(p){edit(f=>{f.people=f.people.includes(p)?f.people.filter(x=>x!==p):[...f.people,p];});}
+function togSpecies(s){edit(f=>{f.species=f.species.includes(s)?f.species.filter(x=>x!==s):[...f.species,s];});}
+function setEvent(e){edit(f=>{f.event=e;f.evLeft=e?EVENTS[e].dur:0;});}
+function dur(d){edit(f=>{if(f.event)f.evLeft=Math.max(1,Math.min(9,f.evLeft+d));});}
+/* Eine Kante gehört zwei Feldern. Wer sie hier schaltet, schaltet die
+   Gegenkante mit – sonst zeichnen beide Felder Balken übereinander. */
+const OPP={NW:'SE',SE:'NW',NE:'SW',SW:'NE',W:'E',E:'W'};
+function neighbourKeyOf(key,d){
+  if(key===CENTER)return DIRS[d];
+  const from=Object.keys(DIRS).find(x=>DIRS[x]===key);
+  return from&&d===OPP[from]?CENTER:null;
+}
+function nextLink(v){return v===0?1:v===1?-1:0;}
+function cycleLink(d){
+  if(applyAll){edit(f=>{f.links[d]=nextLink(f.links[d]);});return;}
+  const v=nextLink(F[sel].links[d]);
+  F[sel].links[d]=v;
+  const nb=neighbourKeyOf(sel,d);
+  if(nb)F[nb].links[OPP[d]]=v;
+  renderAll();
+}
+/* Vorlagen dürfen sich nicht widersprechen: Mitte gewinnt. */
+function symmetrize(){
+  for(const d in DIRS)if(F[DIRS[d]])F[DIRS[d]].links[OPP[d]]=F[CENTER].links[d];
+}
+function setSize(m){view.size=m;sizeBoard();renderWerkbank();}
+function setManual(v){view.manual=+v;view.size='manual';sizeBoard();}
+function setLod(l){view.lod=l;renderAll();}
+function togView(k){
+  view[k]=!view[k];
+  if(k==='night')document.body.classList.toggle('night',view.night);
+  renderAll();
+}
+function clearField(){edit(f=>{const t=f.t;Object.assign(f,blank(t));});}
+function stress(){
+  edit(f=>{
+    f.people=PEOPLE_KEYS.slice(0,4);
+    f.species=SPECIES_KEYS.filter(s=>SPECIES[s].t.includes(f.t)).slice(0,4);
+    if(!f.species.length)f.species=SPECIES_KEYS.slice(0,3);
+    f.event=f.event||'seuche';f.evLeft=3;
+    f.links={NW:1,NE:-1,W:1,E:1,SW:1,SE:-1};
+    f.hint=f.hint||'fund';f.fund=f.fund||'Pfahlbau-Fundstelle · Rheindelta';
+    if(!f.tile){const c=TILE_KEYS.filter(t=>TILES[t].t.includes(f.t));f.tile=c[0]||'ufer';}
+  });
+  symmetrize();renderAll();
+}
+function applyPreset(n){
+  curEpoch=n;PRESETS[n].build();symmetrize();
+  if(!F[sel])sel=CENTER;
+  renderAll();
+}
+
+/* ============================================================
+   8 · Rahmen
+   ============================================================ */
+function renderEpochs(){
+  document.getElementById('epochpick').innerHTML=Object.keys(PRESETS).map(n=>
+    '<button class="'+(+n===curEpoch?'on':'')+'" onclick="applyPreset('+n+')">'+PRESETS[n].nm+'</button>').join('');
+}
+function renderAll(){
+  renderEpochs();sizeBoard();renderWerkbank();
+  if(explorerOpen)renderExplorer();
+}
+
+let toastEl=document.getElementById('toast');
+function toast(msg){
+  toastEl.textContent=msg;toastEl.style.opacity='1';
+  clearTimeout(toastEl._h);toastEl._h=setTimeout(()=>toastEl.style.opacity='0',1900);
+}
+
+document.getElementById('exClose').onclick=closeExplorer;
+document.getElementById('btnOpenEx').onclick=()=>{openExplorer();renderExplorer();};
+document.getElementById('btnClear').onclick=clearField;
+document.getElementById('btnAll').onclick=()=>{applyAll=!applyAll;renderWerkbank();};
+document.getElementById('exPrev').onclick=()=>step(-1);
+document.getElementById('exNext').onclick=()=>step(1);
+function step(d){
+  const i=ORDER.indexOf(sel);
+  sel=ORDER[(i+d+ORDER.length)%ORDER.length];
+  renderAll();
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&explorerOpen)closeExplorer();
+  if(e.key==='ArrowRight'&&explorerOpen)step(1);
+  if(e.key==='ArrowLeft'&&explorerOpen)step(-1);
+});
+window.addEventListener('resize',sizeBoard);
+if(window.ResizeObserver)new ResizeObserver(()=>sizeBoard()).observe(document.querySelector('.board'));
+
+/* Debug-Leiste */
+const DBG=[
+  ['?explorer',()=>{openExplorer();renderExplorer();}],
+  ['?max',()=>{applyPreset(5);stress();}],
+  ['?slots',()=>togView('slots')],
+  ['?night',()=>togView('night')],
+  ['?lod=s',()=>setLod('s')],['?lod=m',()=>setLod('m')],['?lod=l',()=>setLod('l')],
+  ['?epoche=1',()=>applyPreset(1)],['?epoche=5',()=>applyPreset(5)],
+  ['?leer',()=>{F=Object.fromEntries(PRESENT.map(k=>[k,blank('flach')]));renderAll();}],
+];
+document.getElementById('debugstrip').innerHTML=DBG.map((d,i)=>
+  '<button onclick="DBG['+i+'][1]()">'+d[0]+'</button>').join('');
+document.getElementById('dbgToggle').onclick=()=>
+  document.getElementById('debugstrip').classList.toggle('hid');
+
+/* ============================================================
+   9 · Start + Debug-Parameter
+   ============================================================ */
+const q=new URLSearchParams(location.search);
+applyPreset(q.has('epoche')?Math.max(1,Math.min(5,+q.get('epoche'))):2);
+if(q.has('leer'))F=Object.fromEntries(PRESENT.map(k=>[k,blank('flach')]));
+if(q.has('night'))togView('night');
+if(q.has('slots'))togView('slots');
+if(q.has('lod'))setLod(q.get('lod'));
+if(q.has('size')){view.size='manual';view.manual=+q.get('size');}
+if(q.has('feld')&&LABEL[q.get('feld')])sel=q.get('feld');
+if(q.has('max')){applyPreset(5);stress();}
+if(q.has('explorer')||q.has('max')){openExplorer();}
+renderAll();
+/* ?demo erzählt die Kernbeobachtung: dieselbe Zelle, wachsende Last —
+   und am Ende der Explorer, der den Überlauf auffängt. */
+if(q.has('demo')){
+  applyPreset(1);toast('Epoche I – ein Plättchen, eine Figur');
+  setTimeout(()=>{applyPreset(3);toast('Epoche III – Menschen, Arten, ein Ereignis');},1100);
+  setTimeout(()=>{applyPreset(5);toast('Volllast – das Feld ist am Anschlag');},2300);
+  setTimeout(()=>{openExplorer();renderExplorer();},3400);
+}
+</script>
+</body>
+</html>

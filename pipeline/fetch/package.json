@@ -1,0 +1,9 @@
+{
+  "name": "stromlinien-pipeline-fetch",
+  "private": true,
+  "type": "module",
+  "description": "Fetch-/Normalisierungs-Stufe der Karten-Pipeline: liest Rohdaten (GeoTIFF-DTMs etc.) aus pipeline/data/ und schreibt normalisierte Quellen nach pipeline/sources/. Nur diese Stufe darf npm-Dependencies haben; bake.mjs bleibt dependency-frei.",
+  "dependencies": {
+    "geotiff": "^2.1.3"
+  }
+}

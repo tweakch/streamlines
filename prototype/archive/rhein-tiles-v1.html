@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rhein-Tileset-Viewer (v1) — zwei Zoomstufen aus der Pipeline</title>
+<style>
+  :root{--bg:#12161a;--panel:#1b2228;--line:#2a333b;--ink:#d8dfe4;--dim:#8b98a3;--gold:#e3c576}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;
+       display:flex;flex-direction:column}
+  header{padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel);flex:0 0 auto;
+         display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}
+  header h1{font:600 15px/1.2 Georgia,serif}
+  header .sub{color:var(--dim);font-size:11px}
+  #stage{flex:1 1 auto;position:relative;cursor:grab}
+  #stage.drag{cursor:grabbing}
+  canvas{position:absolute;inset:0;width:100%;height:100%}
+  .btns{position:fixed;right:10px;top:56px;display:flex;flex-direction:column;gap:6px;z-index:10}
+  .btns button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+               color:var(--ink);font-size:17px;cursor:pointer}
+  #hud{position:fixed;left:10px;top:56px;z-index:10;background:#0f1a20e6;border:1px solid var(--line);
+       border-radius:8px;padding:6px 9px;font-size:11px;color:var(--dim);display:none;white-space:pre-line}
+  body.stats #hud{display:block}
+  #hud b{color:var(--gold)}
+  #inspector{position:fixed;left:10px;right:10px;bottom:10px;max-width:520px;margin:0 auto;z-index:20;
+             background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+             box-shadow:0 6px 24px #000a;display:none}
+  #inspector.show{display:block}
+  #inspector h2{font:600 14px/1.2 Georgia,serif;color:var(--gold)}
+  #inspector .meta{color:var(--dim);font-size:11px;margin:2px 0 4px}
+  #inspector p{font-size:12.5px}
+  #inspector .x{position:absolute;top:6px;right:10px;color:var(--dim);cursor:pointer;font-size:16px}
+  footer{position:fixed;right:10px;bottom:6px;color:#5c6a75;font-size:10px;z-index:2;pointer-events:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>Rhein-Tileset-Viewer</h1>
+  <div class="sub">gebacken aus <code>pipeline/sources/</code> · Ebene wechselt mit dem Zoom · ziehen = schieben, Rad/± = zoomen, tippen = Feld</div>
+</header>
+<div id="stage"><canvas id="cv"></canvas></div>
+<div class="btns">
+  <button id="zin">+</button><button id="zout">−</button><button id="zfit" title="Ganze Karte">⤢</button>
+</div>
+<div id="hud"></div>
+<div id="inspector"><span class="x" id="inspClose">×</span><h2 id="inspTitle"></h2><div class="meta" id="inspMeta"></div><p id="inspTxt"></p></div>
+<footer>rhein-tiles-v1 · Geographie stark vereinfacht · Daten: window.RHEIN_TILESET</footer>
+
+<script src="rhein-tiles-v1.data.js"></script>
+<script>
+'use strict';
+/* Viewer für das gebackene Tileset: rendert pro Frame nur den sichtbaren
+   Ausschnitt der passenden Zoomstufe auf Canvas; Kacheln werden erst beim
+   ersten Sichtkontakt aus base64 dekodiert (Lazy-Decode + Cache). */
+const TS=window.RHEIN_TILESET;
+const SQRT3=Math.sqrt(3);
+const Q=new URLSearchParams(location.search);
+const XMAX=TS.cfg.lonSpan*TS.cfg.kmx, YMAX=TS.cfg.latSpan*TS.cfg.kmy;
+const TERRNAME=['Flachland','Ufer','Bergland','Fluss','See','Nordsee','Nebenlauf','Hang'];
+const TERRCOL=['#26312a','#33422f','#3b4046','#4a90b0','#255064','#173042','#39647c','#4a5038'];
+const SECCOL={alpen:'#8fd6c8',bodensee:'#6fb7e8',hoch:'#7ec97f',ober:'#e8c46f',
+              mittel:'#e8896f',nieder:'#c78fe8',delta:'#8fa2e8'};
+const SECIDS=['',...TS.sections.map(s=>s.id)];
+const SECBYID=Object.fromEntries(TS.sections.map(s=>[s.id,s]));
+const mix=(hex,f)=>{ // Abschnittsfarbe Richtung dunklem Wasser mischen
+  const n=parseInt(hex.slice(1),16),m=[0x10,0x26,0x2e];
+  return'rgb('+[16,8,0].map((sh,i)=>Math.round(((n>>sh)&255)*f+m[i]*(1-f))).join(',')+')';
+};
+
+/* ---- Kachel-Cache: base64 → Uint8Array erst bei Bedarf ---- */
+const cache=new Map();let decoded=0;
+function tileOf(L,tx,ty){
+  const key=L.id+':'+tx+','+ty;
+  if(cache.has(key))return cache.get(key);
+  const raw=L.tiles[tx+','+ty];
+  let v=null;
+  if(raw){
+    const dec=b64=>Uint8Array.from(atob(b64),ch=>ch.charCodeAt(0));
+    v={t:dec(raw.t),s:dec(raw.s),e:raw.e?dec(raw.e):null};decoded++;
+  }
+  cache.set(key,v);return v;
+}
+function cellData(L,c,r){
+  if(c<0||r<0||c>=L.cols||r>=L.rows)return null;
+  const tile=tileOf(L,Math.floor(c/L.tile),Math.floor(r/L.tile));
+  if(!tile)return{t:0,s:0,e:0};
+  const i=(r%L.tile)*L.tile+(c%L.tile);
+  return{t:tile.t[i],s:tile.s[i],e:tile.e?tile.e[i]:0};
+}
+
+/* ---- Geometrie (identisch zu bake.mjs) ---- */
+const axialOf=(c,r)=>c-((r-(r&1))/2);
+const kmOfLonLat=(lon,lat)=>[(lon-TS.cfg.lon0)*TS.cfg.kmx,(TS.cfg.lat1-lat)*TS.cfg.kmy];
+const centerKm=(c,r,s)=>[s*SQRT3*(axialOf(c,r)+r/2),s*1.5*r];
+function cellAtKm(x,y,s){
+  const q=((SQRT3/3)*x-y/3)/s,r=((2/3)*y)/s;
+  let rx=Math.round(q),ry=Math.round(-q-r),rz=Math.round(r);
+  const dx=Math.abs(rx-q),dy=Math.abs(ry-(-q-r)),dz=Math.abs(rz-r);
+  if(dx>dy&&dx>dz)rx=-ry-rz;else if(!(dy>dz))rz=-rx-ry;
+  return[rx+((rz-(rz&1))/2),rz];
+}
+
+/* ---- Viewport: zoom = Pixel pro km, (ox,oy) = km am linken oberen Rand ---- */
+const stage=document.getElementById('stage'),cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let zoom=1,ox=0,oy=0;
+const forcedLevel=Q.has('level')?+Q.get('level'):null;
+function pickLevel(){
+  if(forcedLevel!=null)return TS.levels[forcedLevel]??TS.levels[0];
+  const cx=ox+stage.clientWidth/(2*zoom),cy=oy+stage.clientHeight/(2*zoom);
+  for(let i=TS.levels.length-1;i>=0;i--){
+    const L=TS.levels[i];
+    if(zoom*L.hexKm<9)continue;
+    /* Ebenen mit Region gelten nur, wenn die Blickmitte darin liegt. */
+    if(L.regionKm&&!(cx>=L.regionKm[0]&&cx<=L.regionKm[2]&&cy>=L.regionKm[1]&&cy<=L.regionKm[3]))continue;
+    return L;
+  }
+  return TS.levels[0];
+}
+function fit(){
+  zoom=Math.min(stage.clientWidth/XMAX,stage.clientHeight/YMAX);
+  ox=-(stage.clientWidth/zoom-XMAX)/2;oy=-(stage.clientHeight/zoom-YMAX)/2;
+}
+
+let visCells=0;
+function render(){
+  const dpr=devicePixelRatio||1;
+  if(cv.width!==stage.clientWidth*dpr||cv.height!==stage.clientHeight*dpr){
+    cv.width=stage.clientWidth*dpr;cv.height=stage.clientHeight*dpr;
+  }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const L=pickLevel(),s=L.hexKm/SQRT3,hexPx=zoom*L.hexKm;
+  ctx.fillStyle=TERRCOL[0];ctx.fillRect(0,0,stage.clientWidth,stage.clientHeight);
+  const toPx=(x,y)=>[(x-ox)*zoom,(y-oy)*zoom];
+  const r0=Math.max(0,Math.floor(oy/(s*1.5))-1),
+        r1=Math.min(L.rows-1,Math.ceil((oy+stage.clientHeight/zoom)/(s*1.5))+1),
+        c0f=x=>Math.max(0,Math.floor(x/(s*SQRT3))-1),
+        c1f=x=>Math.min(L.cols-1,Math.ceil(x/(s*SQRT3))+1);
+  visCells=0;
+  const rad=s*zoom;
+  for(let r=r0;r<=r1;r++){
+    for(let c=c0f(ox);c<=c1f(ox+stage.clientWidth/zoom);c++){
+      const d=cellData(L,c,r);if(!d||(!d.t&&!d.s))continue;
+      visCells++;
+      let col=TERRCOL[d.t];
+      if(d.t===3&&d.s)col=mix(SECCOL[SECIDS[d.s]],0.6);
+      const[px,py]=toPx(...centerKm(c,r,s));
+      ctx.fillStyle=col;ctx.beginPath();
+      /* pointy-top: Ecken bei -30°,30°,90°,… — Spitze nach oben/unten,
+         wie die odd-r-Geometrie (grid.ts) es verlangt. */
+      for(let i=0;i<6;i++){
+        const a=Math.PI/180*(60*i-30);
+        const x=px+rad*Math.cos(a),y=py+rad*Math.sin(a);
+        i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+      }
+      ctx.closePath();ctx.fill();
+      /* Höhenschummerung, wo der DTM-Layer Höhen kennt (nicht auf Wasser). */
+      if(d.e&&d.t!==3&&d.t!==4&&d.t!==5&&d.t!==6){
+        const a=0.04+0.22*Math.min(1,Math.max(0,(d.e*25-450)/2600));
+        ctx.fillStyle=`rgba(235,240,244,${a.toFixed(3)})`;ctx.fill();
+      }
+    }
+  }
+  /* Landmarken (Detail-Landmarken erst auf der feinen Ebene). */
+  if(Q.get('labels')!=='0'){
+    ctx.font='10px system-ui';ctx.textAlign='center';
+    for(const lm of TS.landmarks){
+      if(lm.detail&&L.id===0)continue;
+      const[px,py]=toPx(...kmOfLonLat(lm.lon,lm.lat));
+      if(px<-40||py<-20||px>stage.clientWidth+40||py>stage.clientHeight+20)continue;
+      ctx.fillStyle='#e3c576';ctx.beginPath();ctx.arc(px,py,2.2,0,7);ctx.fill();
+      ctx.fillStyle='#f2e7c9';ctx.shadowColor='#000';ctx.shadowBlur=4;
+      ctx.fillText(lm.name,px,py+(lm.dy?14:-6));ctx.shadowBlur=0;
+    }
+  }
+  document.getElementById('hud').innerHTML=
+    `Ebene <b>${L.id}</b> (${L.hexKm} km/Hex, ${hexPx.toFixed(1)} px)\n`+
+    `sichtbar: <b>${visCells}</b> Zellen · dekodiert: <b>${decoded}</b> Kacheln\n`+
+    `Hauptlauf gesamt: ${TS.totalKm} km · Stand: ${TS.generated.slice(0,10)}`;
+}
+
+/* ---- Interaktion ---- */
+let drag=null,moved=false;
+stage.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};moved=false;stage.classList.add('drag');stage.setPointerCapture(e.pointerId);});
+stage.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  if(Math.abs(dx)+Math.abs(dy)>3)moved=true;
+  ox-=dx/zoom;oy-=dy/zoom;drag={x:e.clientX,y:e.clientY};render();
+});
+stage.addEventListener('pointerup',e=>{
+  stage.classList.remove('drag');drag=null;
+  if(!moved)inspectAt(e.clientX,e.clientY);
+});
+function zoomAt(f,cx,cy){
+  const wx=ox+cx/zoom,wy=oy+cy/zoom;
+  zoom=Math.max(0.3,Math.min(140,zoom*f));
+  ox=wx-cx/zoom;oy=wy-cy/zoom;render();
+}
+stage.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.deltaY<0?1.25:0.8,e.clientX,e.clientY-stage.offsetTop);},{passive:false});
+document.getElementById('zin').onclick=()=>zoomAt(1.4,stage.clientWidth/2,stage.clientHeight/2);
+document.getElementById('zout').onclick=()=>zoomAt(1/1.4,stage.clientWidth/2,stage.clientHeight/2);
+document.getElementById('zfit').onclick=()=>{fit();render();};
+addEventListener('resize',()=>render());
+
+/* ---- Inspektor ---- */
+const insp=document.getElementById('inspector');
+document.getElementById('inspClose').onclick=()=>insp.classList.remove('show');
+function inspectAt(px,py){
+  const L=pickLevel(),s=L.hexKm/SQRT3;
+  const[c,r]=cellAtKm(ox+px/zoom,oy+(py-stage.offsetTop)/zoom,s);
+  const d=cellData(L,c,r);if(!d)return;
+  const lm=TS.landmarks.find(lm=>{
+    const[lc,lr]=cellAtKm(...kmOfLonLat(lm.lon,lm.lat),s);return lc===c&&lr===r;});
+  const br=L.branches.find(b=>b.cells.some(([bc,brr])=>bc===c&&brr===r));
+  const pathCell=L.path.find(([pc,pr])=>pc===c&&pr===r);
+  const sec=d.s?SECBYID[SECIDS[d.s]]:null;
+  document.getElementById('inspTitle').textContent=
+    lm?lm.name:br&&d.t===6?br.name+' ('+br.art+')':TERRNAME[d.t];
+  document.getElementById('inspMeta').textContent=
+    [sec?'Abschnitt: '+sec.name:null,
+     pathCell?'≈ km '+pathCell[2]+' ab der Quelle':null,
+     d.e?'≈ '+(d.e*25)+' m ü. M.':null,
+     'Ebene '+L.id+' · ('+c+','+r+')'].filter(Boolean).join(' · ');
+  document.getElementById('inspTxt').textContent=
+    lm?lm.note:sec?sec.txt:
+    d.t===2?'Bergland — der Fluss sucht sich seinen Weg darum herum oder hindurch.':
+    d.t===7?'Hang — geneigtes Land über dem Talboden (aus dem Höhenmodell abgeleitet).':
+    d.t===5?'Die Nordsee — hier endet die Reise des Rheins.':
+    'Offenes Land im Einzugsgebiet des Rheins.';
+  insp.classList.add('show');
+}
+
+/* ---- Start (Debug: ?lon=&lat=&z= zentrieren, ?level=, ?stats, ?labels=0, ?inspect=lon,lat) ---- */
+document.body.classList.toggle('stats',Q.has('stats'));
+fit();
+if(Q.has('lon')&&Q.has('lat')){
+  zoom=+(Q.get('z')||6);
+  const[x,y]=kmOfLonLat(+Q.get('lon'),+Q.get('lat'));
+  ox=x-stage.clientWidth/(2*zoom);oy=y-stage.clientHeight/(2*zoom);
+}
+render();
+if(Q.has('inspect')){
+  const[lon,lat]=Q.get('inspect').split(',').map(Number);
+  const[x,y]=kmOfLonLat(lon,lat);
+  inspectAt((x-ox)*zoom,(y-oy)*zoom+stage.offsetTop);
+}
+</script>
+</body>
+</html>

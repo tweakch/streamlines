@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rhein-Tileset-Viewer v2 — abgeleitete Ebenen, schnelles Rendering</title>
+<style>
+  :root{--bg:#12161a;--panel:#1b2228;--line:#2a333b;--ink:#d8dfe4;--dim:#8b98a3;--gold:#e3c576}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;
+       display:flex;flex-direction:column}
+  header{padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel);flex:0 0 auto;
+         display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}
+  header h1{font:600 15px/1.2 Georgia,serif}
+  header .sub{color:var(--dim);font-size:11px}
+  #stage{flex:1 1 auto;position:relative;cursor:grab}
+  #stage.drag{cursor:grabbing}
+  canvas{position:absolute;inset:0;width:100%;height:100%}
+  .btns{position:fixed;right:10px;top:56px;display:flex;flex-direction:column;gap:6px;z-index:10}
+  .btns button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+               color:var(--ink);font-size:17px;cursor:pointer}
+  #hud{position:fixed;left:10px;top:56px;z-index:10;background:#0f1a20e6;border:1px solid var(--line);
+       border-radius:8px;padding:6px 9px;font-size:11px;color:var(--dim);display:none;white-space:pre-line}
+  body.stats #hud{display:block}
+  #hud b{color:var(--gold)}
+  #inspector{position:fixed;left:10px;right:10px;bottom:10px;max-width:520px;margin:0 auto;z-index:20;
+             background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+             box-shadow:0 6px 24px #000a;display:none}
+  #inspector.show{display:block}
+  #inspector h2{font:600 14px/1.2 Georgia,serif;color:var(--gold)}
+  #inspector .meta{color:var(--dim);font-size:11px;margin:2px 0 4px}
+  #inspector p{font-size:12.5px}
+  #inspector .x{position:absolute;top:6px;right:10px;color:var(--dim);cursor:pointer;font-size:16px}
+  footer{position:fixed;right:10px;bottom:6px;color:#5c6a75;font-size:10px;z-index:2;pointer-events:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>Rhein-Tileset-Viewer v2</h1>
+  <div class="sub">Ebenen 0/1 aus der Ebene-2-Basis abgeleitet · Schwenken = Blit, Zeichnen = Farb-Batches · ziehen/Rad/± · tippen = Feld</div>
+</header>
+<div id="stage"><canvas id="cv"></canvas></div>
+<div class="btns">
+  <button id="zin">+</button><button id="zout">−</button><button id="zfit" title="Ganze Karte">⤢</button>
+</div>
+<div id="hud"></div>
+<div id="inspector"><span class="x" id="inspClose">×</span><h2 id="inspTitle"></h2><div class="meta" id="inspMeta"></div><p id="inspTxt"></p></div>
+<footer>rhein-tiles-v2 · Geographie vereinfacht · Höhen: DTM © Sonny (CC BY 4.0)</footer>
+
+<script src="rhein-tiles-v2.data.js"></script>
+<script>
+'use strict';
+/* ============================================================
+   Performance-Architektur:
+   - Scene-Canvas (2× Viewport, weltverankert): Schwenken ist reines
+     drawImage-Blitting; neu gezeichnet wird nur bei Zoom-/Ebenen-
+     wechsel oder wenn der Blick den Scene-Rand verlässt.
+   - rAF-Koaleszenz: beliebig viele Input-Events → max. 1 Frame.
+   - Farb-Batching: Zellen werden nach fertig gemischter Farbe
+     (Terrain × Höhenstufe × Abschnitt) in Path2D-Batches gesammelt —
+     wenige fill()-Aufrufe statt Tausender Stilwechsel.
+   ============================================================ */
+const TS=window.RHEIN_TILESET;
+const SQRT3=Math.sqrt(3);
+const Q=new URLSearchParams(location.search);
+const XMAX=TS.cfg.lonSpan*TS.cfg.kmx, YMAX=TS.cfg.latSpan*TS.cfg.kmy;
+const TERRNAME=['Flachland','Ufer','Bergland','Fluss','See','Nordsee','Nebenlauf','Hang'];
+const TERRCOL=['#26312a','#33422f','#3b4046','#4a90b0','#255064','#173042','#39647c','#4a5038'];
+const SECCOL={alpen:'#8fd6c8',bodensee:'#6fb7e8',hoch:'#7ec97f',ober:'#e8c46f',
+              mittel:'#e8896f',nieder:'#c78fe8',delta:'#8fa2e8'};
+const SECIDS=['',...TS.sections.map(s=>s.id)];
+const SECBYID=Object.fromEntries(TS.sections.map(s=>[s.id,s]));
+
+/* ---- fertig gemischte Farben, gecacht pro (Terrain, Höhenstufe, Abschnitt) ---- */
+const rgbOf=hex=>[parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];
+const TERRRGB=TERRCOL.map(rgbOf), DARK=[16,38,46], LIGHT=[235,240,244];
+const colorCache=new Map();
+function colorOf(t,s,eBucket){
+  const key=t===3?4096+s:(t<<8)|eBucket;
+  let c=colorCache.get(key);if(c)return c;
+  let rgb;
+  if(t===3&&s){const sc=rgbOf(SECCOL[SECIDS[s]]);rgb=sc.map((v,i)=>v*0.6+DARK[i]*0.4);}
+  else rgb=[...TERRRGB[t]];
+  if(eBucket&&t!==3&&t!==4&&t!==5&&t!==6){ // Höhenschummerung aufs Land mischen
+    const m=eBucket*16*25+200; // Bucket-Mitte in Metern
+    const a=0.04+0.22*Math.min(1,Math.max(0,(m-450)/2600));
+    rgb=rgb.map((v,i)=>v*(1-a)+LIGHT[i]*a);
+  }
+  c='rgb('+rgb.map(v=>Math.round(v)).join(',')+')';
+  colorCache.set(key,c);return c;
+}
+
+/* ---- Kachel-Cache: base64 → Uint8Array erst bei Sichtkontakt ---- */
+const cache=new Map();let decoded=0;
+function tileOf(L,tx,ty){
+  const key=L.id+':'+tx+','+ty;
+  if(cache.has(key))return cache.get(key);
+  const raw=L.tiles[tx+','+ty];
+  let v=null;
+  if(raw){
+    const dec=b64=>Uint8Array.from(atob(b64),ch=>ch.charCodeAt(0));
+    v={t:dec(raw.t),s:dec(raw.s),e:raw.e?dec(raw.e):null};decoded++;
+  }
+  cache.set(key,v);return v;
+}
+function cellData(L,c,r){
+  if(c<0||r<0||c>=L.cols||r>=L.rows)return null;
+  const tile=tileOf(L,Math.floor(c/L.tile),Math.floor(r/L.tile));
+  if(!tile)return{t:0,s:0,e:0};
+  const i=(r%L.tile)*L.tile+(c%L.tile);
+  return{t:tile.t[i],s:tile.s[i],e:tile.e?tile.e[i]:0};
+}
+
+/* ---- Geometrie (identisch zu bake.mjs) ---- */
+const axialOf=(c,r)=>c-((r-(r&1))/2);
+const kmOfLonLat=(lon,lat)=>[(lon-TS.cfg.lon0)*TS.cfg.kmx,(TS.cfg.lat1-lat)*TS.cfg.kmy];
+const centerKm=(c,r,s)=>[s*SQRT3*(axialOf(c,r)+r/2),s*1.5*r];
+function cellAtKm(x,y,s){
+  const q=((SQRT3/3)*x-y/3)/s,r=((2/3)*y)/s;
+  let rx=Math.round(q),ry=Math.round(-q-r),rz=Math.round(r);
+  const dx=Math.abs(rx-q),dy=Math.abs(ry-(-q-r)),dz=Math.abs(rz-r);
+  if(dx>dy&&dx>dz)rx=-ry-rz;else if(!(dy>dz))rz=-rx-ry;
+  return[rx+((rz-(rz&1))/2),rz];
+}
+/* pointy-top-Eckversätze, einmal pro Radius */
+const CORN=Array.from({length:6},(_,i)=>{const a=Math.PI/180*(60*i-30);return[Math.cos(a),Math.sin(a)];});
+
+/* ---- Viewport & Scene ---- */
+const stage=document.getElementById('stage'),cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let zoom=1,ox=0,oy=0; // zoom = px/km · (ox,oy) = km am linken oberen Viewport-Rand
+const forcedLevel=Q.has('level')?+Q.get('level'):null;
+const scene={cv:document.createElement('canvas'),ctx:null,ox:0,oy:0,wKm:0,hKm:0,zoom:0,levelId:-1,valid:false};
+scene.ctx=scene.cv.getContext('2d');
+const stats={refills:0,refillMs:0,frameMs:0,cells:0};
+
+function pickLevel(){
+  if(forcedLevel!=null)return TS.levels[forcedLevel]??TS.levels[0];
+  const cx=ox+stage.clientWidth/(2*zoom),cy=oy+stage.clientHeight/(2*zoom);
+  for(let i=TS.levels.length-1;i>=0;i--){
+    const L=TS.levels[i];
+    if(zoom*L.hexKm<9)continue;
+    if(L.regionKm&&!(cx>=L.regionKm[0]&&cx<=L.regionKm[2]&&cy>=L.regionKm[1]&&cy<=L.regionKm[3]))continue;
+    return L;
+  }
+  return TS.levels[0];
+}
+function fit(){
+  zoom=Math.min(stage.clientWidth/XMAX,stage.clientHeight/YMAX);
+  ox=-(stage.clientWidth/zoom-XMAX)/2;oy=-(stage.clientHeight/zoom-YMAX)/2;
+}
+
+/* ---- Scene neu füllen: Zellen nach Farbe gebatcht zeichnen.
+   margin 0.5 = voller Rand (ruhige Lage); 0.12 = schneller Zoom-Refill,
+   der volle Rand wird nachgeholt, sobald die Eingabe ruht. ---- */
+function refillScene(L,dpr,margin=0.5){
+  const t0=performance.now();
+  const vwKm=stage.clientWidth/zoom,vhKm=stage.clientHeight/zoom;
+  scene.ox=ox-vwKm*margin;scene.oy=oy-vhKm*margin;
+  scene.wKm=vwKm*(1+2*margin);scene.hKm=vhKm*(1+2*margin);
+  const pxW=Math.ceil(scene.wKm*zoom*dpr),pxH=Math.ceil(scene.hKm*zoom*dpr);
+  if(scene.cv.width!==pxW||scene.cv.height!==pxH){scene.cv.width=pxW;scene.cv.height=pxH;}
+  const g=scene.ctx;
+  g.setTransform(1,0,0,1,0,0);
+  g.fillStyle=TERRCOL[0];g.fillRect(0,0,pxW,pxH);
+  const s=L.hexKm/SQRT3,rad=s*zoom*dpr;
+  const r0=Math.max(0,Math.floor(scene.oy/(s*1.5))-1),
+        r1=Math.min(L.rows-1,Math.ceil((scene.oy+scene.hKm)/(s*1.5))+1),
+        c0=Math.max(0,Math.floor(scene.ox/(s*SQRT3))-1),
+        c1=Math.min(L.cols-1,Math.ceil((scene.ox+scene.wKm)/(s*SQRT3))+1);
+  const batches=new Map();let n=0;
+  for(let r=r0;r<=r1;r++){
+    const[,cy0]=centerKm(0,r,s);
+    const py=(cy0-scene.oy)*zoom*dpr;
+    for(let c=c0;c<=c1;c++){
+      const d=cellData(L,c,r);if(!d||(!d.t&&!d.s&&!d.e))continue;
+      n++;
+      const col=colorOf(d.t,d.s,d.e>>4);
+      let p=batches.get(col);if(!p){p=new Path2D();batches.set(col,p);}
+      const px=(centerKm(c,r,s)[0]-scene.ox)*zoom*dpr;
+      p.moveTo(px+CORN[0][0]*rad,py+CORN[0][1]*rad);
+      for(let i=1;i<6;i++)p.lineTo(px+CORN[i][0]*rad,py+CORN[i][1]*rad);
+      p.closePath();
+    }
+  }
+  for(const[col,p]of batches){g.fillStyle=col;g.fill(p);}
+  scene.zoom=zoom;scene.levelId=L.id;scene.valid=true;
+  stats.refills++;stats.refillMs=performance.now()-t0;stats.cells=n;stats.batches=batches.size;
+}
+
+/* ---- Frame: blitten + Overlay; Refill nur wenn nötig ---- */
+let pending=false,fullT=null,wantFull=false;
+function requestRender(){if(!pending){pending=true;requestAnimationFrame(frame);}}
+function scheduleFullRefill(){
+  clearTimeout(fullT);
+  fullT=setTimeout(()=>{wantFull=true;requestRender();},180);
+}
+function frame(){
+  pending=false;
+  const t0=performance.now();
+  const dpr=devicePixelRatio||1;
+  if(cv.width!==stage.clientWidth*dpr||cv.height!==stage.clientHeight*dpr){
+    cv.width=stage.clientWidth*dpr;cv.height=stage.clientHeight*dpr;scene.valid=false;
+  }
+  const L=pickLevel();
+  const vwKm=stage.clientWidth/zoom,vhKm=stage.clientHeight/zoom;
+  if(!scene.valid||scene.levelId!==L.id||scene.zoom!==zoom||
+     ox<scene.ox||oy<scene.oy||ox+vwKm>scene.ox+scene.wKm||oy+vhKm>scene.oy+scene.hKm){
+    /* Eingabe wartet: kleiner, schneller Refill — voller Rand kommt im Idle. */
+    refillScene(L,dpr,0.12);scheduleFullRefill();wantFull=false;
+  } else if(wantFull){
+    refillScene(L,dpr,0.5);wantFull=false;
+  }
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle=TERRCOL[0];ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.drawImage(scene.cv,Math.round((scene.ox-ox)*zoom*dpr),Math.round((scene.oy-oy)*zoom*dpr));
+  drawOverlay(L,dpr);
+  stats.frameMs=performance.now()-t0;
+  updateHud(L);
+}
+function drawOverlay(L,dpr){
+  if(Q.get('labels')==='0')return;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.font='10px system-ui';ctx.textAlign='center';
+  for(const lm of TS.landmarks){
+    if(lm.detail&&L.id===0)continue;
+    const[x,y]=kmOfLonLat(lm.lon,lm.lat);
+    const px=(x-ox)*zoom,py=(y-oy)*zoom;
+    if(px<-40||py<-20||px>stage.clientWidth+40||py>stage.clientHeight+20)continue;
+    ctx.fillStyle='#e3c576';ctx.beginPath();ctx.arc(px,py,2.2,0,7);ctx.fill();
+    ctx.fillStyle='#f2e7c9';ctx.shadowColor='#000';ctx.shadowBlur=4;
+    ctx.fillText(lm.name,px,py+(lm.dy?14:-6));ctx.shadowBlur=0;
+  }
+}
+function updateHud(L){
+  document.getElementById('hud').innerHTML=
+    `Ebene <b>${L.id}</b> (${L.hexKm} km/Hex, ${(zoom*L.hexKm).toFixed(1)} px)\n`+
+    `Frame: <b>${stats.frameMs.toFixed(1)} ms</b> · letzter Refill: ${stats.refillMs.toFixed(1)} ms `+
+    `(${stats.cells} Zellen, ${stats.batches??0} Farb-Batches, insgesamt ${stats.refills}×)\n`+
+    `dekodiert: ${decoded} Kacheln · Hauptlauf ${TS.totalKm} km`+(benchTxt?'\n'+benchTxt:'');
+}
+
+/* ---- Interaktion ---- */
+let drag=null,moved=false;
+stage.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};moved=false;stage.classList.add('drag');stage.setPointerCapture(e.pointerId);});
+stage.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  if(Math.abs(dx)+Math.abs(dy)>3)moved=true;
+  ox-=dx/zoom;oy-=dy/zoom;drag={x:e.clientX,y:e.clientY};requestRender();
+});
+stage.addEventListener('pointerup',e=>{
+  stage.classList.remove('drag');drag=null;
+  if(!moved)inspectAt(e.clientX,e.clientY);
+});
+function zoomAt(f,cx,cy){
+  const wx=ox+cx/zoom,wy=oy+cy/zoom;
+  zoom=Math.max(0.3,Math.min(140,zoom*f));
+  ox=wx-cx/zoom;oy=wy-cy/zoom;requestRender();
+}
+stage.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.deltaY<0?1.25:0.8,e.clientX,e.clientY-stage.offsetTop);},{passive:false});
+document.getElementById('zin').onclick=()=>zoomAt(1.4,stage.clientWidth/2,stage.clientHeight/2);
+document.getElementById('zout').onclick=()=>zoomAt(1/1.4,stage.clientWidth/2,stage.clientHeight/2);
+document.getElementById('zfit').onclick=()=>{fit();requestRender();};
+addEventListener('resize',()=>requestRender());
+
+/* ---- Inspektor ---- */
+const insp=document.getElementById('inspector');
+document.getElementById('inspClose').onclick=()=>insp.classList.remove('show');
+function inspectAt(px,py){
+  const L=pickLevel(),s=L.hexKm/SQRT3;
+  const[c,r]=cellAtKm(ox+px/zoom,oy+(py-stage.offsetTop)/zoom,s);
+  const d=cellData(L,c,r);if(!d)return;
+  const lm=TS.landmarks.find(lm=>{
+    const[lc,lr]=cellAtKm(...kmOfLonLat(lm.lon,lm.lat),s);return lc===c&&lr===r;});
+  const br=L.branches.find(b=>b.cells.some(([bc,brr])=>bc===c&&brr===r));
+  const pathCell=L.path.find(([pc,pr])=>pc===c&&pr===r);
+  const sec=d.s?SECBYID[SECIDS[d.s]]:null;
+  document.getElementById('inspTitle').textContent=
+    lm?lm.name:br&&d.t===6?br.name+' ('+br.art+')':TERRNAME[d.t];
+  document.getElementById('inspMeta').textContent=
+    [sec?'Abschnitt: '+sec.name:null,
+     pathCell?'≈ km '+pathCell[2]+' ab der Quelle':null,
+     d.e?'≈ '+(d.e*25)+' m ü. M.':null,
+     'Ebene '+L.id+' · ('+c+','+r+')'].filter(Boolean).join(' · ');
+  document.getElementById('inspTxt').textContent=
+    lm?lm.note:
+    br&&d.t===6?(br.note??'Ein Nebenlauf im Einzugsgebiet des Rheins.'):
+    sec?sec.txt:
+    d.t===2?'Bergland — der Fluss sucht sich seinen Weg darum herum oder hindurch.':
+    d.t===7?'Hang — geneigtes Land über dem Talboden (aus dem Höhenmodell abgeleitet).':
+    d.t===5?'Die Nordsee — hier endet die Reise des Rheins.':
+    'Offenes Land im Einzugsgebiet des Rheins.';
+  insp.classList.add('show');
+}
+
+/* ---- Bench (?bench): 60 Schwenks + 12 Zoomstufen, synchron gemessen ---- */
+let benchTxt='';
+function runBench(){
+  const pan=[],zm=[];
+  for(let i=0;i<60;i++){ox+=(i<30?6:-6)/zoom;const t=performance.now();frame();pan.push(performance.now()-t);}
+  for(let i=0;i<12;i++){const f=i%2?1.15:1/1.15;
+    const wx=ox+stage.clientWidth/(2*zoom),wy=oy+stage.clientHeight/(2*zoom);
+    zoom=Math.max(0.3,Math.min(140,zoom*f));
+    ox=wx-stage.clientWidth/(2*zoom);oy=wy-stage.clientHeight/(2*zoom);
+    const t=performance.now();frame();zm.push(performance.now()-t);}
+  const avg=a=>(a.reduce((x,y)=>x+y,0)/a.length).toFixed(2);
+  const max=a=>Math.max(...a).toFixed(1);
+  benchTxt=`<b>Bench</b> · Schwenk: Ø ${avg(pan)} ms (max ${max(pan)}) · Zoom: Ø ${avg(zm)} ms (max ${max(zm)})`;
+  frame();
+}
+
+/* ---- Start (Debug: ?lon&lat&z, ?level, ?stats, ?labels=0, ?inspect=lon,lat, ?bench) ---- */
+document.body.classList.toggle('stats',Q.has('stats')||Q.has('bench'));
+fit();
+if(Q.has('lon')&&Q.has('lat')){
+  zoom=+(Q.get('z')||6);
+  const[x,y]=kmOfLonLat(+Q.get('lon'),+Q.get('lat'));
+  ox=x-stage.clientWidth/(2*zoom);oy=y-stage.clientHeight/(2*zoom);
+}
+frame();
+if(Q.has('inspect')){
+  const[lon,lat]=Q.get('inspect').split(',').map(Number);
+  const[x,y]=kmOfLonLat(lon,lat);
+  inspectAt((x-ox)*zoom,(y-oy)*zoom+stage.offsetTop);
+}
+if(Q.has('bench'))runBench(); // synchron: blockiert das Load-Event, bis die Messung steht
+</script>
+</body>
+</html>
