@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 115.47">
+  <title>Wald — Aquarell</title>
+  <clipPath id="hex"><path d="M50,0 L100,28.87 L100,86.6 L50,115.47 L0,86.6 L0,28.87 Z"/></clipPath>
+  <g clip-path="url(#hex)">
+    <rect x="0" y="0" width="100" height="115.47" fill="#8FA878"/>
+    <g opacity="0.5">
+      <ellipse cx="28" cy="40" rx="24" ry="18" fill="#799263" transform="rotate(-10 28 40)"/>
+      <ellipse cx="68" cy="55" rx="26" ry="19" fill="#A0BB86" transform="rotate(8 68 55)"/>
+      <ellipse cx="42" cy="85" rx="26" ry="17" fill="#799263" transform="rotate(-5 42 85)"/>
+    </g>
+  </g>
+</svg>

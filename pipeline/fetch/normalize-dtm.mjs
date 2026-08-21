@@ -8,6 +8,14 @@
  * (kind "hoehen": Int16-Meter, base64, row-major ab Nordwest).
  *
  * Aufruf:  node pipeline/fetch/normalize-dtm.mjs
+ *          node pipeline/fetch/normalize-dtm.mjs --lonW=9.25 --lonE=9.9 --latS=46.75 --latN=47.55
+ *            [--name=alpenrhein] [--spacing=200]
+ *
+ * Die Region ist bewusst NUR hier konfigurierbar: bake.mjs leitet die Region
+ * der DTM-Ebene aus der geschriebenen Höhenquelle ab, statt dieselbe Box ein
+ * zweites Mal zu führen. Der Dateiname ist deshalb regionsneutral — ein neuer
+ * Lauf ERSETZT die Höhenquelle, statt eine zweite danebenzulegen (sonst
+ * würde bake beide Regionen zusammenfassen).
  */
 import { fromFile } from 'geotiff'
 import { writeFileSync } from 'node:fs'
@@ -16,12 +24,37 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = dirname(fileURLToPath(import.meta.url))
 
-/* ---- Konfiguration: Region Alpenrhein, 200-m-Stichprobenraster ---- */
-const REGION = { name: 'alpenrhein', lonW: 9.25, lonE: 9.90, latS: 46.75, latN: 47.55 }
-const SPACING_M = 200
+/* ---- Konfiguration: Standard = Region Alpenrhein, 200-m-Stichprobenraster ---- */
+const DEFAULTS = { name: 'alpenrhein', lonW: 9.25, lonE: 9.90, latS: 46.75, latN: 47.55, spacing: 200 }
+const argv = Object.fromEntries(
+  process.argv.slice(2)
+    .map((a) => a.match(/^--([a-zA-Z]+)=(.*)$/))
+    .filter(Boolean)
+    .map((m) => [m[1], m[2]]),
+)
+const num = (key) => {
+  if (argv[key] == null) return DEFAULTS[key]
+  const v = Number(argv[key])
+  if (!Number.isFinite(v)) { console.error(`--${key} ist keine Zahl: ${argv[key]}`); process.exit(1) }
+  return v
+}
+const REGION = {
+  name: (argv.name || DEFAULTS.name).replace(/[^a-zA-Z0-9_-]/g, '') || DEFAULTS.name,
+  lonW: num('lonW'), lonE: num('lonE'), latS: num('latS'), latN: num('latN'),
+}
+const SPACING_M = num('spacing')
+if (!(REGION.lonW < REGION.lonE) || !(REGION.latS < REGION.latN)) {
+  console.error('Ungültige Region: lonW < lonE und latS < latN erforderlich.')
+  process.exit(1)
+}
+if (!(SPACING_M >= 20 && SPACING_M <= 5000)) {
+  console.error(`Ungültige Rasterweite: ${SPACING_M} m (erlaubt 20–5000).`)
+  process.exit(1)
+}
 const NODATA_OUT = -9999
 const SRC_TIF = join(ROOT, '..', 'data', 'dtm-switzerland-50m-v2-sonny.tif')
-const OUT = join(ROOT, '..', 'sources', 'sonny-dtm-ch50.alpenrhein.grid.json')
+const OUT = join(ROOT, '..', 'sources', 'sonny-dtm-ch50.grid.json')
+console.log(`Region ${REGION.name}: ${REGION.lonW}–${REGION.lonE}°O, ${REGION.latS}–${REGION.latN}°N · ${SPACING_M} m Raster`)
 
 /* ---- WGS84 → UTM Zone 32N (Snyder-Reihen, cm-genau) ---- */
 function utm32(lon, lat) {
@@ -62,6 +95,13 @@ const px1 = Math.min(W, Math.ceil((uxMax - ox) / rx))
 const py0 = Math.max(0, Math.floor((uyMax - oy) / ry)) // ry<0: Nord = kleine Pixelzeile
 const py1 = Math.min(H, Math.ceil((uyMin - oy) / ry))
 console.log(`Fenster: Pixel [${px0},${py0}]–[${px1},${py1}] (${px1 - px0}×${py1 - py0})`)
+/* Region liegt komplett neben dem DTM: dann ist das Fenster leer/negativ und
+   geotiff würde mit "Invalid subsets" abstürzen — lieber sauber melden. */
+if (px1 <= px0 || py1 <= py0) {
+  console.error('Region liegt ausserhalb des Höhenmodells — das DTM deckt nur die Schweiz ab.')
+  console.error('Die bisherige Höhenquelle bleibt unverändert.')
+  process.exit(1)
+}
 const rasters = await img.readRasters({ window: [px0, py0, px1, py1] })
 const band = rasters[0]
 const winW = px1 - px0
@@ -86,6 +126,14 @@ const dLat = SPACING_M / 110600
 const dLon = SPACING_M / (111320 * Math.cos((latMid * Math.PI) / 180))
 const cols = Math.round((REGION.lonE - REGION.lonW) / dLon) + 1
 const rows = Math.round((REGION.latN - REGION.latS) / dLat) + 1
+/* Schutz vor versehentlich riesigen Gebieten (die Ausgabedatei wächst mit
+   cols*rows*2 Byte und landet als Inline-JS im Prototyp). */
+const MAX_CELLS = 4_000_000
+if (cols * rows > MAX_CELLS) {
+  console.error(`Region zu gross: ${cols}×${rows} = ${cols * rows} Rasterpunkte (max ${MAX_CELLS}).`)
+  console.error('Kleineres Gebiet ziehen oder --spacing erhöhen.')
+  process.exit(1)
+}
 const data = new Int16Array(cols * rows)
 let n = 0, nd = 0, min = Infinity, max = -Infinity
 for (let r = 0; r < rows; r++) {
@@ -102,6 +150,15 @@ for (let r = 0; r < rows; r++) {
   }
 }
 console.log(`Raster: ${cols}×${rows} (${SPACING_M} m) · ${n} Werte, ${nd} NoData (${((100 * nd) / (n + nd)).toFixed(1)} %) · Höhe ${min}–${max} m`)
+/* Ganz ausserhalb der Schweiz gezogen: das DTM deckt nur CH ab. Lieber hart
+   abbrechen, als eine leere Höhenquelle zu schreiben — sonst verlöre der
+   nächste Bake das Relief der bisherigen Region stillschweigend. */
+if (n === 0) {
+  console.error('Keine Höhenwerte in dieser Region — das DTM deckt nur die Schweiz ab.')
+  console.error('Die bisherige Höhenquelle bleibt unverändert.')
+  process.exit(1)
+}
+if (nd / (n + nd) > 0.9) console.warn(`Warnung: ${((100 * nd) / (n + nd)).toFixed(0)} % NoData — Region liegt grösstenteils ausserhalb der Schweiz.`)
 
 /* ---- normalisierte Quelle schreiben ---- */
 const out = {

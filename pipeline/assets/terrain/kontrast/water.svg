@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 115.47">
+  <title>Fluss — Kontrast</title>
+  <clipPath id="hex"><path d="M50,0 L100,28.87 L100,86.6 L50,115.47 L0,86.6 L0,28.87 Z"/></clipPath>
+  <g clip-path="url(#hex)">
+    <rect x="0" y="0" width="100" height="115.47" fill="#2E86AB"/>
+    <g fill="none" stroke="#EAF6F6" stroke-width="4" stroke-linejoin="round" opacity="0.9">
+      <path d="M-10,15 l15,10 l15,-10 l15,10 l15,-10 l15,10 l15,-10 l15,10"/>
+      <path d="M-10,48 l15,10 l15,-10 l15,10 l15,-10 l15,10 l15,-10 l15,10"/>
+      <path d="M-10,81 l15,10 l15,-10 l15,10 l15,-10 l15,10 l15,-10 l15,10"/>
+      <path d="M-10,106 l15,10 l15,-10 l15,10 l15,-10 l15,10 l15,-10 l15,10"/>
+    </g>
+  </g>
+</svg>

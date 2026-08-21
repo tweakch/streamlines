@@ -20,17 +20,61 @@ const OUT = join(ROOT, '..', 'sources', 'osm-seen.geo.json')
 const SIMPLIFY_M = 100
 
 const LAKES = [
-  { name: 'Walensee', bbox: '47.08,9.05,47.18,9.35',
+  { name: 'Walensee', tiefe: 151, bbox: '47.08,9.05,47.18,9.35',
     note: 'Fjordartiger See zwischen Churfirsten und Kerenzerberg — die Seez mündet, die Linth durchfliesst ihn seit der Linthkorrektion.' },
-  { name: 'Zürichsee', bbox: '47.15,8.52,47.40,8.85',
+  { name: 'Zürichsee', tiefe: 136, bbox: '47.15,8.52,47.40,8.85',
     note: 'Gletscherzungenbecken der Linth — am Ausfluss in Zürich beginnt die Limmat.' },
-  { name: 'Obersee', label: 'Zürichsee (Obersee)', bbox: '47.17,8.78,47.30,9.00',
+  { name: 'Obersee', tiefe: 48, label: 'Zürichsee (Obersee)', bbox: '47.17,8.78,47.30,9.00',
     note: 'Oberer Teil des Zürichsees, vom Seedamm abgetrennt — hier mündet die Linth.' },
-  { name: 'Sihlsee', bbox: '47.07,8.74,47.18,8.85',
+  { name: 'Sihlsee', tiefe: 23, bbox: '47.07,8.74,47.18,8.85',
     note: 'Stausee von 1937, der grösste Speichersee der Schweiz nach Fläche — die Sihl durchfliesst ihn.' },
   /* Relation 1156846 umfasst den ganzen Bodensee inkl. Untersee. */
-  { name: 'Bodensee', bbox: '47.42,8.85,47.65,9.80',
+  { name: 'Bodensee', tiefe: 251, bbox: '47.42,8.85,47.65,9.80',
     note: 'Der Rhein durchquert den See — Pfahlbauten an den Ufern, Konstanz am Seerhein, bei Stein am Rhein beginnt der Hochrhein.' },
+
+  /* ---- Zungenbecken des ganzen Alpenbogens (ab Aug 2026, für eiszeit-labor-v3) ----
+     Jeder dieser Seen liegt in einem Becken, das ein Eisstrom ausgeschürft hat;
+     mehrere sind übertieft (Sohle unter dem Meeresspiegel). Sie sind damit nicht
+     Kulisse, sondern der Beleg: wo heute ein Fjordsee liegt, stand eine Zunge.
+     Für das Eismodell zählen sie doppelt — als Becken mit weichem Bett (kleinere
+     Fliessgrenze) und als Ort, an dem die Zunge ins Wasser kalben konnte.       */
+  /* OSM führt den See als „Le Léman“ (name:de = Genfersee) — nicht als „Lac Léman“. */
+  { name: 'Le Léman', tiefe: 310, label: 'Genfersee', bbox: '46.18,6.08,46.55,6.98',
+    note: 'Grösstes Zungenbecken der Alpen — der Rhônegletscher hat es ausgeschürft, die Rhône durchfliesst es.' },
+  { name: 'Lac du Bourget', tiefe: 145, bbox: '45.65,5.75,45.93,5.95',
+    note: 'Zungenbecken am Westrand der Savoyer Alpen, tiefster natürlicher See Frankreichs.' },
+  { name: 'Lac de Neuchâtel', tiefe: 152, label: 'Neuenburgersee', bbox: '46.75,6.55,47.05,7.15',
+    note: 'Jurarandsee am Nordrand des Rhône-/Aaregletschers — an seinen Ufern liegen die Pfahlbaudörfer.' },
+  { name: 'Bielersee', tiefe: 74, bbox: '47.02,7.05,47.15,7.30',
+    note: 'Jurarandsee; die Aare wurde erst durch die Juragewässerkorrektion hineingeleitet.' },
+  { name: 'Thunersee', tiefe: 217, bbox: '46.63,7.58,46.78,7.85',
+    note: 'Zungenbecken des Aaregletschers, vom Brienzersee durch den Schwemmkegel von Interlaken getrennt.' },
+  { name: 'Brienzersee', tiefe: 260, bbox: '46.68,7.83,46.80,8.10',
+    note: 'Der zweite Teil desselben ausgeschürften Trogs — Interlaken liegt auf der Schwelle dazwischen.' },
+  { name: 'Vierwaldstättersee', tiefe: 214, bbox: '46.90,8.28,47.12,8.72',
+    note: 'Verzweigtes Zungenbecken des Reussgletschers; der Urnersee ist sein südlichster Arm.' },
+  { name: 'Lago Maggiore', tiefe: 372, label: 'Lago Maggiore (Verbano)', bbox: '45.65,8.42,46.22,8.95',
+    note: 'Übertieft: die Sohle liegt gut 170 m unter dem Meeresspiegel. Der Verbano-Lappen endete bei Sesto Calende.' },
+  { name: 'Lago di Lugano', tiefe: 288, label: 'Luganersee', bbox: '45.88,8.82,46.08,9.15',
+    note: 'Verzweigter Fjordsee zwischen den Lappen von Verbano und Como.' },
+  { name: 'Lago di Como', tiefe: 410, label: 'Comersee', bbox: '45.78,9.02,46.22,9.48',
+    note: 'Übertieft bis 200 m unter dem Meeresspiegel; sein Lappen endete in der Brianza.' },
+  { name: "Lago d'Iseo", tiefe: 251, label: 'Iseosee', bbox: '45.60,9.92,45.88,10.18',
+    note: 'Zungenbecken des Oglio-Gletschers, mit eigenem Endmoränenkranz im Süden.' },
+  { name: 'Lago di Garda', tiefe: 346, label: 'Gardasee', bbox: '45.40,10.48,45.92,10.92',
+    note: 'Grösster See Italiens und das tiefste Zungenbecken der Südalpen — sein Amphitheater bei Rivoli–Villafranca markiert den tiefsten Eisrand der Alpen.' },
+  { name: 'Ammersee', tiefe: 81, bbox: '47.90,11.02,48.10,11.22',
+    note: 'Zungenbecken des Ammergletschers im bayerischen Vorland.' },
+  { name: 'Starnberger See', tiefe: 128, label: 'Starnberger See (Würmsee)', bbox: '47.80,11.20,48.02,11.40',
+    note: 'Zungenbecken des Isar-Loisach-Gletschers. Sein Abfluss, die Würm, hat der ganzen Eiszeit den Namen gegeben.' },
+  { name: 'Chiemsee', tiefe: 73, bbox: '47.78,12.32,47.95,12.55',
+    note: 'Zungenbecken des Salzachgletschers — das „bayerische Meer“ ist der Rest eines viel größeren Eisstausees.' },
+  { name: 'Attersee', tiefe: 169, bbox: '47.72,13.42,47.98,13.62',
+    note: 'Zungenbecken des Traungletschers am Nordrand der Ostalpen.' },
+  { name: 'Traunsee', tiefe: 191, bbox: '47.75,13.72,47.95,13.88',
+    note: 'Tiefster See Österreichs, ausgeschürft vom Traungletscher.' },
+  { name: 'Wörthersee', tiefe: 85, bbox: '46.58,14.02,46.68,14.28',
+    note: 'Im Klagenfurter Becken, dem Zungenbecken des Draugletschers — des östlichsten grossen Lappens.' },
 ]
 
 const ENDPOINTS = [
@@ -167,7 +211,12 @@ for (const l of LAKES) {
   console.log(`  ${osmRef}, ${ways.length} Wege → Ring ${r.length} → ${simp.length} Punkte`)
   features.push({
     type: 'Feature',
-    properties: { kind: 'see', name: l.label ?? l.name, osm: osmRef, note: l.note },
+    /* `tiefe` ist die Maximaltiefe in Metern — HANDKURATIERT aus der Literatur,
+       nicht aus OSM. Sie ist der einzige Weg, die Übertiefung der Zungenbecken
+       überhaupt in die Pipeline zu bekommen: ein DTM liefert für eine
+       Wasserfläche den Wasserspiegel, nicht den Seeboden. */
+    properties: { kind: 'see', name: l.label ?? l.name, osm: osmRef, note: l.note,
+      ...(l.tiefe ? { tiefe: l.tiefe } : {}) },
     geometry: { type: 'Polygon', coordinates: [simp.map(([lon, lat]) => [+lon.toFixed(5), +lat.toFixed(5)])] },
   })
 }
@@ -176,7 +225,7 @@ const out = {
   type: 'FeatureCollection',
   provenance: {
     quelle: 'OpenStreetMap via Overpass API',
-    beschreibung: `natural=water (${LAKES.map((l) => l.name).join(', ')}), outer-Ring verkettet, Douglas-Peucker ${SIMPLIFY_M} m.`,
+    beschreibung: `natural=water (${LAKES.map((l) => l.name).join(', ')}), outer-Ring verkettet, Douglas-Peucker ${SIMPLIFY_M} m. Dazu je See eine handkuratierte MAXIMALTIEFE (Feld „tiefe", Meter, Literaturwert): das DTM kennt nur den Wasserspiegel, und ohne die Tiefe fehlt der Pipeline die Übertiefung der Zungenbecken.`,
     lizenz: 'ODbL 1.0 — © OpenStreetMap contributors. Share-Alike gilt für abgeleitete Datenbanken (betrifft das gebackene Tileset).',
     stand: new Date().toISOString().slice(0, 10),
   },

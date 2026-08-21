@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 115.47">
+  <title>See</title>
+  <clipPath id="hex"><path d="M50,0 L100,28.87 L100,86.6 L50,115.47 L0,86.6 L0,28.87 Z"/></clipPath>
+  <g clip-path="url(#hex)">
+    <rect x="0" y="0" width="100" height="115.47" fill="#8FBDB6"/>
+    <g stroke="#B7DAD5" stroke-width="1.8" fill="none" opacity="0.55">
+      <circle cx="35" cy="35" r="10"/>
+      <circle cx="35" cy="35" r="18"/>
+      <circle cx="70" cy="75" r="9"/>
+      <circle cx="70" cy="75" r="16"/>
+      <circle cx="60" cy="30" r="6"/>
+    </g>
+  </g>
+</svg>

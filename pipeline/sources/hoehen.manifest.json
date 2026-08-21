@@ -1,0 +1,115 @@
+{
+  "beschreibung": "Register der Höhenquellen (GeoTIFF-DTMs) in pipeline/data/. Die REIHENFOLGE ist der Vorrang: die erste Quelle, die für ein Feld einen Wert liefert, gewinnt. Sonny steht deshalb vor Copernicus — LiDAR vor Radar. Die Dateien liegen NICHT im Repo (zu gross); 'herkunft' sagt, wo sie herkommen. Prüfen mit: node pipeline/fetch/hoehen-quellen.mjs --pruefen",
+  "hinweis": "Wer eine Quelle ergänzt: Datei nach pipeline/data/ legen, hier eintragen (Name genau wie die Datei), 'stand' auf das Downloaddatum setzen, --pruefen laufen lassen. Ist der Dateiname anders als hier eingetragen, meldet --pruefen die Datei als fehlend und listet, was in data/ tatsächlich liegt.",
+  "felder": {
+    "id": "kurzer Schlüssel, landet als Zahl je Feld im Datenfile",
+    "datei": "Dateiname in pipeline/data/",
+    "version": "Sonny-Versionskürzel des DTM (steht im Dateinamen), zur Nachverfolgbarkeit bei einem Re-Download",
+    "fuer": "welche Prototypen die Quelle brauchen: eiszeit | rhein",
+    "aufloesungM": "nominale Rasterweite in Metern (nur zur Anzeige; gelesen wird, was im GeoTIFF steht)",
+    "lizenz": "Namensnennung, die ins Datenfile und in die Spielcredits muss",
+    "stand": "Downloaddatum, oder 'erwartet' wenn die Datei noch fehlt"
+  },
+  "quellen": [
+    {
+      "id": "sonny-ch-50",
+      "datei": "dtm-switzerland-50m-v2-sonny.tif",
+      "version": "v2",
+      "land": "CH",
+      "fuer": [
+        "eiszeit",
+        "rhein"
+      ],
+      "aufloesungM": 50,
+      "lizenz": "CC BY 4.0 — Sonny, sonny.4lima.de",
+      "herkunft": "bit.ly/dtm-switzerland-50m-v2 (DTM Switzerland 50m v2 by Sonny)",
+      "stand": "2026-08-19",
+      "note": "Endet exakt an der Landesgrenze — der Grund für alle folgenden Einträge."
+    },
+    {
+      "id": "sonny-at",
+      "datei": "dtm-austria-50m-v2-sonny.tif",
+      "version": "v2",
+      "land": "AT",
+      "fuer": [
+        "eiszeit",
+        "rhein"
+      ],
+      "aufloesungM": 50,
+      "lizenz": "CC BY 4.0 — Sonny, sonny.4lima.de",
+      "herkunft": "sonny.4lima.de — LiDAR-DTMs europäischer Länder (Alpenländer bis 0.5\"/10 m)",
+      "stand": "2026-08-20",
+      "note": "Das ganze östliche Nährgebiet: Rätikon, Silvretta, Verwall und Montafon, dazu — seit der Ausweitung auf den Alpenbogen — Inn-, Salzach-, Enns-, Mur- und Draugletscher bis ins Klagenfurter Becken."
+    },
+    {
+      "id": "sonny-de",
+      "datei": "dtm-germany-50m-v3b-sonny.tif",
+      "version": "v3b",
+      "land": "DE",
+      "fuer": [
+        "eiszeit",
+        "rhein"
+      ],
+      "aufloesungM": 50,
+      "lizenz": "CC BY 4.0 — Sonny, sonny.4lima.de",
+      "herkunft": "sonny.4lima.de",
+      "stand": "2026-08-20",
+      "note": "Der Streifen nördlich des Bodensees und um Schaffhausen trägt die belegte Maximalausdehnung des Rheingletschers; mit dem Alpenbogen dazu das ganze bayerische Vorland (Iller-Lech-, Isar-Loisach- und Salzachlappen). Für das Rhein-Tileset der Hauptteil des Flusslaufs."
+    },
+    {
+      "id": "sonny-it",
+      "datei": "dtm-italy-50m-v2b-sonny.tif",
+      "version": "v2b",
+      "land": "IT",
+      "fuer": [
+        "eiszeit"
+      ],
+      "aufloesungM": 50,
+      "lizenz": "CC BY 4.0 — Sonny, sonny.4lima.de",
+      "herkunft": "sonny.4lima.de",
+      "stand": "2026-08-20",
+      "note": "Südflanke des Alpenbogens: Val Bregaglia und Veltlin, dazu die Amphitheater der Po-Ebene (Ivrea, Como/Brianza, Garda) — die Maximalstände der italienischen Lappen. Die Datei deckt Norditalien bis etwa 47.1 °N; nördlich davon übernehmen CH/AT/DE."
+    },
+    {
+      "id": "sonny-fr",
+      "datei": "dtm-france-50m-v3-sonny.tif",
+      "version": "v3",
+      "land": "FR",
+      "fuer": [
+        "eiszeit",
+        "rhein"
+      ],
+      "aufloesungM": 50,
+      "lizenz": "CC BY 4.0 — Sonny, sonny.4lima.de",
+      "herkunft": "sonny.4lima.de",
+      "stand": "2026-08-20",
+      "note": "Elsass und linkes Rheinufer ab Basel für das Rhein-Tileset — und seit der Ausweitung der Eiszeit-Region auf den ganzen Alpenbogen auch deren Westflügel: Rhônegletscher (Savoyen, Dauphiné) bis zu den Endmoränen der Dombes bei Lyon."
+    },
+    {
+      "id": "sonny-nl",
+      "datei": "dtm-netherlands-50m-v1-sonny.tif",
+      "version": "v1",
+      "land": "NL",
+      "fuer": [
+        "rhein"
+      ],
+      "aufloesungM": 50,
+      "lizenz": "CC BY 4.0 — Sonny, sonny.4lima.de",
+      "herkunft": "sonny.4lima.de",
+      "stand": "2026-08-20",
+      "note": "Delta bis Rotterdam. Höhen um 0 m ü. M. — hier zählt nicht das Relief, sondern dass überhaupt Land von Wasser unterschieden wird."
+    },
+    {
+      "id": "copernicus-glo30",
+      "datei": "dem-copernicus-glo30.tif",
+      "version": "GLO-30",
+      "land": "EU",
+      "fuer": [],
+      "aufloesungM": 30,
+      "lizenz": "frei mit Namensnennung — © ESA / Copernicus DEM",
+      "herkunft": "Copernicus DEM GLO-30 (OpenTopography / AWS)",
+      "stand": "erwartet",
+      "note": "Letzter Rückhalt für Länder, die Sonny nicht abdeckt. Steht absichtlich GANZ HINTEN: Radar-DEM, es misst Baum- und Dachhöhen mit. „fuer“ ist leer — die Quelle wird nur gelesen, wenn sie hier eingetragen wird. Die konkrete Lücke, die sie schliessen würde: Slowenien und die Nordadria (östlich 13.5 °O, südlich 46.6 °N) im Südostzipfel der Alpen-Region — heute tragen diese Felder Bit3 (keine Quelle, nicht gefüllt) und liegen ausserhalb der Modellfläche."
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 115.47">
+  <title>Flachland — Kontrast</title>
+  <clipPath id="hex"><path d="M50,0 L100,28.87 L100,86.6 L50,115.47 L0,86.6 L0,28.87 Z"/></clipPath>
+  <g clip-path="url(#hex)">
+    <rect x="0" y="0" width="100" height="115.47" fill="#8FBF5C"/>
+    <g fill="none" stroke="#4C7A2E" stroke-width="3" stroke-linejoin="round" opacity="0.85">
+      <path d="M15,25 l7,-10 l7,10"/>
+      <path d="M58,18 l7,-10 l7,10"/>
+      <path d="M30,52 l7,-10 l7,10"/>
+      <path d="M72,48 l7,-10 l7,10"/>
+      <path d="M12,72 l7,-10 l7,10"/>
+      <path d="M50,80 l7,-10 l7,10"/>
+      <path d="M82,88 l7,-10 l7,10"/>
+      <path d="M36,98 l7,-10 l7,10"/>
+    </g>
+  </g>
+</svg>

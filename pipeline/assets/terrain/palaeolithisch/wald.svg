@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 115.47">
+  <title>Wald — Paläolithikum</title>
+  <clipPath id="hex"><path d="M50,0 L100,28.87 L100,86.6 L50,115.47 L0,86.6 L0,28.87 Z"/></clipPath>
+  <g clip-path="url(#hex)">
+    <rect x="0" y="0" width="100" height="115.47" fill="#8C9482"/>
+    <g fill="#7A8270" opacity="0.4"><circle cx="30" cy="55" r="8"/><circle cx="68" cy="40" r="7"/></g>
+    <g fill="#9CA48E" opacity="0.4"><circle cx="45" cy="70" r="3"/></g>
+  </g>
+</svg>

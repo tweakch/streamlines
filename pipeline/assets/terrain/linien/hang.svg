@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 115.47">
+  <title>Hang — Linien</title>
+  <clipPath id="hex"><path d="M50,0 L100,28.87 L100,86.6 L50,115.47 L0,86.6 L0,28.87 Z"/></clipPath>
+  <g clip-path="url(#hex)">
+    <rect x="0" y="0" width="100" height="115.47" fill="#F2EFE6"/>
+    <g fill="none" stroke="#9A9384" stroke-width="1" opacity="0.8">
+      <path d="M5,20 Q50,10 95,20"/>
+      <path d="M5,45 Q50,35 95,45"/>
+      <path d="M5,70 Q50,60 95,70"/>
+      <path d="M5,95 Q50,85 95,95"/>
+    </g>
+  </g>
+</svg>

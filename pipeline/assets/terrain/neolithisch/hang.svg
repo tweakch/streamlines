@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 115.47">
+  <title>Hang — Neolithikum</title>
+  <clipPath id="hex"><path d="M50,0 L100,28.87 L100,86.6 L50,115.47 L0,86.6 L0,28.87 Z"/></clipPath>
+  <g clip-path="url(#hex)">
+    <rect x="0" y="0" width="100" height="115.47" fill="#B7AD79"/>
+    <g fill="none" stroke="#9C9160" stroke-width="2" opacity="0.55"><path d="M-5,20 L40,20 L50,10 L105,10"/><path d="M-5,45 L40,45 L50,35 L105,35"/><path d="M-5,70 L40,70 L50,60 L105,60"/><path d="M-5,95 L40,95 L50,85 L105,85"/></g>
+  </g>
+</svg>

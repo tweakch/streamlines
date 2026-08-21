@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "HLS Link-Sammler",
+  "version": "1.0.0",
+  "description": "Sammelt beim Lesen im Historischen Lexikon der Schweiz die Verlinkungen zwischen Artikeln und schreibt sie pro Artikel als JSON in einen konfigurierbaren Downloads-Unterordner.",
+  "permissions": ["downloads", "storage"],
+  "host_permissions": ["https://hls-dhs-dss.ch/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://hls-dhs-dss.ch/*/articles/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "HLS Link-Sammler"
+  }
+}

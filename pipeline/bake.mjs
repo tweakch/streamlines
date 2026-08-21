@@ -30,8 +30,11 @@ const LEVELS = [
   { id: 0, hexKm: 10 }, // Rheinkarte (Kampagne)
   { id: 1, hexKm: 2 },  // Gebietskarte (entspricht der Alpenrhein-Welt in world.ts)
   /* Ebene 2 = Basisraster. Kacheln werden nur innerhalb der Region geliefert
-     (dort liegen Höhendaten); das Basisraster selbst ist global. */
-  { id: 2, hexKm: 0.4, region: { lonW: 9.25, lonE: 9.90, latS: 46.75, latN: 47.55 }, dtm: true },
+     (dort liegen Höhendaten); das Basisraster selbst ist global. Die Region
+     wird NICHT hier festgelegt, sondern unten aus den vorhandenen
+     Höhenquellen abgeleitet — sonst müsste dieselbe Bounding Box in
+     fetch/normalize-dtm.mjs und hier doppelt gepflegt werden. */
+  { id: 2, hexKm: 0.4, dtm: true },
 ]
 const FINE = LEVELS[LEVELS.length - 1]
 const TILE = 32
@@ -43,22 +46,70 @@ const SECIDS = ['', 'alpen', 'bodensee', 'hoch', 'ober', 'mittel', 'nieder', 'de
 /* ---------- Quellen einlesen ---------- */
 const srcDir = join(ROOT, 'sources')
 const feats = []
-const provenance = []
+const provenance = [] // + bbox/bboxKm je Datei, fürs Quellenverzeichnis im Viewer (v3)
 const grids = [] // normalisierte Höhenquellen (kind "hoehen")
+
+/* Bbox (lon/lat) über beliebig verschachtelte GeoJSON-Koordinaten (Point/LineString/Polygon/...). */
+function bboxOfFeatures(features) {
+  let lonW = Infinity, lonE = -Infinity, latS = Infinity, latN = -Infinity
+  const walk = (coords) => {
+    if (typeof coords[0] === 'number') {
+      const [lon, lat] = coords
+      if (lon < lonW) lonW = lon; if (lon > lonE) lonE = lon
+      if (lat < latS) latS = lat; if (lat > latN) latN = lat
+      return
+    }
+    for (const c of coords) walk(c)
+  }
+  for (const f of features) walk(f.geometry.coordinates)
+  return [lonW, latS, lonE, latN]
+}
+/* dieselbe km-Projektion wie kmOf() weiter unten, hier lokal auf lonW/latN + lonE/latS. */
+const bboxKmOf = ([lonW, latS, lonE, latN]) => {
+  const [x0, y0] = [(lonW - CFG.lon0) * CFG.kmx, (CFG.lat1 - latN) * CFG.kmy]
+  const [x1, y1] = [(lonE - CFG.lon0) * CFG.kmx, (CFG.lat1 - latS) * CFG.kmy]
+  return [x0, y0, x1, y1]
+}
+
 for (const f of readdirSync(srcDir)) {
   if (f.endsWith('.grid.json')) {
     const g = JSON.parse(readFileSync(join(srcDir, f), 'utf8'))
     if (g.kind !== 'hoehen') continue
-    provenance.push({ file: f, ...(g.provenance ?? {}) })
+    const m = g.meta
+    const bbox = [m.lon0, m.lat0 - m.dLat * (m.rows - 1), m.lon0 + m.dLon * (m.cols - 1), m.lat0]
+    provenance.push({ file: f, kind: 'hoehen', ...(g.provenance ?? {}), bbox, bboxKm: bboxKmOf(bbox) })
     const buf = Buffer.from(g.data, 'base64')
     grids.push({ meta: g.meta, data: new Int16Array(buf.buffer, buf.byteOffset, buf.length / 2) })
     continue
   }
   if (!f.endsWith('.geo.json')) continue
   const gj = JSON.parse(readFileSync(join(srcDir, f), 'utf8'))
-  provenance.push({ file: f, ...(gj.provenance ?? {}) })
+  const bbox = bboxOfFeatures(gj.features)
+  const kinds = [...new Set(gj.features.map((x) => x.properties.kind))].sort()
+  provenance.push({
+    file: f, kind: 'geo', count: gj.features.length, kinds,
+    ...(gj.provenance ?? {}), bbox, bboxKm: bboxKmOf(bbox),
+  })
   feats.push(...gj.features)
 }
+/* Ebene mit dtm-Flag: Region = Hülle über alle vorhandenen Höhenquellen.
+   Ohne Höhenquelle bleibt die Ebene ungegated (global) — dann greift der
+   Polygon-Fallback wie auf den gröberen Ebenen. */
+{
+  const dtmLevel = LEVELS.find((L) => L.dtm)
+  if (dtmLevel && grids.length) {
+    let lonW = Infinity, lonE = -Infinity, latS = Infinity, latN = -Infinity
+    for (const g of grids) {
+      const m = g.meta
+      lonW = Math.min(lonW, m.lon0); lonE = Math.max(lonE, m.lon0 + m.dLon * (m.cols - 1))
+      latN = Math.max(latN, m.lat0); latS = Math.min(latS, m.lat0 - m.dLat * (m.rows - 1))
+    }
+    dtmLevel.region = { lonW, lonE, latS, latN }
+    console.log(`Höhenregion aus ${grids.length} Quelle(n): ` +
+      `${lonW.toFixed(2)}–${lonE.toFixed(2)}°O, ${latS.toFixed(2)}–${latN.toFixed(2)}°N`)
+  }
+}
+
 const byKind = (k) => feats.filter((f) => f.properties.kind === k)
 const hauptlauf = byKind('hauptlauf').sort((a, b) => a.properties.order - b.properties.order)
 const nebenlaeufe = byKind('nebenlauf')
@@ -425,7 +476,7 @@ const tileset = {
   provenance,
 }
 
-const outPath = join(ROOT, '..', 'prototype', 'drafts', 'rhein-tiles-v2.data.js')
+const outPath = join(ROOT, '..', 'prototype', 'drafts', 'rhein-tiles-v4.data.js')
 const js = '/* Generiert von pipeline/bake.mjs — NICHT von Hand editieren. Quelle: pipeline/sources/ */\n' +
   'window.RHEIN_TILESET = ' + JSON.stringify(tileset) + ';\n'
 writeFileSync(outPath, js)

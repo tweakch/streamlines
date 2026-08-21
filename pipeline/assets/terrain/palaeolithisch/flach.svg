@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 115.47">
+  <title>Flachland — Paläolithikum</title>
+  <clipPath id="hex"><path d="M50,0 L100,28.87 L100,86.6 L50,115.47 L0,86.6 L0,28.87 Z"/></clipPath>
+  <g clip-path="url(#hex)">
+    <rect x="0" y="0" width="100" height="115.47" fill="#B7C2B5"/>
+    <g stroke="#97A395" stroke-width="1.2" stroke-linecap="round" opacity="0.45"><path d="M25,40 l-3,-7 M25,40 l3,-7"/><path d="M65,30 l-3,-7 M65,30 l3,-7"/><path d="M45,80 l-3,-7 M45,80 l3,-7"/></g>
+  </g>
+</svg>

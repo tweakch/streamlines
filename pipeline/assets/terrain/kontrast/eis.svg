@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 115.47">
+  <title>Eis — Kontrast</title>
+  <clipPath id="hex"><path d="M50,0 L100,28.87 L100,86.6 L50,115.47 L0,86.6 L0,28.87 Z"/></clipPath>
+  <g clip-path="url(#hex)">
+    <rect x="0" y="0" width="100" height="115.47" fill="#BFE6EA"/>
+    <g fill="none" stroke="#4C93A0" stroke-width="3" stroke-linecap="round" opacity="0.85"><path d="M10,20 L30,45 L20,70 L40,90"/><path d="M60,10 L45,35 L65,55 L50,80 L70,100"/><path d="M85,25 L70,50 L90,75"/></g>
+  </g>
+</svg>
