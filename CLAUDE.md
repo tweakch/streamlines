@@ -17,13 +17,23 @@ storytelling, and design decisions are first built as **self-contained HTML file
 in `prototype/drafts/` (inline CSS/JS, no build step), iterated there, and only then
 ported "statically" into the app.
 
+- `prototype/kit/` — the shared UI primitives. **Read `prototype/kit/README.md`
+  and look at `kit/kit-demo.html` before building a new prototype**; don't retype
+  buttons, tabs, toast, the hex grid or the Handbuch card. New drafts link
+  `../kit/sot.css` + `../kit/sot.js` (plus `sot-hex.*` / `sot-doc.*` as needed);
+  own CSS comes last and wins. A primitive moves into the kit only after it
+  looked the same in two or more prototypes — the kit follows the prototypes.
 - `prototype/drafts/` — active experiments, editable.
 - `prototype/ab/` — A/B comparisons (variants + `NOTES.md` with the decision).
 - `prototype/archive/` — immutable history: superseded, rejected, or ported files.
+  Before moving a file here, inline the kit so the file is self-contained again:
+  `node prototype/kit/inline.mjs <draft> --out <archive path>`.
 - The ledger table in `prototype/README.md` tracks each prototype's status — update
   it whenever a file moves or gets ported.
 - Give every prototype **debug query params** so inner states are reachable without
   clicking (`?autostart`, `?seed=…`, `?demo`, `?night`) — a screenshot can't click.
+  Declare them via `SOT.params({…})`: that yields typed values, `?hilfe` (a table
+  of every param) and `SOT.debug(P)` (a strip, shown only with `?debug`) for free.
 
 When asked to change game design, prefer editing/adding a prototype draft over
 editing the app, unless the change is a port of an already-approved draft or a pure
@@ -97,8 +107,9 @@ npm run lint
 ## Conventions
 
 - Hex grids use **pointy-top hexes, odd-r offset coordinates** (odd rows shifted
-  right). Neighbor tables live in `prototype/drafts/stromlinien-epoche1.html` and
-  `app/src/stromlinien/grid.ts` — keep them identical.
+  right). Neighbor tables live in `prototype/kit/sot-hex.js` (`SOT.hex.neighbors`),
+  `prototype/drafts/stromlinien-epoche1.html` and `app/src/stromlinien/grid.ts` —
+  keep all three identical.
 - All player-facing text is German; use the historical terms from the prototypes
   (Plättchen, Furt, Fundstelle, Anker-Ereignis, Sesshaftigkeit …).
 - Game data (tiles, events, Fundstellen) is data-driven — extend the data tables,
@@ -107,3 +118,8 @@ npm run lint
   disclaimer wherever they surface.
 - Size hex grids **after** the container is visible — `clientWidth` is 0 while a parent
   still has `.hid`/`display:none`, silently leaving hexes at their CSS default size.
+  In prototypes use `SOT.hex.autosize(map, cols)`; it observes the container, so it
+  re-measures the moment the element becomes visible.
+- Never hardcode a colour in a prototype — use the tokens from `kit/sot.css`, or
+  day/night/werkbank breaks. Text **on** an accent surface uses `--on-ember` /
+  `--on-river`, not `#fff`: the werkbank accent is light.

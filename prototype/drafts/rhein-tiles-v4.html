@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rhein-Tileset-Viewer v4 — Gebiet ziehen und Pipeline starten</title>
+<style>
+  :root{--bg:#12161a;--panel:#1b2228;--line:#2a333b;--ink:#d8dfe4;--dim:#8b98a3;--gold:#e3c576;
+        --ok:#7ec97f;--warn:#e8c46f;--bad:#e8896f}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;
+       display:flex;flex-direction:column}
+  header{padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel);flex:0 0 auto;
+         display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}
+  header h1{font:600 15px/1.2 Georgia,serif}
+  header .sub{color:var(--dim);font-size:11px}
+  #main{flex:1 1 auto;display:flex;min-height:0}
+
+  /* ---- Baum-Panel: Pipeline / Quellen / Ebenen ---- */
+  #panel{width:300px;flex:0 0 auto;background:var(--panel);border-right:1px solid var(--line);
+         overflow-y:auto;font-size:12.5px}
+  #panel.hide{display:none}
+  .pnlhead{padding:8px 10px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;
+           align-items:center;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .pnlhead button{background:none;border:1px solid var(--line);color:var(--ink);border-radius:5px;
+                  width:20px;height:20px;cursor:pointer;font-size:12px;line-height:1}
+  #panel details{border-bottom:1px solid var(--line)}
+  #panel summary{padding:7px 10px;cursor:pointer;font-weight:600;color:var(--ink);list-style:none;
+                 display:flex;justify-content:space-between;align-items:baseline}
+  #panel summary::-webkit-details-marker{display:none}
+  #panel summary::marker{content:''}
+  #panel summary .cnt{color:var(--dim);font-weight:400;font-size:11px}
+  .flow{list-style:none;padding:0 10px 8px}
+  .flow li{padding:5px 8px;margin:3px 0;background:#151b20;border-radius:6px;border:1px solid var(--line)}
+  .flow li .dim{display:block;color:var(--dim);font-size:10.5px;margin-top:1px}
+  .tree{list-style:none;padding:0 6px 8px}
+  .tree li{padding:6px 8px;margin:2px 0;border-radius:6px;cursor:pointer;border:1px solid transparent}
+  .tree li:hover{background:#20282e}
+  .tree li.sel{background:#2a3a2f;border-color:#3d5a44}
+  .tree li b{color:var(--gold);font-weight:600;display:block;font-size:12px}
+  .tree li .dim{color:var(--dim);font-size:10.5px}
+  .tree li .lic{display:inline-block;margin-top:3px;padding:1px 5px;border-radius:4px;background:#243038;
+                color:#8fc7e0;font-size:9.5px}
+  .filterlist{list-style:none;padding:4px 6px 8px}
+  .filterlist li{padding:3px 8px;border-radius:6px}
+  .filterlist label{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px}
+  .filterlist input{accent-color:var(--gold)}
+  .swatch{width:12px;height:12px;border-radius:3px;flex:0 0 auto;border:1px solid #0006}
+  .lmshow{padding:6px 10px 2px;border-bottom:1px dashed var(--line);margin-bottom:2px}
+  .lmshow label{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;color:var(--dim)}
+  .lmshow input{accent-color:var(--gold)}
+
+  /* ---- Region-Werkstatt: Gebiet ziehen → Pipeline starten ---- */
+  .region{padding:6px 10px 10px;font-size:12px}
+  .region .row{display:flex;gap:6px;margin:6px 0}
+  .region button{flex:1 1 auto;padding:6px 8px;border-radius:6px;border:1px solid var(--line);
+                 background:#151b20;color:var(--ink);cursor:pointer;font-size:12px}
+  .region button:hover:not(:disabled){background:#20282e}
+  .region button:disabled{opacity:.45;cursor:not-allowed}
+  .region button.on{background:#2a3a2f;border-color:#3d5a44;color:var(--gold)}
+  .region button.go{background:#2b3a44;border-color:#3f5c6b;color:#bfe3f2;font-weight:600}
+  .region .box{background:#151b20;border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:6px 0}
+  .region .box .lbl{color:var(--dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em}
+  .region .box .val{font:12px/1.5 ui-monospace,Consolas,monospace;color:var(--ink);word-break:break-all}
+  .region .box .val.none{color:var(--dim);font-style:italic}
+  .region .note{color:var(--dim);font-size:10.5px;margin-top:5px}
+  .region .note.warn{color:var(--warn)}
+  .region .note.bad{color:var(--bad)}
+  #srvDot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--bad);margin-right:5px}
+  #srvDot.on{background:var(--ok)}
+
+  #togglePanel{position:fixed;left:8px;top:8px;z-index:11;display:none}
+  body.panelhidden #togglePanel{display:block}
+
+  #stage{flex:1 1 auto;position:relative;cursor:grab;min-width:0}
+  #stage.drag{cursor:grabbing}
+  body.drawmode #stage{cursor:crosshair}
+  body.drawmode #stage.drag{cursor:crosshair}
+  canvas{position:absolute;inset:0;width:100%;height:100%}
+  .btns{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px;z-index:10}
+  .btns button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+               color:var(--ink);font-size:17px;cursor:pointer}
+  .btns button.on{background:#2a3a2f;border-color:#3d5a44;color:var(--gold)}
+  #hud{position:absolute;left:10px;top:10px;z-index:10;background:#0f1a20e6;border:1px solid var(--line);
+       border-radius:8px;padding:6px 9px;font-size:11px;color:var(--dim);display:none;white-space:pre-line}
+  body.stats #hud{display:block}
+  #hud b{color:var(--gold)}
+  #drawHint{position:absolute;left:50%;transform:translateX(-50%);top:10px;z-index:10;display:none;
+            background:#1b2228e8;border:1px solid #3d5a44;border-radius:8px;padding:6px 12px;font-size:11.5px;
+            color:var(--gold);white-space:nowrap}
+  body.drawmode #drawHint{display:block}
+  #inspector{position:absolute;left:10px;right:10px;bottom:10px;max-width:520px;margin:0 auto;z-index:20;
+             background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+             box-shadow:0 6px 24px #000a;display:none}
+  #inspector.show{display:block}
+  #inspector h2{font:600 14px/1.2 Georgia,serif;color:var(--gold)}
+  #inspector .meta{color:var(--dim);font-size:11px;margin:2px 0 4px}
+  #inspector p{font-size:12.5px}
+  #inspector .x{position:absolute;top:6px;right:10px;color:var(--dim);cursor:pointer;font-size:16px}
+  footer{position:fixed;right:10px;bottom:6px;color:#5c6a75;font-size:10px;z-index:2;pointer-events:none}
+
+  /* ---- Modaler Pipeline-Dialog ---- */
+  #modal{position:fixed;inset:0;z-index:100;background:#080b0ec4;display:none;
+         align-items:center;justify-content:center;padding:16px}
+  #modal.show{display:flex}
+  .sheet{width:min(560px,100%);max-height:100%;overflow:auto;background:var(--panel);border:1px solid var(--line);
+         border-radius:14px;box-shadow:0 12px 48px #000c;padding:16px 18px}
+  .sheet h2{font:600 16px/1.2 Georgia,serif;color:var(--gold);margin-bottom:2px}
+  .sheet .sub{color:var(--dim);font-size:11.5px;margin-bottom:12px;font-family:ui-monospace,Consolas,monospace}
+  .bar{height:6px;border-radius:3px;background:#151b20;overflow:hidden;margin:10px 0}
+  .bar i{display:block;height:100%;width:0;background:var(--gold);transition:width .25s ease}
+  .bar.ok i{background:var(--ok)} .bar.bad i{background:var(--bad)}
+  .stufen{list-style:none;margin:10px 0}
+  .stufen li{display:flex;align-items:baseline;gap:8px;padding:4px 0;font-size:13px;color:var(--dim)}
+  .stufen li .ic{width:16px;text-align:center;flex:0 0 auto}
+  .stufen li.run{color:var(--ink)} .stufen li.run .ic{color:var(--gold)}
+  .stufen li.ok{color:var(--ink)} .stufen li.ok .ic{color:var(--ok)}
+  .stufen li.bad{color:var(--ink)} .stufen li.bad .ic{color:var(--bad)}
+  .log{background:#0f1418;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:8px;
+       max-height:190px;overflow:auto;font:11.5px/1.6 ui-monospace,Consolas,monospace;color:#9fb0bd;
+       white-space:pre-wrap;word-break:break-word}
+  .log .err{color:var(--bad)}
+  .msg{margin-top:10px;font-size:12.5px}
+  .msg.ok{color:var(--ok)} .msg.bad{color:var(--bad)}
+  .sheet .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+  .sheet .actions button{padding:7px 14px;border-radius:7px;border:1px solid var(--line);background:#151b20;
+                         color:var(--ink);cursor:pointer;font-size:13px}
+  .sheet .actions button:hover:not(:disabled){background:#20282e}
+  .sheet .actions button:disabled{opacity:.45;cursor:not-allowed}
+  .sheet .actions button.primary{background:#2b3a44;border-color:#3f5c6b;color:#bfe3f2;font-weight:600}
+</style>
+</head>
+<body>
+<header>
+  <h1>Rhein-Tileset-Viewer v4</h1>
+  <div class="sub">Wie v3 (Baum, Terrain-Filter, Bbox-Highlight) — neu: <b>Gebiet ziehen</b> und daraus die Pipeline neu rechnen lassen (Höhendaten zuschneiden → Tileset backen), Fortschritt im Dialog</div>
+  <button id="togglePanel" title="Baum einblenden">☰</button>
+</header>
+<div id="main">
+  <div id="panel">
+    <div class="pnlhead">Pipeline &amp; Quellen <button id="pnlClose" title="Baum ausblenden">‹</button></div>
+    <details open>
+      <summary>Pipeline</summary>
+      <ol class="flow">
+        <li>Quellen<span class="dim">fetch/*.mjs → Overpass / Sonny-DTM</span></li>
+        <li>sources/*.json<span class="dim">WGS84, mit Provenienz + Lizenz</span></li>
+        <li>bake.mjs<span class="dim">Hexraster, 3 Ebenen, Kacheln</span></li>
+        <li>Tileset<span class="dim">rhein-tiles-v4.data.js</span></li>
+      </ol>
+    </details>
+    <details open id="regionDetails">
+      <summary>Höhen-Region <span class="cnt" id="srvState"><span id="srvDot"></span>?</span></summary>
+      <div class="region">
+        <div class="box">
+          <div class="lbl">aktuell im Tileset</div>
+          <div class="val" id="curRegion">—</div>
+        </div>
+        <div class="row">
+          <button id="drawBtn">▭ Gebiet ziehen</button>
+          <button id="clearBtn" disabled>✕</button>
+        </div>
+        <div class="box">
+          <div class="lbl">gezogenes Gebiet</div>
+          <div class="val none" id="newRegion">noch keins — „Gebiet ziehen" und auf der Karte aufziehen</div>
+        </div>
+        <div class="row"><button class="go" id="runBtn" disabled>Pipeline starten</button></div>
+        <div class="note" id="regionNote">Der Lauf <b>ersetzt</b> die bisherige Höhen-Region.</div>
+      </div>
+    </details>
+    <details open>
+      <summary>Terrain-Filter</summary>
+      <ul class="filterlist" id="terrFilter"></ul>
+    </details>
+    <details open>
+      <summary>Quellen <span class="cnt" id="srcCnt"></span></summary>
+      <ul class="tree" id="srcTree"></ul>
+    </details>
+    <details open>
+      <summary>Ebenen <span class="cnt" id="lvlCnt"></span></summary>
+      <ul class="tree" id="lvlTree"></ul>
+    </details>
+    <details open>
+      <summary>Landmarken <span class="cnt" id="lmCnt"></span></summary>
+      <div class="lmshow"><label><input type="checkbox" id="lmShow" checked> auf der Karte anzeigen</label></div>
+      <ul class="tree" id="lmTree"></ul>
+    </details>
+  </div>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div class="btns">
+      <button id="zin">+</button><button id="zout">−</button><button id="zfit" title="Ganze Karte">⤢</button>
+      <button id="drawBtn2" title="Gebiet ziehen">▭</button>
+    </div>
+    <div id="hud"></div>
+    <div id="drawHint">Gebiet aufziehen — Esc bricht ab</div>
+    <div id="inspector"><span class="x" id="inspClose">×</span><h2 id="inspTitle"></h2><div class="meta" id="inspMeta"></div><p id="inspTxt"></p></div>
+  </div>
+</div>
+<footer>rhein-tiles-v4 · Geographie vereinfacht · Höhen: DTM © Sonny (CC BY 4.0)</footer>
+
+<div id="modal">
+  <div class="sheet">
+    <h2 id="mdTitle">Pipeline läuft</h2>
+    <div class="sub" id="mdRegion"></div>
+    <div class="bar" id="mdBar"><i></i></div>
+    <ul class="stufen" id="mdStufen"></ul>
+    <div class="log" id="mdLog"></div>
+    <div class="msg" id="mdMsg"></div>
+    <div class="actions">
+      <button id="mdClose">Schliessen</button>
+      <button id="mdReload" class="primary" style="display:none">Tileset neu laden</button>
+    </div>
+  </div>
+</div>
+
+<script src="rhein-tiles-v4.data.js"></script>
+<script>
+'use strict';
+/* ============================================================
+   v4 = v3 (Scene-Blitting, Baum-Panel, Terrain-Filter) plus die
+   Steuerung der Pipeline aus dem Viewer heraus: ein Gebiet auf der
+   Karte aufziehen → pipeline/serve.mjs rechnet Höhendaten + Tileset
+   neu → Fortschritt als NDJSON-Strom im modalen Dialog.
+   Ohne laufenden Server bleibt alles andere unverändert nutzbar
+   (der Prototyp läuft weiter per Doppelklick über file://).
+   ============================================================ */
+const TS=window.RHEIN_TILESET;
+const SQRT3=Math.sqrt(3);
+const Q=new URLSearchParams(location.search);
+const XMAX=TS.cfg.lonSpan*TS.cfg.kmx, YMAX=TS.cfg.latSpan*TS.cfg.kmy;
+const TERRNAME=['Flachland','Ufer','Bergland','Fluss','See','Nordsee','Nebenlauf','Hang'];
+const TERRCOL=['#26312a','#33422f','#3b4046','#4a90b0','#255064','#173042','#39647c','#4a5038'];
+const SECCOL={alpen:'#8fd6c8',bodensee:'#6fb7e8',hoch:'#7ec97f',ober:'#e8c46f',
+              mittel:'#e8896f',nieder:'#c78fe8',delta:'#8fa2e8'};
+const SECIDS=['',...TS.sections.map(s=>s.id)];
+const SECBYID=Object.fromEntries(TS.sections.map(s=>[s.id,s]));
+const hiddenTerr=new Set(); // Terrain-Indizes (TERRNAME), die der Terrain-Filter ausblendet
+let showLandmarks=Q.get('labels')!=='0';
+
+/* ---- fertig gemischte Farben, gecacht pro (Terrain, Höhenstufe, Abschnitt) ---- */
+const rgbOf=hex=>[parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];
+const TERRRGB=TERRCOL.map(rgbOf), DARK=[16,38,46], LIGHT=[235,240,244];
+const colorCache=new Map();
+function colorOf(t,s,eBucket){
+  const key=t===3?4096+s:(t<<8)|eBucket;
+  let c=colorCache.get(key);if(c)return c;
+  let rgb;
+  if(t===3&&s){const sc=rgbOf(SECCOL[SECIDS[s]]);rgb=sc.map((v,i)=>v*0.6+DARK[i]*0.4);}
+  else rgb=[...TERRRGB[t]];
+  if(eBucket&&t!==3&&t!==4&&t!==5&&t!==6){ // Höhenschummerung aufs Land mischen
+    const m=eBucket*16*25+200; // Bucket-Mitte in Metern
+    const a=0.04+0.22*Math.min(1,Math.max(0,(m-450)/2600));
+    rgb=rgb.map((v,i)=>v*(1-a)+LIGHT[i]*a);
+  }
+  c='rgb('+rgb.map(v=>Math.round(v)).join(',')+')';
+  colorCache.set(key,c);return c;
+}
+
+/* ---- Kachel-Cache: base64 → Uint8Array erst bei Sichtkontakt ---- */
+const cache=new Map();let decoded=0;
+function tileOf(L,tx,ty){
+  const key=L.id+':'+tx+','+ty;
+  if(cache.has(key))return cache.get(key);
+  const raw=L.tiles[tx+','+ty];
+  let v=null;
+  if(raw){
+    const dec=b64=>Uint8Array.from(atob(b64),ch=>ch.charCodeAt(0));
+    v={t:dec(raw.t),s:dec(raw.s),e:raw.e?dec(raw.e):null};decoded++;
+  }
+  cache.set(key,v);return v;
+}
+function cellData(L,c,r){
+  if(c<0||r<0||c>=L.cols||r>=L.rows)return null;
+  const tile=tileOf(L,Math.floor(c/L.tile),Math.floor(r/L.tile));
+  if(!tile)return{t:0,s:0,e:0};
+  const i=(r%L.tile)*L.tile+(c%L.tile);
+  return{t:tile.t[i],s:tile.s[i],e:tile.e?tile.e[i]:0};
+}
+
+/* ---- Geometrie (identisch zu bake.mjs) ---- */
+const axialOf=(c,r)=>c-((r-(r&1))/2);
+const kmOfLonLat=(lon,lat)=>[(lon-TS.cfg.lon0)*TS.cfg.kmx,(TS.cfg.lat1-lat)*TS.cfg.kmy];
+const lonLatOfKm=(x,y)=>[TS.cfg.lon0+x/TS.cfg.kmx,TS.cfg.lat1-y/TS.cfg.kmy];
+const centerKm=(c,r,s)=>[s*SQRT3*(axialOf(c,r)+r/2),s*1.5*r];
+function cellAtKm(x,y,s){
+  const q=((SQRT3/3)*x-y/3)/s,r=((2/3)*y)/s;
+  let rx=Math.round(q),ry=Math.round(-q-r),rz=Math.round(r);
+  const dx=Math.abs(rx-q),dy=Math.abs(ry-(-q-r)),dz=Math.abs(rz-r);
+  if(dx>dy&&dx>dz)rx=-ry-rz;else if(!(dy>dz))rz=-rx-ry;
+  return[rx+((rz-(rz&1))/2),rz];
+}
+/* pointy-top-Eckversätze, einmal pro Radius */
+const CORN=Array.from({length:6},(_,i)=>{const a=Math.PI/180*(60*i-30);return[Math.cos(a),Math.sin(a)];});
+
+/* ---- Viewport & Scene ---- */
+const stage=document.getElementById('stage'),cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let zoom=1,ox=0,oy=0; // zoom = px/km · (ox,oy) = km am linken oberen Viewport-Rand
+const forcedLevel=Q.has('level')?+Q.get('level'):null;
+const scene={cv:document.createElement('canvas'),ctx:null,ox:0,oy:0,wKm:0,hKm:0,zoom:0,levelId:-1,valid:false};
+scene.ctx=scene.cv.getContext('2d');
+const stats={refills:0,refillMs:0,frameMs:0,cells:0};
+
+function pickLevel(){
+  if(forcedLevel!=null)return TS.levels[forcedLevel]??TS.levels[0];
+  const cx=ox+stage.clientWidth/(2*zoom),cy=oy+stage.clientHeight/(2*zoom);
+  for(let i=TS.levels.length-1;i>=0;i--){
+    const L=TS.levels[i];
+    if(zoom*L.hexKm<9)continue;
+    if(L.regionKm&&!(cx>=L.regionKm[0]&&cx<=L.regionKm[2]&&cy>=L.regionKm[1]&&cy<=L.regionKm[3]))continue;
+    return L;
+  }
+  return TS.levels[0];
+}
+function fit(){
+  zoom=Math.min(stage.clientWidth/XMAX,stage.clientHeight/YMAX);
+  ox=-(stage.clientWidth/zoom-XMAX)/2;oy=-(stage.clientHeight/zoom-YMAX)/2;
+}
+
+/* ---- Scene neu füllen: Zellen nach Farbe gebatcht zeichnen.
+   margin 0.5 = voller Rand (ruhige Lage); 0.12 = schneller Zoom-Refill,
+   der volle Rand wird nachgeholt, sobald die Eingabe ruht. ---- */
+function refillScene(L,dpr,margin=0.5){
+  const t0=performance.now();
+  const vwKm=stage.clientWidth/zoom,vhKm=stage.clientHeight/zoom;
+  scene.ox=ox-vwKm*margin;scene.oy=oy-vhKm*margin;
+  scene.wKm=vwKm*(1+2*margin);scene.hKm=vhKm*(1+2*margin);
+  const pxW=Math.ceil(scene.wKm*zoom*dpr),pxH=Math.ceil(scene.hKm*zoom*dpr);
+  if(scene.cv.width!==pxW||scene.cv.height!==pxH){scene.cv.width=pxW;scene.cv.height=pxH;}
+  const g=scene.ctx;
+  g.setTransform(1,0,0,1,0,0);
+  g.fillStyle=TERRCOL[0];g.fillRect(0,0,pxW,pxH);
+  const s=L.hexKm/SQRT3,rad=s*zoom*dpr;
+  const r0=Math.max(0,Math.floor(scene.oy/(s*1.5))-1),
+        r1=Math.min(L.rows-1,Math.ceil((scene.oy+scene.hKm)/(s*1.5))+1),
+        c0=Math.max(0,Math.floor(scene.ox/(s*SQRT3))-1),
+        c1=Math.min(L.cols-1,Math.ceil((scene.ox+scene.wKm)/(s*SQRT3))+1);
+  const batches=new Map();let n=0;
+  for(let r=r0;r<=r1;r++){
+    const[,cy0]=centerKm(0,r,s);
+    const py=(cy0-scene.oy)*zoom*dpr;
+    for(let c=c0;c<=c1;c++){
+      const d=cellData(L,c,r);if(!d)continue;
+      if(hiddenTerr.has(d.t))continue;
+      if(!d.t&&!d.s&&!d.e)continue;
+      n++;
+      const col=colorOf(d.t,d.s,d.e>>4);
+      let p=batches.get(col);if(!p){p=new Path2D();batches.set(col,p);}
+      const px=(centerKm(c,r,s)[0]-scene.ox)*zoom*dpr;
+      p.moveTo(px+CORN[0][0]*rad,py+CORN[0][1]*rad);
+      for(let i=1;i<6;i++)p.lineTo(px+CORN[i][0]*rad,py+CORN[i][1]*rad);
+      p.closePath();
+    }
+  }
+  for(const[col,p]of batches){g.fillStyle=col;g.fill(p);}
+  scene.zoom=zoom;scene.levelId=L.id;scene.valid=true;
+  stats.refills++;stats.refillMs=performance.now()-t0;stats.cells=n;stats.batches=batches.size;
+}
+
+/* ---- Frame: blitten + Overlay; Refill nur wenn nötig ---- */
+let pending=false,fullT=null,wantFull=false;
+function requestRender(){if(!pending){pending=true;requestAnimationFrame(frame);}}
+function scheduleFullRefill(){
+  clearTimeout(fullT);
+  fullT=setTimeout(()=>{wantFull=true;requestRender();},180);
+}
+function frame(){
+  pending=false;
+  const t0=performance.now();
+  const dpr=devicePixelRatio||1;
+  if(cv.width!==stage.clientWidth*dpr||cv.height!==stage.clientHeight*dpr){
+    cv.width=stage.clientWidth*dpr;cv.height=stage.clientHeight*dpr;scene.valid=false;
+  }
+  const L=pickLevel();
+  const vwKm=stage.clientWidth/zoom,vhKm=stage.clientHeight/zoom;
+  if(!scene.valid||scene.levelId!==L.id||scene.zoom!==zoom||
+     ox<scene.ox||oy<scene.oy||ox+vwKm>scene.ox+scene.wKm||oy+vhKm>scene.oy+scene.hKm){
+    /* Eingabe wartet: kleiner, schneller Refill — voller Rand kommt im Idle. */
+    refillScene(L,dpr,0.12);scheduleFullRefill();wantFull=false;
+  } else if(wantFull){
+    refillScene(L,dpr,0.5);wantFull=false;
+  }
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle=TERRCOL[0];ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.drawImage(scene.cv,Math.round((scene.ox-ox)*zoom*dpr),Math.round((scene.oy-oy)*zoom*dpr));
+  drawOverlay(L,dpr);
+  stats.frameMs=performance.now()-t0;
+  updateHud(L);
+}
+function drawOverlay(L,dpr){
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(selected)drawSelection();
+  drawRegionBoxes();
+  if(!showLandmarks)return;
+  ctx.font='10px system-ui';ctx.textAlign='center';
+  for(const lm of TS.landmarks){
+    if(lm.detail&&L.id===0)continue;
+    const[x,y]=kmOfLonLat(lm.lon,lm.lat);
+    const px=(x-ox)*zoom,py=(y-oy)*zoom;
+    if(px<-40||py<-20||px>stage.clientWidth+40||py>stage.clientHeight+20)continue;
+    ctx.fillStyle='#e3c576';ctx.beginPath();ctx.arc(px,py,2.2,0,7);ctx.fill();
+    ctx.fillStyle='#f2e7c9';ctx.shadowColor='#000';ctx.shadowBlur=4;
+    ctx.fillText(lm.name,px,py+(lm.dy?14:-6));ctx.shadowBlur=0;
+  }
+}
+/* ---- Auswahl-Hervorhebung: Bbox (Quelle/Ebene) oder Punkt (Landmarke) ---- */
+function drawSelection(){
+  ctx.save();
+  if(selected.bboxKm){
+    const[x0,y0,x1,y1]=selected.bboxKm;
+    const px0=(x0-ox)*zoom,py0=(y0-oy)*zoom,px1=(x1-ox)*zoom,py1=(y1-oy)*zoom;
+    ctx.fillStyle='#e3c57624';ctx.fillRect(px0,py0,px1-px0,py1-py0);
+    ctx.strokeStyle='#e3c576';ctx.lineWidth=2;ctx.setLineDash([7,5]);
+    ctx.strokeRect(px0,py0,px1-px0,py1-py0);
+  } else if(selected.pointKm){
+    const[x,y]=selected.pointKm;
+    const px=(x-ox)*zoom,py=(y-oy)*zoom;
+    ctx.strokeStyle='#e3c576';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.arc(px,py,12,0,7);ctx.stroke();
+    ctx.fillStyle='#e3c576';ctx.beginPath();ctx.arc(px,py,3.5,0,7);ctx.fill();
+  }
+  ctx.restore();
+}
+function updateHud(L){
+  document.getElementById('hud').innerHTML=
+    `Ebene <b>${L.id}</b> (${L.hexKm} km/Hex, ${(zoom*L.hexKm).toFixed(1)} px)\n`+
+    `Frame: <b>${stats.frameMs.toFixed(1)} ms</b> · letzter Refill: ${stats.refillMs.toFixed(1)} ms `+
+    `(${stats.cells} Zellen, ${stats.batches??0} Farb-Batches, insgesamt ${stats.refills}×)\n`+
+    `dekodiert: ${decoded} Kacheln · Hauptlauf ${TS.totalKm} km`+(benchTxt?'\n'+benchTxt:'');
+}
+
+/* ============================================================
+   Region-Werkstatt: Gebiet ziehen → Pipeline starten
+   ============================================================ */
+/* Aktuelle Höhen-Region: die DTM-Ebene trägt sie als regionKm; ohne
+   laufenden Server ist das die einzige Quelle dafür (das Tileset selbst). */
+const dtmLevel=TS.levels.find(L=>L.regionKm)||null;
+let curRegionKm=dtmLevel?dtmLevel.regionKm.slice():null;
+let drawMode=false;
+let newBoxKm=null;   // fertig gezogenes Gebiet [x0,y0,x1,y1]
+let dragBoxKm=null;  // gerade im Ziehen
+let serverOk=false;
+
+const el=id=>document.getElementById(id);
+const kmBox=b=>[Math.min(b[0],b[2]),Math.min(b[1],b[3]),Math.max(b[0],b[2]),Math.max(b[1],b[3])];
+function regionOfKm(b){
+  const[x0,y0,x1,y1]=kmBox(b);
+  const[lonW,latN]=lonLatOfKm(x0,y0),[lonE,latS]=lonLatOfKm(x1,y1);
+  return{lonW,lonE,latS,latN};
+}
+/* Rasterpunkte wie in normalize-dtm.mjs abschätzen — zeigt vorab, ob die
+   Box die Grenze von 4 Mio. Punkten reisst, statt es den Lauf abbrechen zu lassen. */
+function rasterAbschaetzung(r,spacing=200){
+  const latMid=(r.latS+r.latN)/2;
+  const dLat=spacing/110600,dLon=spacing/(111320*Math.cos(latMid*Math.PI/180));
+  return{cols:Math.round((r.lonE-r.lonW)/dLon)+1,rows:Math.round((r.latN-r.latS)/dLat)+1};
+}
+const fmtRegion=r=>`${r.lonW.toFixed(3)}–${r.lonE.toFixed(3)}°O\n${r.latS.toFixed(3)}–${r.latN.toFixed(3)}°N`;
+
+function drawRegionBoxes(){
+  const rect=(b,stroke,fill,dash)=>{
+    const[x0,y0,x1,y1]=kmBox(b);
+    const px0=(x0-ox)*zoom,py0=(y0-oy)*zoom,px1=(x1-ox)*zoom,py1=(y1-oy)*zoom;
+    ctx.save();
+    if(fill){ctx.fillStyle=fill;ctx.fillRect(px0,py0,px1-px0,py1-py0);}
+    ctx.strokeStyle=stroke;ctx.lineWidth=1.5;ctx.setLineDash(dash);
+    ctx.strokeRect(px0,py0,px1-px0,py1-py0);
+    ctx.restore();
+    return[px0,py0,px1,py1];
+  };
+  /* bestehende Höhen-Region dezent, damit man sieht was man ersetzt */
+  if(curRegionKm&&(drawMode||newBoxKm))rect(curRegionKm,'#8b98a366',null,[3,4]);
+  const box=dragBoxKm||newBoxKm;
+  if(!box)return;
+  const[px0,py0,px1,py1]=rect(box,'#7ec97f','#7ec97f1f',[]);
+  /* Masse anschreiben: km-Kantenlängen + geschätzte Rasterpunkte */
+  const[x0,y0,x1,y1]=kmBox(box);
+  const r=regionOfKm(box),g=rasterAbschaetzung(r);
+  ctx.save();
+  ctx.font='11px ui-monospace,Consolas,monospace';ctx.textAlign='center';
+  ctx.fillStyle='#0f1418d0';
+  const txt=`${(x1-x0).toFixed(1)} × ${(y1-y0).toFixed(1)} km · ${g.cols}×${g.rows} Punkte`;
+  const w=ctx.measureText(txt).width+12;
+  const mx=(px0+px1)/2,my=Math.min(py0,py1)-8;
+  ctx.fillRect(mx-w/2,my-14,w,18);
+  ctx.fillStyle=g.cols*g.rows>4e6?'#e8896f':'#bfe3d0';
+  ctx.fillText(txt,mx,my);
+  ctx.restore();
+}
+
+function setDrawMode(on){
+  drawMode=on;
+  document.body.classList.toggle('drawmode',on);
+  el('drawBtn').classList.toggle('on',on);
+  el('drawBtn2').classList.toggle('on',on);
+  el('drawBtn').textContent=on?'▭ Ziehen aktiv':'▭ Gebiet ziehen';
+  requestRender();
+}
+function setNewBox(b){
+  newBoxKm=b?kmBox(b):null;
+  const box=el('newRegion');
+  el('clearBtn').disabled=!newBoxKm;
+  if(!newBoxKm){
+    box.classList.add('none');
+    box.textContent='noch keins — „Gebiet ziehen" und auf der Karte aufziehen';
+    el('runBtn').disabled=true;
+    el('regionNote').className='note';
+    el('regionNote').innerHTML='Der Lauf <b>ersetzt</b> die bisherige Höhen-Region.';
+  }else{
+    const r=regionOfKm(newBoxKm),g=rasterAbschaetzung(r);
+    const[x0,y0,x1,y1]=newBoxKm;
+    box.classList.remove('none');
+    box.textContent=fmtRegion(r)+`\n${(x1-x0).toFixed(1)} × ${(y1-y0).toFixed(1)} km · ${g.cols}×${g.rows}`;
+    const zuGross=g.cols*g.rows>4e6;
+    el('runBtn').disabled=!serverOk||zuGross;
+    const n=el('regionNote');
+    if(zuGross){n.className='note bad';n.textContent=`Zu gross: ${(g.cols*g.rows/1e6).toFixed(1)} Mio. Rasterpunkte (max 4 Mio.). Kleineres Gebiet ziehen.`;}
+    else if(!serverOk){n.className='note warn';n.innerHTML='Kein Pipeline-Server: <code>node pipeline/serve.mjs</code> starten und den Viewer über <code>127.0.0.1</code> öffnen.';}
+    else{n.className='note';n.innerHTML='Der Lauf <b>ersetzt</b> die bisherige Höhen-Region.';}
+  }
+  requestRender();
+}
+el('drawBtn').onclick=()=>setDrawMode(!drawMode);
+el('drawBtn2').onclick=()=>{
+  setDrawMode(!drawMode);
+  el('panel').classList.remove('hide');document.body.classList.remove('panelhidden');
+  el('regionDetails').open=true;
+};
+el('clearBtn').onclick=()=>setNewBox(null);
+addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  if(el('modal').classList.contains('show')&&!laufAktiv)schliesseModal();
+  else if(drawMode){setDrawMode(false);dragBoxKm=null;requestRender();}
+});
+
+/* ---- Serverstatus: nur über http(s) sinnvoll, per file:// gibt es keinen ---- */
+async function pruefeServer(){
+  const dot=el('srvDot'),txt=el('srvState');
+  if(!location.protocol.startsWith('http')){
+    serverOk=false;dot.classList.remove('on');
+    txt.innerHTML='<span id="srvDot"></span>file://';
+    return;
+  }
+  try{
+    const res=await fetch('/api/region',{cache:'no-store'});
+    if(!res.ok)throw new Error(res.status);
+    const j=await res.json();
+    serverOk=true;
+    el('srvDot').classList.add('on');
+    txt.innerHTML='<span id="srvDot" class="on"></span>bereit';
+    if(j.region){
+      const r=j.region;
+      el('curRegion').textContent=fmtRegion(r)+`\n${r.cols}×${r.rows} Punkte · ${r.spacing} m`;
+      curRegionKm=[...kmOfLonLat(r.lonW,r.latN),...kmOfLonLat(r.lonE,r.latS)];
+    }
+  }catch{
+    serverOk=false;
+    el('srvDot').classList.remove('on');
+    txt.innerHTML='<span id="srvDot"></span>offline';
+  }
+  if(newBoxKm)setNewBox(newBoxKm); // Startknopf/Hinweis an den Status anpassen
+}
+/* Ohne Server: die Region wenigstens aus dem Tileset zeigen. */
+function zeigeRegionAusTileset(){
+  if(!curRegionKm){el('curRegion').textContent='keine Höhen-Region im Tileset';return;}
+  const r=regionOfKm(curRegionKm);
+  el('curRegion').textContent=fmtRegion(r)+'\n(aus dem Tileset)';
+}
+
+/* ============================================================
+   Pipeline-Lauf + modaler Fortschritt
+   ============================================================ */
+let laufAktiv=false;
+const STUFEN_FALLBACK=[{id:'dtm',label:'Höhendaten zuschneiden'},{id:'bake',label:'Tileset backen'}];
+function modalAufbauen(region,stufen){
+  el('mdTitle').textContent='Pipeline läuft';
+  el('mdRegion').textContent=region?fmtRegion(region).replace('\n',' · '):'';
+  el('mdBar').className='bar';el('mdBar').firstElementChild.style.width='0%';
+  el('mdLog').textContent='';
+  el('mdMsg').className='msg';el('mdMsg').textContent='';
+  el('mdReload').style.display='none';
+  el('mdClose').disabled=true;
+  const ul=el('mdStufen');ul.innerHTML='';
+  for(const s of stufen){
+    const li=document.createElement('li');
+    li.dataset.id=s.id;
+    li.innerHTML=`<span class="ic">○</span><span>${s.label}</span>`;
+    ul.appendChild(li);
+  }
+  el('modal').classList.add('show');
+}
+function stufeSetzen(id,zustand){
+  const li=el('mdStufen').querySelector(`li[data-id="${id}"]`);
+  if(!li)return;
+  li.className=zustand;
+  li.querySelector('.ic').textContent=zustand==='run'?'◐':zustand==='ok'?'●':zustand==='bad'?'✕':'○';
+}
+function logZeile(text,fehler){
+  const log=el('mdLog');
+  const span=document.createElement('span');
+  if(fehler)span.className='err';
+  span.textContent=text+'\n';
+  log.appendChild(span);
+  log.scrollTop=log.scrollHeight;
+}
+function fortschritt(anteil,klasse){
+  el('mdBar').className='bar'+(klasse?' '+klasse:'');
+  el('mdBar').firstElementChild.style.width=Math.round(anteil*100)+'%';
+}
+function schliesseModal(){el('modal').classList.remove('show');}
+el('mdClose').onclick=()=>{if(!laufAktiv)schliesseModal();};
+el('mdReload').onclick=()=>location.reload();
+
+async function starteLauf(){
+  if(laufAktiv||!newBoxKm)return;
+  const region=regionOfKm(newBoxKm);
+  laufAktiv=true;
+  setDrawMode(false);
+  el('runBtn').disabled=true;
+  modalAufbauen(region,STUFEN_FALLBACK);
+  let stufenGesamt=STUFEN_FALLBACK.length,fertigeStufen=0,okEnde=false;
+  try{
+    const res=await fetch('/api/pipeline/run',{
+      method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({...region,spacing:200}),
+    });
+    if(!res.ok){
+      let m=`HTTP ${res.status}`;
+      try{m=(await res.json()).fehler||m;}catch{}
+      throw new Error(m);
+    }
+    const reader=res.body.getReader(),dec=new TextDecoder();
+    let rest='';
+    for(;;){
+      const{value,done}=await reader.read();
+      if(done)break;
+      const teile=(rest+dec.decode(value,{stream:true})).split('\n');
+      rest=teile.pop();
+      for(const zeile of teile){
+        if(!zeile.trim())continue;
+        let ev;try{ev=JSON.parse(zeile);}catch{continue;}
+        if(ev.type==='start'&&ev.stufen?.length){
+          stufenGesamt=ev.stufen.length;
+          modalAufbauen(ev.region,ev.stufen);
+        }else if(ev.type==='stufe'){
+          stufeSetzen(ev.id,'run');
+          fortschritt((ev.index+0.15)/ev.gesamt);
+        }else if(ev.type==='stufeFertig'){
+          stufeSetzen(ev.id,'ok');fertigeStufen=ev.index+1;
+          fortschritt(fertigeStufen/ev.gesamt);
+        }else if(ev.type==='log'){
+          logZeile(ev.zeile,ev.kanal==='err');
+        }else if(ev.type==='fehler'){
+          if(ev.stufe)stufeSetzen(ev.stufe,'bad');
+          logZeile(ev.message,true);
+          el('mdMsg').className='msg bad';el('mdMsg').textContent=ev.message;
+        }else if(ev.type==='fertig'){
+          okEnde=!!ev.ok;
+        }
+      }
+    }
+  }catch(err){
+    logZeile(String(err.message||err),true);
+    el('mdMsg').className='msg bad';
+    el('mdMsg').textContent='Pipeline nicht erreichbar: '+(err.message||err);
+  }finally{
+    laufAktiv=false;
+    el('mdClose').disabled=false;
+    el('runBtn').disabled=!serverOk||!newBoxKm;
+    el('mdTitle').textContent=okEnde?'Pipeline fertig':'Pipeline abgebrochen';
+    fortschritt(1,okEnde?'ok':'bad');
+    if(okEnde){
+      el('mdMsg').className='msg ok';
+      el('mdMsg').textContent='Neues Tileset geschrieben. Neu laden zeigt das gerechnete Gebiet.';
+      el('mdReload').style.display='';
+      pruefeServer();
+    }else if(!el('mdMsg').textContent){
+      el('mdMsg').className='msg bad';
+      el('mdMsg').textContent='Der Lauf wurde nicht abgeschlossen — Ausgabe oben prüfen.';
+    }
+  }
+}
+el('runBtn').onclick=starteLauf;
+
+/* ---- Baumansicht: Pipeline / Quellen / Ebenen aus dem Tileset selbst ----
+   bake.mjs liefert je Quelle bereits bbox (lon/lat) und bboxKm (fertig
+   projiziert) mit; Ebenen tragen regionKm, falls sie regional gegated sind.
+   Anklicken hebt die Box hervor (drawSelection) und fliegt die Kamera hin. */
+let selected=null; // {bboxKm:[x0,y0,x1,y1]} | {pointKm:[x,y]}
+function clearSelection(){
+  selected=null;
+  document.querySelectorAll('.tree li.sel').forEach(el=>el.classList.remove('sel'));
+  insp.classList.remove('show');
+}
+/* true = neu ausgewählt (Karte fliegt hin), false = per zweitem Klick abgewählt. */
+function applySelect(li,sel,fly){
+  const already=li.classList.contains('sel');
+  clearSelection();
+  if(already)return false;
+  li.classList.add('sel');selected=sel;fly();return true;
+}
+function selectBox(li,bboxKm){return applySelect(li,{bboxKm},()=>flyToKm(bboxKm));}
+function selectPoint(li,pointKm){return applySelect(li,{pointKm},()=>flyToPoint(pointKm));}
+function flyToKm(b){
+  const[x0,y0,x1,y1]=b,pad=1.3;
+  const w=Math.max(0.6,(x1-x0))*pad,h=Math.max(0.6,(y1-y0))*pad;
+  const cx=(x0+x1)/2,cy=(y0+y1)/2;
+  zoom=Math.max(0.3,Math.min(140,Math.min(stage.clientWidth/w,stage.clientHeight/h)));
+  ox=cx-stage.clientWidth/(2*zoom);oy=cy-stage.clientHeight/(2*zoom);
+}
+function flyToPoint(p,z=14){
+  zoom=Math.max(0.3,Math.min(140,z));
+  ox=p[0]-stage.clientWidth/(2*zoom);oy=p[1]-stage.clientHeight/(2*zoom);
+}
+function showInfo(title,meta,txt){
+  document.getElementById('inspTitle').textContent=title;
+  document.getElementById('inspMeta').textContent=meta;
+  document.getElementById('inspTxt').textContent=txt;
+  document.getElementById('inspector').classList.add('show');
+}
+function buildTrees(){
+  const srcTree=document.getElementById('srcTree');
+  document.getElementById('srcCnt').textContent='('+TS.provenance.length+')';
+  for(const p of TS.provenance){
+    const li=document.createElement('li');
+    li.dataset.file=p.file;
+    const kindTxt=p.kind==='hoehen'?'Höhenraster':(p.kinds||[]).join(', ');
+    li.innerHTML=`<b>${p.file}</b><span class="dim">${p.quelle||''}${p.count?' · '+p.count+' Feature(s)':''}${kindTxt?' · '+kindTxt:''}</span>`+
+      (p.lizenz?`<span class="lic">${p.lizenz}</span>`:'');
+    li.onclick=()=>{
+      const on=selectBox(li,p.bboxKm);requestRender();
+      if(on)showInfo(p.file,
+        [p.lizenz,p.stand?'Stand '+p.stand:null,p.count?p.count+' Feature(s)':null,
+         p.bbox?p.bbox.map(v=>v.toFixed(2)).join(', ')+'°':null].filter(Boolean).join(' · '),
+        p.beschreibung||'');
+    };
+    srcTree.appendChild(li);
+  }
+  const lvlTree=document.getElementById('lvlTree');
+  document.getElementById('lvlCnt').textContent='('+TS.levels.length+')';
+  for(const L of TS.levels){
+    const li=document.createElement('li');
+    li.dataset.level=String(L.id);
+    const tiles=Object.keys(L.tiles).length;
+    li.innerHTML=`<b>Ebene ${L.id} · ${L.hexKm} km/Hex</b><span class="dim">${L.cols}×${L.rows} Zellen · ${tiles} Kacheln · `+
+      (L.regionKm?'regional':'global')+`</span>`;
+    const box=L.regionKm||[0,0,XMAX,YMAX];
+    li.onclick=()=>{
+      const on=selectBox(li,box);requestRender();
+      if(on)showInfo('Ebene '+L.id+' ('+L.hexKm+' km/Hex)',
+        L.cols+'×'+L.rows+' Zellen · '+tiles+' Kacheln behalten',
+        L.regionKm?'Regional gegated — Kacheln kommen nur innerhalb dieser Box (dort liegen Höhendaten aus dem DTM); der Viewer schaltet nur um, wenn die Blickmitte darin liegt. Die Box kommt aus der Höhenquelle — mit „Gebiet ziehen" lässt sie sich neu rechnen.':
+                   'Global — aus der feinsten Ebene aggregiert (Mehrheit fürs Terrain, Mittel für die Höhe).');
+    };
+    lvlTree.appendChild(li);
+  }
+}
+/* ---- Terrain-Filter: Checkboxen aus TERRNAME/TERRCOL, blendet Zellen im Refill aus ---- */
+function buildTerrFilter(){
+  const ul=document.getElementById('terrFilter');
+  TERRNAME.forEach((name,i)=>{
+    const li=document.createElement('li');
+    li.innerHTML=`<label><input type="checkbox" data-t="${i}" checked>
+      <span class="swatch" style="background:${TERRCOL[i]}"></span>${name}</label>`;
+    ul.appendChild(li);
+  });
+  ul.addEventListener('change',e=>{
+    const t=+e.target.dataset.t;
+    if(e.target.checked)hiddenTerr.delete(t);else hiddenTerr.add(t);
+    scene.valid=false;requestRender();
+  });
+}
+/* ---- Landmarken: Punkte statt Bbox — Auswahl fliegt hin und zeichnet einen Ring. ---- */
+function buildLandmarkTree(){
+  const ul=document.getElementById('lmTree');
+  document.getElementById('lmCnt').textContent='('+TS.landmarks.length+')';
+  TS.landmarks.forEach((lm,i)=>{
+    const li=document.createElement('li');
+    li.dataset.lm=String(i);
+    li.innerHTML=`<b>${lm.name}</b><span class="dim">${lm.detail?'nur Ebene 1/2':'alle Ebenen'} · ${lm.lon.toFixed(2)}°, ${lm.lat.toFixed(2)}°</span>`;
+    li.onclick=()=>{
+      const on=selectPoint(li,kmOfLonLat(lm.lon,lm.lat));requestRender();
+      if(on)showInfo(lm.name,lm.detail?'Detail-Landmarke (nur Ebene 1/2)':'alle Ebenen',lm.note||'');
+    };
+    ul.appendChild(li);
+  });
+  document.getElementById('lmShow').addEventListener('change',e=>{
+    showLandmarks=e.target.checked;requestRender();
+  });
+}
+document.getElementById('togglePanel').onclick=()=>{
+  document.getElementById('panel').classList.remove('hide');
+  document.body.classList.remove('panelhidden');
+};
+document.getElementById('pnlClose').onclick=()=>{
+  document.getElementById('panel').classList.add('hide');
+  document.body.classList.add('panelhidden');
+};
+
+/* ---- Interaktion: im Ziehmodus spannt die Geste eine Box auf, sonst schwenkt sie ---- */
+let drag=null,moved=false;
+const stagePos=e=>{const b=stage.getBoundingClientRect();return[e.clientX-b.left,e.clientY-b.top];};
+const kmAtPointer=e=>{const[px,py]=stagePos(e);return[ox+px/zoom,oy+py/zoom];};
+stage.addEventListener('pointerdown',e=>{
+  stage.setPointerCapture(e.pointerId);moved=false;
+  if(drawMode){
+    const[x,y]=kmAtPointer(e);
+    dragBoxKm=[x,y,x,y];drag=null;requestRender();
+    return;
+  }
+  drag={x:e.clientX,y:e.clientY};stage.classList.add('drag');
+});
+stage.addEventListener('pointermove',e=>{
+  if(dragBoxKm){
+    const[x,y]=kmAtPointer(e);
+    dragBoxKm[2]=x;dragBoxKm[3]=y;moved=true;requestRender();
+    return;
+  }
+  if(!drag)return;
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  if(Math.abs(dx)+Math.abs(dy)>3)moved=true;
+  ox-=dx/zoom;oy-=dy/zoom;drag={x:e.clientX,y:e.clientY};requestRender();
+});
+stage.addEventListener('pointerup',e=>{
+  if(dragBoxKm){
+    const b=kmBox(dragBoxKm);dragBoxKm=null;
+    /* Winzige Boxen sind Fehlklicks, keine Gebiete. */
+    if(b[2]-b[0]<0.5||b[3]-b[1]<0.5){requestRender();return;}
+    setNewBox(b);setDrawMode(false);
+    return;
+  }
+  stage.classList.remove('drag');drag=null;
+  if(!moved){const[px,py]=stagePos(e);inspectAt(px,py);}
+});
+function zoomAt(f,cx,cy){
+  const wx=ox+cx/zoom,wy=oy+cy/zoom;
+  zoom=Math.max(0.3,Math.min(140,zoom*f));
+  ox=wx-cx/zoom;oy=wy-cy/zoom;requestRender();
+}
+stage.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.deltaY<0?1.25:0.8,e.clientX-stage.getBoundingClientRect().left,e.clientY-stage.getBoundingClientRect().top);},{passive:false});
+document.getElementById('zin').onclick=()=>zoomAt(1.4,stage.clientWidth/2,stage.clientHeight/2);
+document.getElementById('zout').onclick=()=>zoomAt(1/1.4,stage.clientWidth/2,stage.clientHeight/2);
+document.getElementById('zfit').onclick=()=>{fit();requestRender();};
+addEventListener('resize',()=>requestRender());
+
+/* ---- Inspektor ---- */
+const insp=document.getElementById('inspector');
+document.getElementById('inspClose').onclick=()=>insp.classList.remove('show');
+function inspectAt(px,py){
+  if(selected){clearSelection();requestRender();}
+  const L=pickLevel(),s=L.hexKm/SQRT3;
+  const[c,r]=cellAtKm(ox+px/zoom,oy+py/zoom,s);
+  const d=cellData(L,c,r);if(!d)return;
+  const lm=TS.landmarks.find(lm=>{
+    const[lc,lr]=cellAtKm(...kmOfLonLat(lm.lon,lm.lat),s);return lc===c&&lr===r;});
+  const br=L.branches.find(b=>b.cells.some(([bc,brr])=>bc===c&&brr===r));
+  const pathCell=L.path.find(([pc,pr])=>pc===c&&pr===r);
+  const sec=d.s?SECBYID[SECIDS[d.s]]:null;
+  document.getElementById('inspTitle').textContent=
+    lm?lm.name:br&&d.t===6?br.name+' ('+br.art+')':TERRNAME[d.t];
+  document.getElementById('inspMeta').textContent=
+    [sec?'Abschnitt: '+sec.name:null,
+     pathCell?'≈ km '+pathCell[2]+' ab der Quelle':null,
+     d.e?'≈ '+(d.e*25)+' m ü. M.':null,
+     'Ebene '+L.id+' · ('+c+','+r+')'].filter(Boolean).join(' · ');
+  document.getElementById('inspTxt').textContent=
+    lm?lm.note:
+    br&&d.t===6?(br.note??'Ein Nebenlauf im Einzugsgebiet des Rheins.'):
+    sec?sec.txt:
+    d.t===2?'Bergland — der Fluss sucht sich seinen Weg darum herum oder hindurch.':
+    d.t===7?'Hang — geneigtes Land über dem Talboden (aus dem Höhenmodell abgeleitet).':
+    d.t===5?'Die Nordsee — hier endet die Reise des Rheins.':
+    'Offenes Land im Einzugsgebiet des Rheins.';
+  insp.classList.add('show');
+}
+
+/* ---- Bench (?bench): 60 Schwenks + 12 Zoomstufen, synchron gemessen ---- */
+let benchTxt='';
+function runBench(){
+  const pan=[],zm=[];
+  for(let i=0;i<60;i++){ox+=(i<30?6:-6)/zoom;const t=performance.now();frame();pan.push(performance.now()-t);}
+  for(let i=0;i<12;i++){const f=i%2?1.15:1/1.15;
+    const wx=ox+stage.clientWidth/(2*zoom),wy=oy+stage.clientHeight/(2*zoom);
+    zoom=Math.max(0.3,Math.min(140,zoom*f));
+    ox=wx-stage.clientWidth/(2*zoom);oy=wy-stage.clientHeight/(2*zoom);
+    const t=performance.now();frame();zm.push(performance.now()-t);}
+  const avg=a=>(a.reduce((x,y)=>x+y,0)/a.length).toFixed(2);
+  const max=a=>Math.max(...a).toFixed(1);
+  benchTxt=`<b>Bench</b> · Schwenk: Ø ${avg(pan)} ms (max ${max(pan)}) · Zoom: Ø ${avg(zm)} ms (max ${max(zm)})`;
+  frame();
+}
+
+/* ---- Terrain per ?hide= vorbelegen (Namen oder Indizes, kommasepariert). ---- */
+function applyHideParam(){
+  const raw=Q.get('hide');if(!raw)return;
+  for(const tok of raw.split(',').map(s=>s.trim()).filter(Boolean)){
+    let i=Number(tok);
+    if(!Number.isInteger(i))i=TERRNAME.findIndex(n=>n.toLowerCase()===tok.toLowerCase());
+    if(i<0||i>=TERRNAME.length)continue;
+    hiddenTerr.add(i);
+    const cb=document.querySelector('#terrFilter input[data-t="'+i+'"]');
+    if(cb)cb.checked=false;
+  }
+}
+/* ---- Modal-Schaubilder für Screenshots (?pipeline=lauf|fertig|fehler) ---- */
+function demoModal(art){
+  const region=newBoxKm?regionOfKm(newBoxKm):{lonW:9.42,lonE:9.72,latS:46.82,latN:47.12};
+  modalAufbauen(region,STUFEN_FALLBACK);
+  logZeile('Region viewer: 9.42–9.72°O, 46.82–47.12°N · 200 m Raster');
+  logZeile('Fenster: Pixel [5411,1180]–[5893,1852] (482×672)');
+  if(art==='lauf'){
+    stufeSetzen('dtm','ok');stufeSetzen('bake','run');fortschritt(0.55);
+    logZeile('Raster: 114×166 (200 m) · 18924 Werte, 0 NoData (0.0 %) · Höhe 431–2914 m');
+    logZeile('geschrieben: pipeline/sources/sonny-dtm-ch50.grid.json (38 KB)');
+    logZeile('Höhenregion aus 1 Quelle(n): 9.42–9.72°O, 46.82–47.12°N');
+    el('mdClose').disabled=true;
+    return;
+  }
+  el('mdClose').disabled=false;
+  if(art==='fehler'){
+    /* Abbruch in der ERSTEN Stufe: bake läuft dann gar nicht erst an. */
+    stufeSetzen('dtm','bad');fortschritt(1,'bad');
+    el('mdTitle').textContent='Pipeline abgebrochen';
+    logZeile('Region liegt ausserhalb des Höhenmodells — das DTM deckt nur die Schweiz ab.',true);
+    logZeile('Die bisherige Höhenquelle bleibt unverändert.',true);
+    el('mdMsg').className='msg bad';
+    el('mdMsg').textContent='Höhendaten zuschneiden: Abbruch mit Code 1';
+    return;
+  }
+  stufeSetzen('dtm','ok');
+  logZeile('Raster: 114×166 (200 m) · 18924 Werte, 0 NoData (0.0 %) · Höhe 431–2914 m');
+  {
+    stufeSetzen('bake','ok');fortschritt(1,'ok');
+    el('mdTitle').textContent='Pipeline fertig';
+    logZeile('Ebene 2 (0.4 km/Hex): 1128×1885 Zellen, 21 Kacheln behalten, 2103 übersprungen, 118 ms');
+    logZeile('geschrieben: prototype/drafts/rhein-tiles-v4.data.js (394 KB)');
+    el('mdMsg').className='msg ok';
+    el('mdMsg').textContent='Neues Tileset geschrieben. Neu laden zeigt das gerechnete Gebiet.';
+    el('mdReload').style.display='';
+  }
+}
+
+/* ---- Start (Debug: ?lon&lat&z, ?level, ?stats, ?labels=0, ?inspect=lon,lat, ?bench,
+   ?panel=0 (Baum initial ausgeblendet), ?hide=Bergland,Hang (oder Indizes, Terrain-Filter),
+   ?select=source:<file>|level:<id>|landmark:<index>,
+   NEU in v4: ?draw (Ziehmodus an), ?bbox=lonW,latS,lonE,latN (Gebiet vorbelegen),
+   ?pipeline=lauf|fertig|fehler (Dialog als Schaubild, ohne echten Lauf)) ---- */
+document.body.classList.toggle('stats',Q.has('stats')||Q.has('bench'));
+buildTerrFilter();
+buildTrees();
+buildLandmarkTree();
+applyHideParam();
+zeigeRegionAusTileset();
+if(Q.get('panel')==='0'){document.getElementById('panel').classList.add('hide');document.body.classList.add('panelhidden');}
+fit();
+if(Q.has('lon')&&Q.has('lat')){
+  zoom=+(Q.get('z')||6);
+  const[x,y]=kmOfLonLat(+Q.get('lon'),+Q.get('lat'));
+  ox=x-stage.clientWidth/(2*zoom);oy=y-stage.clientHeight/(2*zoom);
+}
+if(Q.has('bbox')){
+  const[lonW,latS,lonE,latN]=Q.get('bbox').split(',').map(Number);
+  if([lonW,latS,lonE,latN].every(Number.isFinite))
+    setNewBox([...kmOfLonLat(lonW,latN),...kmOfLonLat(lonE,latS)]);
+}
+if(Q.has('draw'))setDrawMode(true);
+frame();
+if(Q.has('inspect')){
+  const[lon,lat]=Q.get('inspect').split(',').map(Number);
+  const[x,y]=kmOfLonLat(lon,lat);
+  inspectAt((x-ox)*zoom,(y-oy)*zoom);
+}
+if(Q.has('select')){
+  const[kind,val]=Q.get('select').split(':');
+  const li=kind==='source'?document.querySelector('#srcTree li[data-file="'+val+'"]')
+           :kind==='level'?document.querySelector('#lvlTree li[data-level="'+val+'"]')
+           :kind==='landmark'?document.querySelector('#lmTree li[data-lm="'+val+'"]'):null;
+  if(li)li.click();
+}
+pruefeServer();
+if(Q.has('pipeline'))demoModal(Q.get('pipeline')||'fertig');
+if(Q.has('bench'))runBench(); // synchron: blockiert das Load-Event, bis die Messung steht
+</script>
+</body>
+</html>

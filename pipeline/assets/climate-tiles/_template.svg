@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 115.47">
+<title>Stil-Guide-Template — Klimaregion × Holozän-Stufe</title>
+<!--
+  Referenz-Template für pipeline/assets/climate-tiles/*.svg
+  (siehe art-direction-handbuch.html, Kap. 1 + Kap. 7).
+
+  Sechs Layer, immer in dieser Reihenfolge und mit diesen Namen:
+    1. base-terrain            Bodenfarbe, Grundform, Relief
+    2. vegetation-primary      dominante Baum-/Strauchschicht der Region/Epoche
+    3. vegetation-secondary    Unterwuchs, Gräser, Heide
+       water-features          Gewässer (eigene Gruppe, nur falls vorhanden)
+    4. climate-indicators      Schnee, Dürre-Risse, Nebel, Salzkruste
+    5. human-traces            sehr dezent, nur Subboreal/Subatlantikum
+    6. edge-mask               Hex-Kontur fürs Kanten-Matching
+
+  Palette als CSS-Variablen (:root wirkt auf das svg-Wurzelelement —
+  jede Datei ist eigenständig ladbar, keine externe Stylesheet-Abhängigkeit).
+  Jede Klimaregion/Epoche-Kombination definiert ihre eigenen Werte; die
+  Variablennamen bleiben über alle Dateien gleich, damit ein späterer
+  Kontrastmodus (analog Tag/Nacht im Handbuch) zentral umschaltbar wäre.
+-->
+<style>
+:root{
+  --ground-base:#C9C2A6;
+  --ground-shade:#B3AC8E;
+  --veg-primary:#5C7A4E;
+  --veg-primary-dark:#4A6640;
+  --veg-secondary:#8CA06E;
+  --water:#6FA6A3;
+  --water-deep:#527F7D;
+  --climate:#F4EEDD;
+  --climate-haze:#E3B36A;
+  --human:#4A4038;
+  --edge:#8C8468;
+}
+</style>
+<clipPath id="hex"><path d="M50,0 L100,28.87 L100,86.6 L50,115.47 L0,86.6 L0,28.87 Z"/></clipPath>
+<g clip-path="url(#hex)">
+  <g id="base-terrain">
+    <rect x="0" y="0" width="100" height="115.47" fill="var(--ground-base)"/>
+    <!-- Relief/Schattierung: grossflächig, unter aller Vegetation -->
+  </g>
+  <g id="vegetation-primary">
+    <!-- die charakteristische Baum-/Strauchschicht — bestimmt die Silhouette -->
+  </g>
+  <g id="vegetation-secondary">
+    <!-- Unterwuchs, Gräser, Heide — nur in Lücken der Primärschicht sichtbar -->
+  </g>
+  <g id="water-features">
+    <!-- Gewässer, falls die Kombination welche vorsieht -->
+  </g>
+  <g id="climate-indicators">
+    <!-- Schnee / Dürre-Risse / Nebelschwaden / Salzkruste, dezent -->
+  </g>
+  <g id="human-traces">
+    <!-- sehr dezent, nur Subboreal/Subatlantikum und nur wo archäologisch
+         sinnvoll: Pfadlinien, Feldflächen, winzige Siedlungspunkte.
+         Niemals dominant, niemals moderne Bauten. -->
+  </g>
+</g>
+<g id="edge-mask">
+  <!-- Kanten-Matching: der clipPath oben ist die technische Hex-Kontur.
+       Diese Gruppe ist der Ort für künftige Übergangsmotive (Kap. 5) —
+       noch keine harte zweite Maske, damit Rotation nicht bricht. -->
+  <path d="M50,0 L100,28.87 L100,86.6 L50,115.47 L0,86.6 L0,28.87 Z" fill="none" stroke="var(--edge)" stroke-width="1.2" opacity="0.4"/>
+</g>
+</svg>

@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Ereignis-Labor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+:root{
+  --bg:#DCE3D8; --panel:#ECEFE6; --panel2:#E2E7DC; --ink:#22302C; --ink2:#5A6B64;
+  --river:#7FB2AC; --riverdeep:#5E9793; --lake:#8FBDB6;
+  --ember:#C96F2E; --emberglow:rgba(224,138,60,.18);
+  --bone:#F2EDE0; --line:#B8C2B4; --good:#4E7D5B; --bad:#9C4A33;
+  --flach:#D3DCCD; --ufer:#C6D4C6; --hang:#A9B4A4; --wald:#7C9A72;
+  --kies:#DCC9A0; --trocken:#AEB0A0; --brand:#6B5344;
+  --rom:#8E4A3C; --shadow:0 2px 10px rgba(30,45,40,.12);
+}
+body.night{
+  --bg:#0D151D; --panel:#141F28; --panel2:#101A22; --ink:#E6E1D2; --ink2:#8B9690;
+  --river:#2E5457; --riverdeep:#24444a; --lake:#2F5A5C;
+  --ember:#E08A3C; --emberglow:rgba(224,138,60,.30);
+  --bone:#1B2731; --line:#2C3B44; --good:#7FB08B; --bad:#D07B5E;
+  --flach:#1E2C34; --ufer:#22333A; --hang:#182530; --wald:#2C4436;
+  --kies:#453A22; --trocken:#2B302B; --brand:#3A2A22;
+  --rom:#7A3A2E; --shadow:0 2px 14px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:'Instrument Sans',system-ui,sans-serif;
+  transition:background 1.2s ease,color 1.2s ease;
+  min-height:100vh;
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;}}
+.wrap{max-width:1000px;margin:0 auto;padding:12px 14px 40px;}
+
+/* ---------- header ---------- */
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:4px 2px 12px;border-bottom:1px solid var(--line);}
+.brand{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px;letter-spacing:.14em;line-height:1;}
+.brand small{display:block;font-family:'Space Mono',monospace;font-weight:400;font-size:10px;letter-spacing:.08em;color:var(--ink2);margin-top:4px;letter-spacing:.1em;}
+.clock{text-align:right;font-family:'Space Mono',monospace;white-space:nowrap;}
+.clock b{font-size:22px;font-weight:700;display:block;line-height:1;}
+.clock span{font-size:10px;color:var(--ink2);letter-spacing:.1em;}
+.clock b#cSlot{display:inline;font-size:10px;color:var(--ember);letter-spacing:.1em;}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ember);margin-right:5px;vertical-align:1px;box-shadow:0 0 8px var(--emberglow);}
+.dot.idle{background:var(--line);box-shadow:none;}
+
+/* ---------- layout ---------- */
+/* Das Tal ist schmal und lang — die Kartenspalte darf das sein. */
+main{display:grid;grid-template-columns:404px minmax(320px,1fr);gap:16px;margin-top:14px;align-items:start;}
+@media (max-width:900px){main{grid-template-columns:1fr;}}
+
+/* ---------- timeline ---------- */
+.tl{display:flex;gap:3px;margin:2px 0 10px;}
+.seg{flex:1;position:relative;height:26px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);
+     display:flex;align-items:center;justify-content:center;cursor:pointer;
+     font-family:'Space Mono',monospace;font-size:9px;color:var(--ink2);transition:background .3s,color .3s;}
+.seg:hover{border-color:var(--ember);}
+.seg.done{background:var(--river);color:#fff;border-color:transparent;}
+.seg.now{outline:2px solid var(--ember);outline-offset:1px;color:var(--ink);font-weight:700;}
+.seg.done.now{color:#fff;}
+.seg .mk{position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--ember);letter-spacing:-1px;}
+.seg .mk.chain{color:var(--ink2);}
+
+/* ---------- stage ---------- */
+.stage{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:8px;
+       padding:10px 12px;margin-bottom:10px;min-height:78px;box-shadow:var(--shadow);transition:border-color .4s,background .8s;}
+.stage.live{border-left-color:var(--ember);}
+.stage .tag{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ember);}
+.stage h2{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:17px;margin:4px 0 5px;line-height:1.15;}
+.stage p{margin:0;font-size:12.5px;line-height:1.5;color:var(--ink2);}
+.stage .fx{margin-top:6px;font-family:'Space Mono',monospace;font-size:10.5px;color:var(--good);}
+.stage .fx.bad{color:var(--bad);}
+.stage.quiet .tag{color:var(--ink2);}
+
+/* ---------- map ---------- */
+.mapbox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px;box-shadow:var(--shadow);position:relative;}
+/* Höhe führt, Breite folgt: so bleibt das ganze Tal im Bild (auch im Screenshot). */
+svg#map{display:block;width:100%;height:min(680px,68vh);}
+.hex{stroke:rgba(0,0,0,.10);stroke-width:.4;transition:fill .5s ease;}
+body.night .hex{stroke:rgba(255,255,255,.06);}
+.t-lake{fill:var(--lake);} .t-water{fill:var(--river);} .t-flach{fill:var(--flach);}
+.t-ufer{fill:var(--ufer);} .t-hang{fill:var(--hang);} .t-kies{fill:var(--kies);}
+.t-trocken{fill:var(--trocken);} .t-brand{fill:var(--brand);}
+.wald{fill:var(--wald);opacity:.75;pointer-events:none;}
+.furt{stroke:var(--bone);stroke-width:.9;opacity:.8;}
+/* Siedlung: was dem Spieler gehört, hebt sich vom Gelände ab */
+.tile{pointer-events:none;stroke:var(--ink);stroke-width:.6;opacity:.92;}
+.tl-fisch{fill:var(--river);} .tl-ufer{fill:var(--ember);} .tl-wald{fill:var(--wald);}
+.tl-terrasse{fill:var(--hang);} .tl-hoehle{fill:var(--ink2);} .tl-flint{fill:var(--bone);}
+.tl-pfahl{fill:var(--lake);}
+.pers{pointer-events:none;font-family:'Space Mono',monospace;font-size:7.5px;font-weight:700;
+      text-anchor:middle;fill:var(--ink);paint-order:stroke;stroke:var(--panel);stroke-width:1.8px;}
+.mark{pointer-events:none;fill:none;stroke:var(--ink);stroke-width:.9;}
+.mark.road{stroke-width:1.8;stroke-linecap:round;opacity:.85;}
+.rom{fill:var(--rom);opacity:.30;pointer-events:none;}
+.narbe{fill:none;stroke:var(--ember);stroke-width:.7;opacity:.55;pointer-events:none;}
+.hit{animation:hit 1.1s ease-out both;}
+@keyframes hit{0%{opacity:0;transform:scale(.2);}45%{opacity:1;transform:scale(1.06);}100%{opacity:.85;transform:scale(1);}}
+.pulse{fill:none;stroke:var(--ember);stroke-width:1.4;pointer-events:none;}
+/* Vorschau kühl, laufendes Ereignis warm — sonst verwechselt man
+   „könnte kommen" mit „geschieht jetzt". */
+.prev{fill:none;stroke:var(--riverdeep);stroke-width:.7;stroke-dasharray:2 2;opacity:.9;pointer-events:none;}
+.src{fill:none;stroke:var(--ember);stroke-width:1.2;pointer-events:none;}
+.lbl{font-family:'Space Mono',monospace;font-size:6.4px;letter-spacing:.04em;fill:var(--ink2);pointer-events:none;
+     paint-order:stroke;stroke:var(--panel2);stroke-width:1.6px;stroke-linejoin:round;}
+.edge{font-family:'Space Mono',monospace;font-size:6.4px;letter-spacing:.08em;fill:var(--ember);pointer-events:none;}
+body.spuren .hex{opacity:.30;}
+body.spuren .hex.diff{opacity:1;stroke:var(--ember);stroke-width:.8;}
+body.spuren .wald{opacity:.25;}
+
+/* ---------- controls ---------- */
+.ctrl{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center;}
+button{font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;color:var(--ink);
+       background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 11px;cursor:pointer;transition:.15s;}
+button:hover{border-color:var(--ember);}
+button.pri{background:var(--ember);border-color:var(--ember);color:#fff;}
+button.on{border-color:var(--ember);color:var(--ember);}
+button:disabled{opacity:.35;cursor:default;}
+select{font-family:'Instrument Sans',sans-serif;font-size:12px;color:var(--ink);background:var(--panel);
+       border:1px solid var(--line);border-radius:7px;padding:7px 8px;}
+.spacer{flex:1;}
+.bilanz{display:flex;gap:6px;margin-top:10px;}
+.bz{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:5px 4px;text-align:center;}
+.bz b{display:block;font-family:'Space Mono',monospace;font-size:15px;line-height:1.2;}
+.bz span{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);}
+.maplegend{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:9px;font-family:'Space Mono',monospace;font-size:9px;color:var(--ink2);}
+.maplegend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:3px;vertical-align:-1px;}
+.maplegend svg{margin-right:3px;}
+
+/* ---------- side ---------- */
+aside{display:flex;flex-direction:column;gap:10px;}
+.tabs{display:flex;gap:3px;}
+.tabs button{flex:1;border-radius:7px 7px 0 0;font-size:11.5px;padding:8px 4px;}
+.tabs button.on{background:var(--panel);border-bottom-color:var(--panel);color:var(--ember);}
+.pane{background:var(--panel);border:1px solid var(--line);border-radius:0 8px 8px 8px;padding:11px 12px;box-shadow:var(--shadow);}
+.pane.hid{display:none;}
+h4{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink2);margin:0 0 8px;font-weight:400;}
+h4.sp{margin-top:14px;}
+
+.ev{border:1px solid var(--line);border-left:3px solid var(--line);border-radius:7px;padding:8px 9px;margin-bottom:6px;cursor:pointer;background:var(--panel2);transition:.15s;}
+.ev:hover{border-color:var(--ember);}
+.ev.sel{border-left-color:var(--ember);background:var(--bone);}
+.ev.past{opacity:.5;}
+.ev .row1{display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
+.ev .nm{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:13px;line-height:1.15;}
+.ev .yr{font-family:'Space Mono',monospace;font-size:10px;color:var(--ink2);white-space:nowrap;}
+.ev .row2{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap;}
+.bd{font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;
+    border:1px solid var(--line);border-radius:99px;padding:2px 6px;color:var(--ink2);}
+.bd.geo{border-color:var(--river);color:var(--riverdeep);}
+body.night .bd.geo{color:var(--river);}
+.bd.b-belegt{border-color:var(--good);color:var(--good);}
+.bd.b-wahrscheinlich{border-color:var(--river);color:var(--riverdeep);}
+body.night .bd.b-wahrscheinlich{color:var(--river);}
+.bd.b-rekonstruiert{border-color:var(--ember);color:var(--ember);}
+.bd.b-erfunden{border-color:var(--bad);color:var(--bad);}
+.bd.chain{border-color:var(--ember);color:var(--ember);}
+
+.insp p{font-size:12.5px;line-height:1.5;margin:0 0 8px;}
+.insp .dim{color:var(--ink2);font-size:11.5px;}
+.phz{display:flex;gap:4px;margin:8px 0 10px;}
+.ph{flex:1;border:1px solid var(--line);border-radius:6px;padding:5px 4px;text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:var(--ink2);}
+.ph b{display:block;font-size:11px;color:var(--ink);}
+.ph.on{border-color:var(--ember);color:var(--ember);}
+.ph.on b{color:var(--ember);}
+.sl{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.sl label{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.06em;color:var(--ink2);width:96px;flex:none;}
+.sl input[type=range]{flex:1;accent-color:var(--ember);}
+.sl select{flex:1;}
+.sl b{font-family:'Space Mono',monospace;font-size:11px;width:26px;text-align:right;}
+.quelle{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:11px;line-height:1.45;color:var(--ink2);}
+.quelle b{color:var(--ink);}
+.wirk{font-family:'Space Mono',monospace;font-size:10.5px;line-height:1.6;color:var(--ink);}
+.wirk s{color:var(--ink2);text-decoration:none;}
+
+/* ---------- Spielsicht ---------- */
+.slot{border-left:3px solid var(--line);padding:2px 0 8px 9px;margin-bottom:8px;}
+.slot.now{border-left-color:var(--ember);}
+.slot.soon{opacity:.45;}
+.shead{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink2);margin-bottom:5px;}
+.slot.now .shead{color:var(--ember);}
+.hier{letter-spacing:.04em;}
+.zeile{display:flex;gap:7px;font-size:12px;line-height:1.45;margin-bottom:5px;}
+.zeile .kd{flex:none;width:74px;font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.06em;
+           text-transform:uppercase;color:var(--ink2);padding-top:2px;}
+.k-ein .kd,.k-vor .kd{color:var(--ember);}
+.k-verlust{color:var(--bad);} .k-verlust .kd{color:var(--bad);}
+.k-wahl{color:var(--good);} .k-wahl .kd{color:var(--good);}
+.k-rechnung,.k-tat,.k-ertrag{color:var(--ink2);}
+.fenster{background:var(--panel2);border:1px solid var(--ember);border-radius:7px;padding:8px 9px;margin:6px 0 2px;font-size:12px;}
+.fenster>b{display:block;margin-bottom:6px;}
+button.antw{display:block;width:100%;text-align:left;margin-bottom:4px;font-size:11.5px;padding:6px 8px;}
+button.antw .ko{color:var(--ink2);font-family:'Space Mono',monospace;font-size:9.5px;}
+.fenster .dim{color:var(--ink2);font-size:10.5px;margin-top:4px;}
+
+.log{max-height:340px;overflow:auto;}
+.li{display:flex;gap:8px;font-size:11.5px;line-height:1.45;padding:5px 0;border-bottom:1px solid var(--line);}
+.li:last-child{border-bottom:0;}
+.li .rn{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);width:52px;flex:none;padding-top:1px;}
+.li.ein{color:var(--ink);} .li.ein b{color:var(--ember);}
+.li.vor,.li.nach{color:var(--ink2);}
+.li.spur b{color:var(--good);}
+
+.note{font-size:11px;line-height:1.5;color:var(--ink2);margin-top:10px;}
+.note b{color:var(--ink);}
+kbd{font-family:'Space Mono',monospace;font-size:9.5px;border:1px solid var(--line);border-radius:3px;padding:0 4px;background:var(--panel2);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">STROMLINIEN<small>EREIGNIS-LABOR · v1 · gescriptete Ereignisse</small></div>
+  <div class="clock">
+    <b id="cYear">—</b>
+    <span><span class="dot idle" id="cDot"></span><span id="cRound">Runde —</span> · <b id="cSlot">—</b></span>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div class="tl" id="tl"></div>
+
+    <div class="stage quiet" id="stage">
+      <div class="tag" id="stTag">Bereit</div>
+      <h2 id="stName">Das Drehbuch liegt bereit</h2>
+      <p id="stTxt">Ereignisse geschehen zu festen Zeiten — aber an Orten, und über mehrere Runden. Drücke <kbd>Abspielen</kbd>, oder wähle links ein Ereignis, um seine Ausbreitung als Vorschau zu sehen.</p>
+      <div class="fx" id="stFx"></div>
+    </div>
+
+    <div class="mapbox">
+      <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+
+    <div class="ctrl">
+      <button class="pri" id="bPlay">▶ Abspielen</button>
+      <button id="bSlot">⏭ Abschnitt</button>
+      <button id="bStep">⏭ Runde</button>
+      <button id="bReset">⟲ Zurücksetzen</button>
+      <select id="selBuch"></select>
+      <select id="selTempo">
+        <option value="1600">langsam</option>
+        <option value="900" selected>normal</option>
+        <option value="380">schnell</option>
+      </select>
+      <span class="spacer"></span>
+      <button id="bSied" class="on">Siedlung</button>
+      <button id="bSpuren">Spuren</button>
+      <button id="bNight">Nacht</button>
+    </div>
+
+  </section>
+
+  <aside>
+    <div class="tabs">
+      <button class="on" data-pane="pSicht">Spielsicht</button>
+      <button data-pane="pBuch">Drehbuch</button>
+      <button data-pane="pInsp">Regie</button>
+      <button data-pane="pLog">Protokoll</button>
+    </div>
+
+    <div class="pane" id="pSicht"></div>
+
+    <div class="pane hid" id="pBuch">
+      <h4 id="buchTitle">Drehbuch</h4>
+      <div id="evList"></div>
+      <p class="note"><b>◆</b> steht auf der Zeitleiste für ein Ereignis mit festem Datum, <b>▽</b> für eine <b>Folge</b> — ein Ereignis, das ein anderes auslöst. Jahre werden absolut gespeichert und erst beim Anzeigen auf Runden gerechnet.</p>
+    </div>
+
+    <div class="pane hid insp" id="pInsp"></div>
+
+    <div class="pane hid" id="pLog">
+      <h4>Protokoll</h4>
+      <div class="log" id="logList"><p class="note">Noch nichts geschehen.</p></div>
+    </div>
+
+    <div class="bilanz">
+      <div class="bz"><b id="bzTouch">0</b><span>Berührungen</span></div>
+      <div class="bz"><b id="bzPerm">0</b><span>dauerhaft</span></div>
+      <div class="bz"><b id="bzNarb">0</b><span>Narben offen</span></div>
+      <div class="bz"><b id="bzTile">0</b><span>Plättchen weg</span></div>
+    </div>
+
+    <div class="maplegend">
+      <span><i style="background:var(--river)"></i>Fluss</span>
+      <span><i style="background:var(--lake)"></i>See</span>
+      <span><i style="background:var(--hang)"></i>Hang</span>
+      <span><i style="background:var(--wald)"></i>Wald</span>
+      <span><i style="background:var(--kies)"></i>Schwemmland</span>
+      <span><i style="background:var(--trocken)"></i>trockenes Bett</span>
+      <span><i style="background:var(--brand)"></i>Brandfläche</span>
+      <span><svg width="11" height="11" viewBox="0 0 11 11" style="vertical-align:-2px"><polygon points="5.5,1 10,5.5 5.5,10 1,5.5" fill="none" stroke="var(--ember)" stroke-width="1"/></svg>Narbe</span>
+      <span><svg width="11" height="11" viewBox="0 0 11 11" style="vertical-align:-2px"><rect x="2" y="2" width="7" height="5" fill="none" stroke="currentColor"/><line x1="3" y1="7" x2="3" y2="10" stroke="currentColor"/><line x1="8" y1="7" x2="8" y2="10" stroke="currentColor"/></svg>Pfahlbau</span>
+      <span><svg width="11" height="11" viewBox="0 0 11 11" style="vertical-align:-2px"><polygon points="5.5,1 10,9 1,9" fill="currentColor"/></svg>Burg</span>
+      <span><svg width="14" height="11" viewBox="0 0 14 11" style="vertical-align:-2px"><line x1="1" y1="5.5" x2="13" y2="5.5" stroke="currentColor" stroke-width="2"/></svg>Straße</span>
+      <span><i style="background:var(--rom);opacity:.5"></i>Herrschaft</span>
+    </div>
+
+    <p class="note"><b>Tasten</b> <kbd>Leer</kbd> abspielen · <kbd>→</kbd> eine Runde · <kbd>R</kbd> zurücksetzen.
+      <b>Spuren</b> blendet alles aus, was das Drehbuch <i>nicht</i> angefasst hat — die Karte danach ist eine andere als die davor.</p>
+  </aside>
+</main>
+</div>
+
+<script>
+/* =====================================================================
+   STROMLINIEN · Ereignis-Labor v1
+   Prüfstand für gescriptete Ereignisse: festes Datum, aber ein Ort,
+   eine Ausbreitung über Runden und eine Spur, die auf der Karte bleibt.
+   Bühne ist die gestaltete Weltkarte (Alpenrhein, Landquart–Konstanz),
+   identisch zu app/src/stromlinien/world.ts.
+   Debug: ?buch=e1|e2 ?runde=N ?ev=<id> ?autostart ?demo ?tempo=schnell
+          ?night ?spuren
+   ===================================================================== */
+
+/* ---------- Weltkarte (1:1 aus world.ts) ---------- */
+const MAP=[
+'......LLLLLLLLL.......','....LLLLLLLLLLLL......','...LLLLLLLLLLLLLL.....','..LLLLLLLLLLLLLLLL....',
+'..LLLLLLLLLLLLLLLLL...','...LLLLLLLLLLLLLLLL...','....LLLLLLLLLLLLLLL...','......LLLLLLLLLLLL....',
+'.........LLLLLLLL.....','...........LLLL.......','..MMM.......~....MMM..','..MMM.......~....MMM..',
+'..MMM.......~....MMM..','..MMM......~.....MMM..','..MMM......f.....MMM..','..MMM......~.....MMM..',
+'..MMM......~..M.MMMM..','..MMM.....~......MMMM.','..MMM.....~~~~...MMM..','..MMM.....~......MMM..',
+'..MMM......~.....MMM..','..MMM......~.....MMM..','...MMM..M..~....MMMM..','...MMM.....~....MMMM..',
+'...MMM.....~....MMMM..','...MMM.....~....MMMM..','...MMM.....f....MMMM..','...MMM.....~....MMMM..',
+'...MMM.....~....MMMM..','...MMMM...~....MMMM...','...MMMM...~....MMMM...','...MMMM...~....MMMM...',
+'...MMMM....~...MMMM...','...MMMM....~...MMMM...','....MMMM...~...MMMM...','....MMMM...~...MMMM...',
+'....MMMM...~...MMMM...','....MMMM...~...MMMM...','....MMMM...f...MMMM...','....MMMM...~...MMMM...',
+'....MMMMM..~..MMMM....','....MMMMM..~..MMMM....','....MMMMM..~~~~MMMM...','...MMMMMM..~..MMMMM...'];
+const W=22,H=MAP.length;
+const LANDMARKS=[[1,2,'Konstanz'],[10,12,'Rheindelta'],[14,11,'Furt im Ried'],[18,13,'Illmündung'],
+                 [26,11,'Schaaner Furt'],[38,11,'Tardisfurt'],[42,12,'Landquart']];
+/* Was jenseits des Kartenrands liegt — Ereignisse dürfen von dort kommen. */
+const OFFMAP=[[43,11,'↓ Chur · Reichenau · Flims'],[0,8,'↑ Bodensee']];
+
+const DE=[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]];
+const DO=[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
+const dirs=r=>(((r%2)+2)%2)?DO:DE;
+const K=(r,c)=>r+','+c;
+const RC=k=>k.split(',').map(Number);
+function hash(x,y,s){let h=Math.imul(x|0,374761393)^Math.imul(y|0,668265263)^Math.imul(s|0,1440662683);
+  h=Math.imul(h^(h>>>13),1274126177);h^=h>>>16;return (h>>>0)/4294967296;}
+
+/* =====================================================================
+   AUSBREITUNGSARTEN — was eine Geometrie überhaupt sein kann.
+   Jede Art ist nur eine Kostenfunktion: was kostet der Schritt von
+   einem Feld ins nächste, und wo ist Schluss. Der Rest ist derselbe
+   Motor für alle Ereignisse.
+   ===================================================================== */
+const GEO={
+  punkt:{nm:'Punkt',txt:'Geschieht auf einem Feld und bleibt dort.',
+    cost:()=>null},
+  radius:{nm:'Radius',txt:'Wächst gleichmäßig in alle Richtungen — Erschütterung, Gerücht, Rodung.',
+    cost:(to)=>to.t==='lake'?null:1},
+  korridor:{nm:'Korridor',txt:'Folgt dem Flussbett talwärts und schwappt einen Ring aufs Ufer. Das Bett leitet — auch ein trockenes —, Land bremst, der See verschluckt.',
+    cost:(to,from,ctx)=>{
+      if(to.t==='lake') return null;                   /* im See läuft es aus */
+      const toB=isBett(to), fromB=isBett(from);
+      if(toB) return (fromB && to.r<=from.r)?1:null;    /* nur abwärts (Norden) */
+      /* Ein Damm verkürzt den Fluss nicht — er verhindert das Übertreten. */
+      return (fromB && !ctx.keinUfer)?2:null;
+    }},
+  ufer:{nm:'Uferlinie',txt:'Bleibt am Wasser: Bauweisen und Wege wandern die Ufer hinauf, nicht ins Hinterland.',
+    cost:(to)=>isW(to)?3:(amWasser(to)?1:null)},
+  front:{nm:'Diffusionsfront',txt:'Läuft über Land, die Talsohle schnell, den Hang zäh. Mehrere Quellen treffen sich.',
+    cost:(to)=>to.t==='lake'?null:(to.t==='hang'?4:(isW(to)?2:1))},
+  brand:{nm:'Feuer',txt:'Frisst nur, wo Wald steht. Wasser stoppt es, der Wind gibt die Richtung.',
+    cost:(to,from,ctx)=>{if(!to.wald)return null;
+      const gegen=(to.r>from.r)===(ctx.ev.wind>0);return gegen?1:3;}},
+  pegel:{nm:'Pegel',txt:'Der Wasserstand steigt: die tiefen Felder am Ufer gehen zuerst.',
+    cost:(to)=>(to.t==='flach'||to.t==='ufer'||to.t==='kies')?1:(isW(to)?0:null)},
+  global:{nm:'Ganzes Tal',txt:'Kein Ort — Klima trifft alle gleichzeitig. Nicht jedes Ereignis hat eine Geometrie.',
+    cost:()=>null},
+};
+const isW=c=>c.t==='water'||c.t==='lake';
+/* Das Bett bleibt Bett, auch wenn kein Wasser darin steht — sonst könnte
+   eine Flutwelle nicht durch das trockengelegte Flussbett laufen. */
+const isBett=c=>isW(c)||c.t==='trocken';
+/* Auf dem aktuellen Kartenzustand, nicht auf dem ursprünglichen: steigt der
+   See, verschiebt sich damit auch die Uferlinie, an der sich etwas ausbreitet. */
+function amWasser(cl){
+  for(const[dr,dc]of dirs(cl.r)){const n=S.grid[cl.r+dr]&&S.grid[cl.r+dr][cl.c+dc];
+    if(n&&isW(n))return true;}
+  return false;
+}
+
+/* =====================================================================
+   DIE DREHBÜCHER
+   jahr = absolut (negativ = v. Chr.); die Runde wird gerechnet.
+   beleg: belegt | wahrscheinlich | rekonstruiert | erfunden
+   ===================================================================== */
+const BUECHER={
+/* waldDichte = Wald zu Beginn. In Epoche I ist das Tal kahl — den Wald
+   bringt erst das erste Ereignis, und der Waldbrand später braucht ihn. */
+e1:{nm:'Epoche I · Das Tal nach dem Eis',von:-8400,bis:-3400,runden:12,waldDichte:0,events:[
+  {id:'wald',nm:'Die Wälder erobern das Tal',jahr:-8400,tag:'Belegtes Ereignis',beleg:'belegt',
+   geo:'front',quellen:[[43,11],[42,12],[38,11]],tempo:14,weite:120,vor:0,nach:2,wind:0,
+   vorT:'',
+   einT:'Nach dem Eis kommt das Grün. Von den warmen Süd-Terrassen kriecht der Wald talwärts, Kiefer zuerst, dann Hasel, dann Eiche. Wo Tundra war, rauscht Au.',
+   nachT:'Der Wald steht. Holz gibt es im Überfluss — und Deckung für alles, was jagt.',
+   wirkung:{wald:'neu'},spiel:'+1 Material/Tag auf Waldfeldern; Auenwald wird bebaubar.',
+   quelle:'Pollenprofile der Bodenseeregion: Wiederbewaldung ab dem Spätglazial, Kiefer-Hasel-Eichen-Folge. Das Datum ist der Beginn, nicht ein Zeitpunkt.'},
+
+  {id:'felssturz',nm:'Der Berg fällt',jahr:-7400,tag:'Belegtes Ereignis · abseits der Karte',beleg:'belegt',
+   geo:'korridor',quellen:[[43,11]],tempo:24,weite:46,vor:1,nach:1,wind:0,
+   vorT:'Im Süden steht Staub über dem Tal, tagelang, ohne Wind. Der Fluss führt weißes Wasser und riecht nach Stein.',
+   einT:'Weit oberhalb, wo niemand von euch je war, hat sich ein halber Berg ins Tal gelegt. Vom Ereignis selbst sieht ihr nichts — nur, dass der Rhein weniger und weniger wird, bis das Bett bei euch trocken liegt. Man kann hindurchgehen. Niemand tut es gern.',
+   nachT:'Ein trockener Fluss ist ein Weg und ein Vorzeichen zugleich. Die Ältesten verbieten, im Bett zu schlafen.',
+   wirkung:{setzt:'trocken',nur:['water'],narbe:false},
+   spiel:'Furten überall passierbar, Fischgründe fallen aus; Fluss-Ereignisse pausieren.',
+   trifft:[],
+   antworten:[
+     {txt:'Brunnen am Ufer graben',kosten:'−2 Material',fx:'Wasser bleibt erreichbar, solange das Bett trocken liegt.',mod:{}},
+     {txt:'Das trockene Bett begehen',kosten:'nichts',fx:'Ihr findet Wege, Steine und eine Abkürzung, die niemand kannte. (+1 Kultur)',mod:{setzt:'imBett'}}],
+   folge:{id:'stausee',nach:2},
+   quelle:'Flimser Bergsturz, rund 9 400 cal BP — mit ~12 km³ der größte bekannte Bergsturz der Alpen. Er verschüttete den Vorderrhein und staute ihn zum Ilanzer See. Der Ort liegt <b>oberhalb</b> dieser Karte: sichtbar ist hier nur die Wirkung, die talwärts kommt.'},
+
+  {id:'stausee',nm:'Der Stausee bricht',jahr:null,tag:'Folge · wahrscheinlich',beleg:'wahrscheinlich',
+   /* Tempo 10 statt 22: die Welle braucht drei Nächte durchs Tal. Bei 22 war
+      die Siedlung in einer einzigen Nacht weg — kein Ereignis, ein Urteil. */
+   geo:'korridor',quellen:[[43,11]],tempo:10,weite:70,vor:0,nach:2,wind:0,
+   vorT:'',
+   einT:'Erst ein Ton, den keiner kennt — tief, unter den Füßen. Dann kommt das Wasser, das zwei Jahre lang gefehlt hat, alles auf einmal, mit Bäumen und Blöcken darin. In einer Nacht schreibt der Fluss sein Bett neu.',
+   nachT:'Wo die Flut stand, liegt Kies und feiner Schlick. Nichts wächst darauf — noch nicht. In zwei Generationen wird es das beste Land im Tal sein.',
+   wirkung:{setzt:'kies',nur:['flach','ufer','wald'],ausser:['water','lake'],reset:'trocken',narbe:true},
+   spiel:'Zerstört Plättchen im Überflutungsstreifen; Schwemmland gibt später +1 Ertrag.',
+   trifft:['plaettchen','menschen'],
+   /* Kein eigenes Handlungsfenster: das Vorzeichen dieses Ereignisses war ein
+      anderes Ereignis. Wer zwei Runden vorher ins trockene Bett gegangen ist,
+      zahlt jetzt dafür. */
+   wenn:{imBett:'Und im Bett standen Menschen von euch.'},
+   quelle:'Der Ausbruch eines Bergsturzsees ist für Flims plausibel und für vergleichbare Fälle belegt; Verlauf, Höhe und Datum der Welle sind hier <b>rekonstruiert</b>. Die Erzählung darf das — die Karte muss es kennzeichnen.'},
+
+  {id:'brand',nm:'Blitz im Dürrsommer',jahr:-6900,tag:'Ereignistyp · datiert gesetzt',beleg:'rekonstruiert',
+   geo:'brand',quellen:'trockenster-wald',talnah:4,tempo:3,weite:16,vor:1,nach:3,wind:-1,
+   vorT:'Seit Wochen kein Regen. Das Laub knistert unter den Füßen, der Fluss zeigt Kiesbänke, die niemand kennt.',
+   einT:'Ein einzelner Blitz, kein Tropfen dazu. Bis zum Morgen steht der halbe Hang in Flammen, und der Talwind treibt das Feuer nordwärts.',
+   nachT:'Schwarze Erde, offene Sicht, und Wild, das an die Lichtung kommt. Im dritten Jahr steht dort Hasel, dichter als vorher.',
+   wirkung:{setzt:'brand',nur:['flach','ufer','kies'],wald:'weg',heilt:4,dann:'wald',narbe:true},
+   spiel:'Material fällt aus, solange es brennt; danach +1 Nahrung auf der Lichtung (Brandrodung).',
+   trifft:['plaettchen','menschen'],
+   antworten:[
+     {txt:'Eine Brandgasse schlagen',kosten:'−2 Material',fx:'Das Feuer findet keinen Anschluss und erlischt früher.',mod:{weite:-9}},
+     {txt:'Räumen, was zu räumen ist',kosten:'ein Tag ohne Einkommen',fx:'Die Plättchen im Weg des Feuers werden abgebaut statt verbrannt.',mod:{schont:true}}],
+   quelle:'Holzkohlelagen in Talprofilen belegen wiederkehrende Waldbrände; ein <b>einzelner</b> Brand ist nicht datierbar. Hier ist das Datum gesetzt, der <b>Ort aber nicht</b>: es brennt, wo zur Laufzeit der Wald am weitesten vom Wasser steht. Gescriptet in der Zeit, emergent im Raum.'},
+
+  {id:'kaelte',nm:'Die große Kälte',jahr:-6200,tag:'Belegtes Ereignis',beleg:'belegt',
+   geo:'global',quellen:[],tempo:0,weite:0,vor:1,nach:2,wind:0,
+   vorT:'Der Sommer kommt zu spät und geht zu früh. Die Beeren bleiben klein.',
+   einT:'Ein Klimasturz, in grönländischen Eisbohrkernen bis heute lesbar: Jahrzehnte aus Frost und Missjagd. Es gibt kein Feld, auf dem man ihm ausweichen könnte.',
+   nachT:'Wer Vorräte und Schutz hatte, ist noch da. Die anderen sind fortgezogen oder nicht mehr.',
+   wirkung:{},spiel:'−2 Nahrung bei Schutz ≥5, sonst −4. Trifft alle Felder gleich.',
+   trifft:[],
+   antworten:[
+     {txt:'Vorräte anlegen',kosten:'−2 Material',fx:'Der Winter kostet nur die Hälfte.',mod:{}},
+     {txt:'Holz schlagen, das Feuer durchbrennen lassen',kosten:'−1 Nahrung',fx:'Schutz zählt in dieser Nacht doppelt.',mod:{}}],
+   quelle:'Das 8.2-ka-Ereignis, rund 6 200 v. Chr. — belegt in Eisbohrkernen und Seesedimenten. Das Beispiel, warum <b>nicht</b> jedes Ereignis eine Geometrie braucht.'},
+
+  {id:'bauern',nm:'Die ersten Bauern am See',jahr:-4300,tag:'Belegtes Ereignis',beleg:'belegt',
+   geo:'ufer',quellen:[[8,11],[9,12]],tempo:3,weite:24,vor:1,nach:2,wind:0,
+   vorT:'Am See sind Feuer, die niemandem gehören, den man kennt. Und Spuren von Booten, die anders gebaut sind.',
+   einT:'Fremde mit Saatgut, Kühen und einer neuen Bauweise erreichen das Ufer: Häuser auf Pfählen, im flachen Wasser, weg vom Wald. Sie fragen nicht, sie bleiben.',
+   nachT:'Die Bauweise wandert flussaufwärts, langsamer als das Gerücht davon.',
+   wirkung:{mark:'pfahl',nurMark:['ufer','flach','kies']},
+   spiel:'Plättchen PFAHLBAU freigeschaltet, zwei kommen auf die Hand. +1 Kultur.',
+   trifft:[],
+   antworten:[
+     {txt:'Handeln und die Bauweise lernen',kosten:'−1 Nahrung',fx:'Die Pfahlbauweise wandert schneller flussaufwärts.',mod:{tempo:2}},
+     {txt:'Auf Abstand bleiben',kosten:'nichts',fx:'Sie erreicht euch später — dafür bleibt das Tal euer.',mod:{tempo:-1}}],
+   quelle:'Pfahlbausiedlungen am Bodensee und den Voralpenseen ab rund 4 300 v. Chr. (UNESCO-Welterbe). Der Weg ins Binnenland ist plausibel, die Reihenfolge vereinfacht.'},
+
+  {id:'seesteigt',nm:'Der See steigt',jahr:-3400,tag:'Belegtes Ereignis',beleg:'wahrscheinlich',
+   geo:'pegel',quellen:[[6,10],[7,12],[8,14],[9,12]],tempo:1,weite:3,vor:1,nach:1,wind:0,
+   vorT:'Nasse Jahre. Der Steg, der im Frühling gebaut wurde, steht im Herbst im Wasser.',
+   einT:'Das Wasser holt sich die flachen Ufer zurück, Meter für Meter, ohne Eile. Die Dörfer am Rand ziehen um oder gehen unter.',
+   nachT:'Der See hat eine neue Linie. Wer auf Pfählen baute, wohnt jetzt weiter draußen — und trocken.',
+   wirkung:{setzt:'lake',nur:['flach','ufer','kies'],narbe:true},
+   spiel:'Überflutete Felder fallen aus; Pfahlbauten überstehen es (+2 Kultur).',
+   trifft:['plaettchen'],
+   antworten:[
+     {txt:'Höher bauen — auf Pfähle',kosten:'−3 Material',fx:'Was am Ufer steht, steht danach über dem Wasser.',mod:{schont:true}},
+     {txt:'Dem See das Ufer lassen',kosten:'nichts',fx:'Ihr weicht zurück. Der See nimmt zwei Felder mehr.',mod:{weite:1}}],
+   quelle:'Feuchtphasen mit Seespiegelanstieg sind für die Voralpenseen belegt und erklären Siedlungsabbrüche; die genaue Uferlinie hier ist rekonstruiert.'},
+]},
+
+e2:{nm:'Epoche II · Die ferne Macht',von:-400,bis:100,runden:12,waldDichte:.42,events:[
+  {id:'raetier',nm:'Höhen werden befestigt',jahr:-400,tag:'Wahrscheinlich',beleg:'wahrscheinlich',
+   geo:'punkt',quellen:[[22,8],[16,14],[29,4]],tempo:1,weite:0,vor:0,nach:1,wind:0,
+   vorT:'',
+   einT:'Auf den Kuppen über dem Talboden entstehen Mauern aus Trockenstein. Wer oben sitzt, sieht den Weg — und wer darauf geht.',
+   nachT:'Das Tal hat Augen bekommen. Handel wird sicherer und teurer.',
+   wirkung:{mark:'burg',nurMark:['hang','flach','ufer']},
+   spiel:'+2 Schutz im Umkreis, −1 Ertrag (Abgabe an die Höhensiedlung).',
+   quelle:'Befestigte Höhensiedlungen der Eisenzeit sind im Alpenrheintal mehrfach nachgewiesen; die einzelnen Kuppen hier sind gesetzt, nicht belegt.'},
+
+  {id:'rom',nm:'Rom kommt ins Tal',jahr:-15,tag:'Belegtes Ereignis',beleg:'belegt',
+   geo:'front',quellen:[[43,11],[1,4]],tempo:5,weite:90,vor:1,nach:2,wind:0,
+   vorT:'Händler bringen Münzen mit einem Kopf darauf, den niemand kennt, und Nachrichten aus dem Süden, die alle gleich klingen: sie kommen.',
+   einT:'15 v. Chr. wird Rätien römisch. Zwei Bewegungen, nicht eine: vom Talausgang am See herauf, und vom Süden herab. Sie treffen sich in der Talmitte — und dort dauert alles doppelt so lange.',
+   nachT:'Nichts ist verbrannt und alles ist anders: Maße, Steuern, Straßen, Götter mit zwei Namen.',
+   wirkung:{mark:'rom',nurMark:['flach','ufer','hang','kies']},
+   spiel:'Abgaben pro Runde; dafür Zugang zu Stein, Ziegel, Markt. Neue Nacht-Ereignisebene „ferne Macht".',
+   trifft:[],
+   antworten:[
+     {txt:'Tribut anbieten, bevor er gefordert wird',kosten:'−2 Kultur',fx:'Die Front läuft durch, ohne sich mit euch aufzuhalten.',mod:{tempo:2}},
+     {txt:'Die Höhen halten',kosten:'−3 Material',fx:'Die Front stockt an den Flanken — Rom braucht länger.',mod:{tempo:-2}}],
+   folge:{id:'strasse',nach:2},
+   quelle:'Alpenfeldzug 15 v. Chr. unter Drusus und Tiberius; Brigantium am See, im Süden der Vicus, aus dem später Curia Raetorum wird. Die <b>Front</b> ist Modell: dass Herrschaft als Fläche und nicht als Datum ankommt, ist der Punkt.'},
+
+  {id:'strasse',nm:'Die Straße durch das Tal',jahr:null,tag:'Folge · wahrscheinlich',beleg:'wahrscheinlich',
+   geo:'korridor',quellen:[[43,11]],tempo:14,weite:70,vor:0,nach:1,wind:0,
+   vorT:'',
+   einT:'Vermesser, dann Sträflinge, dann Steine. Die Straße nimmt den kürzesten Weg, nicht den gewohnten — sie geht durch das Ried, wo bisher niemand ging.',
+   nachT:'Das Tal ist plötzlich lang statt breit: was an der Straße liegt, wächst; was daneben liegt, wird Hinterland.',
+   wirkung:{mark:'strasse',nurMark:['ufer','flach','kies']},
+   spiel:'Bewegung 3 statt 2 entlang der Straße; Handelsereignisse häufiger, Durchmarsch-Ereignisse auch.',
+   trifft:['plaettchen'],
+   quelle:'Römische Talstraßen und Pässe (Via Raetia, Bündner Pässe) sind belegt; die Linienführung auf dieser Karte folgt dem Fluss und ist vereinfacht.'},
+
+  {id:'hochwasser',nm:'Der Rhein tritt über',jahr:30,tag:'Ereignistyp · datiert gesetzt',beleg:'rekonstruiert',
+   geo:'korridor',quellen:[[42,12],[38,11]],tempo:12,weite:60,vor:1,nach:2,wind:0,
+   vorT:'Drei Wochen Regen auf schmelzenden Schnee. Der Fluss steht braun bis an den Rand des Damms, den man letzten Sommer gebaut hat.',
+   einT:'Der Damm hält — bis zur ersten Stelle, an der er nicht hält. Danach ist die Straße ein Kanal, und das Ried ein See.',
+   nachT:'Der Schlamm geht, die Frage bleibt: höher bauen, oder anders.',
+   wirkung:{setzt:'kies',nur:['flach','ufer','wald'],heilt:2,dann:'zurueck',narbe:true},
+   spiel:'Straßenfelder unterbrochen; Ufer-Plättchen zerstört. Antwort in dieser Epoche: römische Dämme.',
+   trifft:['plaettchen','menschen'],
+   antworten:[
+     {txt:'Römische Dämme aufwerfen',kosten:'−3 Material',fx:'Der Fluss läuft durch, aber er tritt nicht über — das Ufer bleibt trocken.',mod:{keinUfer:true}},
+     {txt:'Die Ufer-Plättchen räumen',kosten:'ein Tag ohne Einkommen',fx:'Nichts geht verloren, aber die Runde ist verschenkt.',mod:{schont:true}}],
+   quelle:'Hochwasser sind für das unkorrigierte Rheintal ständig belegt, dieses <b>einzelne</b> nicht — das Datum ist gesetzt. Dasselbe Ereignis läuft durch alle Epochen, nur die Antwortmöglichkeiten wandeln sich.'},
+]}};
+
+/* =====================================================================
+   DIE SIEDLUNG — der Einsatz des Spielers
+   Ein Ereignis, das nur Gelände umschreibt, ist Kulisse. Erst wenn es
+   Plättchen zerstört und Menschen vertreibt, wird es zum Mitspieler. Das
+   Labor stellt darum eine feste Beispiel-Siedlung ins Tal (kein Spielstand,
+   keine Ressourcen — die rechnet das Mechanik-Labor).
+   ===================================================================== */
+const TILE_NM={fisch:'Fischgrund',ufer:'Uferlager',wald:'Auenwald',
+               terrasse:'Hochterrasse',hoehle:'Höhle',flint:'Feuerstein',pfahl:'Pfahlbau'};
+const PERSON_NM={sammler:'Die Sammlerin ✦',jaeger:'Der Jäger ➤'};
+const SIEDLUNG=[
+  [40,11,'ufer'],[39,12,'fisch'],[38,10,'wald'],[36,12,'terrasse'],
+  [34,11,'ufer'],[33,10,'wald'],[31,11,'fisch'],[29,11,'ufer'],
+  [27,12,'wald'],[26,10,'flint'],[24,11,'fisch'],[22,12,'terrasse'],
+  [20,11,'ufer'],[18,12,'wald'],[16,11,'fisch'],[14,12,'ufer'],
+];
+const MENSCHEN=[[35,11,'sammler'],[30,12,'jaeger']];
+
+/* Die gewöhnliche Nacht — sie geschieht weiter, wenn kein Drehbuch-Ereignis
+   aufdeckt. Wortlaut aus stromlinien-epoche1 (Streu-Deck). */
+const STREU=['Etwas umkreist das Lager.','Frost kriecht ins Lager.','Stille — nur der Fluss spricht.',
+             'Gute Jagd im Morgengrauen.','Fremde am Feuer.','Ein Fund im Kies.'];
+
+/* =====================================================================
+   ZUSTAND
+   ===================================================================== */
+let S=null, timer=null, buchId='e1', sel=null, tempoMs=900, mitSiedlung=true;
+/* Vorgewählte Antworten aus ?antwort=brand:0,seesteigt:0 — damit sich mit und
+   ohne Vorbereitung vergleichen lässt, ohne klicken zu müssen. */
+const VORGABE={};
+
+function baseGrid(dichte){
+  const g=[];
+  for(let r=0;r<H;r++){g.push([]);for(let c=0;c<W;c++){
+    const ch=MAP[r][c];
+    const t=ch==='L'?'lake':(ch==='~'||ch==='f')?'water':ch==='M'?'hang':'flach';
+    g[r].push({r,c,t,base:t,furt:ch==='f',wald:false,mark:null,rom:false,
+               narbe:false,heilt:0,dann:null,vor:null,touched:false,
+               tile:null,person:null});
+  }}
+  /* Ufer ableiten — gleiche Logik wie world.ts */
+  for(let r=0;r<H;r++)for(let c=0;c<W;c++){
+    const cl=g[r][c]; if(cl.t!=='flach')continue;
+    for(const[dr,dc]of dirs(r)){const n=g[r+dr]&&g[r+dr][c+dc];
+      if(n&&isW(n)){cl.t='ufer';break;}}
+    cl.base=cl.t;
+  }
+  /* Bewaldung: deterministisch, Dichte pro Epoche. Der Wald ist Zustand,
+     nicht Gelände — Feuer und Rodung greifen genau hier an. */
+  for(let r=0;r<H;r++)for(let c=0;c<W;c++){const cl=g[r][c];
+    if(cl.t==='flach'||cl.t==='ufer') cl.wald=hash(c,r,42)<dichte;}
+  if(mitSiedlung){
+    SIEDLUNG.forEach(([r,c,t])=>{const cl=g[r]&&g[r][c];if(cl&&!isW(cl))cl.tile=t;});
+    MENSCHEN.forEach(([r,c,p])=>{const cl=g[r]&&g[r][c];if(cl&&!isW(cl))cl.person=p;});
+  }
+  return g;
+}
+function zaehleSiedlung(){
+  let tiles=0,leute=0;
+  for(let r=0;r<H;r++)for(let c=0;c<W;c++){
+    if(S.grid[r][c].tile)tiles++; if(S.grid[r][c].person)leute++;}
+  return {tiles,leute,verloren:S.zerstoert};
+}
+
+function evRound(ev,b){
+  if(ev.jahr===null)return null;
+  const span=b.bis-b.von, step=span/(b.runden-1);
+  return Math.max(1,Math.min(b.runden,Math.round((ev.jahr-b.von)/step)+1));
+}
+function yearOf(rd,b){
+  const step=(b.bis-b.von)/(b.runden-1);
+  return Math.round(b.von+step*(rd-1));
+}
+const yTxt=y=>y<0?(Math.abs(y).toLocaleString('de-CH')+' v. Chr.'):(y===0?'0':y.toLocaleString('de-CH')+' n. Chr.');
+
+/* Plan: das Datum gehört dem EINSCHLAG. Vorzeichen laufen davor, also
+   startet die Inszenierung um `vor` Runden früher. Folgen hängen am
+   Einschlag des Auslösers, nicht an dessen Vorzeichen. */
+function plan(b){
+  const start={},ein={};
+  const add=(ev,rd)=>{
+    rd=Math.max(1,rd); ein[ev.id]=rd;
+    const s=Math.max(1,rd-(ev.vor||0));
+    (start[s]=start[s]||[]).push(ev);
+    if(ev.folge){const f=b.events.find(e=>e.id===ev.folge.id); if(f)add(f,rd+ev.folge.nach);}
+  };
+  b.events.forEach(ev=>{ if(ev.jahr!==null) add(ev,evRound(ev,b)); });
+  return {start,ein};
+}
+
+function reset(silent){
+  const b=BUECHER[buchId];
+  stop();
+  S={buch:b,runde:0,slot:'schluss',grid:baseGrid(b.waldDichte),aktiv:[],log:[],plan:plan(b),
+     szene:{morgen:[],tag:[],nacht:[],schluss:[]},offen:[],flags:{},
+     touched:0,perm:0,zerstoert:0,gewichen:0,verloren:0,letzte:null,einschlagHeute:false};
+  if(!silent){renderAll();stageIdle();}
+}
+
+/* =====================================================================
+   MOTOR — eine Ausbreitung ist eine Kostensuche mit Budget pro Runde
+   ===================================================================== */
+function quellenOf(ev){
+  if(ev.quellen==='trockenster-wald'){
+    /* Ort zur Laufzeit gewählt: der Wald, der am weitesten vom Wasser steht —
+       aber noch im Talboden (höchstens `talnah` Schritte zum Wasser). Ohne
+       diese Schranke brennt es auf den Flächen jenseits der Talflanken, die
+       die Weltkarte mitträgt und auf denen niemand spielt.
+       Damit hängt das Ereignis am Zustand, den frühere erzeugt haben — und
+       nicht an einer Koordinate im Drehbuch. */
+    const cap=ev.talnah||4;
+    let best=null,bd=-1;
+    for(let r=H-1;r>=0;r--)for(let c=0;c<W;c++){const cl=S.grid[r][c];
+      if(!cl.wald)continue;
+      const d=distWasser(r,c); if(d>cap)continue;
+      if(d>bd){bd=d;best=[r,c];}}
+    return best?[best]:[];
+  }
+  return ev.quellen||[];
+}
+function distWasser(r,c){
+  let seen={},q=[[r,c,0]];seen[K(r,c)]=1;
+  while(q.length){const[cr,cc,d]=q.shift();
+    const cl=S.grid[cr]&&S.grid[cr][cc]; if(!cl)continue;
+    if(isW(cl))return d; if(d>=9)return 9;
+    for(const[dr,dc]of dirs(cr)){const nk=K(cr+dr,cc+dc);
+      if(seen[nk])continue;seen[nk]=1;
+      if(S.grid[cr+dr]&&S.grid[cr+dr][cc+dc])q.push([cr+dr,cc+dc,d+1]);}}
+  return 9;
+}
+
+function starte(ev,alsVorzeichen){
+  const inst={ev,phase:alsVorzeichen?'vor':'ein',einRunde:S.plan.ein[ev.id],
+              dist:new Map(),q:[],budget:0,front:[],quellen:[],
+              tempo:ev.tempo,weite:ev.weite,nachRest:ev.nach,
+              antwort:null,fertig:false,zerstoert:0,gewichen:0,verlust:[],leute:[]};
+  S.aktiv.push(inst);
+  if(alsVorzeichen){
+    szene('morgen','vor',ev.vorT,ev);
+    if(ev.antworten){
+      S.offen.push(inst);                    /* Handlungsfenster öffnet */
+      if(VORGABE[ev.id]!==undefined)antworten(inst,VORGABE[ev.id]);
+    }
+    bühne(ev,'vor');
+  }else einschlag(inst);
+  return inst;
+}
+
+/* Der Einschlag: erst jetzt wird der Ort bestimmt (der Waldbrand liest den
+   Kartenzustand), erst jetzt zählt die gewählte Antwort. */
+function einschlag(inst){
+  const ev=inst.ev;
+  inst.phase='ein';inst.justEin=S.runde;
+  S.offen=S.offen.filter(x=>x!==inst);   /* das Fenster schließt sich */
+  antwortAnwenden(inst);
+  inst.quellen=quellenOf(ev);
+  if(ev.geo!=='global') inst.quellen.forEach(([r,c])=>{
+    const cl=S.grid[r]&&S.grid[r][c]; if(cl) inst.q.push({k:K(r,c),d:0});});
+  /* Ein Ereignis darf lesen, was der Spieler früher entschieden hat. */
+  let txt=ev.einT;
+  if(ev.wenn)for(const k in ev.wenn)if(S.flags[k])txt+=' <b>'+ev.wenn[k]+'</b>';
+  szene('nacht','ein',txt,ev);
+  bühne(ev,'ein',txt);
+  S.einschlagHeute=true;
+  if(ev.geo==='global'){
+    let n=0;for(let r=0;r<H;r++)for(let c=0;c<W;c++){const cl=S.grid[r][c];
+      if(!isW(cl)){cl.touched=true;n++;}}
+    inst.fertig=true;
+    szene('nacht','spur','Ganzes Tal betroffen — '+n+' Felder, keine Geländeänderung. Ein Klimaereignis hat keinen Ort, dem man ausweichen kann.',ev);
+    return;
+  }
+  puls(inst,true);
+}
+
+/* ---------- Handlungsfenster: die einzige Freiheit, die ein Anker lässt ---------- */
+function antworten(inst,i){
+  if(inst.phase!=='vor')return;
+  const a=inst.ev.antworten[i];
+  if(!a)return;
+  inst.antwort=i;
+  szene(S.slot==='tag'?'tag':'morgen','wahl','<b>Entscheidung:</b> '+a.txt+' <s>('+a.kosten+')</s>',inst.ev);
+  S.offen=S.offen.filter(x=>x!==inst);
+  renderAll();
+}
+function antwortAnwenden(inst){
+  const ev=inst.ev;
+  if(inst.antwort===null){
+    if(ev.antworten)szene('nacht','wahl','Niemand hat etwas getan. Das Ereignis trifft das Tal, wie es ist.',ev);
+    return;
+  }
+  const a=ev.antworten[inst.antwort], m=a.mod||{};
+  if(m.weite)inst.weite=Math.max(0,inst.weite+m.weite);
+  if(m.tempo)inst.tempo=Math.max(1,inst.tempo+m.tempo);
+  if(m.schont)inst.schont=true;
+  if(m.keinUfer)inst.keinUfer=true;
+  if(m.setzt)S.flags[m.setzt]=true;
+  szene('nacht','wahl','Die Vorbereitung wirkt: '+a.fx,ev);
+}
+
+/* Ein Puls = eine Nacht Ausbreitung. Budget wächst um tempo. */
+function puls(inst,erste){
+  const ev=inst.ev, add=[];
+  inst.budget+=inst.tempo;
+  let guard=4000;
+  while(inst.q.length&&guard-->0){
+    inst.q.sort((a,b)=>a.d-b.d);
+    if(inst.q[0].d>inst.budget)break;
+    const n=inst.q.shift();
+    if(inst.dist.has(n.k))continue;
+    if(n.d>inst.weite)continue;
+    inst.dist.set(n.k,n.d);
+    const[r,c]=RC(n.k), cl=S.grid[r][c];
+    add.push({k:n.k,d:n.d,cl});
+    for(const[dr,dc]of dirs(r)){
+      const nr=r+dr,nc=c+dc,nk=K(nr,nc);
+      if(inst.dist.has(nk))continue;
+      const to=S.grid[nr]&&S.grid[nr][nc]; if(!to)continue;
+      const w=GEO[ev.geo].cost(to,cl,inst);
+      if(w===null)continue;
+      inst.q.push({k:nk,d:n.d+Math.max(1,w)});
+    }
+  }
+  add.forEach(a=>wirken(a.cl,inst,a.d));
+  inst.front=add;
+  if(add.length===0&&!erste) inst.fertig=true;
+  if(add.length){
+    szene('nacht','ein',add.length+' Felder erreicht'+
+      (ev.geo==='brand'&&inst.quellen[0]?' (Ausgang '+inst.quellen[0][0]+','+inst.quellen[0][1]+')':'')+'.',ev);
+    /* Verluste gebündelt: eine Zeile je Nacht, nicht eine je Feld. */
+    if(inst.verlust.length)szene('nacht','verlust','Verloren: <b>'+inst.verlust.join(', ')+'</b>.',ev);
+    if(inst.leute.length)szene('nacht','verlust',inst.leute.join(' · ')+'.',ev);
+    inst.verlust=[];inst.leute=[];
+  }
+  return add;
+}
+
+/* Wirkung auf ein Feld — der einzige Ort, der die Karte verändert.
+   Und der einzige Ort, an dem das Ereignis den Spieler wirklich trifft:
+   Gelände ist Kulisse, Plättchen und Menschen sind sein Einsatz. */
+function wirken(cl,inst,d){
+  const ev=inst.ev, wk=ev.wirkung||{};
+  cl.touched=true;S.touched++;
+  const trifft=ev.trifft||[];
+  if(cl.tile&&trifft.includes('plaettchen')&&!inst.schont){
+    inst.verlust.push(TILE_NM[cl.tile]);
+    cl.tile=null;inst.zerstoert++;S.zerstoert++;
+  }
+  if(cl.person&&trifft.includes('menschen')){
+    const nm=PERSON_NM[cl.person], weg=flucht(cl);
+    inst.leute.push(nm+(weg?' weicht aus':' <b>kommt nicht mehr weg</b>'));
+    inst.gewichen++;S.gewichen++;
+    if(!weg)S.verloren++;
+  }
+  if(wk.wald==='neu'){ if(cl.t==='flach'||cl.t==='ufer'){ if(!cl.wald){cl.wald=true;} } }
+  if(wk.wald==='weg') cl.wald=false;
+  if(wk.setzt){
+    const ok=(!wk.nur)||wk.nur.some(n=>n==='wald'?cl.wald:cl.t===n);
+    const blk=(wk.ausser||[]).includes(cl.t);
+    if(ok&&!blk){
+      if(cl.vor===null) cl.vor={t:cl.t,wald:cl.wald};
+      cl.t=wk.setzt; cl.wald=false;
+      cl.narbe=!!wk.narbe;
+      if(wk.heilt){cl.heilt=wk.heilt;cl.dann=wk.dann;}
+      S.perm++;
+    }
+    if(wk.reset&&cl.t===wk.reset){ /* trockenes Bett wird wieder Fluss */
+      cl.t=cl.base;cl.heilt=0;S.perm=Math.max(0,S.perm-1);
+    }
+  }
+  if(wk.mark){
+    const ok=(!wk.nurMark)||wk.nurMark.includes(cl.t);
+    if(ok){ if(wk.mark==='rom')cl.rom=true; else cl.mark=wk.mark; S.perm++; }
+  }
+}
+
+/* Ein Mensch weicht auf ein unberührtes Nachbarfeld aus – oder eben nicht. */
+function flucht(cl){
+  const p=cl.person;
+  for(const[dr,dc]of dirs(cl.r)){
+    const n=S.grid[cl.r+dr]&&S.grid[cl.r+dr][cl.c+dc];
+    if(n&&!isW(n)&&n.t!=='brand'&&!n.touched&&!n.person){
+      n.person=p;cl.person=null;return true;}
+  }
+  cl.person=null;return false;
+}
+
+/* =====================================================================
+   DER RUNDENABLAUF
+   Vier Abschnitte, genau die des Kernloops (app/src/stromlinien/engine.ts:
+   startDay → Spieleraktionen → BEGIN/REVEAL_NIGHT → END_NIGHT). Jede
+   Ereignisphase hat darin ihren festen Platz:
+
+     MORGEN   Tagesbericht: was die Nacht hinterließ · Vorzeichen · Einkommen
+     TAG      der Spieler handelt — und entscheidet über das Vorzeichen
+     NACHT    Aufdeckung: Einschlag; laufende Fronten rücken vor
+     SCHLUSS  der Stamm isst · Sesshaftigkeit = min(schwächste) · Runde endet
+
+   Das Labor spielt den TAG nicht aus (das tut stromlinien-epoche1 und, mit
+   Bot, mechanik-labor) — es zeigt nur, was in diesem Abschnitt zur
+   Entscheidung steht.
+   ===================================================================== */
+const SLOTS=['morgen','tag','nacht','schluss'];
+const SLOT_NM={morgen:'Morgen',tag:'Tag',nacht:'Nacht',schluss:'Rundenende'};
+
+function szene(slot,kind,txt,ev){
+  if(!txt)return;
+  S.szene[slot].push({kind,txt,nm:ev?ev.nm:null});
+  S.log.unshift({rd:S.runde,y:yearOf(Math.max(1,S.runde),S.buch),slot,kind,txt,nm:ev?ev.nm:null});
+}
+
+function morgen(){
+  S.szene={morgen:[],tag:[],nacht:[],schluss:[]};
+  S.beat=false;S.beatRang=0;S.einschlagHeute=false;
+  /* Was die Nacht hinterließ — Narben, die sich schließen */
+  let heil=0;
+  for(let r=0;r<H;r++)for(let c=0;c<W;c++){const cl=S.grid[r][c];
+    if(cl.heilt>0){ cl.heilt--;
+      if(cl.heilt===0){
+        if(cl.dann==='wald'){cl.t=cl.vor?cl.vor.t:cl.base;cl.wald=true;}
+        else {cl.t=cl.vor?cl.vor.t:cl.base;cl.wald=cl.vor?cl.vor.wald:cl.wald;}
+        cl.narbe=false;S.perm=Math.max(0,S.perm-1);heil++;
+      }}}
+  if(heil)szene('morgen','spur','<b>'+heil+' Felder</b> kommen zurück — die Narbe verschwindet.',null);
+  /* Nachwirkungen melden sich am Morgen, nicht in der Nacht */
+  S.aktiv.forEach(inst=>{
+    if(inst.phase==='nach'&&!inst.nachGemeldet){
+      inst.nachGemeldet=true;
+      szene('morgen','nach',inst.ev.nachT,inst.ev);bühne(inst.ev,'nach');}
+    else if(inst.phase==='vor')szene('morgen','vor','Die Zeichen halten an.',inst.ev);
+  });
+  /* Vorzeichen neuer Ereignisse */
+  (S.plan.start[S.runde]||[]).forEach(ev=>{ if(ev.vor>0)starte(ev,true); });
+  /* Einkommen — im Labor nur gezählt, nicht verrechnet */
+  const ez=zaehleSiedlung();
+  szene('morgen','ertrag','Einkommen aus <b>'+ez.tiles+' Plättchen</b>'+
+    (ez.verloren?' (<s>'+ez.verloren+' fehlen seit dem Anfang</s>)':'')+
+    ' · Sammlerin und Jäger sind frei bewegbar.',null);
+}
+
+function tag(){
+  szene('tag','tat','Der Spieler zieht und legt ein Plättchen, kassiert Einkommen, baut optional Werkzeug, bewegt Sammlerin und Jäger (je 2 Schritte).',null);
+  if(S.offen.length)S.offen.forEach(inst=>
+    szene('tag','frage','<b>Offen:</b> Was tut das Tal gegen „'+inst.ev.nm+'"? Letzte Gelegenheit — die Nacht deckt auf.',inst.ev));
+}
+
+function nacht(){
+  /* Einschläge: Ereignisse, deren Datum diese Runde ist */
+  S.aktiv.forEach(inst=>{ if(inst.phase==='vor'&&S.runde>=inst.einRunde)einschlag(inst); });
+  (S.plan.start[S.runde]||[]).forEach(ev=>{ if(ev.vor===0)starte(ev,false); });
+  /* laufende Fronten rücken vor */
+  S.aktiv.forEach(inst=>{
+    if(inst.phase!=='ein'||inst.justEin===S.runde)return;
+    if(inst.ev.geo==='global'){inst.phase='nach';inst.nachSeit=S.runde;return;}
+    const a=puls(inst);
+    if(inst.fertig||a.length===0){inst.phase='nach';inst.nachSeit=S.runde;}
+  });
+  /* Nicht in derselben Nacht abziehen, in der die Nachwirkung beginnt —
+     sonst verliert ein Ereignis mit nach:1 seinen Nachwirkungs-Bericht. */
+  S.aktiv.forEach(inst=>{ if(inst.phase==='nach'&&inst.nachSeit!==S.runde){
+    inst.nachRest--; if(inst.nachRest<=0)inst.phase='aus';} });
+  S.aktiv=S.aktiv.filter(i=>i.phase!=='aus');
+  /* Keine Aufdeckung durch ein Drehbuch-Ereignis? Dann die gewöhnliche Nacht. */
+  if(!S.einschlagHeute){
+    const w=STREU[Math.floor(hash(S.runde,7,S.buch.runden)*STREU.length)];
+    szene('nacht','streu','<i>Streu-Nacht:</i> '+w,null);
+    if(!S.beat)stageIdle();
+  }
+}
+
+function schluss(){
+  szene('schluss','rechnung','Der Stamm isst — <b>−1 Nahrung</b>. Zwei Hungernächte in Folge und der Stamm zieht weiter.',null);
+  szene('schluss','rechnung','Sesshaftigkeit <b>+ min(Nahrung, Schutz, Material)</b>, gekappt auf 0–3. Die Zahlen selbst prüft das Mechanik-Labor.',null);
+  szene('schluss','rechnung',S.runde>=S.buch.runden
+    ?'Letzte Runde des Drehbuchs — es folgt die <b>Zeremonie</b> zur nächsten Epoche.'
+    :'Runde '+S.runde+' endet. Die Karte, die die nächste Runde erbt, ist nicht die von vorhin.',null);
+}
+
+/* Ein Abschnitt weiter. Die Runde endet nach SCHLUSS. */
+function stepSlot(silent){
+  if(!S)reset(true);
+  const i=SLOTS.indexOf(S.slot);
+  if(S.slot==='schluss'){
+    if(S.runde>=S.buch.runden){stop();return false;}
+    S.runde++;S.slot='morgen';morgen();
+  }else{
+    S.slot=SLOTS[i+1];
+    if(S.slot==='tag')tag(); else if(S.slot==='nacht')nacht(); else schluss();
+  }
+  if(!silent)renderAll();
+  return true;
+}
+/* Eine ganze Runde: bis zum nächsten Rundenende. */
+function step(silent){
+  let ok=true,guard=8;
+  do{ ok=stepSlot(true); }while(ok&&S.slot!=='schluss'&&guard-->0);
+  if(!silent)renderAll();
+  return ok;
+}
+
+/* =====================================================================
+   BÜHNE / RENDERING
+   ===================================================================== */
+const $=id=>document.getElementById(id);
+const R=10, HW=Math.sqrt(3)*R;
+const cx=(r,c)=>(c+((((r%2)+2)%2)?.5:0))*HW+HW/2;
+const cy=r=>r*1.5*R+R;
+function hexPts(r,c){const x=cx(r,c),y=cy(r),h=HW/2;
+  return [[x,y-R],[x-h,y-R/2],[x-h,y+R/2],[x,y+R],[x+h,y+R/2],[x+h,y-R/2]].map(p=>p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ');}
+
+function buildMap(){
+  const svg=$('map');
+  const wpx=W*HW+HW/2, hpx=H*1.5*R+R*.5;
+  svg.setAttribute('viewBox','-3 -8 '+(wpx+6)+' '+(hpx+16));
+  let s='<g id="gHex">';
+  for(let r=0;r<H;r++)for(let c=0;c<W;c++)
+    s+='<polygon class="hex" id="h'+r+'_'+c+'" points="'+hexPts(r,c)+'"></polygon>';
+  s+='</g><g id="gWald"></g><g id="gMk"></g><g id="gFx"></g><g id="gPrev"></g><g id="gLbl"></g>';
+  svg.innerHTML=s;
+  /* Landmarken + Ränder einmalig */
+  let l='';
+  LANDMARKS.forEach(([r,c,nm])=>{l+='<text class="lbl" x="'+(cx(r,c)+8)+'" y="'+(cy(r)+2)+'">'+nm+'</text>';});
+  OFFMAP.forEach(([r,c,nm])=>{l+='<text class="edge" x="'+cx(r,c)+'" y="'+(r===0?cy(r)-8:cy(r)+11)+'" text-anchor="middle">'+nm+'</text>';});
+  $('gLbl').innerHTML=l;
+}
+
+function renderMap(){
+  for(let r=0;r<H;r++)for(let c=0;c<W;c++){
+    const cl=S.grid[r][c], el=$('h'+r+'_'+c);
+    let cls='hex t-'+cl.t;
+    if(cl.furt&&isW(cl))cls+=' furt';
+    /* Spur = Gelände oder Merkmal verändert. Der Wald zählt hier nicht mit:
+       die Wiederbewaldung berührt fast jedes Feld und würde die Ansicht
+       zudecken, die zeigen soll, wo das Drehbuch die Karte umgeschrieben hat. */
+    if((cl.t!==cl.base)||cl.mark||cl.rom||cl.narbe)cls+=' diff';
+    el.setAttribute('class',cls);
+  }
+  let w='',m='',fx='';
+  for(let r=0;r<H;r++)for(let c=0;c<W;c++){
+    const cl=S.grid[r][c],x=cx(r,c),y=cy(r);
+    if(cl.wald)w+='<circle class="wald" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+(R*.42).toFixed(1)+'"></circle>';
+    if(cl.rom)m+='<polygon class="rom" points="'+hexPts(r,c)+'"></polygon>';
+    /* Marken als Formen, nicht als Schriftzeichen: ⌂ und ═ fehlen in
+       Space Mono und wurden dort unsichtbar gezeichnet. */
+    if(cl.mark==='pfahl')m+='<g class="mark"><rect x="'+(x-2.4).toFixed(1)+'" y="'+(y-3).toFixed(1)+'" width="4.8" height="3.4"></rect>'+
+      '<line x1="'+(x-2).toFixed(1)+'" y1="'+(y+.4).toFixed(1)+'" x2="'+(x-2).toFixed(1)+'" y2="'+(y+3).toFixed(1)+'"></line>'+
+      '<line x1="'+(x+2).toFixed(1)+'" y1="'+(y+.4).toFixed(1)+'" x2="'+(x+2).toFixed(1)+'" y2="'+(y+3).toFixed(1)+'"></line></g>';
+    if(cl.mark==='burg')m+='<g class="mark"><polygon points="'+x.toFixed(1)+','+(y-3.4).toFixed(1)+' '+(x+3.2).toFixed(1)+','+(y+2.6).toFixed(1)+' '+(x-3.2).toFixed(1)+','+(y+2.6).toFixed(1)+'" style="fill:var(--ink)"></polygon></g>';
+    if(cl.mark==='strasse')m+='<line class="mark road" x1="'+(x-5.5).toFixed(1)+'" y1="'+y.toFixed(1)+'" x2="'+(x+5.5).toFixed(1)+'" y2="'+y.toFixed(1)+'"></line>';
+    if(cl.narbe)m+='<polygon class="narbe" points="'+(x+4.2).toFixed(1)+','+(y-5.4).toFixed(1)+' '+(x+6.4).toFixed(1)+','+(y-3.2).toFixed(1)+' '+(x+4.2).toFixed(1)+','+(y-1).toFixed(1)+' '+(x+2).toFixed(1)+','+(y-3.2).toFixed(1)+'"></polygon>';
+    /* Die Siedlung: Plättchen als gefülltes Sechseck, Menschen als Zeichen */
+    if(cl.tile)m+='<polygon class="tile tl-'+cl.tile+'" points="'+
+      [[x,y-4.6],[x-4,y-2.3],[x-4,y+2.3],[x,y+4.6],[x+4,y+2.3],[x+4,y-2.3]]
+        .map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'"></polygon>';
+    if(cl.person)m+='<text class="pers" x="'+x.toFixed(1)+'" y="'+(y+3).toFixed(1)+'">'+
+      (cl.person==='sammler'?'✦':'➤')+'</text>';
+  }
+  /* laufende Front hervorheben, gestaffelt animiert */
+  S.aktiv.forEach(inst=>{
+    if(inst.phase==='ein'&&inst.front)inst.front.forEach((a,i)=>{
+      const[r,c]=RC(a.k);
+      fx+='<polygon class="pulse hit" style="animation-delay:'+(Math.min(i,26)*26)+'ms" points="'+hexPts(r,c)+'"></polygon>';
+    });
+    if(inst.phase!=='aus')inst.quellen.forEach(([r,c])=>{
+      fx+='<polygon class="src" points="'+hexPts(r,c)+'"></polygon>';});
+  });
+  $('gWald').innerHTML=w;$('gMk').innerHTML=m;$('gFx').innerHTML=fx;
+}
+
+/* Vorschau: die volle Reichweite eines Ereignisses auf der Karte von jetzt */
+function renderPreview(){
+  const g=$('gPrev'); if(!sel||sel.geo==='global'){g.innerHTML='';return;}
+  /* Vorschau = der Plan ohne Vorbereitung: was geschieht, wenn niemand
+     etwas tut. Darum ein Pseudo-Ereignis ohne Antwort-Modifikatoren. */
+  const ev=sel, vorschau={ev}, dist=new Map(), q=[];
+  (ev.quellen==='trockenster-wald'?quellenOf(ev):(ev.quellen||[])).forEach(([r,c])=>{
+    if(S.grid[r]&&S.grid[r][c])q.push({k:K(r,c),d:0});});
+  let guard=6000;
+  while(q.length&&guard-->0){
+    q.sort((a,b)=>a.d-b.d);const n=q.shift();
+    if(dist.has(n.k))continue; if(n.d>ev.weite)continue;
+    dist.set(n.k,n.d);
+    const[r,c]=RC(n.k),cl=S.grid[r][c];
+    for(const[dr,dc]of dirs(r)){const nr=r+dr,nc=c+dc,nk=K(nr,nc);
+      if(dist.has(nk))continue;const to=S.grid[nr]&&S.grid[nr][nc];if(!to)continue;
+      const w=GEO[ev.geo].cost(to,cl,vorschau);if(w===null)continue;
+      q.push({k:nk,d:n.d+Math.max(1,w)});}
+  }
+  let s='';dist.forEach((d,k)=>{const[r,c]=RC(k);
+    s+='<polygon class="prev" style="opacity:'+(.9-Math.min(.6,d/(ev.weite*1.6))).toFixed(2)+'" points="'+hexPts(r,c)+'"></polygon>';});
+  g.innerHTML=s;
+  return dist.size;
+}
+
+/* Mehrere Beats in einer Runde: der Einschlag geht dem Vorzeichen vor,
+   sonst verdrängt ein fernes Grollen das, was gerade geschieht. */
+const RANG={ein:3,nach:2,vor:1};
+function bühne(ev,phase,txt){
+  if(S.beat&&RANG[phase]<=S.beatRang)return;
+  S.beatRang=RANG[phase];
+  const st=$('stage');
+  st.className='stage live';
+  $('stTag').textContent=ev.tag+' · '+(phase==='vor'?'Vorzeichen':phase==='nach'?'Nachwirkung':'Einschlag');
+  $('stName').textContent=ev.nm;
+  $('stTxt').innerHTML=txt||(phase==='vor'?ev.vorT:phase==='nach'?ev.nachT:ev.einT);
+  $('stFx').innerHTML=phase==='ein'?('▶ '+(ev.spiel||'')):'';
+  $('stFx').className='fx';
+  S.letzte=ev;S.beat=true;
+}
+function stageIdle(){
+  const st=$('stage');st.className='stage quiet';
+  $('stTag').textContent=S&&S.runde?'Ruhe':'Bereit';
+  $('stName').textContent=S&&S.runde?'Nichts geschieht in dieser Runde':'Das Drehbuch liegt bereit';
+  $('stTxt').innerHTML=S&&S.runde
+    ?'Zwischen den Ereignissen liegt das eigentliche Spiel. Das Drehbuch schweigt — die Karte trägt weiter, was geschehen ist.'
+    :'Ereignisse geschehen zu festen Zeiten — aber an Orten, und über mehrere Runden. Drücke <kbd>Abspielen</kbd>, oder wähle rechts ein Ereignis, um seine Ausbreitung als Vorschau zu sehen.';
+  $('stFx').innerHTML='';
+}
+
+function renderTL(){
+  const b=S.buch;let s='';
+  for(let i=1;i<=b.runden;i++){
+    const evs=b.events.filter(e=>S.plan.ein[e.id]===i);
+    const mk=evs.length?('<div class="mk'+(evs.every(e=>e.jahr===null)?' chain':'')+'">'+
+      evs.map(e=>e.jahr===null?'▽':'◆').join('')+'</div>'):'';
+    s+='<div class="seg'+(i<=S.runde?' done':'')+(i===S.runde?' now':'')+'" data-rd="'+i+'" title="'+yTxt(yearOf(i,b))+'">'+mk+i+'</div>';
+  }
+  $('tl').innerHTML=s;
+  $('tl').querySelectorAll('.seg').forEach(el=>el.onclick=()=>jumpTo(+el.dataset.rd));
+  $('cYear').textContent=S.runde?yTxt(yearOf(S.runde,b)):'—';
+  $('cRound').textContent=S.runde?('Runde '+S.runde+' / '+b.runden):'Runde —';
+  $('cDot').className='dot'+(S.aktiv.some(i=>i.phase==='ein'||i.phase==='vor')?'':' idle');
+}
+
+function renderList(){
+  const b=S.buch;$('buchTitle').textContent=b.nm;
+  let s='';
+  b.events.forEach(ev=>{
+    const rd=S.plan.ein[ev.id];
+    const done=rd&&S.runde>=rd;
+    s+='<div class="ev'+(sel&&sel.id===ev.id?' sel':'')+(done?' past':'')+'" data-id="'+ev.id+'">'+
+      '<div class="row1"><div class="nm">'+ev.nm+'</div><div class="yr">'+
+      (ev.jahr===null?'Folge':yTxt(ev.jahr))+'</div></div>'+
+      '<div class="row2"><span class="bd geo">'+GEO[ev.geo].nm+'</span>'+
+      '<span class="bd b-'+ev.beleg+'">'+ev.beleg+'</span>'+
+      '<span class="bd'+(ev.jahr===null?' chain':'')+'">Runde '+(rd||'?')+'</span>'+
+      (ev.folge?'<span class="bd chain">▽ Folge</span>':'')+'</div></div>';
+  });
+  $('evList').innerHTML=s;
+  $('evList').querySelectorAll('.ev').forEach(el=>el.onclick=()=>select(el.dataset.id));
+}
+
+function renderInsp(){
+  const p=$('pInsp');
+  if(!sel){p.innerHTML='<h4>Regie</h4><p class="dim">Wähle im Drehbuch ein Ereignis. Hier stehen dann seine Phasen, seine Geometrie mit Reglern, seine Wirkung auf die Karte — und der Beleg.</p>';return;}
+  const ev=sel,b=S.buch,rd=S.plan.ein[ev.id];
+  const inst=S.aktiv.find(i=>i.ev.id===ev.id);
+  const ph=inst?inst.phase:(rd&&S.runde>rd?'aus':null);
+  const n=renderPreview();
+  const wk=ev.wirkung||{};
+  const wl=[];
+  if(wk.wald==='neu')wl.push('Wald entsteht');
+  if(wk.wald==='weg')wl.push('Wald verschwindet');
+  if(wk.setzt)wl.push('Gelände → '+wk.setzt+(wk.nur?' (nur '+wk.nur.join(', ')+')':''));
+  if(wk.mark)wl.push('Merkmal → '+wk.mark);
+  if(wk.heilt)wl.push('heilt nach '+wk.heilt+' Runden'+(wk.dann==='wald'?' zu Wald':''));
+  else if(wk.setzt||wk.mark)wl.push('<s>bleibt dauerhaft</s>');
+  if(wk.narbe)wl.push('hinterlässt eine Narbe ◇');
+  if(!wl.length)wl.push('<s>keine Geländewirkung</s>');
+
+  p.innerHTML='<h4>Regie · '+ev.nm+'</h4>'+
+    '<div class="phz">'+
+    ['vor','ein','nach'].map(x=>'<div class="ph'+(ph===x?' on':'')+'"><b>'+
+      (x==='vor'?(ev.vor||0):x==='ein'?'1+':(ev.nach||0))+'</b>'+
+      (x==='vor'?'Vorzeichen':x==='ein'?'Einschlag':'Nachwirkung')+'</div>').join('')+'</div>'+
+    '<p>'+(ev.jahr===null
+      ?'Kein eigenes Datum: dieses Ereignis wird von einem anderen ausgelöst.'
+      :'Fest datiert auf <b>'+yTxt(ev.jahr)+'</b> → Runde <b>'+rd+'</b> von '+b.runden+'.')+
+    (ev.folge?' Löst <b>'+(b.events.find(e=>e.id===ev.folge.id)||{}).nm+'</b> nach '+ev.folge.nach+' Runden aus.':'')+'</p>'+
+    '<h4 class="sp">Ausbreitung</h4>'+
+    '<div class="sl"><label>Art</label><select id="selGeo">'+
+      Object.keys(GEO).map(g=>'<option value="'+g+'"'+(g===ev.geo?' selected':'')+'>'+GEO[g].nm+'</option>').join('')+
+    '</select></div>'+
+    '<p class="dim">'+GEO[ev.geo].txt+'</p>'+
+    (ev.geo==='global'?'':
+      '<div class="sl"><label>Tempo/Runde</label><input type="range" min="1" max="24" value="'+ev.tempo+'" data-f="tempo"><b>'+ev.tempo+'</b></div>'+
+      '<div class="sl"><label>Reichweite</label><input type="range" min="1" max="120" value="'+ev.weite+'" data-f="weite"><b>'+ev.weite+'</b></div>'+
+      '<div class="sl"><label>Vorzeichen</label><input type="range" min="0" max="4" value="'+ev.vor+'" data-f="vor"><b>'+ev.vor+'</b></div>'+
+      '<div class="sl"><label>Nachwirkung</label><input type="range" min="0" max="5" value="'+ev.nach+'" data-f="nach"><b>'+ev.nach+'</b></div>'+
+      '<p class="dim">Vorschau (gestrichelt): <b>'+(n||0)+'</b> Felder bei dieser Einstellung, gerechnet auf der Karte von <i>jetzt</i>. '+
+      (ev.quellen==='trockenster-wald'?'Der Ausgangspunkt wird zur Laufzeit gewählt — er verschiebt sich, wenn frühere Ereignisse den Wald verändert haben.':'Quelle(n): '+(ev.quellen||[]).map(q=>q[0]+','+q[1]).join(' · '))+'</p>')+
+    '<h4 class="sp">Wirkung auf die Karte</h4>'+
+    '<div class="wirk">'+wl.map(x=>'· '+x).join('<br>')+'</div>'+
+    '<h4 class="sp">Spielwirkung (Entwurf)</h4><p>'+(ev.spiel||'—')+'</p>'+
+    '<h4 class="sp">Beleg · '+ev.beleg+'</h4>'+
+    '<div class="quelle">'+ev.quelle+'</div>';
+
+  p.querySelectorAll('input[type=range]').forEach(inp=>{
+    inp.oninput=()=>{sel[inp.dataset.f]=+inp.value;inp.nextElementSibling.textContent=inp.value;
+      renderPreview();};
+  });
+  const sg=$('selGeo');
+  if(sg)sg.onchange=()=>{sel.geo=sg.value;renderInsp();};
+}
+
+/* ---------- Spielsicht: die vier Abschnitte einer Runde ---------- */
+const KIND_NM={vor:'Vorzeichen',ein:'Aufdeckung',nach:'Nachwirkung',spur:'Karte',
+               ertrag:'Ertrag',tat:'Zug',frage:'Entscheidung',wahl:'Entscheidung',
+               verlust:'Verlust',streu:'Nacht',rechnung:'Rechnung'};
+function renderSicht(){
+  const p=$('pSicht');
+  if(!S.runde){
+    p.innerHTML='<h4>Spielsicht</h4><p class="note">Noch keine Runde gespielt. Drücke <kbd>⏭ Abschnitt</kbd>, um den Rundenablauf Schritt für Schritt zu sehen: '+
+      '<b>Morgen</b> (Tagesbericht, Vorzeichen) → <b>Tag</b> (der Spieler handelt) → <b>Nacht</b> (Aufdeckung, Fronten rücken vor) → <b>Rundenende</b> (der Stamm isst, Sesshaftigkeit).</p>';
+    return;
+  }
+  let s='<h4>Runde '+S.runde+' · '+yTxt(yearOf(S.runde,S.buch))+'</h4>';
+  SLOTS.forEach(sl=>{
+    const jetzt=sl===S.slot, kommt=SLOTS.indexOf(sl)>SLOTS.indexOf(S.slot);
+    const zeilen=S.szene[sl]||[];
+    s+='<div class="slot'+(jetzt?' now':'')+(kommt?' soon':'')+'">'+
+       '<div class="shead">'+SLOT_NM[sl]+(jetzt?' <span class="hier">◀ hier</span>':'')+'</div>';
+    if(kommt)s+='<p class="dim">steht noch aus</p>';
+    else if(!zeilen.length)s+='<p class="dim">nichts zu berichten</p>';
+    else zeilen.forEach(z=>{
+      s+='<div class="zeile k-'+z.kind+'"><span class="kd">'+(KIND_NM[z.kind]||z.kind)+'</span>'+
+         '<span>'+(z.nm?'<b>'+z.nm+'</b> — ':'')+z.txt+'</span></div>';});
+    /* Handlungsfenster: im Morgen und im Tag anklickbar */
+    if(!kommt&&(sl==='morgen'||sl==='tag')&&S.offen.length&&(jetzt||sl==='tag'&&S.slot==='tag'))
+      S.offen.forEach(inst=>{
+        s+='<div class="fenster"><b>'+inst.ev.nm+'</b> — was tut das Tal?';
+        inst.ev.antworten.forEach((a,i)=>{
+          s+='<button class="antw" data-ev="'+inst.ev.id+'" data-i="'+i+'">'+a.txt+
+             ' <span class="ko">'+a.kosten+'</span></button>';});
+        s+='<div class="dim">Nichts tun ist auch eine Antwort — dann trifft das Ereignis das Tal, wie es ist.</div></div>';
+      });
+    s+='</div>';
+  });
+  p.innerHTML=s;
+  p.querySelectorAll('.antw').forEach(b=>b.onclick=()=>{
+    const inst=S.offen.find(x=>x.ev.id===b.dataset.ev);
+    if(inst)antworten(inst,+b.dataset.i);});
+}
+
+function renderLog(){
+  const l=$('logList');
+  if(!S.log.length){l.innerHTML='<p class="note">Noch nichts geschehen.</p>';return;}
+  l.innerHTML=S.log.slice(0,60).map(e=>'<div class="li '+e.kind+'"><div class="rn">R'+e.rd+'<br>'+
+    (e.y<0?Math.abs(e.y)+' v':e.y+' n')+'</div><div>'+(e.nm?'<b>'+e.nm+'</b> · ':'')+e.txt+'</div></div>').join('');
+}
+
+function renderBilanz(){
+  let narb=0;
+  for(let r=0;r<H;r++)for(let c=0;c<W;c++)if(S.grid[r][c].narbe)narb++;
+  $('bzTouch').textContent=S.touched;$('bzPerm').textContent=S.perm;
+  $('bzNarb').textContent=narb;
+  $('bzTile').textContent=S.zerstoert+(S.verloren?' / '+S.verloren+'✝':'');
+}
+
+function renderAll(){
+  renderMap();renderTL();renderList();renderInsp();renderSicht();renderLog();renderBilanz();
+  $('cSlot').textContent=S.runde?SLOT_NM[S.slot]:'—';
+}
+
+/* =====================================================================
+   STEUERUNG
+   ===================================================================== */
+/* Abgespielt wird abschnittsweise, nicht rundenweise: der Rundenablauf IST
+   der Gegenstand. Vier Takte je Runde. */
+function play(){
+  if(timer)return stop();
+  if(S.runde>=S.buch.runden&&S.slot==='schluss')reset();
+  $('bPlay').textContent='⏸ Pause';
+  timer=setInterval(()=>{ if(!stepSlot())stop(); },tempoMs);
+  stepSlot();
+}
+function stop(){if(timer)clearInterval(timer);timer=null;const b=$('bPlay');if(b)b.textContent='▶ Abspielen';}
+/* Sprung auf eine Runde hält in der NACHT: dort ist die Aufdeckung, und die
+   Karte zeigt die Front dieser Runde. */
+function jumpTo(rd,slot){
+  stop();reset(true);
+  const ziel=slot||'nacht';
+  let guard=400;
+  while(guard-->0){ if(S.runde===rd&&S.slot===ziel)break; if(!stepSlot(true))break; }
+  renderAll();
+}
+const PANES=['pSicht','pBuch','pInsp','pLog'];
+function tab(pane){
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x.dataset.pane===pane));
+  PANES.forEach(p=>$(p).classList.toggle('hid',p!==pane));
+}
+function select(id){
+  const b=S.buch;sel=b.events.find(e=>e.id===id)||null;
+  tab('pInsp');renderList();renderInsp();
+}
+
+$('bPlay').onclick=play;
+$('bSlot').onclick=()=>{stop();stepSlot();};
+$('bStep').onclick=()=>{stop();step();};
+$('bSied').onclick=e=>{mitSiedlung=!mitSiedlung;e.target.classList.toggle('on',mitSiedlung);reset();};
+$('bReset').onclick=()=>{sel=null;reset();};
+$('bNight').onclick=e=>{document.body.classList.toggle('night');e.target.classList.toggle('on');};
+$('bSpuren').onclick=e=>{document.body.classList.toggle('spuren');e.target.classList.toggle('on');};
+$('selTempo').onchange=e=>{tempoMs=+e.target.value;if(timer){stop();play();}};
+$('selBuch').onchange=e=>{buchId=e.target.value;sel=null;reset();};
+document.querySelectorAll('.tabs button').forEach(btn=>btn.onclick=()=>{
+  tab(btn.dataset.pane);
+  if(btn.dataset.pane==='pInsp')renderInsp();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key===' '){e.preventDefault();play();}
+  if(e.key==='ArrowRight'){stop();step();}
+  if(e.key==='r'||e.key==='R'){sel=null;reset();}
+});
+
+/* ---------- Start + Debug-Parameter ---------- */
+(function init(){
+  const q=new URLSearchParams(location.search);
+  if(q.has('buch')&&BUECHER[q.get('buch')])buchId=q.get('buch');
+  $('selBuch').innerHTML=Object.keys(BUECHER).map(k=>
+    '<option value="'+k+'"'+(k===buchId?' selected':'')+'>'+BUECHER[k].nm+'</option>').join('');
+  if(q.has('tempo')){const t={langsam:1600,normal:900,schnell:380}[q.get('tempo')];
+    if(t){tempoMs=t;$('selTempo').value=String(t);}}
+  if(q.has('night')){document.body.classList.add('night');$('bNight').classList.add('on');}
+  if(q.has('spuren')){document.body.classList.add('spuren');$('bSpuren').classList.add('on');}
+  if(q.get('siedlung')==='aus'){mitSiedlung=false;$('bSied').classList.remove('on');}
+  (q.get('antwort')||'').split(',').filter(Boolean).forEach(p=>{
+    const[id,i]=p.split(':'); if(id)VORGABE[id]=+i||0;});
+  buildMap();reset();
+  const slot=SLOTS.includes(q.get('slot'))?q.get('slot'):null;
+  if(q.has('ev')){
+    const ev=S.buch.events.find(e=>e.id===q.get('ev'));
+    if(ev){const rd=S.plan.ein[ev.id]||1;jumpTo(Math.max(1,rd),slot);select(ev.id);}
+  }
+  if(q.has('runde'))jumpTo(Math.max(1,Math.min(S.buch.runden,+q.get('runde'))),slot);
+  /* ?vorzeichen=<id> hält im TAG der Runde davor — dort steht das
+     Handlungsfenster offen, ohne dass geklickt werden muss. */
+  if(q.has('vorzeichen')){
+    const ev=S.buch.events.find(e=>e.id===q.get('vorzeichen'));
+    if(ev){jumpTo(Math.max(1,(S.plan.ein[ev.id]||1)-(ev.vor||0)),'tag');select(ev.id);tab('pSicht');}
+  }
+  if(q.has('tab')){
+    const t={spielsicht:'pSicht',drehbuch:'pBuch',regie:'pInsp',protokoll:'pLog'}[q.get('tab')];
+    if(t)tab(t);
+  }
+  if(q.has('demo')){tempoMs=380;$('selTempo').value='380';}
+  if(q.has('autostart')||q.has('demo'))setTimeout(play,300);
+})();
+</script>
+</body>
+</html>

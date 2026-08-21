@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Gewässer-Labor v1 · b Kacheln</title>
+<!--
+  A/B-Variante "Kacheln": Grund-Texturen (Gras/Kies-Erde/Wasser) statt Flächenfarbe,
+  als kleine wiederholte Muster in den bestehenden Hex-Umriss geklemmt — die Hex-Form
+  bleibt unser eigenes pointy-top-Sechseck, es wird nur der Flächeninhalt ersetzt.
+  Quelle: "Hex Tileset Pack" von adythewolf, OpenGameArt.org, Lizenz CC0
+  (https://opengameart.org/content/hex-tileset-pack) — drei 20×20-Ausschnitte
+  (Gras/Erde/Wasser) aus dem Spritesheet, als PNG eingebettet. Vergleichsstück zu
+  a-vektor.html (unverändertes gewaesser-labor-v1). Siehe NOTES.md.
+-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+/* ============================================================
+   Palette — identisch zur App (stromlinien.css), dazu die
+   Gewässerfarben: eine Stufe je Klasse, damit man die Ordnung
+   eines Laufs an der Farbe liest, nicht nur an der Breite.
+   ============================================================ */
+:root{
+  --bg:#dce3d8; --panel:#ecefe6; --panel2:#e2e7dc; --ink:#22302c; --ink2:#5a6b64;
+  --river:#7fb2ac; --riverdeep:#5e9793; --lake:#8fbdb6; --ember:#c96f2e;
+  --bone:#f2ede0; --line:#b8c2b4; --good:#4e7d5b; --bad:#9c4a33;
+  --tile:#cdd6c8; --tileink:#33443e; --berg:#a9b3a8; --bergdeep:#8d9a8c;
+  --shadow:0 2px 10px rgba(30,45,40,.12);
+  --kies:#d8d1b8; --aue:#c6cfae; --fels:#8d9a8c;
+  --w0:#a9cdc7; --w1:#84b9b3; --w2:#63a29e; --w3:#488a8b; --w4:#356e7c; --wk:#8aa3b4;
+}
+body.night{
+  --bg:#0d151d; --panel:#141f28; --panel2:#101a22; --ink:#e6e1d2; --ink2:#8b9690;
+  --river:#2e5457; --riverdeep:#24444a; --lake:#2f5a5c; --ember:#e08a3c;
+  --bone:#1b2731; --line:#2c3b44; --good:#7fb08b; --bad:#d07b5e;
+  --tile:#1e2c34; --tileink:#c9d2c6; --berg:#26333c; --bergdeep:#1b262d;
+  --shadow:0 2px 14px rgba(0,0,0,.5);
+  --kies:#3a3c33; --aue:#2c3a2a; --fels:#26333c;
+  --w0:#33565c; --w1:#2c5058; --w2:#264a54; --w3:#20424f; --w4:#1b3947; --wk:#2b3f4e;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;}
+body{background:var(--bg);color:var(--ink);font-family:'Instrument Sans',system-ui,sans-serif;
+  height:100dvh;overflow:hidden;transition:background .6s ease,color .6s ease;}
+h1,h2,h3,h4{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;margin:0;}
+.mono{font-family:'Space Mono',monospace;}
+button{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:11.5px;letter-spacing:.03em;
+  border-radius:9px;border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);
+  padding:7px 10px;cursor:pointer;transition:transform .12s,background .2s,color .2s,border-color .2s;}
+button:active{transform:scale(.97);}
+button.ghost{background:transparent;border-color:var(--line);}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+button:disabled{opacity:.4;pointer-events:none;}
+
+/* ============================================================
+   Bühne: mobil eine Spalte, ab 900px Seitenpanel
+   ============================================================ */
+/* min-width:0 überall auf den Rasterkindern — sonst setzt die breiteste
+   Zeile (die Kopfknöpfe) die Seitenbreite und alles läuft rechts hinaus. */
+.stage{display:grid;grid-template-rows:auto 1fr auto;height:100dvh;max-width:100vw;overflow:hidden;}
+.stage>*{min-width:0;}
+.wrap{display:grid;grid-template-columns:minmax(0,1fr);min-height:0;min-width:0;}
+.wrap>*{min-width:0;}
+@media(min-width:900px){
+  .wrap{grid-template-columns:minmax(0,1fr) 0;transition:grid-template-columns .28s cubic-bezier(.2,.9,.3,1);}
+  .wrap.side{grid-template-columns:minmax(0,1fr) 372px;}
+}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;padding:9px 13px 7px;
+  border-bottom:1px solid var(--line);flex-wrap:wrap;}
+.brand{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:13.5px;letter-spacing:.13em;}
+.brand small{display:block;font-family:'Space Mono',monospace;font-weight:400;font-size:9.5px;
+  letter-spacing:.06em;color:var(--ink2);margin-top:2px;}
+.hbtns{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;}
+.hbtns button{font-size:10px;padding:5px 8px;border-radius:7px;border-color:var(--line);}
+
+/* ---------- Karte ---------- */
+.mapwrap{position:relative;overflow:hidden;background:var(--bg);min-height:0;touch-action:none;}
+#map{display:block;width:100%;height:100%;cursor:grab;}
+#map.drag{cursor:grabbing;}
+.hud{position:absolute;left:9px;bottom:9px;font-family:'Space Mono',monospace;font-size:9.5px;
+  color:var(--ink2);background:color-mix(in srgb,var(--bg) 80%,transparent);
+  border:1px solid var(--line);border-radius:7px;padding:4px 7px;pointer-events:none;line-height:1.5;}
+.zoombar{position:absolute;right:9px;bottom:9px;display:flex;flex-direction:column;gap:4px;}
+.zoombar button{width:30px;height:30px;padding:0;font-size:14px;border-radius:8px;box-shadow:var(--shadow);}
+.hint{position:absolute;left:50%;top:9px;transform:translateX(-50%);font-size:10.5px;
+  background:var(--ink);color:var(--bg);border-radius:99px;padding:5px 11px;font-weight:600;
+  box-shadow:var(--shadow);pointer-events:none;opacity:0;transition:opacity .2s;}
+.hint.on{opacity:1;}
+
+/* ---------- Werkzeugleiste ---------- */
+.tools{border-top:1px solid var(--line);background:var(--panel2);padding:6px 8px;
+  display:flex;gap:5px;overflow-x:auto;align-items:center;}
+.tools button{white-space:nowrap;font-size:10.5px;padding:6px 9px;border-radius:8px;border-color:var(--line);}
+.tools .sep{width:1px;height:20px;background:var(--line);flex:none;margin:0 2px;}
+.sub{border-top:1px solid var(--line);background:var(--panel);padding:6px 9px;
+  display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px;}
+.sub.hid{display:none;}
+.sub label{font-family:'Space Mono',monospace;font-size:10px;color:var(--ink2);}
+
+/* ---------- Panel ---------- */
+.panel{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;overflow-x:hidden;
+  min-width:0;}
+@media(max-width:899px){
+  .panel{position:fixed;left:0;right:0;bottom:0;top:auto;max-height:62dvh;z-index:30;
+    border-left:none;border-top:1.5px solid var(--ink);border-radius:16px 16px 0 0;
+    box-shadow:0 -6px 24px rgba(30,45,40,.2);transform:translateY(101%);transition:transform .28s cubic-bezier(.2,.9,.3,1);}
+  .wrap.side .panel{transform:translateY(0);}
+}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2;}
+.tabs button{flex:1;border:none;border-radius:0;background:transparent;padding:9px 4px;font-size:10.5px;
+  color:var(--ink2);border-bottom:2px solid transparent;}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--ember);background:transparent;}
+.pbody{padding:11px 13px 60px;}
+.pbody h3{font-size:13px;margin:0 0 5px;}
+.pbody h4{font-size:10px;font-family:'Space Mono',monospace;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink2);margin:15px 0 6px;}
+.pbody p{font-size:12px;line-height:1.55;margin:0 0 8px;color:var(--ink);}
+.pbody p.dim{color:var(--ink2);font-size:11px;}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 9px;font-size:11.5px;margin:0 0 8px;}
+.kv b{font-family:'Space Mono',monospace;font-weight:400;font-size:10px;color:var(--ink2);
+  letter-spacing:.03em;align-self:center;}
+.kv span{font-weight:600;}
+.chip{display:inline-block;font-family:'Space Mono',monospace;font-size:9.5px;padding:2px 6px;
+  border-radius:99px;border:1px solid var(--line);color:var(--ink2);margin:0 3px 3px 0;}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+.chip.warn{border-color:var(--bad);color:var(--bad);}
+.chip.good{border-color:var(--good);color:var(--good);}
+.sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px;}
+.tree{font-size:11.5px;line-height:1.75;}
+.tree ul{list-style:none;margin:0;padding-left:13px;border-left:1px dotted var(--line);}
+.tree>ul{padding-left:0;border-left:none;}
+.tree li{position:relative;}
+.tree .nd{cursor:pointer;padding:1px 4px;border-radius:5px;display:inline-block;}
+.tree .nd:hover{background:var(--panel2);}
+.tree .nd.hit{background:var(--ink);color:var(--bg);}
+.tree .cnt{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);margin-left:5px;}
+.tree .nd.hit .cnt{color:var(--bg);opacity:.75;}
+.tree .grp{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink2);}
+.row{display:flex;align-items:center;gap:8px;margin:0 0 7px;}
+.row label{flex:0 0 122px;font-family:'Space Mono',monospace;font-size:9.5px;color:var(--ink2);}
+.row input[type=range]{flex:1;min-width:0;accent-color:var(--ember);}
+.row .val{flex:0 0 52px;text-align:right;font-family:'Space Mono',monospace;font-size:10px;}
+.note{border-left:2px solid var(--ember);padding:5px 0 5px 9px;font-size:11px;line-height:1.5;
+  color:var(--ink2);margin:0 0 9px;}
+.note b{color:var(--ink);display:block;font-size:10px;font-family:'Space Mono',monospace;
+  letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px;}
+table.t{width:100%;border-collapse:collapse;font-size:11px;margin:0 0 9px;}
+table.t th{text-align:left;font-family:'Space Mono',monospace;font-size:9px;font-weight:400;
+  color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;padding:3px 4px;border-bottom:1px solid var(--line);}
+table.t td{padding:3px 4px;border-bottom:1px solid color-mix(in srgb,var(--line) 45%,transparent);}
+table.t td.n{font-family:'Space Mono',monospace;text-align:right;}
+.empty{font-size:11px;color:var(--ink2);font-style:italic;padding:5px 0;}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <header>
+    <div class="brand">GEWÄSSER-LABOR<small>b · Kacheln statt Flächenfarbe (Grund-Texturen: „Hex Tileset Pack", adythewolf/OpenGameArt, CC0)</small></div>
+    <div class="hbtns">
+      <button id="bMass" class="ghost">Maßstab: lesbar</button>
+      <button id="bFlow" class="ghost">Fließrichtung</button>
+      <button id="bSeit" class="ghost">Ufer-Seiten</button>
+      <button id="bNight" class="ghost">☾</button>
+      <button id="bPanel" class="ghost">Panel</button>
+    </div>
+  </header>
+
+  <div class="wrap side" id="wrap">
+    <div class="mapwrap">
+      <svg id="map"></svg>
+      <div class="hud" id="hud"></div>
+      <div class="hint" id="hint"></div>
+      <div class="zoombar">
+        <button id="bZin">+</button><button id="bZout">−</button><button id="bFit" title="Ganze Karte">⤢</button>
+      </div>
+    </div>
+    <aside class="panel" id="panel">
+      <div class="tabs" id="tabs"></div>
+      <div class="pbody" id="pbody"></div>
+    </aside>
+  </div>
+
+  <div class="tools" id="tools"></div>
+  <div class="sub hid" id="sub"></div>
+
+</div>
+
+<script>
+/* ============================================================================
+   GEWÄSSER-LABOR v1
+   ----------------------------------------------------------------------------
+   Die Frage: Ein Hexfeld ist 1 km breit, ein Bach 3 m. Ein Feld als "Fluss"
+   zu färben rendert einen 1 km breiten Fluss — falsch für alles unterhalb
+   eines Stroms. Hier fließt das Wasser deshalb als BAND DURCH das Feld,
+   von Kantenmitte zu Kantenmitte: gerade (Gegenkanten), gebogen (zwei
+   Kanten Abstand) oder geknickt (Nachbarkanten). Was neben dem Band bleibt,
+   ist Ufer — das Ufer wohnt damit IM Flussfeld, es braucht keine eigenen
+   Uferfelder mehr.
+
+   Zweite Idee: Die limnologische Benennung wird nicht gemalt, sondern
+   GERECHNET. Fließgewässer aus dem Abfluss (Breite b = 6·√Q), Stillgewässer
+   aus Fläche und Herkunft. Damit ist das Netz immer widerspruchsfrei:
+   Bach + Bach = kleiner Fluss, eine Ausleitung macht den Fluss darunter
+   wieder kleiner, und ein "Strom" heißt nur so, wenn er das Meer erreicht.
+   ============================================================================ */
+
+/* ---------- Debug-Parameter ---------- */
+const Q = new URLSearchParams(location.search);
+const qs = (k,d)=>Q.has(k)?(Q.get(k)===''?true:Q.get(k)):d;
+const qn = (k,d)=>Q.has(k)?parseFloat(Q.get(k)):d;
+
+/* ---------- Geometrie: pointy-top, odd-r offset (ungerade Reihen rechts) ---- */
+const SQ3=Math.sqrt(3), HEXW=60, HEXH=HEXW*2/SQ3;   /* Modelleinheiten, Zoom über viewBox */
+const MW=15, MH=18;                                  /* Kartengröße in Feldern */
+
+/* Kantenindizes: 0=NO 1=O 2=SO 3=SW 4=W 5=NW  (Kante i liegt zwischen Ecke i und i+1) */
+const NB_EVEN=[[0,-1],[1,0],[0,1],[-1,1],[-1,0],[-1,-1]];
+const NB_ODD =[[1,-1],[1,0],[1,1],[0,1],[-1,0],[0,-1]];
+const ENAME=['NO','O','SO','SW','W','NW'];
+const opp=e=>(e+3)%6;
+
+const cxOf=(c,r)=>(c+(r&1?0.5:0))*HEXW+HEXW/2;
+const cyOf=(c,r)=>r*HEXH*0.75+HEXH/2;
+function corners(c,r){const x=cxOf(c,r),y=cyOf(c,r);
+  return [[x,y-HEXH/2],[x+HEXW/2,y-HEXH/4],[x+HEXW/2,y+HEXH/4],
+          [x,y+HEXH/2],[x-HEXW/2,y+HEXH/4],[x-HEXW/2,y-HEXH/4]];}
+function edgePt(c,r,e,t){const p=corners(c,r),a=p[e],b=p[(e+1)%6];
+  return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t];}
+const edgeMid=(c,r,e)=>edgePt(c,r,e,0.5);
+function nbOf(c,r,e){const d=(r&1?NB_ODD:NB_EVEN)[e];return [c+d[0],r+d[1]];}
+function edgeTo(c,r,c2,r2){for(let e=0;e<6;e++){const n=nbOf(c,r,e);if(n[0]===c2&&n[1]===r2)return e;}return -1;}
+const inMap=(c,r)=>c>=0&&r>=0&&c<MW&&r<MH;
+const key=(c,r)=>c+','+r;
+function cube(c,r){const x=c-((r-(r&1))>>1);return [x,-x-r,r];}
+function hexDist(a,b){const A=cube(a[0],a[1]),B=cube(b[0],b[1]);
+  return Math.max(Math.abs(A[0]-B[0]),Math.abs(A[1]-B[1]),Math.abs(A[2]-B[2]));}
+
+/* Die Form, die ein Lauf im Feld hat — die drei Fälle der Aufgabenstellung. */
+function laufForm(ein,aus){
+  if(ein===null||aus===null) return {id:'ende',nm:ein===null?'Quelle / Eintritt':'Mündung / Austritt'};
+  const d=Math.min((aus-ein+6)%6,(ein-aus+6)%6);
+  if(d===3) return {id:'gerade',nm:'gerade'};
+  if(d===2) return {id:'gebogen',nm:'gebogen (120°)'};
+  return {id:'geknickt',nm:'geknickt (60°)'};
+}
+
+/* ============================================================================
+   Die Systematik der Limnologie — und was Stromlinien davon braucht.
+   Die Namen sind ABGELEITET: aus Breite (fließend) bzw. Fläche+Herkunft
+   (stehend). Deshalb steht hier nur die Schwelle, nicht die Zuweisung.
+   ============================================================================ */
+const FLIESS=[
+  {id:'rinnsal',nm:'Rinnsal',      bmax:0.5,  col:'--w0',ufer:.30,d:'Schmelz- und Regenwasser, das eben erst einen Weg gefunden hat. Trocknet aus.'},
+  {id:'bach',   nm:'Bach',         bmax:5,    col:'--w1',ufer:.55,d:'Ständig wasserführend, überall zu durchwaten. 0,5 bis 5 m breit.'},
+  {id:'kfluss', nm:'kleiner Fluss',bmax:10,   col:'--w2',ufer:.75,d:'5 bis 10 m. Durchwatbar nur an flachen Stellen, sonst nass bis zur Brust.'},
+  {id:'gfluss', nm:'grosser Fluss',bmax:100,  col:'--w3',ufer:1.0,d:'Ab 10 m Breite. Trennt Ufer voneinander — die Furt wird zum Ort.'},
+  {id:'strom',  nm:'Strom',        bmax:1e9,  col:'--w4',ufer:1.3,d:'Über 100 m und mündet ins Meer. Ohne Boot eine Grenze.'},
+];
+const KANAL={id:'kanal',nm:'Kanal',col:'--wk',ufer:.5,d:'Künstlich: gebaute Breite, gebautes Gefälle, meist gerade. Steile Ufer.'};
+
+const STILL=[
+  {id:'pfuetze',nm:'Pfütze', hamax:0.005,dauer:false,kuenstl:false,d:'Regenwasser in einer Mulde. Tage.'},
+  {id:'tuempel',nm:'Tümpel', hamax:0.1,  dauer:false,kuenstl:false,d:'Temporär, aber mit eigenem Leben. Fällt im Sommer trocken.'},
+  {id:'weiher', nm:'Weiher', hamax:1,    dauer:true, kuenstl:false,d:'Dauerhaft, flach, bis zum Grund durchlichtet — keine Sprungschicht.'},
+  {id:'see',    nm:'See',    hamax:1e9,  dauer:true, kuenstl:false,d:'Mit Tiefenzonen und Sprungschicht. Eigenes Klima am Ufer.'},
+  {id:'teich',  nm:'Teich',  hamax:1,    dauer:true, kuenstl:true, d:'Angelegt und ablassbar — Mühlteich, Fischteich.'},
+  {id:'stausee',nm:'Stausee',hamax:1e9,  dauer:true, kuenstl:true, d:'Aufgestaut. Der Damm macht aus einem Lauf eine Fläche.'},
+];
+const byId=(arr,id)=>arr.find(x=>x.id===id);
+
+/* Die Systematik als Baum — genau die Gliederung, die den Prototyp bestellt hat. */
+const BAUM={nm:'Gewässer',kinder:[
+  {nm:'Binnengewässer',kinder:[
+    {nm:'Fließgewässer',kinder:[
+      {nm:'natürlich',grp:1,kinder:[
+        {nm:'Rinnsal',t:'rinnsal'},{nm:'Bach',t:'bach'},{nm:'kleiner Fluss',t:'kfluss'},
+        {nm:'grosser Fluss',t:'gfluss'},{nm:'Strom',t:'strom'}]},
+      {nm:'künstlich',grp:1,kinder:[{nm:'Kanal',t:'kanal'}]},
+    ]},
+    {nm:'Stillgewässer',kinder:[
+      {nm:'natürlich',grp:1,kinder:[
+        {nm:'Pfütze',t:'pfuetze'},{nm:'Tümpel',t:'tuempel'},{nm:'Weiher',t:'weiher'},{nm:'See',t:'see'}]},
+      {nm:'künstlich',grp:1,kinder:[{nm:'Teich',t:'teich'},{nm:'Stausee',t:'stausee'}]},
+    ]},
+  ]},
+]};
+
+/* Merkmale — Orte, an denen ein Lauf sich anders verhält als seine Klasse. */
+const MERKMAL={
+  furt:   {nm:'Furt',        gl:'▨',d:'Flache, breite Stelle — meist in der verzweigten Strecke. Der Ort, an dem man hinüberkommt.'},
+  schnell:{nm:'Stromschnelle',gl:'≋',d:'Steiles Gefälle über Blöcke. Schnell, laut, gefährlich.'},
+  fall:   {nm:'Wasserfall',  gl:'⇊',d:'Absturz über eine Stufe. Weder quer noch längs passierbar.'},
+  klamm:  {nm:'Klamm',       gl:'⋔',d:'Der Fluss hat sich eingeschnitten; die Wände sperren, nicht das Wasser.'},
+  bruecke:{nm:'Brücke',      gl:'╤',d:'Gebauter Übergang. Hebt jede Sperre auf — auch die Klamm.'},
+  steg:   {nm:'Steg',        gl:'┈',d:'Baumstamm oder Bohlen. Nur bis zum kleinen Fluss.'},
+  damm:   {nm:'Damm',        gl:'▬',d:'Sperrt den Lauf und staut ihn zum Stausee auf.'},
+};
+
+/* ============================================================================
+   Regelwerk — alles schiebbar, damit man am Gefühl feilen kann.
+   ============================================================================ */
+const R={
+  qlok:0.20,          /* m³/s, den ein durchflossenes Feld selbst beisteuert */
+  bfak:6.0,           /* Breite b = bfak·√Q  (hydraulische Geometrie) */
+  nMan:0.040,         /* Manning-Rauheit für die Tiefen-/Geschwindigkeitsschätzung */
+  braid:3.0,          /* Verzweigungsfaktor: um wieviel breiter die Furkation ist */
+  jBraid:0.012,       /* darunter verzweigt sich ein breiter Lauf */
+  jFall:0.120,        /* ab diesem Gefälle: Wasserfall */
+  jSchnell:0.055,     /* ab diesem Gefälle: Stromschnelle */
+  tvFurt:0.80,        /* Tiefe·Geschwindigkeit, unter der eine Furt entsteht */
+  /* Eine Klamm ist mehr als ein Bach im Gebirge: die Flanken müssen deutlich
+     steiler stehen als der allgemeine Hang, sonst wäre jedes Quellbachfeld
+     eine Klamm (mit 80 m waren es genau das). */
+  klammDh:150, klammN:4,
+  stauH:130,          /* Stauhöhe über dem Dammfeld */
+  hexKm:1.0,          /* Kantenlänge eines Feldes in km (Feldbreite) */
+  reichw:6,           /* Reichweite des Menschen */
+  modell:'klasse',    /* 'klasse' | 'hydraulik' */
+  kost:{rinnsal:0,bach:1,kfluss:2,gfluss:3,strom:Infinity,kanal:2},
+  kFurt:1, kSchnell:5, pSchnell:0.5,
+  gel:{flach:1,aue:2,hang:2,berg:Infinity,see:Infinity,rand:Infinity},
+};
+
+/* Drei Textur-Kacheln aus dem CC0 'Hex Tileset Pack' (adythewolf, OpenGameArt.org) —
+   20×20-Ausschnitte aus dem Spritesheet, als Muster wiederholt statt als ganzes Hex
+   verwendet: so bleibt unsere eigene pointy-top-Kontur die Hex-Form, nur der Flächeninhalt
+   kommt aus der Textur. Siehe ab/gewaesser-kacheln/NOTES.md. */
+const TEX = {
+  gras:  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADMSURBVDhPrZSxDsIwDET7e8wdEWOnbkwsCIZ2YcrWgalfCkogrWPfOUFieFJlJ+ez3bYbH/2rifvRxgCdDjBOl8P2fFuH7XkO1wbBRjeIJCirI6bn2cQY2KHDsgYTi+SiviBqPcdQTgrq4f6CvEsdstZqFILFclRLaHHRme4MOyTz0ZcRWBBBiiTnIvcRlIfJRfl1ePOFDr0LtZccCiaI01qeC6o2mYCmEMxbbNlmgVnKH7GCldaSe3Im5qwgwB3BVzzPe/8fgqquEOENaJKVQ1WuEbMAAAAASUVORK5CYII=',
+  erde:  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADaSURBVDhPlZK9DsIwEIPzkoys7CDEwtIXQOKNQa7kyPicpAxW06vz3U+vbc/zB3q/ti7GHtdTP1P32yV6qeaBGSzJwRF4FJZUgCMY4mhXhTiq4/kHmOYB6WVP4B6oVOgz+Vc7UKtAZm0PMSY4kqylmQFEMGN6BpTf3Vdaniklh5Zrs9IIjHhs2ZVa83cIlTYdtJt0x9L6RGAyuHEk+DxRmSFMOmS/4F6PLYGU7yXl/gKkSRN4JQpwbwEmo4I97p59bWamJL2jG4Jnr/BIBaOfE4EjKcST6pk/7QsF3qip3O+wHQAAAABJRU5ErkJggg==',
+  wasser:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADhSURBVDhPlVQxDsJADLsn8wQGJgZ2QExsMCAx87cin5TK9dm0DNY1iePkEl3b/vyYCrvjbTpcnrONb7aB6+sz+IqLszmnfisQO93fHepvqJgEXIfMLWGO9Q5TkvNzzMUXV96SUHH1WcEtS0mCdfW4lCIBLFxnzV759spcAGBhjWvO0CFDyRp3nEFQCQnKxfxxzoJuJs6XBAs/ZwhUZUYSA1qahQo4YYe5QyTpM2Jw0dQEig5LSaJOQH2wuyBfR0mawAUd1y7FERn861JuXEryq7DOtrn3+q/wQrCMNeE1VM4XoFNTsjnVOa4AAAAASUVORK5CYII=',
+};
+
+/* ============================================================================
+   Die Demokarte. Ein Tal, das jede Klasse einmal zeigt — vom Gletschertor
+   bis zum Strom, der die Karte Richtung Meer verlässt.
+   ============================================================================ */
+const HOEHE={   /* Höhen der Wasserfelder; alles andere wird daraus abgeleitet */
+  '1,1':1420,'1,2':1390,'1,3':1340,'2,3':1300,'3,4':1260,'3,5':1105,
+  /* Felsanker um 2,3 — dadurch schneidet sich der Gletscherbach dort in eine
+     echte Klamm ein, statt dass jedes Bergbachfeld eine wäre. */
+  '2,2':1500,'3,2':1520,'3,3':1490,'2,4':1470,
+  '1,7':1310,'2,7':1210,'2,6':1160,'3,6':1120,
+  '5,3':1460,'5,4':1345,'5,5':1300,'5,6':1240,
+  '4,6':1050,'4,7':1010,'5,7':990,'6,8':950,'5,9':880,'6,10':810,'5,11':780,
+  '6,12':758,'7,12':745,'8,12':732,'8,13':726,'9,13':722,'10,13':716,
+  '11,9':980,'11,10':900,'10,10':860,'9,11':810,'10,12':760,
+  '7,10':800,'7,11':765,
+  '14,11':800,'14,12':760,'13,13':730,
+  '10,14':712,'11,14':712,'12,14':712,'11,15':712,'12,15':712,'12,13':712,
+  '12,16':708,'13,16':706,'13,17':700,
+};
+/* Achtung odd-r: nach Südosten wechselt die Spalte nur in UNGERADEN Reihen.
+   Wer das übersieht, zeichnet eine Kette lauter gleicher Schritte — und die
+   ist geometrisch schnurgerade. Ein Tal mäandert; erst dadurch treten die
+   drei Formen (gerade · gebogen · geknickt) überhaupt auf. */
+const DEMO_RUNS=[
+  {id:'A',nm:'Gletscherbach',   art:'nat',  q0:0.005,path:[[1,1],[1,2],[1,3],[2,3],[3,4],[3,5],[4,6]]},
+  {id:'B',nm:'Seitenbach',      art:'nat',  q0:0.004,path:[[1,7],[2,7],[2,6],[3,6],[4,6]]},
+  {id:'F',nm:'Stauba',          art:'nat',  q0:0.005,path:[[5,3],[5,4],[5,5],[5,6],[5,7]]},
+  {id:'C',nm:'Hauptfluss',      art:'nat',  q0:0,
+   path:[[4,6],[4,7],[5,7],[6,8],[5,9],[6,10],[5,11],[6,12],[7,12],[8,12],[8,13],[9,13],[10,13],[11,14]]},
+  {id:'G',nm:'Zufluss von Osten',art:'nat', q0:55,   path:[[11,9],[11,10],[10,10],[9,11],[10,12],[9,13]]},
+  {id:'E',nm:'Mühlkanal',       art:'kanal',breite:6,entnahme:1.4,path:[[6,10],[7,10],[7,11],[8,12]]},
+  {id:'H',nm:'Ostfluss',        art:'nat',  q0:240,  path:[[14,11],[14,12],[13,13],[12,13]]},
+  {id:'D',nm:'Der Strom',       art:'nat',  q0:0,    path:[[12,15],[12,16],[13,16],[13,17]]},
+];
+const DEMO_SEE=[{nm:'Der grosse See',kuenstl:false,cells:[[10,14],[11,14],[12,14],[11,15],[12,15],[12,13]]}];
+const DEMO_KLEIN=[
+  {c:8,r:10,kuenstl:false,ha:0.60,dauer:true, nm:'Der Weiher überm Tal'},
+  {c:7,r:13,kuenstl:false,ha:0.04,dauer:false,nm:'Tümpel in der Aue'},
+  {c:9,r:14,kuenstl:false,ha:0.002,dauer:false,nm:'Pfütze'},
+  {c:8,r:11,kuenstl:true, ha:0.40,dauer:true, nm:'Mühlteich'},
+];
+const DEMO_MARK={'5,6':{damm:true}};
+const RAND_MEER=[[13,17]];      /* Randfeld: hier verlässt der Strom die Karte Richtung Meer */
+
+/* ---------- Zustand ---------- */
+const S={
+  runs:null, seen:null, klein:null, mark:null, meer:null,
+  cells:new Map(),          /* key -> Feld */
+  net:null,                 /* Ergebnis von netzRechnen() */
+  sel:null,                 /* gewähltes Feld */
+  wand:null,                /* {c,r,part} */
+  reach:null,
+  tool:'inspect', toolArg:null,
+  draft:null,               /* Lauf im Bau */
+  tab:qs('tab','feld'),
+  mass:qs('massstab','lesbar'),
+  flow:!!qs('fluss',false), seiten:!!qs('seiten',false),
+  ufer:qs('ufer','1')!=='0', merk:qs('merkmale','1')!=='0',
+  hi:null,                  /* hervorgehobene Klasse aus dem Katalog */
+  view:{x:0,y:0,s:1},
+};
+
+/* ============================================================================
+   1. GELÄNDE
+   Die Höhen der Wasserfelder sind gesetzt (sie sind die Talachse). Alles
+   andere wächst davon weg: Abstand hoch 1.25 mal einem Hangfaktor, der mit
+   der Höhe des nächsten Wasserfeldes steigt — oben Fels, unten Vorland.
+   ============================================================================ */
+function weltAnlegen(leer){
+  S.runs = leer?[]:JSON.parse(JSON.stringify(DEMO_RUNS));
+  S.seen = leer?[]:JSON.parse(JSON.stringify(DEMO_SEE));
+  S.klein= leer?[]:JSON.parse(JSON.stringify(DEMO_KLEIN));
+  S.mark = leer?{}:JSON.parse(JSON.stringify(DEMO_MARK));
+  S.meer = leer?[]:RAND_MEER.map(x=>x.slice());
+  S.hoehe= leer?{}:Object.assign({},HOEHE);
+  S.cells=new Map();
+  for(let r=0;r<MH;r++)for(let c=0;c<MW;c++)
+    S.cells.set(key(c,r),{c,r,h:0,land:'flach',segs:[],rays:[],parts:[],still:null,klein:null,merk:{}});
+  hoehenRechnen();
+}
+function hoehenRechnen(){
+  const anker=[];
+  for(const k in S.hoehe){const [c,r]=k.split(',').map(Number);anker.push([c,r,S.hoehe[k]]);}
+  for(const cell of S.cells.values()){
+    const k=key(cell.c,cell.r);
+    if(S.hoehe[k]!==undefined){cell.h=S.hoehe[k];continue;}
+    if(!anker.length){cell.h=600;continue;}
+    let best=null,bd=99;
+    for(const a of anker){const d=hexDist([cell.c,cell.r],[a[0],a[1]]);if(d<bd){bd=d;best=a;}}
+    const hf=Math.min(130,18+(best[2]-700)/700*98);
+    cell.h=Math.round(Math.min(2900,best[2]+Math.pow(bd,1.25)*Math.max(10,hf)));
+  }
+}
+
+/* ============================================================================
+   2. DAS NETZ
+   Aus den Läufen wird ein gerichteter Graph über Knoten (Feld oder
+   Stillwasser-Gruppe). Darauf läuft die Abflussbilanz — und aus dem Abfluss
+   fällt die Benennung heraus. Kein Lauf wird "als Fluss gemalt".
+   ============================================================================ */
+function netzRechnen(){
+  for(const cell of S.cells.values()){cell.segs=[];cell.rays=[];cell.parts=[];cell.still=null;cell.klein=null;cell.merk={};cell.q=0;cell.b=0;cell.kl=null;}
+
+  /* -- 2a. Stillgewässer-Gruppen: Seen von Hand, Staus aus dem Damm ------- */
+  const gruppen=[];
+  for(const s of S.seen) gruppen.push({nm:s.nm,kuenstl:!!s.kuenstl,cells:s.cells.map(x=>x.slice()),damm:null});
+  for(const k in S.mark){
+    if(!S.mark[k].damm) continue;
+    const [dc,dr]=k.split(',').map(Number);
+    const dcell=S.cells.get(k); if(!dcell) continue;
+    const ziel=dcell.h+R.stauH;
+    /* flussaufwärts fluten, solange das Feld unter dem Stauziel liegt */
+    const auf=new Map();  /* Feld -> Vorgänger im Lauf */
+    for(const run of S.runs) for(let i=1;i<run.path.length;i++)
+      auf.set(key(run.path[i][0],run.path[i][1]),(auf.get(key(run.path[i][0],run.path[i][1]))||[]).concat([run.path[i-1]]));
+    const flut=[],gesehen=new Set([k]),stack=(auf.get(k)||[]).slice();
+    while(stack.length){
+      const p=stack.pop(),pk=key(p[0],p[1]);
+      if(gesehen.has(pk))continue; gesehen.add(pk);
+      const pc=S.cells.get(pk); if(!pc||pc.h>=ziel)continue;
+      flut.push([p[0],p[1]]);
+      for(const q of (auf.get(pk)||[]))stack.push(q);
+    }
+    if(flut.length) gruppen.push({nm:'Stausee',kuenstl:true,cells:flut,damm:[dc,dr],ziel});
+  }
+  const grpOf=new Map();
+  gruppen.forEach((g,i)=>{g.gid='g'+i;g.ha=g.cells.length*(R.hexKm*1000)*(R.hexKm*1000)*SQ3/2/10000;
+    for(const [c,r] of g.cells) grpOf.set(key(c,r),g);});
+
+  /* -- 2b. Segmente je Feld aus den Läufen -------------------------------- */
+  for(const run of S.runs){
+    for(let i=0;i<run.path.length;i++){
+      const [c,r]=run.path[i]; const cell=S.cells.get(key(c,r)); if(!cell)continue;
+      const pv=run.path[i-1], nx=run.path[i+1];
+      /* −1 heißt: der Pfad springt (von Hand gezeichnet oder zerschnitten).
+         Dann endet das Band hier, statt eine ungültige Kante zu benutzen. */
+      const ee = pv?edgeTo(c,r,pv[0],pv[1]):-1, ea = nx?edgeTo(c,r,nx[0],nx[1]):-1;
+      cell.segs.push({run:run.id,art:run.art,i, ein:ee<0?null:ee, aus:ea<0?null:ea});
+    }
+  }
+
+  /* -- 2c. Knoten und Kanten ---------------------------------------------- */
+  const nodeOf=(c,r)=>{const g=grpOf.get(key(c,r));return g?g.gid:key(c,r);};
+  const N=new Map();   /* id -> {id,cells:[],zu:0,q:0,ein:[],aus:[]} */
+  const ensure=id=>{if(!N.has(id))N.set(id,{id,cells:[],q:0,ein:[],aus:[]});return N.get(id);};
+  for(const cell of S.cells.values()) if(cell.segs.length||grpOf.has(key(cell.c,cell.r)))
+    ensure(nodeOf(cell.c,cell.r)).cells.push([cell.c,cell.r]);
+  const kanten=[];
+  for(const run of S.runs) for(let i=0;i<run.path.length-1;i++){
+    const a=nodeOf(run.path[i][0],run.path[i][1]), b=nodeOf(run.path[i+1][0],run.path[i+1][1]);
+    if(a===b)continue;
+    const kn={a,b,run:run.id,entnahme:(i===0&&run.entnahme)?run.entnahme:0};
+    kanten.push(kn); ensure(a).aus.push(kn); ensure(b).ein.push(kn);
+  }
+  /* Eigenzulauf: Kopffelder bringen ihre Quellschüttung, durchflossene Felder qlok */
+  for(const nd of N.values()) nd.zu = nd.ein.length ? R.qlok*nd.cells.length : 0;
+  for(const run of S.runs){const nd=N.get(nodeOf(run.path[0][0],run.path[0][1]));
+    if(nd) nd.zu += (run.q0||0);}
+
+  /* -- 2d. Abflussbilanz in topologischer Reihenfolge --------------------- */
+  const grad=new Map(); for(const nd of N.values()) grad.set(nd.id,nd.ein.length);
+  const qq=[...N.values()].filter(n=>!n.ein.length).map(n=>n.id), ord=[];
+  while(qq.length){const id=qq.shift(); ord.push(id);
+    for(const kn of N.get(id).aus){grad.set(kn.b,grad.get(kn.b)-1); if(grad.get(kn.b)===0)qq.push(kn.b);}}
+  const zyklus = ord.length<N.size;
+  for(const id of ord){
+    const nd=N.get(id);
+    nd.q = nd.zu + nd.ein.reduce((s,kn)=>s+(kn.qFluss||0),0);
+    /* Verteilung nach unten: eine Ausleitung nimmt ihren Anteil vorweg */
+    let rest=nd.q, ausl=nd.aus.filter(k=>k.entnahme>0), norm=nd.aus.filter(k=>!k.entnahme);
+    for(const kn of ausl){kn.qFluss=Math.min(kn.entnahme,rest*0.9);rest-=kn.qFluss;}
+    for(const kn of norm) kn.qFluss=rest/Math.max(1,norm.length);
+  }
+  for(const id of N.keys()) if(!ord.includes(id)) N.get(id).q=N.get(id).zu;
+
+  /* -- 2e. Erreicht der Lauf das Meer? ------------------------------------ */
+  const zumMeer=new Set();
+  const stack=S.meer.map(m=>nodeOf(m[0],m[1]));
+  while(stack.length){const id=stack.pop(); if(zumMeer.has(id))continue; zumMeer.add(id);
+    const nd=N.get(id); if(!nd)continue; for(const kn of nd.ein) stack.push(kn.a);}
+
+  /* -- 2f. Benennung: Breite aus Abfluss, Klasse aus Breite --------------- */
+  for(const cell of S.cells.values()){
+    const g=grpOf.get(key(cell.c,cell.r));
+    const nd=N.get(nodeOf(cell.c,cell.r));
+    cell.q = nd?nd.q:0;
+    if(g){
+      cell.still={grp:g, kl:stillKlasse(g.ha,true,g.kuenstl)};
+      cell.land='see';
+      continue;
+    }
+    if(!cell.segs.length) continue;
+    const kanal=cell.segs.some(s=>s.art==='kanal')&&!cell.segs.some(s=>s.art==='nat');
+    if(kanal){
+      const run=S.runs.find(r=>r.id===cell.segs[0].run);
+      cell.b=run.breite||6; cell.kl='kanal';
+    }else{
+      cell.b = R.bfak*Math.sqrt(Math.max(0,cell.q));
+      cell.kl = fliessKlasse(cell.b, zumMeer.has(nodeOf(cell.c,cell.r)));
+    }
+  }
+  for(const kk of S.klein.map(x=>x)){
+    const cell=S.cells.get(key(kk.c,kk.r)); if(!cell||cell.still)continue;
+    cell.klein={...kk, kl:stillKlasse(kk.ha,kk.dauer,kk.kuenstl)};
+  }
+  for(const [c,r] of S.meer){const cell=S.cells.get(key(c,r)); if(cell){cell.land='rand';cell.rand=true;}}
+
+  /* -- 2g. Hydraulik + Merkmale ------------------------------------------- */
+  for(const cell of S.cells.values()) if(cell.kl) hydraulik(cell);
+  const furtbar=furtKandidaten();
+  for(const cell of S.cells.values()) if(cell.kl) merkmale(cell,furtbar);
+
+  /* -- 2h. Strahlen und Ufer-Sektoren ------------------------------------- */
+  for(const cell of S.cells.values()) sektoren(cell);
+
+  /* -- 2i. Geländearten (Aue braucht die verzweigten Strecken) ------------ */
+  landRechnen();
+  S.net={N,gruppen,kanten,zumMeer,zyklus};
+}
+
+function fliessKlasse(b,meer){
+  for(const f of FLIESS){ if(b<f.bmax) return (f.id==='strom'&&!meer)?'gfluss':f.id; }
+  return meer?'strom':'gfluss';
+}
+function stillKlasse(ha,dauer,kuenstl){
+  if(kuenstl) return ha>1?'stausee':'teich';
+  if(!dauer)  return ha<0.005?'pfuetze':'tuempel';
+  return ha>1?'see':'weiher';
+}
+function klInfo(id){ return byId(FLIESS,id)||(id==='kanal'?KANAL:byId(STILL,id)); }
+
+/* Tiefe und Geschwindigkeit — die Begründung hinter der Passierbarkeit.
+   Manning umgestellt: Q = b·t^(5/3)·√J / n  →  t = (Q·n/(b·√J))^(3/5). */
+function hydraulik(cell){
+  const nx=naechstes(cell);
+  const dh = nx ? Math.max(0,cell.h-nx.h) : 0;
+  cell.gef = nx ? dh/(R.hexKm*1000) : 0;     /* Gefälle J, dimensionslos */
+  const J=Math.max(0.0005,cell.gef);
+  /* Verzweigung (Furkation): flach genug, breit genug — aber ein Strom
+     bündelt sich wieder zu einem Bett, darum die obere Schranke. */
+  cell.verzweigt = (cell.kl!=='kanal') && J<R.jBraid && cell.b>=8 && cell.b<60;
+  cell.bEff = cell.verzweigt ? cell.b*R.braid : cell.b;
+  const t = Math.pow(Math.max(1e-6,cell.q)*R.nMan/(cell.bEff*Math.sqrt(J)), 0.6);
+  cell.t = t;
+  cell.v = cell.q/Math.max(0.01,cell.bEff*t);
+  cell.tv = cell.t*cell.v;
+}
+function naechstes(cell){
+  for(const s of cell.segs){ if(s.aus===null)continue;
+    const n=nbOf(cell.c,cell.r,s.aus); const nc=S.cells.get(key(n[0],n[1]));
+    if(nc) return nc; }
+  return null;
+}
+/* Merkmale werden ABGELEITET (aus Gefälle, Tiefe, Flanken) und können je
+   Feld überschrieben werden — der Stempel setzt an / aus / zurück auf auto. */
+/* Eine Furt ist kein Schwellenwert, sondern ein ORT: die flachste Stelle
+   einer Strecke. Absolut gerechnet (t·v < Schwelle) war auf dieser Karte
+   fast jedes Feld eine Furt — richtig gerechnet, aber spielerisch wertlos.
+   Kandidat ist deshalb nur, wer sein t·v gegen die vier Nachbarfelder im
+   Lauf gewinnt. Damit wird die Furt wieder rar und benennbar. */
+function furtKandidaten(){
+  const set=new Set();
+  for(const run of S.runs){
+    const cs=run.path.map(p=>S.cells.get(key(p[0],p[1]))).filter(c=>c&&c.kl&&!c.still);
+    for(let i=0;i<cs.length;i++){
+      let min=true;
+      for(let j=Math.max(0,i-2);j<=Math.min(cs.length-1,i+2);j++)
+        if(j!==i && cs[j].tv<cs[i].tv){min=false;break;}
+      if(min) set.add(key(cs[i].c,cs[i].r));
+    }
+  }
+  return set;
+}
+function merkmale(cell,furtbar){
+  const m={},auto={};
+  const gebaut = cell.kl==='kanal';   /* ein Kanal hat ein gebautes Bett */
+  auto.fall    = !gebaut && cell.gef>=R.jFall;
+  auto.schnell = !gebaut && !auto.fall && cell.gef>=R.jSchnell;
+  auto.klamm   = !gebaut && flanken(cell)>=R.klammN;
+  /* Eine Furt ist nur dort ein ORT, wo das Queren sonst etwas kostet —
+     einen Bach durchwatet man überall, das braucht keine Marke. */
+  auto.furt    = !auto.fall && !auto.klamm && cell.tv<R.tvFurt
+                 && furtbar.has(key(cell.c,cell.r))
+                 && ['kfluss','gfluss','strom'].includes(cell.kl);
+  const ov=S.mark[key(cell.c,cell.r)]||{};
+  for(const k in MERKMAL) m[k] = (k in ov) ? !!ov[k] : !!auto[k];
+  cell.merkAuto=auto; cell.merk=m;
+}
+function flanken(cell){
+  let n=0; for(let e=0;e<6;e++){const p=nbOf(cell.c,cell.r,e),nc=S.cells.get(key(p[0],p[1]));
+    if(nc&&!nc.segs.length&&nc.h>=cell.h+R.klammDh)n++;}
+  return n;
+}
+
+/* ----------------------------------------------------------------------------
+   Die Sektoren: Das Wasser läuft von Kantenmitte zur Feldmitte und weiter.
+   k Wasserkanten ergeben k Strahlen und damit genau k Landsektoren — das
+   sind die Ufer. Ein Quellfeld hat einen Strahl und bleibt ein Stück Land:
+   um eine Quelle kann man herumgehen.
+   ---------------------------------------------------------------------------- */
+function sektoren(cell){
+  const rays=[];
+  for(const s of cell.segs){
+    for(const e of [s.ein,s.aus]) if(e!==null&&!rays.some(x=>x.e===e))
+      rays.push({e,seg:s,kl:cell.kl,b:cell.bEff||cell.b||0});
+  }
+  rays.sort((a,b)=>a.e-b.e);
+  cell.rays=rays;
+  cell.nurWasser = !!cell.still || cell.rand || (cell.b>=R.hexKm*1000*0.5);
+  if(cell.nurWasser){cell.parts=[];return;}
+  if(rays.length<=1){
+    cell.parts=[{i:0,edges:[0,1,2,3,4,5],poly:corners(cell.c,cell.r),
+                 zug:rays.length?[rays[0].e]:[]}];
+    return;
+  }
+  const parts=[];
+  for(let j=0;j<rays.length;j++){
+    const a=rays[j].e, b=rays[(j+1)%rays.length].e;
+    const poly=[[cxOf(cell.c,cell.r),cyOf(cell.c,cell.r)], edgeMid(cell.c,cell.r,a)];
+    const ecken=[], edges=[];
+    let e=(a+1)%6;
+    for(let g=0;g<6;g++){ ecken.push(e); if(e===b)break; edges.push(e); e=(e+1)%6; }
+    const cp=corners(cell.c,cell.r);
+    for(const ec of ecken) poly.push(cp[ec]);
+    poly.push(edgeMid(cell.c,cell.r,b));
+    parts.push({i:j,poly,edges,vor:a,nach:b});
+  }
+  cell.parts=parts;
+}
+
+/* Geländearten: Aue liegt an einer verzweigten Strecke, Hang am Steilen,
+   Berg über 1750 m. */
+function landRechnen(){
+  for(const cell of S.cells.values()){
+    if(cell.still){cell.land='see';continue;}
+    if(cell.rand){cell.land='rand';continue;}
+    let steil=0;
+    for(let e=0;e<6;e++){const p=nbOf(cell.c,cell.r,e),nc=S.cells.get(key(p[0],p[1]));
+      if(nc)steil=Math.max(steil,Math.abs(nc.h-cell.h));}
+    let aue=false;
+    if(cell.verzweigt) aue=true;
+    else for(let e=0;e<6;e++){const p=nbOf(cell.c,cell.r,e),nc=S.cells.get(key(p[0],p[1]));
+      if(nc&&nc.verzweigt&&cell.h-nc.h<=25)aue=true;}
+    cell.land = cell.h>=1750?'berg' : aue?'aue' : steil>=60?'hang' : 'flach';
+  }
+}
+
+/* ============================================================================
+   3. PASSIERBARKEIT
+   Bewegt wird nicht von Feld zu Feld, sondern von UFER zu UFER. Jeder
+   Landsektor eines Feldes ist ein eigener Knoten; zwei Sektoren desselben
+   Feldes sind nur über das Wasser verbunden, das zwischen ihnen liegt. Damit
+   ist der Fluss eine Linie quer über die Karte statt einer Reihe gesperrter
+   Felder — und die Furt bekommt ihre Bedeutung zurück.
+   ============================================================================ */
+const pk=(c,r,i)=>c+','+r+'#'+i;
+const apKey=(p)=>Math.round(p[0]*10)+':'+Math.round(p[1]*10);
+
+/* Zugangspunkte eines Sektors: halbe Kanten dort, wo Wasser die Kante
+   zerschneidet, sonst die ganze Kante (über ihre Mitte). Weil beide
+   Nachbarfelder dieselbe Kante gleich zerschneiden, treffen sich die
+   Viertelpunkte im Weltkoordinatensystem — links bleibt links. */
+function zugaenge(cell,part){
+  const out=[], rs=cell.rays.map(x=>x.e);
+  if(cell.parts.length===1){
+    for(let e=0;e<6;e++){
+      if(rs.includes(e)){out.push(edgePt(cell.c,cell.r,e,0.25));out.push(edgePt(cell.c,cell.r,e,0.75));}
+      else out.push(edgeMid(cell.c,cell.r,e));
+    }
+    return out;
+  }
+  out.push(edgePt(cell.c,cell.r,part.vor,0.75));
+  for(const e of part.edges) out.push(edgeMid(cell.c,cell.r,e));
+  out.push(edgePt(cell.c,cell.r,part.nach,0.25));
+  return out;
+}
+
+/* Was kostet es, dieses Wasser zu queren? Zwei Modelle nebeneinander:
+   die Klassentabelle (Spielregel) und die Hydraulik (Begründung). */
+function querKosten(cell,ray){
+  const m=cell.merk;
+  if(m.bruecke) return {k:0,p:1,warum:'Brücke'};
+  if(m.steg && ['rinnsal','bach','kfluss','kanal'].includes(ray.kl)) return {k:0,p:1,warum:'Steg'};
+  if(m.fall)  return {k:Infinity,p:0,warum:'Wasserfall — kein Übergang'};
+  if(m.klamm) return {k:Infinity,p:0,warum:'Klamm — die Wände sperren'};
+  if(R.modell==='hydraulik'){
+    const tv=cell.tv||0, t=cell.t||0;
+    if(t>1.6&&cell.v>1.2) return {k:Infinity,p:0,warum:'zu tief und zu schnell'};
+    let k,p=1;
+    if(tv<0.4)k=1; else if(tv<0.8)k=2; else if(tv<1.3)k=3;
+    else if(tv<2.0){k=R.kSchnell;p=R.pSchnell;} else return {k:Infinity,p:0,warum:'t·v > 2 — reißt um'};
+    if(m.bruecke)k=0;
+    return {k,p,warum:'t·v = '+tv.toFixed(2)+' m²/s'};
+  }
+  if(m.schnell) return {k:R.kSchnell,p:R.pSchnell,warum:'Stromschnelle'};
+  if(m.furt)    return {k:Math.min(R.kFurt,R.kost[ray.kl]??99),p:1,warum:'Furt'};
+  const base=R.kost[ray.kl];
+  if(base===undefined||base===Infinity) return {k:Infinity,p:0,warum:'zu breit und zu tief'};
+  return {k:base,p:1,warum:byId(FLIESS,ray.kl)?byId(FLIESS,ray.kl).nm:'Kanal'};
+}
+function feldKosten(cell){
+  let k=R.gel[cell.land]??1;
+  if(cell.klein){ const kl=cell.klein.kl;
+    if(kl==='weiher'||kl==='teich')k+=1; }
+  return k;
+}
+
+/* Graph bauen: innerhalb eines Feldes queren, zwischen Feldern gehen. */
+function graphBauen(){
+  const G=new Map(), add=(a,b,w,risk)=>{ if(!G.has(a))G.set(a,[]); G.get(a).push({to:b,w,risk}); };
+  const ap=new Map();   /* Zugangspunkt -> [knoten] */
+  for(const cell of S.cells.values()){
+    if(cell.nurWasser||cell.land==='berg') continue;
+    for(const part of cell.parts){
+      const id=pk(cell.c,cell.r,part.i);
+      if(!G.has(id))G.set(id,[]);
+      for(const p of zugaenge(cell,part)){const kk=apKey(p);
+        if(!ap.has(kk))ap.set(kk,[]); ap.get(kk).push({id,cell});}
+    }
+    /* Queren: Sektor j−1 und j teilen sich Strahl j */
+    const n=cell.parts.length;
+    if(n>1) for(let j=0;j<n;j++){
+      const a=pk(cell.c,cell.r,(j-1+n)%n), b=pk(cell.c,cell.r,j);
+      const q=querKosten(cell,cell.rays[j]);
+      if(q.k===Infinity)continue;
+      add(a,b,q.k,q.p); add(b,a,q.k,q.p);
+    }
+  }
+  for(const [,lst] of ap){
+    if(lst.length<2)continue;
+    for(let i=0;i<lst.length;i++)for(let j=0;j<lst.length;j++){
+      if(i===j||lst[i].cell===lst[j].cell)continue;
+      const w=feldKosten(lst[j].cell); if(w===Infinity)continue;
+      add(lst[i].id,lst[j].id,w,1);
+    }
+  }
+  return G;
+}
+
+function dijkstra(G,start,budget,erlaubeRisiko){
+  const dist=new Map([[start,0]]), surv=new Map([[start,1]]), pq=[[0,start]];
+  while(pq.length){
+    pq.sort((a,b)=>a[0]-b[0]); const [d,u]=pq.shift();
+    if(d>(dist.get(u)??Infinity))continue;
+    for(const e of (G.get(u)||[])){
+      if(!erlaubeRisiko&&e.risk<1)continue;
+      const nd=d+e.w; if(nd>budget)continue;
+      const ns=(surv.get(u)||1)*e.risk;
+      if(nd<(dist.get(e.to)??Infinity)||(nd===dist.get(e.to)&&ns>(surv.get(e.to)||0))){
+        dist.set(e.to,nd); surv.set(e.to,ns); pq.push([nd,e.to]);
+      }
+    }
+  }
+  return {dist,surv};
+}
+function reichweite(){
+  if(!S.wand){S.reach=null;return;}
+  const G=graphBauen(), start=pk(S.wand.c,S.wand.r,S.wand.part);
+  if(!G.has(start)){S.reach=null;return;}
+  const sicher=dijkstra(G,start,R.reichw,false);
+  const mutig =dijkstra(G,start,R.reichw,true);
+  S.reach={sicher,mutig,start};
+}
+/* Welcher Sektor eines Feldes liegt unter dem Klick? */
+function sektorAn(cell,x,y){
+  if(!cell.parts.length)return 0;
+  if(cell.parts.length===1)return 0;
+  const mx=cxOf(cell.c,cell.r),my=cyOf(cell.c,cell.r);
+  const a=Math.atan2(y-my,x-mx);
+  let best=0,bd=9e9;
+  for(const p of cell.parts){
+    let sx=0,sy=0; for(const q of p.poly){sx+=q[0];sy+=q[1];}
+    sx/=p.poly.length;sy/=p.poly.length;
+    let d=Math.abs(((Math.atan2(sy-my,sx-mx)-a+Math.PI*3)%(Math.PI*2))-Math.PI);
+    if(d<bd){bd=d;best=p.i;}
+  }
+  return best;
+}
+
+/* ============================================================================
+   4. ZEICHNEN
+   ============================================================================ */
+const map=document.getElementById('map');
+const LANDCOL={flach:'url(#texGras)',aue:'url(#texErde)',hang:'var(--panel2)',
+               berg:'var(--berg)',see:'url(#texWasser)',rand:'var(--w4)'};
+const WORLD_W=MW*HEXW+HEXW/2, WORLD_H=(MH-1)*HEXH*0.75+HEXH;
+
+/* Gezeichnete Strichbreite. "echt" ist maßstabsgetreu und für alles unter
+   einem Strom unsichtbar — genau das ist der Befund, den dieser Schalter
+   vorführen soll. "lesbar" überzeichnet, "halb" liegt geometrisch dazwischen. */
+function lesFrac(b){
+  if(b<0.5) return .028;
+  if(b<5)   return .028+(b-0.5)/4.5*.042;
+  if(b<10)  return .070+(b-5)/5*.035;
+  if(b<100) return .105+Math.log10(b/10)*.100;
+  return Math.min(.34,.205+Math.log10(b/100)*.10);
+}
+function strich(b){
+  const echt=b/(R.hexKm*1000)*HEXW, les=HEXW*lesFrac(b);
+  if(S.mass==='echt') return Math.max(0.12,echt);
+  if(S.mass==='halb') return Math.max(0.4,Math.sqrt(Math.max(echt,.01)*les));
+  return Math.max(0.9,les);
+}
+const uebertreibung=b=>strich(b)/Math.max(1e-6,b/(R.hexKm*1000)*HEXW);
+
+function segAchse(cell,s){
+  const mx=cxOf(cell.c,cell.r),my=cyOf(cell.c,cell.r);
+  let a,b;
+  if(s.ein!==null&&s.aus!==null){a=edgeMid(cell.c,cell.r,s.ein);b=edgeMid(cell.c,cell.r,s.aus);}
+  else if(s.aus!==null){a=[mx,my];b=edgeMid(cell.c,cell.r,s.aus);}
+  else {a=edgeMid(cell.c,cell.r,s.ein);b=[mx,my];}
+  const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1;
+  return {mx,my,tx:dx/L,ty:dy/L,a,b};
+}
+function segPath(cell,s,off){
+  const mx=cxOf(cell.c,cell.r),my=cyOf(cell.c,cell.r);
+  if(s.ein===null&&s.aus===null)return '';
+  const ax=segAchse(cell,s);
+  const ox=off?-ax.ty*off:0, oy=off?ax.tx*off:0;
+  if(s.ein===null) return `M ${mx+ox} ${my+oy} L ${ax.b[0]} ${ax.b[1]}`;
+  if(s.aus===null) return `M ${ax.a[0]} ${ax.a[1]} L ${mx+ox} ${my+oy}`;
+  return `M ${ax.a[0]} ${ax.a[1]} Q ${mx+ox} ${my+oy} ${ax.b[0]} ${ax.b[1]}`;
+}
+const P=(pts)=>pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+function inset(poly,cx0,cy0,f){return poly.map(p=>[cx0+(p[0]-cx0)*f, cy0+(p[1]-cy0)*f]);}
+function seiteVon(cell,part){
+  const s0=cell.segs.find(s=>s.ein!==null&&s.aus!==null)||cell.segs[0];
+  if(!s0||cell.parts.length!==2)return null;
+  const ax=segAchse(cell,s0);
+  let sx=0,sy=0;for(const q of part.poly){sx+=q[0];sy+=q[1];}
+  sx=sx/part.poly.length-ax.mx; sy=sy/part.poly.length-ax.my;
+  return (ax.tx*sy-ax.ty*sx)<0?'links':'rechts';
+}
+
+function render(){
+  const out=[];
+  out.push(`<defs>
+    <pattern id="hang" width="7" height="7" patternTransform="rotate(35)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="7" stroke="var(--ink2)" stroke-width="1.1" opacity=".22"/></pattern>
+    <pattern id="berg" width="5" height="5" patternTransform="rotate(-25)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="5" stroke="var(--ink)" stroke-width="1.2" opacity=".2"/></pattern>
+    <pattern id="kies" width="6" height="6" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r=".7" fill="var(--ink2)" opacity=".3"/>
+      <circle cx="4.5" cy="4" r=".55" fill="var(--ink2)" opacity=".22"/></pattern>
+    <pattern id="texGras" width="9" height="9" patternUnits="userSpaceOnUse">
+      <image href="${TEX.gras}" x="0" y="0" width="9" height="9" preserveAspectRatio="none"/></pattern>
+    <pattern id="texErde" width="9" height="9" patternUnits="userSpaceOnUse">
+      <image href="${TEX.erde}" x="0" y="0" width="9" height="9" preserveAspectRatio="none"/></pattern>
+    <pattern id="texWasser" width="9" height="9" patternUnits="userSpaceOnUse">
+      <image href="${TEX.wasser}" x="0" y="0" width="9" height="9" preserveAspectRatio="none"/></pattern>
+  </defs>`);
+
+  /* ---- Schicht 1: Gelände ---- */
+  const g1=[],g1b=[];
+  for(const cell of S.cells.values()){
+    const pts=P(corners(cell.c,cell.r));
+    g1.push(`<polygon points="${pts}" fill="${LANDCOL[cell.land]}" stroke="var(--line)" stroke-width=".6"/>`);
+    const sh=Math.max(0,Math.min(1,(cell.h-500)/2100));
+    if(sh>0.02&&cell.land!=='see'&&cell.land!=='rand')
+      g1b.push(`<polygon points="${pts}" fill="#fff" opacity="${(sh*0.42).toFixed(3)}"/>`);
+    if(cell.land==='hang')g1b.push(`<polygon points="${pts}" fill="url(#hang)"/>`);
+    if(cell.land==='berg')g1b.push(`<polygon points="${pts}" fill="url(#berg)"/>`);
+    /* die Aue-Textur bringt die Körnung selbst mit — der synthetische Kies-Punktraster
+       von a-vektor entfällt hier, doppelte Textur wirkte unruhig */
+  }
+  out.push('<g>'+g1.join('')+g1b.join('')+'</g>');
+
+  /* ---- Schicht 2: Stillgewässer ---- */
+  const g2=[];
+  for(const cell of S.cells.values()){
+    if(!cell.still)continue;
+    g2.push(`<polygon points="${P(corners(cell.c,cell.r))}" fill="url(#texWasser)" stroke="none"/>`);
+  }
+  /* Außenkante der Gruppen betonen */
+  for(const cell of S.cells.values()){
+    if(!cell.still)continue;
+    for(let e=0;e<6;e++){const n=nbOf(cell.c,cell.r,e),nc=S.cells.get(key(n[0],n[1]));
+      if(nc&&nc.still&&nc.still.grp===cell.still.grp)continue;
+      const cp=corners(cell.c,cell.r);
+      g2.push(`<line x1="${cp[e][0].toFixed(1)}" y1="${cp[e][1].toFixed(1)}" x2="${cp[(e+1)%6][0].toFixed(1)}" y2="${cp[(e+1)%6][1].toFixed(1)}" stroke="var(--w3)" stroke-width="1.6"/>`);}
+  }
+  for(const cell of S.cells.values()){
+    if(!cell.klein)continue;
+    const kl=cell.klein.kl, m2=cell.klein.ha*10000;
+    const rTrue=Math.sqrt(m2/Math.PI)/(R.hexKm*1000)*HEXW;
+    const rr=S.mass==='echt'?Math.max(.15,rTrue):Math.max(2.4,Math.min(11,rTrue*(kl==='pfuetze'?26:kl==='tuempel'?12:5)));
+    const x=cxOf(cell.c,cell.r),y=cyOf(cell.c,cell.r)+HEXH*0.06;
+    g2.push(`<ellipse cx="${x}" cy="${y}" rx="${(rr*1.25).toFixed(1)}" ry="${rr.toFixed(1)}" fill="url(#texWasser)" stroke="var(--w3)" stroke-width="${kl==='teich'?1.1:.7}" ${kl==='teich'?'':'opacity=".92"'}/>`);
+    if(kl==='teich')g2.push(`<ellipse cx="${x}" cy="${y}" rx="${(rr*1.25).toFixed(1)}" ry="${rr.toFixed(1)}" fill="none" stroke="var(--ink)" stroke-width=".5" stroke-dasharray="2 1.6" opacity=".55"/>`);
+  }
+  out.push('<g>'+g2.join('')+'</g>');
+
+  /* ---- Schicht 3: Ufer (der Kies-/Auensaum, der IM Feld liegt) ---- */
+  if(S.ufer){
+    const g3=[];
+    for(const cell of S.cells.values()){
+      if(!cell.kl||cell.still)continue;
+      const info=klInfo(cell.kl), w=strich(cell.bEff||cell.b);
+      const uw=w+Math.max(1.4,w*0.55)*(info.ufer||1)*(cell.verzweigt?1.6:1);
+      for(const s of cell.segs){const d=segPath(cell,s);if(!d)continue;
+        g3.push(`<path d="${d}" fill="none" stroke="var(--kies)" stroke-width="${uw.toFixed(2)}" stroke-linecap="round"/>`);}
+    }
+    out.push('<g opacity=".85">'+g3.join('')+'</g>');
+  }
+
+  /* ---- Schicht 4: Das Wasser ---- */
+  const g4=[];
+  for(const cell of S.cells.values()){
+    if(!cell.kl||cell.still)continue;
+    const info=klInfo(cell.kl);
+    const dim=S.hi&&S.hi!==cell.kl;
+    const col=`var(${info.col})`;
+    for(const s of cell.segs){
+      const d=segPath(cell,s); if(!d)continue;
+      if(cell.verzweigt){
+        /* Furkation: drei Rinnen, die sich an den Kanten wieder treffen —
+           genau so verzweigt sich ein Wildfluss zwischen seinen Kiesbänken. */
+        const wf=strich(cell.b)*0.48;
+        for(const off of [-HEXH*0.17,0,HEXH*0.17])
+          g4.push(`<path d="${segPath(cell,s,off)}" fill="none" stroke="${col}" stroke-width="${wf.toFixed(2)}" stroke-linecap="round" opacity="${dim?.25:.95}"/>`);
+      }else{
+        g4.push(`<path d="${d}" fill="none" stroke="${col}" stroke-width="${strich(cell.b).toFixed(2)}" stroke-linecap="round" opacity="${dim?.25:1}"/>`);
+      }
+    }
+  }
+  out.push('<g>'+g4.join('')+'</g>');
+
+  /* ---- Schicht 5: Merkmale ---- */
+  if(S.merk){
+    const g5=[];
+    for(const cell of S.cells.values()){
+      if(!cell.kl||cell.still)continue;
+      const s=cell.segs[0], ax=segAchse(cell,s);
+      const w=Math.max(2.6,strich(cell.bEff||cell.b)), m=cell.merk;
+      const px=-ax.ty, py=ax.tx;
+      const quer=(x,y,len,sw,col,dash)=>`<line x1="${(x-px*len).toFixed(1)}" y1="${(y-py*len).toFixed(1)}" x2="${(x+px*len).toFixed(1)}" y2="${(y+py*len).toFixed(1)}" stroke="${col}" stroke-width="${sw}" ${dash?`stroke-dasharray="${dash}"`:''} stroke-linecap="round"/>`;
+      if(m.klamm){
+        for(const o of [-1,1])
+          g5.push(`<path d="${segPath(cell,s,0)}" fill="none" stroke="var(--fels)" stroke-width="1.5" opacity=".9" transform="translate(${(px*o*(w/2+1.6)).toFixed(1)},${(py*o*(w/2+1.6)).toFixed(1)})"/>`);
+      }
+      if(m.furt){
+        for(let i=-1;i<=1;i++){
+          const x=ax.mx+ax.tx*i*2.6, y=ax.my+ax.ty*i*2.6;
+          g5.push(quer(x,y,w*0.62,1.1,'var(--bone)',null));
+        }
+      }
+      if(m.schnell){
+        for(let i=-1;i<=1;i++){
+          const x=ax.mx+ax.tx*i*2.8, y=ax.my+ax.ty*i*2.8, l=w*0.5;
+          g5.push(`<path d="M ${(x-px*l-ax.tx*1.5).toFixed(1)} ${(y-py*l-ax.ty*1.5).toFixed(1)} L ${x.toFixed(1)} ${y.toFixed(1)} L ${(x+px*l-ax.tx*1.5).toFixed(1)} ${(y+py*l-ax.ty*1.5).toFixed(1)}" fill="none" stroke="var(--bone)" stroke-width="1" stroke-linecap="round" opacity=".95"/>`);
+        }
+      }
+      if(m.fall){
+        const e=s.aus!==null?edgeMid(cell.c,cell.r,s.aus):[ax.mx,ax.my];
+        const bx=(ax.mx+e[0])/2, by=(ax.my+e[1])/2;
+        g5.push(quer(bx-ax.tx*1.4,by-ax.ty*1.4,w*0.75,1.5,'var(--bone)',null));
+        g5.push(quer(bx+ax.tx*1.4,by+ax.ty*1.4,w*0.75,1.5,'var(--bone)',null));
+        g5.push(`<path d="M ${(bx+ax.tx*3.2-px*2.2).toFixed(1)} ${(by+ax.ty*3.2-py*2.2).toFixed(1)} L ${(bx+ax.tx*6.4).toFixed(1)} ${(by+ax.ty*6.4).toFixed(1)} L ${(bx+ax.tx*3.2+px*2.2).toFixed(1)} ${(by+ax.ty*3.2+py*2.2).toFixed(1)} Z" fill="var(--w4)"/>`);
+      }
+      if(m.bruecke) g5.push(quer(ax.mx,ax.my,w*0.85+2.4,2.2,'var(--ink)',null));
+      if(m.steg)    g5.push(quer(ax.mx,ax.my,w*0.7+1.6,1.3,'var(--ink)','2 1.4'));
+      if(m.damm){
+        g5.push(quer(ax.mx,ax.my,HEXW*0.34,3.4,'var(--fels)',null));
+        g5.push(quer(ax.mx,ax.my,HEXW*0.34,1.2,'var(--ink)',null));
+      }
+    }
+    out.push('<g>'+g5.join('')+'</g>');
+  }
+
+  /* ---- Schicht 6: Fließrichtung ---- */
+  if(S.flow){
+    const g6=[];
+    for(const cell of S.cells.values()){
+      if(!cell.kl||cell.still)continue;
+      for(const s of cell.segs){
+        const ax=segAchse(cell,s), px=-ax.ty,py=ax.tx, L=2.6;
+        const x=ax.mx+ax.tx*3.4, y=ax.my+ax.ty*3.4;
+        g6.push(`<path d="M ${(x+ax.tx*L).toFixed(1)} ${(y+ax.ty*L).toFixed(1)} L ${(x-ax.tx*L*.5+px*L*.75).toFixed(1)} ${(y-ax.ty*L*.5+py*L*.75).toFixed(1)} L ${(x-ax.tx*L*.5-px*L*.75).toFixed(1)} ${(y-ax.ty*L*.5-py*L*.75).toFixed(1)} Z" fill="var(--bone)" opacity=".85"/>`);
+      }
+    }
+    out.push('<g>'+g6.join('')+'</g>');
+  }
+
+  /* ---- Schicht 7: Ufer-Sektoren ---- */
+  if(S.seiten){
+    const g7=[];
+    for(const cell of S.cells.values()){
+      if(cell.parts.length<2)continue;
+      for(const p of cell.parts){
+        const ip=inset(p.poly,cxOf(cell.c,cell.r),cyOf(cell.c,cell.r),.82);
+        g7.push(`<polygon points="${P(ip)}" fill="none" stroke="var(--ember)" stroke-width=".7" stroke-dasharray="2.5 2" opacity=".8"/>`);
+      }
+    }
+    out.push('<g>'+g7.join('')+'</g>');
+  }
+
+  /* ---- Schicht 8: Reichweite ---- */
+  if(S.reach){
+    const g8=[];
+    for(const cell of S.cells.values()){
+      for(const p of cell.parts){
+        const id=pk(cell.c,cell.r,p.i);
+        const ds=S.reach.sicher.dist.get(id), dm=S.reach.mutig.dist.get(id);
+        if(ds===undefined&&dm===undefined)continue;
+        const risk=ds===undefined;
+        const ip=inset(p.poly,cxOf(cell.c,cell.r),cyOf(cell.c,cell.r),.86);
+        g8.push(`<polygon points="${P(ip)}" fill="${risk?'var(--ember)':'var(--good)'}" opacity="${risk?.30:.24}" stroke="${risk?'var(--ember)':'var(--good)'}" stroke-width=".8"/>`);
+        let sx=0,sy=0;for(const q of ip){sx+=q[0];sy+=q[1];}sx/=ip.length;sy/=ip.length;
+        const val=risk?dm:ds;
+        g8.push(`<text x="${sx.toFixed(1)}" y="${(sy+2.2).toFixed(1)}" text-anchor="middle" font-family="Space Mono,monospace" font-size="6" fill="var(--ink)" opacity=".8">${R.reichw-val}</text>`);
+        if(risk){const s2=S.reach.mutig.surv.get(id)||0;
+          g8.push(`<text x="${sx.toFixed(1)}" y="${(sy+8.4).toFixed(1)}" text-anchor="middle" font-family="Space Mono,monospace" font-size="4.6" fill="var(--bad)">${Math.round(s2*100)}%</text>`);}
+      }
+    }
+    out.push('<g>'+g8.join('')+'</g>');
+  }
+
+  /* ---- Schicht 9: Wanderer, Auswahl, Entwurf, Meer-Rand ---- */
+  const g9=[];
+  for(const [c,r] of S.meer){
+    const x=cxOf(c,r),y=cyOf(c,r);
+    g9.push(`<text x="${x}" y="${(y+2).toFixed(1)}" text-anchor="middle" font-family="Space Mono,monospace" font-size="5.4" fill="var(--bone)">→ Meer</text>`);
+  }
+  if(S.draft&&S.draft.path.length){
+    const pts=S.draft.path.map(p=>[cxOf(p[0],p[1]),cyOf(p[0],p[1])]);
+    g9.push(`<polyline points="${P(pts)}" fill="none" stroke="var(--ember)" stroke-width="2.4" stroke-dasharray="4 3" stroke-linecap="round"/>`);
+    for(const p of pts)g9.push(`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.4" fill="var(--ember)"/>`);
+  }
+  if(S.wand){
+    const cell=S.cells.get(key(S.wand.c,S.wand.r));
+    const p=cell&&cell.parts[S.wand.part];
+    let x=cxOf(S.wand.c,S.wand.r),y=cyOf(S.wand.c,S.wand.r);
+    if(p){let sx=0,sy=0;for(const q of p.poly){sx+=q[0];sy+=q[1];}x=sx/p.poly.length;y=sy/p.poly.length;}
+    g9.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5.2" fill="var(--bone)" stroke="var(--ink)" stroke-width="1.4"/>`);
+    g9.push(`<text x="${x.toFixed(1)}" y="${(y+2.6).toFixed(1)}" text-anchor="middle" font-size="7" fill="var(--ink)">☖</text>`);
+  }
+  if(S.sel){
+    const cell=S.cells.get(key(S.sel[0],S.sel[1]));
+    if(cell)g9.push(`<polygon points="${P(corners(cell.c,cell.r))}" fill="none" stroke="var(--ink)" stroke-width="2"/>`);
+  }
+  out.push('<g>'+g9.join('')+'</g>');
+
+  map.innerHTML=out.join('');
+  viewSetzen();
+  hudSetzen();
+}
+function viewSetzen(){
+  const rect=map.getBoundingClientRect();
+  const asp=(rect.height||500)/(rect.width||500);
+  map.setAttribute('viewBox',`${S.view.x.toFixed(2)} ${S.view.y.toFixed(2)} ${S.view.w.toFixed(2)} ${(S.view.w*asp).toFixed(2)}`);
+}
+function fit(){
+  const rect=map.getBoundingClientRect();
+  const asp=(rect.height||500)/(rect.width||500);
+  let w=WORLD_W*1.02, h=w*asp;
+  if(h<WORLD_H*1.02){h=WORLD_H*1.02;w=h/asp;}
+  S.view={x:(WORLD_W-w)/2,y:(WORLD_H-h)/2,w};
+}
+function hudSetzen(){
+  const z=(WORLD_W/S.view.w).toFixed(2);
+  const n=S.net?S.net.gruppen.length:0;
+  let t=`Feld ${R.hexKm.toFixed(2)} km · Maßstab ${S.mass} · Zoom ${z}×`;
+  if(S.mass!=='echt'&&S.sel){const cell=S.cells.get(key(S.sel[0],S.sel[1]));
+    if(cell&&cell.b)t+=` · ×${Math.round(uebertreibung(cell.b))} überzeichnet`;}
+  if(S.net&&S.net.zyklus)t+=' · ⚠ Kreis im Netz';
+  document.getElementById('hud').textContent=t;
+}
+let hintT=null;
+function hinweis(txt){
+  const el=document.getElementById('hint');
+  el.textContent=txt; el.classList.add('on');
+  clearTimeout(hintT); hintT=setTimeout(()=>el.classList.remove('on'),2600);
+}
+
+/* ============================================================================
+   5. PANEL
+   ============================================================================ */
+const TABS=[['feld','Feld'],['katalog','Katalog'],['regeln','Regeln'],['wand','Mensch']];
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const nm=(a,b)=>`<div class="kv"><b>${a}</b><span>${b}</span></div>`;
+function kv(rows){return '<div class="kv">'+rows.map(([a,b])=>`<b>${a}</b><span>${b}</span>`).join('')+'</div>';}
+
+function zaehle(){
+  const z={};
+  for(const cell of S.cells.values()){
+    if(cell.still) z[cell.still.kl]=(z[cell.still.kl]||0)+1;
+    else if(cell.klein) z[cell.klein.kl]=(z[cell.klein.kl]||0)+1;
+    if(cell.kl) z[cell.kl]=(z[cell.kl]||0)+1;
+  }
+  return z;
+}
+
+function panelZeichnen(){
+  document.getElementById('tabs').innerHTML=
+    TABS.map(([id,l])=>`<button data-tab="${id}" class="${S.tab===id?'on':''}">${l}</button>`).join('');
+  const b=document.getElementById('pbody');
+  b.innerHTML = S.tab==='feld'?tabFeld() : S.tab==='katalog'?tabKatalog()
+              : S.tab==='regeln'?tabRegeln() : tabWand();
+  bindPanel();
+}
+
+/* ---------------------------------------------------------------- Feld ---- */
+function tabFeld(){
+  if(!S.sel) return `<h3>Kein Feld gewählt</h3><p class="dim">Tippe ein Feld an. Das Panel zeigt dann, wie das Wasser hindurchläuft, was daraus abgeleitet wird und was es kostet, hier ans andere Ufer zu kommen.</p>`+katalogKurz();
+  const cell=S.cells.get(key(S.sel[0],S.sel[1])); if(!cell)return '';
+  let h=`<h3>Feld ${cell.c},${cell.r}</h3>`;
+  const LN={flach:'Flachland',aue:'Aue / Schotterflur',hang:'Hang',berg:'Berg',see:'Stillwasser',rand:'Kartenrand → Meer'};
+  h+=kv([['Gelände',LN[cell.land]],['Höhe',cell.h+' m ü. M.'],
+         ['Gehkosten',cell.land==='berg'?'✕ nicht begehbar':feldKosten(cell)+' Punkt(e)']]);
+
+  if(cell.still){
+    const g=cell.still.grp, info=byId(STILL,cell.still.kl);
+    h+=`<h4>Stillgewässer</h4>`;
+    h+=kv([['Name',esc(g.nm)],['Klasse',info.nm],['Fläche',g.ha.toFixed(0)+' ha ('+g.cells.length+' Felder)'],
+           ['Herkunft',g.kuenstl?'künstlich':'natürlich'],
+           ['Abfluss',(cell.q||0).toFixed(2)+' m³/s']]);
+    if(g.damm)h+=`<div class="note"><b>Aufgestaut</b>Der Damm auf ${g.damm[0]},${g.damm[1]} hebt den Spiegel auf ${g.ziel} m — alles darunter im Lauf ist Fläche geworden. Ohne Damm wäre hier wieder ein Bach.</div>`;
+    h+=`<p class="dim">${info.d}</p>`;
+  }
+  if(cell.klein){
+    const info=byId(STILL,cell.klein.kl);
+    h+=`<h4>Kleines Stillgewässer</h4>`;
+    h+=kv([['Name',esc(cell.klein.nm||info.nm)],['Klasse',info.nm],
+           ['Fläche',cell.klein.ha+' ha = '+(cell.klein.ha*10000).toFixed(0)+' m²'],
+           ['Anteil am Feld',((cell.klein.ha*10000)/(R.hexKm*1000*R.hexKm*1000*SQ3/2)*100).toFixed(2)+' %'],
+           ['Herkunft',cell.klein.kuenstl?'künstlich':'natürlich'],
+           ['Wasserführung',cell.klein.dauer?'dauerhaft':'temporär']]);
+    h+=`<p class="dim">${info.d}</p>`;
+  }
+
+  if(cell.kl&&!cell.still){
+    const info=klInfo(cell.kl);
+    h+=`<h4>Fließgewässer</h4>`;
+    const laeufe=[...new Set(cell.segs.map(s=>s.run))].map(id=>S.runs.find(r=>r.id===id).nm);
+    const rows=[['Lauf',esc(laeufe.join(' + '))],
+      ['Klasse',`<span class="sw" style="background:var(${info.col})"></span>${info.nm}`]];
+    if(cell.kl==='kanal') rows.push(['Breite',cell.b.toFixed(1)+' m (gebaut)']);
+    else rows.push(['Abfluss Q',cell.q.toFixed(3)+' m³/s'],
+                   ['Breite b',`${cell.b.toFixed(1)} m  <span class="chip">b = ${R.bfak}·√Q</span>`]);
+    rows.push(['Gefälle',(cell.gef*1000).toFixed(0)+' m/km'],
+      ['Tiefe t',cell.t.toFixed(2)+' m'],['Fließ v',cell.v.toFixed(2)+' m/s'],
+      ['t · v',cell.tv.toFixed(2)+' m²/s']);
+    if(cell.verzweigt)rows.push(['Verzweigt',`ja — ${R.braid}× breiter (${cell.bEff.toFixed(0)} m Gerinnezone)`]);
+    h+=kv(rows);
+
+    /* Die Kernaussage des Prototyps */
+    const anteil=cell.b/(R.hexKm*1000)*100;
+    h+=`<div class="note"><b>Wasser gegen Land</b>Das Wasser nimmt <b style="display:inline">${anteil.toFixed(anteil<1?2:1)} %</b> der Feldbreite ein — je Seite bleiben rund <b style="display:inline">${((R.hexKm*1000-cell.b)/2).toFixed(0)} m Ufer</b> im selben Feld. Gezeichnet wird ${S.mass==='echt'?'maßstabsgetreu':'×'+Math.round(uebertreibung(cell.b))+' überzeichnet'}.</div>`;
+
+    h+=`<h4>Form im Feld</h4><table class="t"><tr><th>Lauf</th><th>ein</th><th>aus</th><th>Form</th></tr>`;
+    for(const s of cell.segs){const f=laufForm(s.ein,s.aus);
+      h+=`<tr><td>${esc(S.runs.find(r=>r.id===s.run).nm)}</td><td class="n">${s.ein===null?'—':ENAME[s.ein]}</td><td class="n">${s.aus===null?'—':ENAME[s.aus]}</td><td>${f.nm}</td></tr>`;}
+    h+='</table>';
+
+    h+=`<h4>Merkmale</h4><div>`;
+    for(const k in MERKMAL){
+      const an=cell.merk[k], ov=(S.mark[key(cell.c,cell.r)]||{});
+      const man=(k in ov);
+      h+=`<span class="chip ${an?'on':''}" style="${man?'border-style:dashed':''}" title="${MERKMAL[k].d}">${MERKMAL[k].gl} ${MERKMAL[k].nm}${man?' ·hand':''}</span>`;
+    }
+    h+=`</div><p class="dim">Abgeleitet aus Gefälle, Tiefe und Flanken — der Stempel <b>Merkmal</b> überschreibt (durchbrochener Rand).</p>`;
+  }
+
+  /* Ufer und Übergang */
+  h+=`<h4>Ufer im Feld</h4>`;
+  if(cell.nurWasser){
+    h+=`<p class="dim">Kein Land in diesem Feld — ${cell.rand?'Kartenrand':'das Wasser deckt es ganz'}.</p>`;
+  }else if(cell.parts.length<=1){
+    h+=`<p class="dim">Ein einziger Landsektor: ${cell.rays.length?'das Wasser endet hier und trennt nichts — um eine Quelle geht man herum.':'kein Wasser, das teilt.'}</p>`;
+  }else{
+    h+=`<table class="t"><tr><th>Sektor</th><th>Seite</th><th>Kanten</th></tr>`;
+    for(const p of cell.parts){
+      h+=`<tr><td class="n">${p.i}</td><td>${seiteVon(cell,p)||'—'}</td><td>${[p.vor+'½',...p.edges.map(e=>ENAME[e]),p.nach+'½'].map(x=>typeof x==='string'&&x.endsWith('½')?ENAME[parseInt(x)]+'½':x).join(' · ')}</td></tr>`;
+    }
+    h+='</table>';
+    h+=`<table class="t"><tr><th>Übergang</th><th>Wasser</th><th class="n">Kosten</th><th>warum</th></tr>`;
+    const n=cell.parts.length;
+    for(let j=0;j<n;j++){
+      const q=querKosten(cell,cell.rays[j]);
+      const kl=klInfo(cell.rays[j].kl);
+      h+=`<tr><td class="n">${(j-1+n)%n} ↔ ${j}</td><td>${kl?kl.nm:'—'}</td><td class="n">${q.k===Infinity?'✕':'−'+q.k}${q.p<1?' <span style="color:var(--bad)">'+Math.round(q.p*100)+'%</span>':''}</td><td>${q.warum}</td></tr>`;
+    }
+    h+='</table>';
+  }
+  return h;
+}
+function katalogKurz(){
+  const z=zaehle();
+  return `<h4>Auf dieser Karte</h4><div>`+
+    [...FLIESS,KANAL,...STILL].filter(x=>z[x.id]).map(x=>
+      `<span class="chip"><span class="sw" style="background:var(${x.col||'--lake'})"></span>${x.nm} ${z[x.id]}</span>`).join('')+`</div>`;
+}
+
+/* ------------------------------------------------------------- Katalog ---- */
+function tabKatalog(){
+  const z=zaehle();
+  const node=(n,tief)=>{
+    if(n.t){const info=klInfo(n.t)||byId(STILL,n.t);
+      return `<li><span class="nd ${S.hi===n.t?'hit':''}" data-hi="${n.t}"><span class="sw" style="background:var(${info.col||'--lake'})"></span>${n.nm}<span class="cnt">${z[n.t]||0}</span></span></li>`;}
+    return `<li><span class="${n.grp?'grp':''}">${n.nm}</span><ul>${n.kinder.map(k=>node(k,tief+1)).join('')}</ul></li>`;
+  };
+  let h=`<h3>Systematik</h3><p class="dim">Die Zahl ist die Anzahl Felder auf der Karte. Antippen hebt die Klasse hervor — die anderen treten zurück.</p>`;
+  h+=`<div class="tree"><ul>${node(BAUM,0)}</ul></div>`;
+  h+=`<h4>Schwellen</h4><table class="t"><tr><th>Fließgewässer</th><th class="n">Breite b</th><th class="n">Q</th></tr>`;
+  let vor=0;
+  for(const f of FLIESS){
+    const qmin=Math.pow(vor/R.bfak,2), qmax=f.bmax>1e8?Infinity:Math.pow(f.bmax/R.bfak,2);
+    h+=`<tr><td>${f.nm}</td><td class="n">${vor} – ${f.bmax>1e8?'∞':f.bmax} m</td><td class="n">${qmin.toFixed(2)} – ${qmax===Infinity?'∞':qmax.toFixed(0)}</td></tr>`;
+    vor=f.bmax;
+  }
+  h+=`</table><p class="dim">Ein Strom heißt nur so, wenn sein Wasser die Karte Richtung Meer verlässt — sonst bleibt er grosser Fluss. Der Kanal steht außerhalb der Reihe: seine Breite ist gebaut, nicht gewachsen.</p>`;
+  h+=`<h4>Stillgewässer</h4><table class="t"><tr><th></th><th>temporär</th><th>dauerhaft</th></tr>
+    <tr><td>&lt; 0,005 ha</td><td>Pfütze</td><td rowspan="2">Weiher<br><span class="chip">künstl. Teich</span></td></tr>
+    <tr><td>bis 1 ha</td><td>Tümpel</td></tr>
+    <tr><td>&gt; 1 ha</td><td colspan="2">See <span class="chip">künstl. Stausee</span></td></tr></table>`;
+  h+=`<div class="note"><b>Warum gerechnet und nicht gemalt</b>Weil das Netz sonst lügt. Zwei Bäche, die sich treffen, sind ein kleiner Fluss — auch wenn niemand daran gedacht hat. Und eine Ausleitung macht den Lauf darunter wieder schmaler.</div>`;
+  return h;
+}
+
+/* -------------------------------------------------------------- Regeln ---- */
+function slider(id,lab,min,max,step,val,fmt){
+  return `<div class="row"><label>${lab}</label><input type="range" data-r="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><span class="val" data-v="${id}">${fmt}</span></div>`;
+}
+function tabRegeln(){
+  let h=`<h3>Modell</h3>`;
+  h+=slider('hexKm','Feldbreite',0.2,2,0.1,R.hexKm,R.hexKm.toFixed(1)+' km');
+  h+=slider('qlok','Zulauf je Feld',0,1,0.02,R.qlok,R.qlok.toFixed(2));
+  h+=slider('bfak','Breitenfaktor',3,10,0.5,R.bfak,'b='+R.bfak+'√Q');
+  h+=slider('nMan','Rauheit n',0.02,0.08,0.005,R.nMan,R.nMan.toFixed(3));
+  h+=slider('braid','Verzweigung',1,5,0.5,R.braid,R.braid.toFixed(1)+'×');
+  h+=slider('stauH','Stauhöhe',20,300,10,R.stauH,R.stauH+' m');
+  h+=`<h4>Merkmale entstehen bei</h4>`;
+  h+=slider('jFall','Wasserfall ab',0.05,0.3,0.01,R.jFall,(R.jFall*1000).toFixed(0)+' m/km');
+  h+=slider('jSchnell','Schnelle ab',0.01,0.15,0.005,R.jSchnell,(R.jSchnell*1000).toFixed(0)+' m/km');
+  h+=slider('tvFurt','Furt unter t·v',0.2,2,0.1,R.tvFurt,R.tvFurt.toFixed(1));
+  h+=slider('jBraid','Verzweigt unter',0.002,0.05,0.002,R.jBraid,(R.jBraid*1000).toFixed(0)+' m/km');
+  h+=`<div class="note"><b>Furt = Ort, nicht Schwelle</b>Eine Furt entsteht nur, wo t·v unter der Schwelle liegt <i>und</i> kleiner ist als bei den vier Nachbarfeldern desselben Laufs. Rein absolut gerechnet war fast jedes Feld eine Furt — rechnerisch richtig, spielerisch wertlos. Ihre Lieblingsstelle ist die verzweigte Strecke: dort verteilt sich dasselbe Wasser auf die dreifache Breite und wird flach.</div>`;
+  h+=`<h4>Queren kostet</h4>`;
+  h+=`<div style="margin-bottom:8px"><button data-mod="klasse" class="${R.modell==='klasse'?'on':''}">Klassentabelle</button>
+      <button data-mod="hydraulik" class="${R.modell==='hydraulik'?'on':''}">Hydraulik t·v</button></div>`;
+  if(R.modell==='klasse'){
+    h+=`<table class="t"><tr><th>Klasse</th><th class="n">Punkte</th></tr>`;
+    for(const f of FLIESS)h+=`<tr><td>${f.nm}</td><td class="n">${R.kost[f.id]===Infinity?'✕':'−'+R.kost[f.id]}</td></tr>`;
+    h+=`<tr><td>Kanal</td><td class="n">−${R.kost.kanal}</td></tr>
+        <tr><td>Furt</td><td class="n">−${R.kFurt}</td></tr>
+        <tr><td>Stromschnelle</td><td class="n">−${R.kSchnell} · ${Math.round(R.pSchnell*100)} %</td></tr>
+        <tr><td>Wasserfall · Klamm</td><td class="n">✕</td></tr>
+        <tr><td>Brücke · Steg</td><td class="n">0</td></tr></table>`;
+    h+=slider('kSchnell','Schnelle kostet',1,9,1,R.kSchnell,'−'+R.kSchnell);
+    h+=slider('pSchnell','Überleben',0.1,1,0.05,R.pSchnell,Math.round(R.pSchnell*100)+' %');
+  }else{
+    h+=`<table class="t"><tr><th>t · v</th><th class="n">Punkte</th></tr>
+      <tr><td>&lt; 0,4 — waten</td><td class="n">−1</td></tr>
+      <tr><td>0,4 – 0,8</td><td class="n">−2</td></tr>
+      <tr><td>0,8 – 1,3</td><td class="n">−3</td></tr>
+      <tr><td>1,3 – 2,0</td><td class="n">−${R.kSchnell} · ${Math.round(R.pSchnell*100)} %</td></tr>
+      <tr><td>&gt; 2,0</td><td class="n">✕</td></tr></table>`;
+    h+=`<div class="note"><b>Warum t·v</b>Nicht die Tiefe allein trägt einen Menschen fort, sondern Tiefe mal Geschwindigkeit. Ein knietiefer Wildbach ist gefährlicher als ein hüfttiefer, träger Fluss — die Klassentabelle kann das nicht sagen, die Hydraulik schon.</div>`;
+  }
+  h+=`<h4>Gehen kostet</h4><table class="t">`+
+    Object.entries(R.gel).map(([k,v])=>`<tr><td>${({flach:'Flachland',aue:'Aue',hang:'Hang',berg:'Berg',see:'Stillwasser',rand:'Meer'})[k]}</td><td class="n">${v===Infinity?'✕':v}</td></tr>`).join('')+`</table>`;
+  return h;
+}
+
+/* -------------------------------------------------------------- Mensch ---- */
+function tabWand(){
+  let h=`<h3>Ein Mensch mit Reichweite ${R.reichw}</h3>`;
+  h+=slider('reichw','Reichweite',1,14,1,R.reichw,String(R.reichw));
+  if(!S.wand) return h+`<p class="dim">Werkzeug <b>Mensch</b> wählen und ein Feld antippen. Die Reichweite wird von <b>Ufer zu Ufer</b> gerechnet, nicht von Feld zu Feld — deshalb kann das Nachbarfeld unerreichbar sein, obwohl es anliegt.</p>`;
+  const cell=S.cells.get(key(S.wand.c,S.wand.r));
+  h+=kv([['Steht auf',`${S.wand.c},${S.wand.r} · Sektor ${S.wand.part}${cell&&cell.parts[S.wand.part]?' ('+(seiteVon(cell,cell.parts[S.wand.part])||'einziger')+')':''}`],
+         ['Modell',R.modell==='klasse'?'Klassentabelle':'Hydraulik t·v']]);
+  if(!S.reach)return h+`<p class="dim">Von hier führt kein Weg — Wasser oder Berg.</p>`;
+  let s=0,m=0; const felder=new Set(), rf=new Set();
+  for(const cell2 of S.cells.values())for(const p of cell2.parts){
+    const id=pk(cell2.c,cell2.r,p.i);
+    if(S.reach.sicher.dist.has(id)){s++;felder.add(key(cell2.c,cell2.r));}
+    else if(S.reach.mutig.dist.has(id)){m++;rf.add(key(cell2.c,cell2.r));}
+  }
+  h+=kv([['sicher',s+' Sektoren · '+felder.size+' Felder'],
+         ['nur mit Wagnis',m+' Sektoren · '+rf.size+' Felder']]);
+  /* Welche Übergänge liegen im Weg? */
+  const uber=[];
+  for(const cell2 of S.cells.values()){
+    if(!cell2.kl||cell2.parts.length<2)continue;
+    let nah=false;
+    for(const p of cell2.parts) if(S.reach.mutig.dist.has(pk(cell2.c,cell2.r,p.i)))nah=true;
+    if(!nah)continue;
+    const q=querKosten(cell2,cell2.rays[0]);
+    uber.push([cell2,q]);
+  }
+  uber.sort((a,b)=>(a[1].k===Infinity?99:a[1].k)-(b[1].k===Infinity?99:b[1].k));
+  if(uber.length){
+    h+=`<h4>Übergänge in Reichweite</h4><table class="t"><tr><th>Feld</th><th>Wasser</th><th class="n">quert</th></tr>`;
+    for(const [c2,q] of uber.slice(0,14)){
+      const kl=klInfo(c2.kl);
+      h+=`<tr><td class="n"><span class="nd" data-feld="${c2.c},${c2.r}">${c2.c},${c2.r}</span></td><td>${kl.nm}${c2.merk.furt?' · Furt':''}${c2.merk.schnell?' · Schnelle':''}${c2.merk.bruecke?' · Brücke':''}</td><td class="n">${q.k===Infinity?'✕':'−'+q.k}${q.p<1?' '+Math.round(q.p*100)+'%':''}</td></tr>`;
+    }
+    h+='</table>';
+  }
+  h+=`<div class="note"><b>Was der Versuch zeigt</b>Solange der Fluss ein gesperrtes Feld war, kostete er entweder alles oder nichts. Als Band im Feld kostet er genau dort, wo man ihn quert — und die Furt ist wieder ein Ort, für den man Umwege geht.</div>`;
+  return h;
+}
+
+/* ============================================================================
+   6. WERKZEUGE UND BEDIENUNG
+   ============================================================================ */
+const TOOLS=[
+  {id:'inspect',l:'🔍 Feld'},{id:'wand',l:'☖ Mensch'},{id:'lauf',l:'∿ Lauf'},
+  {id:'merk',l:'▨ Merkmal'},{id:'still',l:'○ Stillwasser'},{id:'hoehe',l:'⛰ Höhe'},
+  {id:'del',l:'⌫ Löschen'},
+];
+const KLEIN_VOR={
+  weiher :{ha:0.60,dauer:true, kuenstl:false,nm:'Weiher'},
+  tuempel:{ha:0.04,dauer:false,kuenstl:false,nm:'Tümpel'},
+  pfuetze:{ha:0.002,dauer:false,kuenstl:false,nm:'Pfütze'},
+  teich  :{ha:0.40,dauer:true, kuenstl:true, nm:'Teich'},
+};
+function toolsZeichnen(){
+  document.getElementById('tools').innerHTML=
+    TOOLS.map(t=>`<button data-tool="${t.id}" class="${S.tool===t.id?'on':''}">${t.l}</button>`).join('')
+    +`<span class="sep"></span><button data-akt="fit" class="ghost">Alles</button>`
+    +`<button data-akt="neu" class="ghost">Leere Karte</button>`
+    +`<button data-akt="demo" class="ghost">Demokarte</button>`;
+  const sub=document.getElementById('sub');
+  let h='';
+  if(S.tool==='lauf'){
+    const d=S.draft;
+    h+=`<button data-art="nat" class="${d&&d.art==='nat'?'on':''}">natürlich</button>`
+      +`<button data-art="kanal" class="${d&&d.art==='kanal'?'on':''}">Kanal</button>`;
+    if(d&&d.art==='kanal') h+=`<label>Breite</label><input type="range" data-r2="breite" min="1" max="40" step="1" value="${d.breite}"><span class="mono" data-v2="breite">${d.breite} m</span>`;
+    else if(d) h+=`<label>Quelle</label><input type="range" data-r2="q0" min="0" max="3" step="0.005" value="${Math.sqrt(d.q0)}"><span class="mono" data-v2="q0">${d.q0.toFixed(3)} m³/s</span>`;
+    h+=`<span class="sep"></span><span class="mono">${d?d.path.length:0} Felder</span>`
+      +`<button data-akt="fertig">Abschließen</button><button data-akt="weg" class="ghost">Verwerfen</button>`;
+  }else if(S.tool==='merk'){
+    for(const k in MERKMAL) h+=`<button data-arg="${k}" class="${S.toolArg===k?'on':''}" title="${MERKMAL[k].d}">${MERKMAL[k].gl} ${MERKMAL[k].nm}</button>`;
+    h+=`<span class="mono">an → aus → automatisch</span>`;
+  }else if(S.tool==='still'){
+    h+=`<button data-arg="see" class="${S.toolArg==='see'?'on':''}">See / Fläche</button>`;
+    for(const k in KLEIN_VOR) h+=`<button data-arg="${k}" class="${S.toolArg===k?'on':''}">${KLEIN_VOR[k].nm}</button>`;
+  }else if(S.tool==='hoehe'){
+    h+=`<button data-arg="+40" class="${S.toolArg==='+40'?'on':''}">+40 m</button>`
+      +`<button data-arg="-40" class="${S.toolArg==='-40'?'on':''}">−40 m</button>`
+      +`<span class="mono">setzt einen Höhenanker; das Umland rechnet sich neu</span>`;
+  }
+  sub.innerHTML=h;
+  sub.classList.toggle('hid',!h);
+}
+
+function neuBauen(){ netzRechnen(); reichweite(); render(); panelZeichnen(); }
+
+function feldAktion(c,r,wx,wy){
+  const cell=S.cells.get(key(c,r)); if(!cell)return;
+  const k=key(c,r);
+  if(S.tool==='inspect'){ S.sel=[c,r]; S.tab='feld'; render(); panelZeichnen(); return; }
+  if(S.tool==='wand'){
+    if(cell.nurWasser||cell.land==='berg'){hinweis('Hier steht kein Mensch — Wasser oder Fels.');return;}
+    S.wand={c,r,part:sektorAn(cell,wx,wy)}; S.sel=[c,r]; S.tab='wand';
+    reichweite(); render(); panelZeichnen(); return;
+  }
+  if(S.tool==='lauf'){
+    if(!S.draft)S.draft={art:'nat',q0:0.02,breite:6,path:[]};
+    const p=S.draft.path, last=p[p.length-1];
+    if(last&&last[0]===c&&last[1]===r){p.pop();}
+    else if(last&&edgeTo(last[0],last[1],c,r)<0){hinweis('Nur an das letzte Feld anschließen.');return;}
+    else p.push([c,r]);
+    toolsZeichnen(); render(); return;
+  }
+  if(S.tool==='merk'){
+    if(!S.toolArg){hinweis('Erst ein Merkmal wählen.');return;}
+    if(!cell.kl&&S.toolArg!=='damm'){hinweis('Merkmale sitzen auf Fließgewässern.');return;}
+    const ov=S.mark[k]||(S.mark[k]={}), a=S.toolArg;
+    if(!(a in ov))ov[a]=true; else if(ov[a]===true)ov[a]=false; else delete ov[a];
+    if(!Object.keys(ov).length)delete S.mark[k];
+    S.sel=[c,r]; neuBauen(); return;
+  }
+  if(S.tool==='still'){
+    if(!S.toolArg){hinweis('Erst eine Art wählen.');return;}
+    if(S.toolArg==='see'){
+      let g=S.seen.find(s=>s.cells.some(x=>x[0]===c&&x[1]===r));
+      if(g){g.cells=g.cells.filter(x=>!(x[0]===c&&x[1]===r)); if(!g.cells.length)S.seen=S.seen.filter(s=>s!==g);}
+      else{
+        g=S.seen.find(s=>s.cells.some(x=>edgeTo(x[0],x[1],c,r)>=0));
+        if(g)g.cells.push([c,r]); else S.seen.push({nm:'Neues Stillwasser',kuenstl:false,cells:[[c,r]]});
+      }
+    }else{
+      const i=S.klein.findIndex(x=>x.c===c&&x.r===r);
+      if(i>=0)S.klein.splice(i,1); else S.klein.push({c,r,...KLEIN_VOR[S.toolArg]});
+    }
+    S.sel=[c,r]; neuBauen(); return;
+  }
+  if(S.tool==='hoehe'){
+    const d=S.toolArg==='-40'?-40:40;
+    S.hoehe[k]=Math.max(0,(S.hoehe[k]!==undefined?S.hoehe[k]:cell.h)+d);
+    hoehenRechnen(); S.sel=[c,r]; neuBauen(); return;
+  }
+  if(S.tool==='del'){
+    delete S.mark[k]; delete S.hoehe[k];
+    S.klein=S.klein.filter(x=>!(x.c===c&&x.r===r));
+    for(const g of S.seen)g.cells=g.cells.filter(x=>!(x[0]===c&&x[1]===r));
+    S.seen=S.seen.filter(g=>g.cells.length);
+    laufOhne(c,r);
+    hoehenRechnen(); S.sel=[c,r]; neuBauen(); return;
+  }
+}
+/* Ein Feld aus allen Läufen schneiden — der Lauf zerfällt dabei in Stücke. */
+function laufOhne(c,r){
+  const neu=[];
+  for(const run of S.runs){
+    if(!run.path.some(p=>p[0]===c&&p[1]===r)){neu.push(run);continue;}
+    let stueck=[],n=0;
+    for(const p of run.path){
+      if(p[0]===c&&p[1]===r){ if(stueck.length>1)neu.push({...run,id:run.id+'.'+(++n),path:stueck}); stueck=[]; }
+      else stueck.push(p);
+    }
+    if(stueck.length>1)neu.push({...run,id:run.id+'.'+(++n),q0:n>1?0:run.q0,path:stueck});
+  }
+  S.runs=neu;
+}
+
+/* ---------- Karte: Schwenken, Zoomen, Tippen ---------- */
+function toWorld(ev){
+  const rect=map.getBoundingClientRect(), vb=map.viewBox.baseVal;
+  return [vb.x+(ev.clientX-rect.left)/rect.width*vb.width,
+          vb.y+(ev.clientY-rect.top)/rect.height*vb.height];
+}
+function cellAt(x,y){
+  const r0=Math.round((y-HEXH/2)/(HEXH*0.75));
+  let best=null,bd=1e9;
+  for(let r=r0-1;r<=r0+1;r++){ if(r<0||r>=MH)continue;
+    const c0=Math.round((x-HEXW/2)/HEXW-(r&1?0.5:0));
+    for(let c=c0-1;c<=c0+1;c++){ if(c<0||c>=MW)continue;
+      const d=Math.hypot(x-cxOf(c,r),y-cyOf(c,r)); if(d<bd){bd=d;best=[c,r];} } }
+  return best;
+}
+let drag=null;
+map.addEventListener('pointerdown',ev=>{
+  map.setPointerCapture(ev.pointerId);
+  drag={x:ev.clientX,y:ev.clientY,vx:S.view.x,vy:S.view.y,moved:false};
+});
+map.addEventListener('pointermove',ev=>{
+  if(!drag)return;
+  const rect=map.getBoundingClientRect(), vb=map.viewBox.baseVal;
+  const dx=(ev.clientX-drag.x)/rect.width*vb.width, dy=(ev.clientY-drag.y)/rect.height*vb.height;
+  if(Math.abs(ev.clientX-drag.x)+Math.abs(ev.clientY-drag.y)>4){drag.moved=true;map.classList.add('drag');}
+  if(drag.moved){S.view.x=drag.vx-dx;S.view.y=drag.vy-dy;viewSetzen();}
+});
+map.addEventListener('pointerup',ev=>{
+  map.classList.remove('drag');
+  if(drag&&!drag.moved){const [x,y]=toWorld(ev),cr=cellAt(x,y); if(cr)feldAktion(cr[0],cr[1],x,y);}
+  drag=null;
+});
+map.addEventListener('wheel',ev=>{ev.preventDefault();zoom(Math.pow(1.0016,-ev.deltaY),ev);},{passive:false});
+function zoom(f,ev){
+  const alt=S.view.w, neu=Math.max(WORLD_W*0.04,Math.min(WORLD_W*1.4,alt/f));
+  let ax=0.5,ay=0.5;
+  if(ev){const rect=map.getBoundingClientRect();ax=(ev.clientX-rect.left)/rect.width;ay=(ev.clientY-rect.top)/rect.height;}
+  const vb=map.viewBox.baseVal, hAlt=vb.height, hNeu=hAlt*neu/alt;
+  S.view.x+=(alt-neu)*ax; S.view.y+=(hAlt-hNeu)*ay; S.view.w=neu;
+  viewSetzen(); hudSetzen();
+}
+
+/* ---------- Panel- und Leistenbindung ---------- */
+function bindPanel(){
+  document.getElementById('tabs').onclick=e=>{const b=e.target.closest('[data-tab]');
+    if(b){S.tab=b.dataset.tab;panelZeichnen();}};
+  const b=document.getElementById('pbody');
+  b.querySelectorAll('[data-r]').forEach(el=>{
+    el.oninput=()=>{const id=el.dataset.r; R[id]=parseFloat(el.value);
+      const v=b.querySelector(`[data-v="${id}"]`);
+      const f={hexKm:x=>x.toFixed(1)+' km',qlok:x=>x.toFixed(2),bfak:x=>'b='+x+'√Q',nMan:x=>x.toFixed(3),
+        braid:x=>x.toFixed(1)+'×',stauH:x=>x+' m',jFall:x=>(x*1000).toFixed(0)+' m/km',
+        jSchnell:x=>(x*1000).toFixed(0)+' m/km',tvFurt:x=>x.toFixed(1),jBraid:x=>(x*1000).toFixed(0)+' m/km',
+        kSchnell:x=>'−'+x,pSchnell:x=>Math.round(x*100)+' %',reichw:x=>String(x)}[id];
+      if(v)v.textContent=f?f(R[id]):R[id];
+      neuBauen();};
+  });
+  b.querySelectorAll('[data-mod]').forEach(el=>el.onclick=()=>{R.modell=el.dataset.mod;neuBauen();});
+  b.querySelectorAll('[data-hi]').forEach(el=>el.onclick=()=>{
+    S.hi=S.hi===el.dataset.hi?null:el.dataset.hi; render(); panelZeichnen();});
+  b.querySelectorAll('[data-feld]').forEach(el=>el.onclick=()=>{
+    const [c,r]=el.dataset.feld.split(',').map(Number); S.sel=[c,r]; S.tab='feld'; render(); panelZeichnen();});
+}
+document.getElementById('tools').onclick=e=>{
+  const t=e.target.closest('[data-tool]'), a=e.target.closest('[data-akt]');
+  if(t){S.tool=t.dataset.tool;
+    if(t.dataset.tool==='lauf'&&!S.draft)S.draft={art:'nat',q0:0.02,breite:6,path:[]};
+    if(t.dataset.tool==='merk'&&!S.toolArg)S.toolArg='furt';
+    if(t.dataset.tool==='still')S.toolArg='see';
+    if(t.dataset.tool==='hoehe')S.toolArg='+40';
+    toolsZeichnen(); render();}
+  if(a){ const k=a.dataset.akt;
+    if(k==='fit'){fit();viewSetzen();hudSetzen();}
+    if(k==='neu'){weltAnlegen(true);S.sel=null;S.wand=null;S.draft=null;neuBauen();}
+    if(k==='demo'){weltAnlegen(false);S.sel=null;S.wand={c:7,r:12,part:0};neuBauen();}
+  }
+};
+document.getElementById('sub').onclick=e=>{
+  const a=e.target.closest('[data-arg]'), art=e.target.closest('[data-art]'), k=e.target.closest('[data-akt]');
+  if(a){S.toolArg=a.dataset.arg;toolsZeichnen();}
+  if(art&&S.draft){S.draft.art=art.dataset.art;toolsZeichnen();}
+  if(k&&k.dataset.akt==='fertig')laufFertig();
+  if(k&&k.dataset.akt==='weg'){S.draft={art:S.draft?S.draft.art:'nat',q0:0.02,breite:6,path:[]};toolsZeichnen();render();}
+};
+document.getElementById('sub').oninput=e=>{
+  const el=e.target.closest('[data-r2]'); if(!el||!S.draft)return;
+  const id=el.dataset.r2;
+  S.draft[id]= id==='q0' ? Math.pow(parseFloat(el.value),2) : parseFloat(el.value);
+  const v=document.querySelector(`[data-v2="${id}"]`);
+  if(v)v.textContent = id==='q0'?S.draft.q0.toFixed(3)+' m³/s':S.draft.breite+' m';
+};
+function laufFertig(){
+  if(!S.draft||S.draft.path.length<2){hinweis('Mindestens zwei Felder.');return;}
+  const id='N'+(S.runs.length+1);
+  S.runs.push({id,nm:S.draft.art==='kanal'?'Neuer Kanal':'Neuer Lauf',art:S.draft.art,
+    q0:S.draft.art==='kanal'?0:S.draft.q0, breite:S.draft.breite,
+    entnahme:S.draft.art==='kanal'?Math.max(0.2,S.draft.breite*0.15):0,
+    path:S.draft.path.map(p=>p.slice())});
+  S.draft={art:S.draft.art,q0:S.draft.q0,breite:S.draft.breite,path:[]};
+  toolsZeichnen(); neuBauen();
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&S.draft){S.draft.path=[];toolsZeichnen();render();}
+  if(e.key==='Enter'&&S.tool==='lauf')laufFertig();
+});
+
+/* ---------- Kopfleiste ---------- */
+const MASSN={lesbar:'lesbar',halb:'halb',echt:'echt'};
+document.getElementById('bMass').onclick=()=>{
+  S.mass = S.mass==='lesbar'?'halb':S.mass==='halb'?'echt':'lesbar';
+  document.getElementById('bMass').textContent='Maßstab: '+MASSN[S.mass];
+  if(S.mass==='echt')hinweis('Maßstabsgetreu: alles unter einem Strom verschwindet.');
+  render(); panelZeichnen();
+};
+document.getElementById('bFlow').onclick=e=>{S.flow=!S.flow;e.target.classList.toggle('on',S.flow);render();};
+document.getElementById('bSeit').onclick=e=>{S.seiten=!S.seiten;e.target.classList.toggle('on',S.seiten);render();};
+document.getElementById('bNight').onclick=()=>{document.body.classList.toggle('night');render();};
+document.getElementById('bPanel').onclick=()=>document.getElementById('wrap').classList.toggle('side');
+document.getElementById('bZin').onclick=()=>zoom(1.35,null);
+document.getElementById('bZout').onclick=()=>zoom(1/1.35,null);
+document.getElementById('bFit').onclick=()=>{fit();viewSetzen();hudSetzen();};
+addEventListener('resize',()=>{viewSetzen();});
+
+/* ============================================================================
+   7. START
+   ============================================================================ */
+(function boot(){
+  if(qs('night',false))document.body.classList.add('night');
+  if(qs('panel','1')==='0')document.getElementById('wrap').classList.remove('side');
+  if(Q.has('km'))R.hexKm=qn('km',1);
+  if(Q.has('range'))R.reichw=qn('range',6);
+  if(Q.has('modell'))R.modell=qs('modell','klasse');
+  weltAnlegen(!!qs('leer',false));
+  if(!qs('leer',false)) S.wand={c:7,r:12,part:0};
+  if(Q.has('wanderer')){const [c,r]=qs('wanderer','').split(',').map(Number);
+    if(inMap(c,r))S.wand={c,r,part:0};}
+  if(Q.has('kein-mensch'))S.wand=null;
+  if(Q.has('feld')){const [c,r]=qs('feld','').split(',').map(Number); if(inMap(c,r))S.sel=[c,r];}
+  if(Q.has('tool'))S.tool=qs('tool','inspect');
+  if(Q.has('hi'))S.hi=qs('hi',null);
+  netzRechnen();
+  if(S.wand){const cell=S.cells.get(key(S.wand.c,S.wand.r));
+    if(!cell||cell.nurWasser||cell.land==='berg')S.wand=null;}
+  document.getElementById('bMass').textContent='Maßstab: '+MASSN[S.mass];
+  document.getElementById('bFlow').classList.toggle('on',S.flow);
+  document.getElementById('bSeit').classList.toggle('on',S.seiten);
+  fit(); toolsZeichnen(); reichweite(); render(); panelZeichnen();
+  requestAnimationFrame(()=>{
+    fit();
+    if(Q.has('blick')){   /* ?blick=c,r,felderBreit — Ausschnitt für Screenshots */
+      const [c,r,n]=qs('blick','').split(',').map(Number);
+      if(inMap(c,r)){const w=(n||6)*HEXW, vb=map.viewBox.baseVal;
+        S.view={x:cxOf(c,r)-w/2, y:cyOf(c,r)-w*(vb.height/vb.width)/2, w};}
+    }
+    viewSetzen(); hudSetzen();
+  });
+})();
+
+</script>
+</body>
+</html>

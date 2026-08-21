@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asset-Ablage v1 — Screenshot rein, editierbares SVG raus</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<style>
+  /* Nur was diese Datei allein braucht. Kommt zuletzt, gewinnt darum. */
+
+  /* Ablagefeld: der ganze Prototyp nimmt Einfügen und Fallenlassen an,
+     das Feld ist nur der sichtbare Ort dafür. */
+  .drop{border:1px dashed var(--line);border-radius:var(--r-md);padding:16px 12px;
+        text-align:center;background:var(--panel2);transition:border-color .2s,background .2s;}
+  .drop.hot{border-color:var(--ember);background:var(--bone);}
+  .drop b{display:block;font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;}
+  .drop .keys{margin-top:6px;}
+
+  /* Ansichtsflächen */
+  .svgbox{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-md);
+          padding:10px;max-width:340px;margin:0 auto;}
+  .svgbox svg{display:block;width:100%;height:auto;}
+  .canvasbox{max-width:340px;margin:0 auto;}
+  .canvasbox canvas{display:block;width:100%;height:auto;border:1px solid var(--line);
+                    border-radius:var(--r-md);background:var(--panel2);image-rendering:auto;}
+  .stack{position:relative;max-width:340px;margin:0 auto;}
+  .stack canvas{display:block;width:100%;height:auto;border-radius:var(--r-md);}
+  .stack .over{position:absolute;inset:0;}
+  .stack .over svg{width:100%;height:100%;display:block;}
+
+  /* Detailstufen 32 / 128 / 256 — Kap. 1 des Art-Direction-Handbuchs */
+  .probes{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;justify-content:center;}
+  .probe{text-align:center;}
+  .probe .lbl{font-family:var(--f-mono);font-size:9px;color:var(--ink2);margin-top:4px;}
+  .probe svg{display:block;}
+
+  /* Farbbänder: Farbe, Rolle, Layer, Fläche */
+  .band{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:var(--r-sm);
+        border:1px solid transparent;}
+  .band:hover{border-color:var(--line);}
+  .band.off{opacity:.4;}
+  .band i{flex:none;width:20px;height:20px;border-radius:var(--r-sm);border:1px solid var(--line);}
+  .band .nm{flex:1;min-width:0;font-family:var(--f-mono);font-size:10px;overflow:hidden;
+            text-overflow:ellipsis;white-space:nowrap;}
+  .band select{flex:none;width:118px;font-size:10px;padding:3px 4px;}
+  .band .ar{flex:none;width:40px;text-align:right;font-family:var(--f-mono);font-size:9.5px;color:var(--ink2);}
+
+  textarea.src{width:100%;height:300px;}
+  .log{max-height:160px;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header class="appbar ruled">
+  <div class="brand">ASSET-ABLAGE<small>Screenshot → einpassen → Palette → Trace → Vorschlag</small></div>
+  <div class="hright">
+    <span class="dot idle" id="srvdot"></span>
+    <span class="hint" id="srvtxt">Server wird geprüft …</span>
+  </div>
+</header>
+
+<div class="layout wide-side">
+
+  <!-- ============================================================ links === -->
+  <aside>
+
+    <div class="pane">
+      <h4>1 · Ablegen</h4>
+      <div class="drop" id="drop">
+        <b>Bild hierher ziehen</b>
+        <div class="keys"><kbd>Strg</kbd> + <kbd>V</kbd> einfügen · oder
+          <button class="small ghost" id="pick">Datei wählen</button></div>
+        <input type="file" id="file" accept="image/*" class="hid">
+      </div>
+      <div class="ctrl">
+        <button class="small" id="bDemo">Beispiel-Screenshot</button>
+        <button class="small" id="bVorlage" disabled>Vorhandene Tile als Prüfbild</button>
+      </div>
+      <p class="note" id="quellzeile">Noch nichts abgelegt. Ein Screenshot lebt in der
+      Zwischenablage — <b>Einfügen</b> ist der eigentliche Weg, der Dateidialog der Notausgang.</p>
+    </div>
+
+    <div class="pane">
+      <h4>2 · Einordnen</h4>
+      <div class="seg" id="artseg">
+        <button data-art="tile">Hex-Tile</button>
+        <button data-art="glyphe">Glyphe</button>
+        <button data-art="referenz">Referenz</button>
+      </div>
+      <p class="hint" id="arthint"></p>
+      <h4 class="sp">Einpassen</h4>
+      <div class="reihe">
+        <label>Zuschnitt</label>
+        <select id="passen">
+          <option value="auto">auto (Umriss finden)</option>
+          <option value="mitte">mittig, Verhältnis halten</option>
+          <option value="fuellen">ganzes Bild füllen</option>
+        </select>
+      </div>
+      <label class="chk"><input type="checkbox" id="drehen"> 30° drehen (flat-top → pointy-top)</label>
+      <p class="hint" id="passhint"></p>
+    </div>
+
+    <div class="pane">
+      <h4>3 · Palette</h4>
+      <div class="reihe">
+        <label>Quelle</label>
+        <select id="palette">
+          <option value="kollektion">Zielkollektion</option>
+          <option value="bild">aus dem Bild</option>
+        </select>
+      </div>
+      <div class="reihe">
+        <label>Kollektion</label>
+        <select id="ziel"></select>
+      </div>
+      <div class="reihe">
+        <label>Farbanzahl</label>
+        <input type="range" id="farben" min="2" max="12" step="1">
+        <span class="wert" id="farbenW"></span>
+      </div>
+      <p class="hint">Erst quantisieren, dann tracen — danach kennt die Datei nur noch
+      <code>var(--…)</code> und ist umfärbbar.</p>
+    </div>
+
+    <div class="pane">
+      <h4>4 · Vereinfachen</h4>
+      <div class="reihe">
+        <label>Glättung</label>
+        <input type="range" id="glatt" min="0" max="6" step="0.2">
+        <span class="wert" id="glattW"></span>
+      </div>
+      <div class="reihe">
+        <label>Mindestfläche</label>
+        <input type="range" id="minflaeche" min="0" max="5" step="0.05">
+        <span class="wert" id="minflaecheW"></span>
+      </div>
+      <div class="reihe">
+        <label>Form</label>
+        <div class="seg" id="formseg" style="flex:1">
+          <button data-form="kurven">Kurven</button>
+          <button data-form="polygon">Polygon</button>
+        </div>
+      </div>
+      <p class="hint">Vereinfachung ist hier ein Pflichtparameter, kein Feinschliff:
+      ein Trace, den man nicht mehr von Hand nachziehen kann, hat seinen Zweck verfehlt.</p>
+    </div>
+
+    <div class="pane">
+      <h4>5 · Bänder &amp; Layer</h4>
+      <div id="bands"><p class="empty">Noch kein Bild verarbeitet.</p></div>
+      <p class="hint">Die Layer-Zuordnung ist ein <b>Vorschlag</b> aus Farbton und Helligkeit —
+      hier steht sie zum Umwerfen.</p>
+    </div>
+
+    <div class="pane">
+      <h4>6 · Herkunft</h4>
+      <div class="reihe">
+        <label>Art</label>
+        <select id="herkunft">
+          <option value="skizze">eigene Skizze</option>
+          <option value="foto">eigenes Foto</option>
+          <option value="erzeugt">erzeugt</option>
+          <option value="fremd">fremdes Werk — nicht auslieferbar</option>
+        </select>
+      </div>
+      <div class="field" style="margin-top:6px">
+        <label>Quelle / Fundort</label>
+        <input type="text" id="quelle" placeholder="woher das Bild kommt">
+      </div>
+      <p class="note" id="herkunfthinweis"></p>
+    </div>
+
+    <div class="pane">
+      <h4>7 · Annehmen</h4>
+      <div class="reihe">
+        <label>Datei</label>
+        <select id="key"></select>
+      </div>
+      <div class="ctrl">
+        <button class="primary" id="bSave" disabled>Speichern</button>
+        <button id="bPublish" disabled>Veröffentlichen</button>
+        <span class="spacer"></span>
+        <button class="small" id="bCopy">SVG kopieren</button>
+        <button class="small danger ghost" id="bReset">Verwerfen</button>
+      </div>
+      <div class="log hid" id="publog"></div>
+      <div class="gap none" style="margin-top:10px">
+        <b>Lücke der Pipeline</b>
+        <span id="gapserver">Der Asset-Server schreibt nur in <b>vorhandene</b> Dateien
+        (<code>/api/terrain-assets/save</code>) und kennt keinen Weg für die Vorlage selbst.
+        Neue Schlüssel und das <code>-source.png</code> daneben fehlen — das Rezept in der
+        Datei nennt die Vorlage darum nur beim Namen.</span>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ============================================================ rechts === -->
+  <main>
+
+    <div class="res" id="stats"></div>
+    <div id="urteil"></div>
+
+    <div class="tabs" id="tabs" style="margin-top:12px">
+      <button data-tab="original">Original</button>
+      <button data-tab="trace" class="on">Trace</button>
+      <button data-tab="ueber">Überlagerung</button>
+      <button data-tab="stufen">Detailstufen</button>
+      <button data-tab="quelltext">Quelltext</button>
+    </div>
+
+    <div class="pane" data-tab="original">
+      <h4>Was abgelegt wurde</h4>
+      <div class="canvasbox"><canvas id="cRoh"></canvas></div>
+      <h4 class="sp">Eingepasst auf die Hex-viewBox</h4>
+      <div class="canvasbox"><canvas id="cFit"></canvas></div>
+      <p class="note">Oben das Bild, wie es kam — unten nach Zuschnitt, Skalierung und
+      Quantisierung auf <code>viewBox 0 0 100 115.47</code>. Was hier schief sitzt, passt
+      später an keiner Kante zum Nachbarfeld.</p>
+    </div>
+
+    <div class="pane hid" data-tab="trace">
+      <h4>Vorschlag</h4>
+      <div class="svgbox" id="traceBox"><p class="empty">Noch nichts zu zeigen.</p></div>
+      <div class="chips" id="layerchips" style="margin-top:10px"></div>
+      <p class="note">Sechs Layer in der Reihenfolge des Stil-Guide-Templates, Farben nur
+      als <code>var(--…)</code>. Jeder Layer einzeln abschaltbar — das ist der Prüfstein
+      dafür, dass hier ein Asset entstanden ist und kein Bild.</p>
+    </div>
+
+    <div class="pane hid" data-tab="ueber">
+      <h4>Trace über Original</h4>
+      <div class="stack" id="stack"></div>
+      <div class="reihe" style="max-width:340px;margin:10px auto 0">
+        <label>Deckung</label>
+        <input type="range" id="deckung" min="0" max="100" step="5">
+        <span class="wert" id="deckungW"></span>
+      </div>
+      <p class="note">Die einzige Ansicht, die zeigt, was der Weg unterwegs verliert.</p>
+    </div>
+
+    <div class="pane hid" data-tab="stufen">
+      <h4>32 · 128 · 256 px</h4>
+      <div class="probes" id="probes"></div>
+      <p class="note">Lesbarkeit bei 32 px ist die härtere Prüfung: was dort zu Matsch wird,
+      ist Trace-Rauschen und gehört über die <b>Mindestfläche</b> weggeschnitten.</p>
+    </div>
+
+    <div class="pane hid" data-tab="quelltext">
+      <h4>Die Datei, die entstehen würde</h4>
+      <textarea class="src mono" id="src" spellcheck="false"></textarea>
+      <p class="note">Kopfkommentar = <b>Trace-Rezept</b>: Vorlage, Herkunft, Palette,
+      Farbanzahl, Glättung, Mindestfläche. Damit ist der Schritt wiederholbar, wenn die
+      Kollektionspalette wechselt — nachtracen statt nachmalen.</p>
+    </div>
+
+  </main>
+</div>
+
+<footer>
+  <p class="hint">Prototyp · Baukasten <code>kit/sot.css</code> + <code>kit/sot.js</code> ·
+  Zielform <code>pipeline/assets/climate-tiles/_template.svg</code> ·
+  Parameter: <a href="?hilfe">?hilfe</a></p>
+</footer>
+
+</div>
+
+<script src="../kit/sot.js"></script>
+<script>
+'use strict';
+
+/* ===========================================================================
+   Asset-Ablage v1 — das fehlende Mittelstück der Asset-Pipeline:
+   EINPASSEN → QUANTISIEREN → TRACEN → VORSCHLAGEN.
+
+   Beide Enden stehen schon: pipeline/asset-server.mjs liest und schreibt die
+   Einzeldateien, bake-terrain-assets.mjs bündelt, asset-editor-v1 zeigt die
+   Karte. Hier kommt nur dazu, was aus einem Screenshot ein Asset macht.
+
+   Alles läuft im Browser: Bild → Canvas → Palette → Bänder → Marching Squares
+   → Douglas-Peucker → Pfade. Kein Dienst, keine Bibliothek.
+   ========================================================================= */
+
+var P = SOT.params({
+  demo:       { t:'flag', help:'Beispiel-Screenshot erzeugen und die ganze Kette laufen lassen' },
+  vorlage:    { t:'str',  help:'vorhandene Tile als Prüfbild rastern, z.B. pastell/flach (braucht Server)' },
+  art:        { t:'enum', values:['tile','glyphe','referenz'], def:'tile', help:'Was das abgelegte Bild ist' },
+  ziel:       { t:'str',  def:'pastell', help:'Zielkollektion — Palette und Speicherort' },
+  palette:    { t:'enum', values:['kollektion','bild'], def:'kollektion', help:'Palette der Kollektion oder aus dem Bild' },
+  farben:     { t:'int',  def:6, min:2, max:12, help:'Farbanzahl = Palettengrösse' },
+  glatt:      { t:'num',  def:1.2, min:0, max:6, step:0.2, help:'Glättung (Douglas-Peucker-Toleranz in Bildpunkten)' },
+  minflaeche: { t:'num',  def:0.35, min:0, max:5, step:0.05, help:'Mindestfläche je Fleck in % der Feldfläche' },
+  form:       { t:'enum', values:['kurven','polygon'], def:'kurven', help:'Kurven statt Polygonzügen' },
+  drehen:     { t:'flag', help:'30° drehen — flat-top-Screenshot auf pointy-top' },
+  passen:     { t:'enum', values:['auto','mitte','fuellen'], def:'auto', help:'Zuschnitt beim Einpassen' },
+  ansicht:    { t:'enum', values:['original','trace','ueber','stufen','quelltext'], def:'trace', help:'Sichtbare Ansicht' },
+  deckung:    { t:'int',  def:55, min:0, max:100, step:5, help:'Deckung des Trace in der Überlagerung' },
+  raster:     { t:'flag', help:'Rasterrückfall erzwingen: Bild einbetten statt tracen' },
+  herkunft:   { t:'enum', values:['skizze','foto','erzeugt','fremd'], def:'skizze', help:'Herkunft des Bildes' },
+  server:     { t:'str',  def:'', help:'Basis-URL des Asset-Servers' },
+  reg:        { t:'enum', values:['werkbank','tag','nacht'], def:'werkbank', help:'Farbregister' }
+});
+
+if (P.reg === 'werkbank') document.body.classList.add('werkbank');
+if (P.reg === 'nacht') document.body.classList.add('night');
+
+/* ---------------------------------------------------------------- Konstanten */
+
+// Arbeitsauflösung. Verhältnis wie die Hex-viewBox (100 : 115.47), damit beim
+// Einpassen nichts verzerrt und die Feldmitte die Feldmitte bleibt.
+var FW = 200, FH = 231;
+var VBW = 100, VBH = 115.47;
+var HEXD = 'M50,0 L100,28.87 L100,86.6 L50,115.47 L0,86.6 L0,28.87 Z';
+var HEX = [[50,0],[100,28.87],[100,86.6],[50,115.47],[0,86.6],[0,28.87]];
+
+// Die sechs Layer des Stil-Guide-Templates, in dieser Reihenfolge.
+var LAYERS = ['base-terrain','vegetation-primary','vegetation-secondary',
+              'water-features','climate-indicators','human-traces'];
+var LAYER_VON_ROLLE = {
+  'ground-base':'base-terrain', 'ground-shade':'base-terrain',
+  'veg-primary':'vegetation-primary', 'veg-secondary':'vegetation-secondary',
+  'water':'water-features', 'water-deep':'water-features',
+  'climate':'climate-indicators', 'climate-haze':'climate-indicators',
+  'human':'human-traces'
+};
+var ROLLEN = Object.keys(LAYER_VON_ROLLE);
+
+// Rückfall-Palette für den Betrieb ohne Server (file://). Spiegelt die Werte
+// aus _template.svg — das sind Assetdaten, keine UI-Tokens.
+var PALETTE_VORGABE = [
+  ['ground-base','#C9C2A6'], ['ground-shade','#B3AC8E'],
+  ['veg-primary','#5C7A4E'], ['veg-secondary','#8CA06E'],
+  ['water','#6FA6A3'], ['water-deep','#527F7D'],
+  ['climate','#F4EEDD'], ['climate-haze','#E3B36A'],
+  ['human','#4A4038'], ['edge','#8C8468']
+];
+
+/* ---------------------------------------------------------------- Zustand */
+
+var S = {
+  roh: null,        // abgelegtes Bild (HTMLImageElement oder Canvas)
+  quelle: '',       // Name der Vorlage
+  fit: null,        // eingepasstes Canvas (FW × FH)
+  idx: null,        // Palettenindex je Bildpunkt
+  inhex: null,      // Maske: Punkt liegt im Hexfeld
+  bands: [],        // [{hex, rolle, varname, layer, anteil, ringe, pfad, punkte, an}]
+  palette: [],      // [[name, hex]]
+  svg: '',
+  mass: { pfade:0, ringe:0, punkte:0, bytes:0, splitter:0 },
+  server: null,     // Basis-URL, sobald erreichbar
+  kollektionen: [],
+  keys: []
+};
+
+var $ = SOT.$, el = SOT.el;
+
+/* ===========================================================================
+   Farbe
+   ========================================================================= */
+
+function hex2rgb(h) {
+  h = h.replace('#','');
+  if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+function rgb2hex(r,g,b) {
+  function p(v){ v = Math.max(0, Math.min(255, Math.round(v))); return (v<16?'0':'') + v.toString(16); }
+  return '#' + (p(r)+p(g)+p(b)).toUpperCase();
+}
+// sRGB → CIELab. Nächste Farbe in Lab statt in RGB: sonst rutscht ein
+// Grasgrün gern auf ein Braun, weil RGB-Abstand nichts über Wahrnehmung sagt.
+function lab(r,g,b) {
+  function f(v){ v/=255; return v<=0.04045 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); }
+  var R=f(r), G=f(g), B=f(b);
+  var X=(R*0.4124+G*0.3576+B*0.1805)/0.95047,
+      Y=(R*0.2126+G*0.7152+B*0.0722),
+      Z=(R*0.0193+G*0.1192+B*0.9505)/1.08883;
+  function k(t){ return t>0.008856 ? Math.pow(t,1/3) : (7.787*t + 16/116); }
+  var fx=k(X), fy=k(Y), fz=k(Z);
+  return [116*fy-16, 500*(fx-fy), 200*(fy-fz)];
+}
+function dLab(a,b) {
+  var d0=a[0]-b[0], d1=a[1]-b[1], d2=a[2]-b[2];
+  return d0*d0 + d1*d1 + d2*d2;
+}
+function hsl(r,g,b) {
+  r/=255; g/=255; b/=255;
+  var mx=Math.max(r,g,b), mn=Math.min(r,g,b), l=(mx+mn)/2, h=0, s=0;
+  if (mx !== mn) {
+    var d = mx-mn;
+    s = l>0.5 ? d/(2-mx-mn) : d/(mx+mn);
+    h = mx===r ? ((g-b)/d + (g<b?6:0)) : mx===g ? ((b-r)/d + 2) : ((r-g)/d + 4);
+    h *= 60;
+  }
+  return [h, s, l];
+}
+
+/* Rolle einer Farbe raten — aus Farbton, Sättigung, Helligkeit und Fläche.
+   Das ist der Vorschlag; umgeworfen wird er in der Bänderliste. */
+function rolleRaten(rgb, anteil) {
+  var c = hsl(rgb[0], rgb[1], rgb[2]), h = c[0], s = c[1], l = c[2];
+  if (l > 0.86 && s < 0.22) return 'climate';
+  if (h >= 150 && h <= 235 && s > 0.10) return l < 0.42 ? 'water-deep' : 'water';
+  if (h >= 52 && h < 150 && s > 0.07) return l < 0.45 ? 'veg-primary' : 'veg-secondary';
+  if (l < 0.33 && anteil < 0.12) return 'human';
+  if (h >= 20 && h < 52 && s > 0.35 && l > 0.55) return 'climate-haze';
+  return l < 0.56 ? 'ground-shade' : 'ground-base';
+}
+
+/* ===========================================================================
+   Aufnahme
+   ========================================================================= */
+
+function aufnehmen(name, bild) {
+  S.roh = bild; S.quelle = name;
+  $('quellzeile').innerHTML = 'Vorlage: <b>' + escHtml(name) + '</b> · ' +
+    (bild.naturalWidth || bild.width) + '×' + (bild.naturalHeight || bild.height) + ' px';
+  laufen();
+}
+
+function ausDatei(f) {
+  if (!f) return;
+  if (!/^image\//.test(f.type)) { SOT.toast('Kein Bild: ' + (f.type || 'unbekannt')); return; }
+  var url = URL.createObjectURL(f);
+  var img = new Image();
+  img.onload = function () { aufnehmen(f.name || 'Zwischenablage', img); URL.revokeObjectURL(url); };
+  img.onerror = function () { SOT.toast('Bild nicht lesbar'); URL.revokeObjectURL(url); };
+  img.src = url;
+}
+
+/* Beispiel-Screenshot. Muss es geben, weil ein Screenshot nicht klicken und
+   erst recht nicht einfügen kann: ?demo macht die ganze Kette headless
+   erreichbar. Die Farben hier sind Bildinhalt, keine UI-Tokens. */
+function demoBild(seed) {
+  var W = 340, H = 393;
+  var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  var c = cv.getContext('2d'), rnd = SOT.rng(seed || 7);
+
+  // Umgebung: der Rest des Fensters, aus dem ausgeschnitten wurde
+  c.fillStyle = '#8E9AA1'; c.fillRect(0, 0, W, H);
+
+  var pts = HEX.map(function (p) { return [p[0]/VBW*W, p[1]/VBH*H]; });
+  c.save();
+  c.beginPath(); pts.forEach(function (p,i) { i ? c.lineTo(p[0],p[1]) : c.moveTo(p[0],p[1]); });
+  c.closePath(); c.clip();
+
+  c.fillStyle = '#CBD3C4'; c.fillRect(0, 0, W, H);                    // Grund
+  c.fillStyle = '#B9C2AE';                                            // Schattierung
+  c.beginPath(); c.ellipse(W*0.30, H*0.66, W*0.34, H*0.22, -0.4, 0, 7); c.fill();
+
+  c.fillStyle = '#7C9A72';                                            // Wald
+  for (var i = 0; i < 16; i++) {
+    var x = rnd()*W, y = rnd()*H*0.72, r = 10 + rnd()*20;
+    c.beginPath(); c.ellipse(x, y, r, r*0.78, rnd()*3, 0, 7); c.fill();
+  }
+  c.fillStyle = '#9BB184';                                            // Unterwuchs
+  for (i = 0; i < 22; i++) {
+    c.beginPath(); c.ellipse(rnd()*W, H*0.25 + rnd()*H*0.7, 5+rnd()*9, 4+rnd()*6, 0, 0, 7); c.fill();
+  }
+
+  c.strokeStyle = '#6FA6A3'; c.lineWidth = 20; c.lineCap = 'round';    // Bach quer durch
+  c.beginPath(); c.moveTo(0, H*0.58); c.bezierCurveTo(W*0.35, H*0.5, W*0.6, H*0.8, W, H*0.72); c.stroke();
+
+  c.strokeStyle = '#4A4038'; c.lineWidth = 3;                          // menschliche Spur
+  c.beginPath(); c.moveTo(W*0.2, H); c.quadraticCurveTo(W*0.45, H*0.7, W*0.42, H*0.42); c.stroke();
+
+  c.fillStyle = '#F2EFE2';                                             // Schneerest
+  c.beginPath(); c.ellipse(W*0.72, H*0.22, 26, 14, 0.3, 0, 7); c.fill();
+  c.restore();
+
+  // Wie ein echter Screenshot: weich und leicht verrauscht
+  var tmp = document.createElement('canvas'); tmp.width = W; tmp.height = H;
+  var t = tmp.getContext('2d');
+  t.filter = 'blur(0.8px)'; t.drawImage(cv, 0, 0); t.filter = 'none';
+  var d = t.getImageData(0, 0, W, H), a = d.data;
+  for (i = 0; i < a.length; i += 4) {
+    var n = (rnd() - 0.5) * 16;
+    a[i] += n; a[i+1] += n; a[i+2] += n;
+  }
+  t.putImageData(d, 0, 0);
+  return tmp;
+}
+
+/* Eine vorhandene Tile rastern — das Prüfbild: was hineingeht, ist bekannt,
+   also ist messbar, wie viel der Weg unterwegs verliert. */
+function vorlageLaden(spec) {
+  if (!S.server) { SOT.toast('Dafür braucht es den Asset-Server'); return; }
+  var teile = String(spec).split('/');
+  var coll = teile[0], key = teile[1] || 'flach';
+  fetch(S.server + '/pipeline/assets/terrain/' + coll + '/' + key + '.svg')
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+    .then(function (txt) {
+      var mass = /<svg[^>]*\swidth=/.test(txt) ? txt : txt.replace('<svg', '<svg width="340" height="393"');
+      var img = new Image();
+      img.onload = function () {
+        // In eine Umgebung setzen und verrauschen: erst dann ist es ein
+        // Screenshot und nicht die Quelldatei auf Umwegen.
+        var cv = document.createElement('canvas'); cv.width = 340; cv.height = 393;
+        var c = cv.getContext('2d');
+        c.fillStyle = '#8E9AA1'; c.fillRect(0, 0, 340, 393);
+        c.filter = 'blur(0.6px)'; c.drawImage(img, 0, 0, 340, 393); c.filter = 'none';
+        aufnehmen(coll + '/' + key + '.svg (gerastert)', cv);
+      };
+      img.onerror = function () { SOT.toast('SVG nicht rasterbar'); };
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(mass);
+    })
+    .catch(function (e) { SOT.toast('Vorlage nicht gefunden: ' + spec + ' (' + e.message + ')'); });
+}
+
+/* ===========================================================================
+   Einpassen
+   ========================================================================= */
+
+function messCanvas(bild, max) {
+  var w = bild.naturalWidth || bild.width, h = bild.naturalHeight || bild.height;
+  var k = Math.min(1, max / Math.max(w, h));
+  var cv = document.createElement('canvas');
+  cv.width = Math.max(1, Math.round(w*k)); cv.height = Math.max(1, Math.round(h*k));
+  cv.getContext('2d').drawImage(bild, 0, 0, cv.width, cv.height);
+  return cv;
+}
+
+/* Umriss finden: Randfarbe bestimmen, alles was deutlich davon abweicht ist
+   Vordergrund. Robust gegen Rauschen, weil Zeilen/Spalten erst ab 2 % zählen. */
+function umriss(cv) {
+  var c = cv.getContext('2d'), W = cv.width, H = cv.height;
+  var d = c.getImageData(0, 0, W, H).data;
+  var rand = [], i, x, y;
+  function px(x, y) { var o = (y*W + x)*4; return [d[o], d[o+1], d[o+2], d[o+3]]; }
+  for (x = 0; x < W; x += Math.max(1, (W/40)|0)) { rand.push(px(x,0)); rand.push(px(x,H-1)); }
+  for (y = 0; y < H; y += Math.max(1, (H/40)|0)) { rand.push(px(0,y)); rand.push(px(W-1,y)); }
+  var med = [0,1,2].map(function (k) {
+    var v = rand.map(function (p) { return p[k]; }).sort(function (a,b) { return a-b; });
+    return v[v.length >> 1];
+  });
+  var mlab = lab(med[0], med[1], med[2]);
+  var spalten = new Uint32Array(W), zeilen = new Uint32Array(H), n = 0;
+  for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
+    var o = (y*W + x)*4;
+    var vorne = d[o+3] < 40 ? false : dLab(lab(d[o], d[o+1], d[o+2]), mlab) > 130;
+    if (vorne) { spalten[x]++; zeilen[y]++; n++; }
+  }
+  function spanne(arr, grenze) {
+    var a = 0, b = arr.length - 1;
+    while (a < arr.length && arr[a] < grenze) a++;
+    while (b > a && arr[b] < grenze) b--;
+    return [a, b];
+  }
+  if (n < W*H*0.02) return { x0:0, y0:0, x1:W-1, y1:H-1, leer:true };  // nichts erkannt
+  // Schwelle absichtlich dicht über Null: an der Hexspitze trägt eine Zeile nur
+  // wenige Bildpunkte. Mit 2 % der Breite fiel die Spitze weg — der Umriss kam
+  // 4 px zu kurz heraus und das ganze Feld saß danach leicht vergrössert drin.
+  var sx = spanne(spalten, Math.max(1, H*0.005)), sy = spanne(zeilen, Math.max(1, W*0.005));
+  return { x0:sx[0], y0:sy[0], x1:sx[1], y1:sy[1], leer:false };
+}
+
+function einpassen() {
+  var mess = messCanvas(S.roh, 420);
+  var quelle = mess, drehung = 0;
+
+  if ($('drehen').checked) {
+    // Flat-top-Screenshot auf pointy-top: erst drehen, dann neu vermessen.
+    drehung = 30;
+    var d = Math.max(mess.width, mess.height) * 1.25;
+    var rc = document.createElement('canvas'); rc.width = d; rc.height = d;
+    var rx = rc.getContext('2d');
+    rx.translate(d/2, d/2); rx.rotate(-Math.PI/6);
+    rx.drawImage(mess, -mess.width/2, -mess.height/2);
+    quelle = rc;
+  }
+
+  var u = umriss(quelle);
+  var bw = u.x1 - u.x0 + 1, bh = u.y1 - u.y0 + 1;
+  var verhaeltnis = bw / bh;
+
+  var fit = document.createElement('canvas'); fit.width = FW; fit.height = FH;
+  var f = fit.getContext('2d');
+  f.imageSmoothingQuality = 'high';
+
+  var modus = $('passen').value;
+  if (modus === 'fuellen') {
+    f.drawImage(quelle, 0, 0, quelle.width, quelle.height, 0, 0, FW, FH);
+  } else if (modus === 'mitte') {
+    var k = Math.min(FW/bw, FH/bh);
+    var dw = bw*k, dh = bh*k;
+    f.drawImage(quelle, u.x0, u.y0, bw, bh, (FW-dw)/2, (FH-dh)/2, dw, dh);
+  } else {
+    f.drawImage(quelle, u.x0, u.y0, bw, bh, 0, 0, FW, FH);
+  }
+
+  // Hinweis zur Ausrichtung: pointy-top misst 0.866, flat-top 1.155.
+  var zuPointy = Math.abs(verhaeltnis - 0.866), zuFlat = Math.abs(verhaeltnis - 1.1547);
+  var txt = 'Umriss ' + bw + '×' + bh + ' px · Verhältnis ' + verhaeltnis.toFixed(3) + ' — ';
+  if (u.leer) txt = 'Kein Umriss erkennbar (der Rand sieht aus wie der Inhalt) — ganzes Bild genommen.';
+  else if (zuFlat < zuPointy && !$('drehen').checked) txt += 'näher an <b>flat-top</b> (1.155). 30° drehen?';
+  else if (zuPointy < zuFlat) txt += 'passt zu <b>pointy-top</b> (0.866).';
+  else txt += 'gedreht, jetzt pointy-top.';
+  $('passhint').innerHTML = txt;
+
+  return fit;
+}
+
+/* ===========================================================================
+   Palette und Quantisierung
+   ========================================================================= */
+
+function imHex() {
+  // Punkt-in-konvexem-Polygon, einmal für das Arbeitsraster.
+  var m = new Uint8Array(FW*FH);
+  var pts = HEX.map(function (p) { return [p[0]/VBW*FW, p[1]/VBH*FH]; });
+  for (var y = 0; y < FH; y++) for (var x = 0; x < FW; x++) {
+    var px = x + 0.5, py = y + 0.5, drin = 1;
+    for (var i = 0; i < pts.length; i++) {
+      var a = pts[i], b = pts[(i+1) % pts.length];
+      if ((b[0]-a[0])*(py-a[1]) - (b[1]-a[1])*(px-a[0]) < 0) { drin = 0; break; }
+    }
+    m[y*FW + x] = drin;
+  }
+  return m;
+}
+
+function kmeans(punkte, k, runden) {
+  // k-Means in Lab über die Bildpunkte im Hexfeld. Startwerte gespreizt
+  // (k-means++ in Kurzform), sonst landen zwei Zentren im selben Grün.
+  var rnd = SOT.rng(11);
+  var zentren = [punkte[rnd.int(punkte.length)]];
+  while (zentren.length < k) {
+    var best = null, bestD = -1;
+    for (var t = 0; t < 40; t++) {
+      var kand = punkte[rnd.int(punkte.length)];
+      var d = Math.min.apply(null, zentren.map(function (z) { return dLab(kand.lab, z.lab); }));
+      if (d > bestD) { bestD = d; best = kand; }
+    }
+    zentren.push(best);
+  }
+  zentren = zentren.map(function (z) { return z.lab.slice(); });
+  var zu = new Int32Array(punkte.length);
+  for (var r = 0; r < (runden || 8); r++) {
+    for (var i = 0; i < punkte.length; i++) {
+      var bi = 0, bd = Infinity;
+      for (var j = 0; j < zentren.length; j++) {
+        var dd = dLab(punkte[i].lab, zentren[j]);
+        if (dd < bd) { bd = dd; bi = j; }
+      }
+      zu[i] = bi;
+    }
+    var sum = zentren.map(function () { return [0,0,0,0,0,0,0]; });
+    for (i = 0; i < punkte.length; i++) {
+      var s = sum[zu[i]], p = punkte[i];
+      s[0] += p.lab[0]; s[1] += p.lab[1]; s[2] += p.lab[2];
+      s[3] += p.rgb[0]; s[4] += p.rgb[1]; s[5] += p.rgb[2]; s[6]++;
+    }
+    zentren = sum.map(function (s, j) {
+      return s[6] ? [s[0]/s[6], s[1]/s[6], s[2]/s[6]] : zentren[j];
+    });
+    var farben = sum.map(function (s, j) {
+      return s[6] ? [s[3]/s[6], s[4]/s[6], s[5]/s[6]] : null;
+    });
+    zentren.rgb = farben;
+  }
+  return zentren.rgb.filter(Boolean).map(function (c) { return rgb2hex(c[0], c[1], c[2]); });
+}
+
+function kollektionsPalette() {
+  // Farben der Zielkollektion, aus ihren Dateien gelesen. Named vars, wenn
+  // die Dateien welche führen (climate-tiles), sonst über die Rolle benannt.
+  if (S.palVars && S.palVars.length) return S.palVars.slice();
+  if (S.palHex && S.palHex.length) return S.palHex.slice();
+  return PALETTE_VORGABE.filter(function (p) { return p[0] !== 'edge'; }).map(function (p) { return p[1]; });
+}
+
+function quantisieren(fit) {
+  var c = fit.getContext('2d');
+  var d = c.getImageData(0, 0, FW, FH).data;
+  var inhex = S.inhex || (S.inhex = imHex());
+
+  // Bildpunkte im Feld einsammeln
+  var punkte = [], i, o;
+  for (i = 0; i < FW*FH; i++) {
+    if (!inhex[i]) continue;
+    o = i*4;
+    if (i % 3 === 0) punkte.push({ rgb:[d[o],d[o+1],d[o+2]], lab: lab(d[o],d[o+1],d[o+2]) });
+  }
+  if (!punkte.length) return null;
+
+  var k = P.farben;
+  var palHex = P.palette === 'bild' ? kmeans(punkte, k, 8) : kollektionsPalette();
+  var palLab = palHex.map(function (h) { var r = hex2rgb(h); return lab(r[0],r[1],r[2]); });
+
+  // Jeden Punkt auf die nächste Palettenfarbe legen
+  var idx = new Int16Array(FW*FH).fill(-1);
+  var zahl = new Uint32Array(palHex.length);
+  for (i = 0; i < FW*FH; i++) {
+    if (!inhex[i]) continue;
+    o = i*4;
+    var l = lab(d[o], d[o+1], d[o+2]);
+    var bi = 0, bd = Infinity;
+    for (var j = 0; j < palLab.length; j++) {
+      var dd = dLab(l, palLab[j]);
+      if (dd < bd) { bd = dd; bi = j; }
+    }
+    idx[i] = bi; zahl[bi]++;
+  }
+
+  // Auf die Farbanzahl eindampfen: schwache Bänder fallen auf das nächste
+  // verbleibende. Genau das meint "Farbanzahl = Palettengrösse".
+  var rang = Array.from(zahl.keys()).sort(function (a,b) { return zahl[b] - zahl[a]; });
+  var behalten = rang.filter(function (j) { return zahl[j] > 0; }).slice(0, k);
+  var ersatz = {};
+  rang.forEach(function (j) {
+    if (behalten.indexOf(j) >= 0) return;
+    var bi = behalten[0], bd = Infinity;
+    behalten.forEach(function (b) { var dd = dLab(palLab[j], palLab[b]); if (dd < bd) { bd = dd; bi = b; } });
+    ersatz[j] = bi;
+  });
+  for (i = 0; i < FW*FH; i++) if (idx[i] >= 0 && ersatz[idx[i]] !== undefined) idx[i] = ersatz[idx[i]];
+
+  // Bänder aufbauen, nach Fläche absteigend
+  var zahl2 = {};
+  for (i = 0; i < FW*FH; i++) if (idx[i] >= 0) zahl2[idx[i]] = (zahl2[idx[i]] || 0) + 1;
+  var gesamt = Object.keys(zahl2).reduce(function (s,j) { return s + zahl2[j]; }, 0);
+  var bands = Object.keys(zahl2).map(function (j) {
+    j = +j;
+    var anteil = zahl2[j] / gesamt;
+    var rgb = hex2rgb(palHex[j]);
+    return { pal:j, hex:palHex[j], anteil:anteil, rolle: (S.palNamen && S.palNamen[palHex[j]]) || rolleRaten(rgb, anteil) };
+  }).sort(function (a,b) { return b.anteil - a.anteil; });
+
+  // Namen vergeben, Doppelungen durchzählen
+  var gezaehlt = {};
+  bands.forEach(function (b) {
+    var basis = b.rolle;
+    gezaehlt[basis] = (gezaehlt[basis] || 0) + 1;
+    b.varname = '--' + basis + (gezaehlt[basis] > 1 ? '-' + gezaehlt[basis] : '');
+    b.layer = LAYER_VON_ROLLE[basis] || 'base-terrain';
+    b.an = true;
+  });
+
+  // Ausserhalb des Feldes gehört dem Grundband: dessen Fläche ist ein <rect>
+  // wie im Template, das spart Punkte und trifft die Zielform.
+  var grund = bands[0].pal;
+  for (i = 0; i < FW*FH; i++) if (!inhex[i]) idx[i] = grund;
+
+  return { idx: idx, bands: bands, palHex: palHex, grund: grund };
+}
+
+/* ===========================================================================
+   Tracen: Marching Squares → Douglas-Peucker → Pfad
+   ========================================================================= */
+
+function ringe(maske) {
+  function s(x, y) { return (x < 0 || y < 0 || x >= FW || y >= FH) ? 0 : maske[y*FW + x]; }
+  var next = new Map();
+  function put(a, b) { if (!next.has(a)) next.set(a, b); }
+
+  for (var j = -1; j < FH; j++) for (var i = -1; i < FW; i++) {
+    var code = (s(i,j) ? 1 : 0) | (s(i+1,j) ? 2 : 0) | (s(i+1,j+1) ? 4 : 0) | (s(i,j+1) ? 8 : 0);
+    if (code === 0 || code === 15) continue;
+    var T = 'h' + i + ',' + j, B = 'h' + i + ',' + (j+1), L = 'v' + i + ',' + j, R = 'v' + (i+1) + ',' + j;
+    // Segmente so gerichtet, dass das Innere links liegt.
+    switch (code) {
+      case  1: put(L,T); break;   case  2: put(T,R); break;
+      case  4: put(R,B); break;   case  8: put(B,L); break;
+      case  3: put(L,R); break;   case  6: put(T,B); break;
+      case 12: put(R,L); break;   case  9: put(B,T); break;
+      case  7: put(L,B); break;   case 14: put(T,L); break;
+      case 13: put(R,T); break;   case 11: put(B,R); break;
+      case  5: put(L,T); put(R,B); break;   // Sattel, Mitte aussen
+      case 10: put(T,R); put(B,L); break;
+    }
+  }
+
+  function koord(k) {
+    var t = k[0], p = k.slice(1).split(','), i = +p[0], j = +p[1];
+    return t === 'h' ? [i + 0.5, j] : [i, j + 0.5];
+  }
+  var gesehen = new Set(), aus = [];
+  next.forEach(function (_, start) {
+    if (gesehen.has(start)) return;
+    var ring = [], k = start;
+    while (k !== undefined && !gesehen.has(k)) { gesehen.add(k); ring.push(koord(k)); k = next.get(k); }
+    if (ring.length > 2) aus.push(ring);
+  });
+  return aus;
+}
+
+function flaeche(ring) {
+  var a = 0;
+  for (var i = 0, n = ring.length; i < n; i++) {
+    var p = ring[i], q = ring[(i+1) % n];
+    a += p[0]*q[1] - q[0]*p[1];
+  }
+  return Math.abs(a) / 2;
+}
+
+// Douglas-Peucker auf dem geschlossenen Ring: am weitesten aussen liegenden
+// Punkt als Naht nehmen, dann als offener Zug vereinfachen und schliessen.
+function vereinfachen(ring, tol) {
+  if (tol <= 0 || ring.length < 4) return ring;
+  var start = 0, best = -Infinity;
+  ring.forEach(function (p, i) { var v = p[0] + p[1]; if (v > best) { best = v; start = i; } });
+  var pts = ring.slice(start).concat(ring.slice(0, start));
+  var keep = new Uint8Array(pts.length); keep[0] = keep[pts.length-1] = 1;
+  var stapel = [[0, pts.length-1]];
+  while (stapel.length) {
+    var seg = stapel.pop(), a = seg[0], b = seg[1];
+    if (b - a < 2) continue;
+    var pa = pts[a], pb = pts[b];
+    var dx = pb[0]-pa[0], dy = pb[1]-pa[1], len = Math.hypot(dx, dy) || 1;
+    var mi = -1, md = -1;
+    for (var i = a+1; i < b; i++) {
+      var d = Math.abs((pts[i][0]-pa[0])*dy - (pts[i][1]-pa[1])*dx) / len;
+      if (d > md) { md = d; mi = i; }
+    }
+    if (md > tol) { keep[mi] = 1; stapel.push([a, mi], [mi, b]); }
+  }
+  var aus = [];
+  for (i = 0; i < pts.length; i++) if (keep[i]) aus.push(pts[i]);
+  return aus.length > 2 ? aus : ring;
+}
+
+function pfadVon(ringe2, kurven) {
+  var kx = VBW / FW, ky = VBH / FH;
+  function X(p) { return +((p[0] + 0.5) * kx).toFixed(2); }
+  function Y(p) { return +((p[1] + 0.5) * ky).toFixed(2); }
+  var d = '', punkte = 0;
+
+  ringe2.forEach(function (r) {
+    punkte += r.length;
+    if (!kurven) {
+      d += 'M' + X(r[0]) + ',' + Y(r[0]);
+      for (var i = 1; i < r.length; i++) d += ' L' + X(r[i]) + ',' + Y(r[i]);
+      d += ' Z';
+      return;
+    }
+    // Catmull-Rom → kubische Bézier, geschlossen.
+    var n = r.length;
+    d += 'M' + X(r[0]) + ',' + Y(r[0]);
+    for (var k = 0; k < n; k++) {
+      var p0 = r[(k - 1 + n) % n], p1 = r[k], p2 = r[(k+1) % n], p3 = r[(k+2) % n];
+      var c1 = [p1[0] + (p2[0]-p0[0])/6, p1[1] + (p2[1]-p0[1])/6];
+      var c2 = [p2[0] - (p3[0]-p1[0])/6, p2[1] - (p3[1]-p1[1])/6];
+      d += ' C' + X(c1) + ',' + Y(c1) + ' ' + X(c2) + ',' + Y(c2) + ' ' + X(p2) + ',' + Y(p2);
+    }
+    d += ' Z';
+  });
+  return { d: d, punkte: punkte };
+}
+
+function tracen(q) {
+  var feldflaeche = FW * FH * 0.75;                 // Hexfläche im Arbeitsraster
+  var minA = feldflaeche * P.minflaeche / 100;
+  var kurven = P.form === 'kurven';
+  var mass = { pfade:0, ringe:0, punkte:0, splitter:0, weg:0 };
+
+  q.bands.forEach(function (b) {
+    if (b.pal === q.grund) { b.rect = true; b.ringe = 0; b.punkte = 0; b.d = ''; return; }
+    var maske = new Uint8Array(FW*FH);
+    for (var i = 0; i < FW*FH; i++) maske[i] = (q.idx[i] === b.pal && S.inhex[i]) ? 1 : 0;
+    var rs = ringe(maske);
+    var behalten = rs.filter(function (r) {
+      var a = flaeche(r);
+      if (a < minA) { mass.weg++; return false; }
+      return true;
+    }).map(function (r) { return vereinfachen(r, P.glatt); });
+
+    // Splitter: was bei 32 px unter einen Bildpunkt fällt, ist Rauschen.
+    var proPunkt = (FW / 32) * (FH / 36.95);
+    behalten.forEach(function (r) { if (flaeche(r) < proPunkt) mass.splitter++; });
+
+    var pf = pfadVon(behalten, kurven);
+    b.d = pf.d; b.punkte = pf.punkte; b.ringe = behalten.length; b.rect = false;
+    if (pf.d) mass.pfade++;
+    mass.ringe += behalten.length; mass.punkte += pf.punkte;
+  });
+  mass.pfade += 1;                                   // das Grund-<rect>
+  return mass;
+}
+
+/* ===========================================================================
+   SVG bauen
+   ========================================================================= */
+
+function esc(s) { return String(s).replace(/--/g, '- -').replace(/</g, '‹'); }
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function rezept() {
+  return [
+    'Trace-Rezept (asset-drop-v1) — wiederholbar, wenn die Palette wechselt:',
+    '  Vorlage        ' + esc(S.quelle || '—'),
+    '  Herkunft       ' + $('herkunft').selectedOptions[0].textContent.trim() +
+      ($('quelle').value ? ' · ' + esc($('quelle').value) : ''),
+    '  Palette        ' + P.palette + ' (' + P.ziel + '), Farbanzahl ' + P.farben,
+    '  Einpassen      ' + P.passen + ($('drehen').checked ? ', 30° gedreht' : ''),
+    '  Glättung       ' + P.glatt + ' Bildpunkte (Douglas-Peucker)',
+    '  Mindestfläche  ' + P.minflaeche + ' % der Feldfläche',
+    '  Form           ' + P.form,
+    '  Arbeitsraster  ' + FW + '×' + FH
+  ].join('\n');
+}
+
+function svgBauen() {
+  if (P.art === 'glyphe') return glypheBauen();
+  if (P.raster) return rasterBauen();
+
+  var vars = S.bands.filter(function (b) { return b.an; })
+    .map(function (b) { return '  ' + b.varname + ':' + b.hex + ';'; }).join('\n');
+
+  var gruppen = LAYERS.map(function (L) {
+    // Die Grundfläche ist immer ein <rect> in base-terrain — wie im Template,
+    // auch wenn ihre Farbe als Vegetation eingeordnet wurde (dichter Wald).
+    var inhalt = S.bands.filter(function (b) {
+      return b.an && (b.rect ? L === 'base-terrain' : b.layer === L);
+    }).map(function (b) {
+      if (b.rect) return '    <rect x="0" y="0" width="100" height="115.47" fill="var(' + b.varname + ')"/>';
+      if (!b.d) return null;
+      return '    <path fill="var(' + b.varname + ')" fill-rule="evenodd" d="' + b.d + '"/>';
+    }).filter(Boolean).join('\n');
+    return '  <g id="' + L + '">' + (inhalt ? '\n' + inhalt + '\n  ' : '') + '</g>';
+  }).join('\n');
+
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 115.47">\n' +
+    '<title>' + escHtml(S.quelle || 'Ablage') + '</title>\n' +
+    '<!--\n' + rezept() + '\n-->\n' +
+    '<style>\n:root{\n' + vars + '\n  --edge:#8C8468;\n}\n</style>\n' +
+    '<clipPath id="hex"><path d="' + HEXD + '"/></clipPath>\n' +
+    '<g clip-path="url(#hex)">\n' + gruppen + '\n</g>\n' +
+    '<g id="edge-mask">\n' +
+    '  <path d="' + HEXD + '" fill="none" stroke="var(--edge)" stroke-width="1.2" opacity="0.4"/>\n' +
+    '</g>\n</svg>\n';
+}
+
+/* Rückfall: das Bild als Tile einbetten. Sofort spielbar, Vektorisierung
+   bleibt offene Aufgabe statt Blocker. */
+function rasterBauen() {
+  var url = S.fit ? S.fit.toDataURL('image/png') : '';
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 115.47">\n' +
+    '<title>' + escHtml(S.quelle || 'Ablage') + ' — RASTER</title>\n' +
+    '<!--\n  Status: raster — nicht vektorisiert, nicht umfärbbar, nicht layerweise.\n' +
+    '  Bewusster Rückfall, damit die Idee auf der Karte sichtbar ist.\n' +
+    rezept() + '\n-->\n' +
+    '<clipPath id="hex"><path d="' + HEXD + '"/></clipPath>\n' +
+    '<g clip-path="url(#hex)">\n  <g id="base-terrain">\n' +
+    '    <image x="0" y="0" width="100" height="115.47" preserveAspectRatio="none" href="' + url + '"/>\n' +
+    '  </g>\n' +
+    LAYERS.slice(1).map(function (L) { return '  <g id="' + L + '"></g>'; }).join('\n') +
+    '\n</g>\n</svg>\n';
+}
+
+/* Glyphe: ein Pfad, monochrom, currentColor — kein Layerbau, keine Palette. */
+function glypheBauen() {
+  if (!S.fit) return '';
+  var c = S.fit.getContext('2d'), d = c.getImageData(0, 0, FW, FH).data;
+  var maske = new Uint8Array(FW*FH), hell = 0, n = 0, i;
+  for (i = 0; i < FW*FH; i++) { var o = i*4; hell += (d[o]+d[o+1]+d[o+2])/3; n++; }
+  var schwelle = hell / n * 0.82;
+  for (i = 0; i < FW*FH; i++) { var q = i*4; maske[i] = ((d[q]+d[q+1]+d[q+2])/3 < schwelle) ? 1 : 0; }
+  var minA = FW*FH * P.minflaeche / 100;
+  var rs = ringe(maske).filter(function (r) { return flaeche(r) >= minA; })
+                       .map(function (r) { return vereinfachen(r, Math.max(0.6, P.glatt)); });
+  var pf = pfadVon(rs, P.form === 'kurven');
+  S.mass = { pfade: pf.d ? 1 : 0, ringe: rs.length, punkte: pf.punkte, bytes: 0, splitter: 0, weg: 0 };
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 115.47">\n' +
+    '<title>' + escHtml(S.quelle || 'Glyphe') + '</title>\n' +
+    '<!--\n  Glyphe: ein Pfad, currentColor, keine Palette und keine Layer.\n' +
+    rezept() + '\n-->\n' +
+    '<path fill="currentColor" fill-rule="evenodd" d="' + pf.d + '"/>\n</svg>\n';
+}
+
+/* ===========================================================================
+   Ablauf
+   ========================================================================= */
+
+function laufen() {
+  if (!S.roh) return;
+  var t0 = performance.now();
+
+  S.fit = einpassen();
+  zeichneRoh();
+
+  if (P.art === 'referenz') {
+    S.bands = []; S.svg = '';
+    $('traceBox').innerHTML = '<p class="empty">Referenzbild — daraus entsteht kein Asset.</p>';
+    bandListe(); kennzahlen(0); urteil(); quelltext();
+    return;
+  }
+
+  if (P.art === 'glyphe' || P.raster) {
+    S.bands = [];
+    if (P.raster) { S.mass = { pfade:1, ringe:0, punkte:0, splitter:0, weg:0 }; S.svg = rasterBauen(); }
+    else S.svg = glypheBauen();
+  } else {
+    var q = quantisieren(S.fit);
+    if (!q) { SOT.toast('Im Feld liegt kein Bildinhalt'); return; }
+    S.bands = q.bands;
+    S.mass = tracen(q);
+    zeichneFit(q);
+    S.svg = svgBauen();
+  }
+
+  S.mass.bytes = new Blob([S.svg]).size;
+  bandListe(); zeigeTrace(); kennzahlen(performance.now() - t0); urteil(); quelltext();
+  $('bSave').disabled = !(S.server && S.svg && $('key').value);
+  $('bPublish').disabled = !S.server;
+}
+
+function zeichneRoh() {
+  var cv = $('cRoh'), w = S.roh.naturalWidth || S.roh.width, h = S.roh.naturalHeight || S.roh.height;
+  var k = Math.min(1, 340 / Math.max(w, h));
+  cv.width = Math.round(w*k); cv.height = Math.round(h*k);
+  cv.getContext('2d').drawImage(S.roh, 0, 0, cv.width, cv.height);
+}
+
+function zeichneFit(q) {
+  // Das quantisierte Zwischenbild — hier ist sichtbar, was die Palette tut,
+  // bevor irgendein Pfad entsteht.
+  var cv = $('cFit'); cv.width = FW; cv.height = FH;
+  var c = cv.getContext('2d');
+  var img = c.createImageData(FW, FH);
+  var farbe = {};
+  q.bands.forEach(function (b) { farbe[b.pal] = hex2rgb(b.hex); });
+  for (var i = 0; i < FW*FH; i++) {
+    var f = farbe[q.idx[i]] || [0,0,0], o = i*4;
+    img.data[o] = f[0]; img.data[o+1] = f[1]; img.data[o+2] = f[2];
+    img.data[o+3] = S.inhex[i] ? 255 : 60;
+  }
+  c.putImageData(img, 0, 0);
+}
+
+function zeigeTrace() {
+  var box = $('traceBox');
+  box.innerHTML = S.svg || '<p class="empty">Kein Trace.</p>';
+  layerChips();
+
+  var st = $('stack');
+  st.innerHTML = '';
+  if (S.fit) {
+    var cv = document.createElement('canvas');
+    cv.width = FW; cv.height = FH;
+    cv.getContext('2d').drawImage(S.fit, 0, 0);
+    st.appendChild(cv);
+    var over = el('div.over', { html: S.svg, style: { opacity: P.deckung/100 } });
+    st.appendChild(over);
+  }
+
+  var pr = SOT.clear($('probes'));
+  [32, 128, 256].forEach(function (px) {
+    var w = el('div.probe', null, [
+      el('div', { html: S.svg, style: { width: px + 'px' } }),
+      el('div.lbl', { text: px + ' px' })
+    ]);
+    var s = w.querySelector('svg');
+    if (s) { s.setAttribute('width', px); s.removeAttribute('height'); }
+    pr.appendChild(w);
+  });
+}
+
+function layerChips() {
+  var box = SOT.clear($('layerchips'));
+  if (!S.bands.length) return;
+  LAYERS.forEach(function (L) {
+    var n = S.bands.filter(function (b) { return b.an && b.layer === L; }).length;
+    var chip = el('button.chip.on', { text: L + ' · ' + n, title: 'Layer ein-/ausblenden' });
+    chip.addEventListener('click', function () {
+      var an = chip.classList.toggle('on');
+      SOT.$$('#traceBox #' + L + ', #stack #' + L + ', .probe #' + L).forEach(function (g) {
+        g.style.display = an ? '' : 'none';
+      });
+    });
+    box.appendChild(chip);
+  });
+}
+
+function bandListe() {
+  var box = SOT.clear($('bands'));
+  if (!S.bands.length) {
+    box.appendChild(el('p.empty', { text: P.art === 'tile' ? 'Noch kein Bild verarbeitet.' :
+      (P.art === 'glyphe' ? 'Glyphe: ein Pfad, keine Bänder.' : 'Referenz: keine Bänder.') }));
+    return;
+  }
+  S.bands.forEach(function (b) {
+    var sel = el('select');
+    ROLLEN.forEach(function (r) {
+      sel.appendChild(el('option', { value: r, text: r, selected: r === b.rolle ? true : null }));
+    });
+    sel.addEventListener('change', function () {
+      b.rolle = sel.value;
+      b.varname = '--' + sel.value;
+      b.layer = LAYER_VON_ROLLE[sel.value];
+      S.svg = svgBauen(); S.mass.bytes = new Blob([S.svg]).size;
+      zeigeTrace(); quelltext(); urteil();
+    });
+    var zeile = el('div.band' + (b.an ? '' : '.off'), null, [
+      el('i', { style: { background: b.hex } }),
+      el('div.nm', { text: b.varname + ' ' + b.hex, title: b.hex }),
+      sel,
+      el('div.ar', { text: (b.anteil*100).toFixed(0) + '%' })
+    ]);
+    zeile.querySelector('i').addEventListener('click', function () {
+      b.an = !b.an;
+      zeile.classList.toggle('off', !b.an);
+      S.svg = svgBauen(); S.mass.bytes = new Blob([S.svg]).size;
+      zeigeTrace(); quelltext(); urteil();
+    });
+    box.appendChild(zeile);
+  });
+}
+
+function kennzahlen(ms) {
+  var box = SOT.clear($('stats'));
+  function stat(v, l, d) {
+    return el('div.stat', null, [el('b', { text: v }), el('span', { text: l }),
+      d ? el('div.delta', { text: d }) : null]);
+  }
+  var m = S.mass;
+  box.appendChild(stat(m.pfade, 'Pfade', 'einer je Band'));
+  box.appendChild(stat(m.ringe, 'Flecken', 'Teilpfade'));
+  box.appendChild(stat(m.punkte, 'Punkte'));
+  box.appendChild(stat(S.bands.length || (P.art === 'glyphe' ? 1 : 0), 'Farben'));
+  box.appendChild(stat((m.bytes/1024).toFixed(1) + ' kB', 'Datei'));
+  box.appendChild(stat(m.splitter, 'Splitter', 'unter 1 px bei 32'));
+  box.appendChild(stat(Math.round(ms) + ' ms', 'Rechenzeit'));
+}
+
+function urteil() {
+  var box = SOT.clear($('urteil'));
+  if (!S.svg) return;
+  var m = S.mass;
+  var proLayer = 0;
+  LAYERS.forEach(function (L) {
+    var n = S.bands.filter(function (b) { return b.an && b.layer === L && !b.rect && b.d; }).length;
+    if (n > proLayer) proLayer = n;
+  });
+  var gut = [], schlecht = [];
+
+  // Die Pfadzahl ist hier nicht die Messlatte: sie ist durch die Farbanzahl
+  // gedeckelt (ein Pfad je Band). Was ein Bitmap-mit-Zusatzkosten verrät, sind
+  // die Flecken und die Punkte darin — daran hängt "von Hand nachziehbar".
+  (m.pfade <= 12 ? gut : schlecht).push('Pfade ' + m.pfade + ' (einer je Band)');
+  (m.ringe <= 40 ? gut : schlecht).push('Flecken ' + m.ringe + ' (Messlatte ≤ 40)');
+  (m.punkte <= 400 ? gut : schlecht).push('Punkte ' + m.punkte + ' (≤ 400 ist nachziehbar)');
+  (m.splitter === 0 ? gut : schlecht).push('Splitter ' + m.splitter + ' (bei 32 px unsichtbar)');
+  (proLayer <= 3 ? gut : schlecht).push('höchstens ' + proLayer + ' Pfade je Layer');
+  gut.push('Farben nur als var()');
+  if (P.raster) schlecht.push('Rasterrückfall: nicht umfärbbar, nicht layerweise');
+
+  var kaputt = m.punkte > 3000 || m.splitter > 200;
+  var kl = schlecht.length === 0 ? 'gap full' : (kaputt ? 'gap none' : 'gap');
+  var kopf = P.raster ? 'Rasterrückfall' :
+             schlecht.length === 0 ? 'Nachziehbar' :
+             (kaputt ? 'Gescheitert, nicht unfertig' : 'Noch zu fein');
+  var txt = (schlecht.length ? schlecht.join(' · ') + '. ' : '') +
+    (kaputt ? 'Das ist ein Bitmap mit Zusatzkosten: nicht nachziehbar, im Diff nur Rauschen, ' +
+              'bei 32 px Matsch. Farbanzahl runter, Mindestfläche hoch, Glättung hoch. ' : '') +
+    'Erfüllt: ' + gut.join(' · ') + '.';
+  box.appendChild(el('div.' + kl.split(' ').join('.'), null,
+    [el('b', { text: kopf }), el('span', { html: txt })]));
+}
+
+function quelltext() { $('src').value = S.svg || ''; }
+
+/* ===========================================================================
+   Server: Kollektionen, Speichern, Veröffentlichen
+   ========================================================================= */
+
+function serverBasis() {
+  if (P.server) return P.server.replace(/\/$/, '');
+  return /^https?:$/.test(location.protocol) ? location.origin : null;
+}
+
+function serverPruefen() {
+  var basis = serverBasis();
+  if (!basis) { serverStatus(false, 'kein Server (file://) — Trace läuft, Speichern nicht'); ohneServer(); return; }
+  fetch(basis + '/api/collections')
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (j) {
+      S.server = basis; S.kollektionen = j.collections || [];
+      serverStatus(true, 'Server · ' + S.kollektionen.length + ' Kollektionen');
+      kollektionenFuellen();
+      $('bVorlage').disabled = false;
+      $('bPublish').disabled = false;
+      if (P.vorlage) vorlageLaden(P.vorlage);
+    })
+    .catch(function () { serverStatus(false, 'kein Asset-Server erreichbar'); ohneServer(); });
+}
+// Ohne Server bleibt alles bis auf Speichern benutzbar — die Rückfall-Palette
+// steht im Prototyp (Werte aus _template.svg).
+function ohneServer() {
+  var sel = SOT.clear($('ziel'));
+  sel.appendChild(el('option', { value: P.ziel, text: P.ziel + ' (Vorgabe)' }));
+  SOT.clear($('key')).appendChild(el('option', { value: '', text: '— kein Server —' }));
+  $('gapserver').innerHTML = 'Ohne Server läuft die ganze Kette bis zum Vorschlag, aber ' +
+    '<b>Annehmen fällt weg</b>: Speichern und Bake brauchen <code>pipeline/asset-server.mjs</code>. ' +
+    'Der Quelltext lässt sich kopieren.';
+}
+function serverStatus(ok, txt) {
+  $('srvdot').className = 'dot ' + (ok ? 'good' : 'idle');
+  $('srvtxt').textContent = txt;
+}
+
+function kollektionenFuellen() {
+  var sel = SOT.clear($('ziel'));
+  S.kollektionen.forEach(function (c) {
+    sel.appendChild(el('option', { value: c, text: c, selected: c === P.ziel ? true : null }));
+  });
+  if (!S.kollektionen.length) sel.appendChild(el('option', { value: P.ziel, text: P.ziel }));
+  keysLaden();
+}
+
+function keysLaden() {
+  if (!S.server) return;
+  var coll = $('ziel').value;
+  fetch(S.server + '/api/terrain-assets?collection=' + encodeURIComponent(coll))
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      S.keys = (j.tiles || []).map(function (t) { return t.key; });
+      // Palette aus den Dateien der Kollektion lesen — Farben und, wenn
+      // vorhanden, ihre Variablennamen.
+      var hex = {}, namen = {};
+      (j.tiles || []).forEach(function (t) {
+        (t.svg.match(/--[a-z0-9-]+\s*:\s*#[0-9A-Fa-f]{3,6}/g) || []).forEach(function (m) {
+          var p = m.split(':');
+          var name = p[0].trim().replace(/^--/, ''), wert = p[1].trim().toUpperCase();
+          if (name !== 'edge') { namen[wert] = name; hex[wert] = 1; }
+        });
+        (t.svg.match(/(?:fill|stroke)="#[0-9A-Fa-f]{3,6}"/g) || []).forEach(function (m) {
+          hex[m.match(/#[0-9A-Fa-f]{3,6}/)[0].toUpperCase()] = 1;
+        });
+      });
+      S.palHex = Object.keys(hex);
+      S.palNamen = namen;
+      S.palVars = Object.keys(namen);
+      var sel = SOT.clear($('key'));
+      S.keys.forEach(function (k) { sel.appendChild(el('option', { value: k, text: k + '.svg' })); });
+      if (!S.keys.length) sel.appendChild(el('option', { value: '', text: '— keine Datei —' }));
+      $('bSave').disabled = !(S.svg && sel.value);
+      if (S.roh) laufen();
+    })
+    .catch(function () { SOT.toast('Kollektion nicht lesbar'); });
+}
+
+function speichern() {
+  var coll = $('ziel').value, key = $('key').value;
+  if (!S.svg || !key) return;
+  if ($('herkunft').value === 'fremd') {
+    SOT.overlay({
+      tag: 'Herkunft', title: 'Fremdes Werk',
+      text: 'Dieses Asset ist als „fremdes Werk — nicht auslieferbar" markiert. ' +
+            'Gespeichert würde es trotzdem gebacken und mit ausgeliefert; der Bake kennt das Feld noch nicht.',
+      choices: [
+        { label: 'Trotzdem speichern', hint: 'nur im Entwurf verwenden', onclick: schreiben },
+        { label: 'Abbrechen', primary: true }
+      ]
+    });
+    return;
+  }
+  SOT.overlay({
+    tag: 'Annehmen', title: coll + '/' + key + '.svg',
+    text: 'Die vorhandene Datei wird überschrieben. Der Server schreibt nur in bestehende Dateien — ' +
+          'ein neuer Schlüssel geht (noch) nicht.',
+    choices: [
+      { label: 'Überschreiben', primary: true, onclick: schreiben },
+      { label: 'Abbrechen' }
+    ]
+  });
+
+  function schreiben() {
+    fetch(S.server + '/api/terrain-assets/save', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ collection: coll, key: key, svg: S.svg })
+    }).then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j.ok) SOT.toast('Gespeichert: ' + coll + '/' + key + '.svg — jetzt veröffentlichen');
+        else SOT.toast('Fehler: ' + (j.fehler || 'unbekannt'));
+      })
+      .catch(function (e) { SOT.toast('Speichern fehlgeschlagen: ' + e.message); });
+  }
+}
+
+function veroeffentlichen() {
+  var log = $('publog');
+  log.classList.remove('hid'); SOT.clear(log);
+  function zeile(txt, kl) {
+    log.appendChild(el('div.li' + (kl ? '.' + kl : ''), null,
+      [el('div.rn', { text: 'bake' }), el('div', { text: txt })]));
+    log.scrollTop = log.scrollHeight;
+  }
+  zeile('Bake gestartet …', 'dim');
+  fetch(S.server + '/api/publish', { method: 'POST' }).then(function (r) {
+    var leser = r.body.getReader(), dec = new TextDecoder(), rest = '';
+    function weiter() {
+      return leser.read().then(function (res) {
+        if (res.done) return;
+        rest += dec.decode(res.value, { stream: true });
+        var teile = rest.split('\n'); rest = teile.pop();
+        teile.forEach(function (z) {
+          if (!z.trim()) return;
+          var ev; try { ev = JSON.parse(z); } catch (e) { return; }
+          if (ev.type === 'log') zeile(ev.zeile, ev.kanal === 'err' ? 'bad' : null);
+          if (ev.type === 'fertig') zeile(ev.ok ? 'Bundle neu gebacken.' : ('Abbruch: ' + ev.message),
+                                          ev.ok ? 'good' : 'bad');
+        });
+        return weiter();
+      });
+    }
+    return weiter();
+  }).catch(function (e) { zeile('Veröffentlichen fehlgeschlagen: ' + e.message, 'bad'); });
+}
+
+/* ===========================================================================
+   Verdrahtung
+   ========================================================================= */
+
+// Aufnahme: fallen lassen, einfügen, wählen — in dieser Reihenfolge wichtig.
+['dragenter','dragover'].forEach(function (ev) {
+  window.addEventListener(ev, function (e) { e.preventDefault(); $('drop').classList.add('hot'); });
+});
+['dragleave','drop'].forEach(function (ev) {
+  window.addEventListener(ev, function (e) { e.preventDefault(); $('drop').classList.remove('hot'); });
+});
+window.addEventListener('drop', function (e) {
+  var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) ausDatei(f);
+});
+document.addEventListener('paste', function (e) {
+  var items = (e.clipboardData && e.clipboardData.items) || [];
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf('image') === 0) { ausDatei(items[i].getAsFile()); return; }
+  }
+  SOT.toast('In der Zwischenablage liegt kein Bild');
+});
+$('pick').addEventListener('click', function () { $('file').click(); });
+$('file').addEventListener('change', function (e) { ausDatei(e.target.files[0]); });
+$('drop').addEventListener('click', function (e) { if (e.target === $('drop')) $('file').click(); });
+
+$('bDemo').addEventListener('click', function () { aufnehmen('Beispiel-Screenshot', demoBild(7)); });
+$('bVorlage').addEventListener('click', function () {
+  var v = P.vorlage || ($('ziel').value + '/' + ($('key').value || 'flach'));
+  vorlageLaden(v);
+});
+
+// Regler → Parameter → URL → Neurechnung. Die URL bleibt die Wahrheit,
+// damit jeder Zustand teilbar ist.
+function bindeRegler(id, name, format) {
+  var n = $(id), w = $(id + 'W');
+  n.value = P[name];
+  function zeigen() { if (w) w.textContent = format ? format(P[name]) : P[name]; }
+  zeigen();
+  n.addEventListener('input', function () {
+    P.set(name, n.type === 'range' ? +n.value : n.value);
+    zeigen();
+    if (name === 'deckung') { var o = document.querySelector('#stack .over'); if (o) o.style.opacity = P.deckung/100; }
+    else laufen();
+  });
+}
+bindeRegler('farben', 'farben');
+bindeRegler('glatt', 'glatt', function (v) { return (+v).toFixed(1) + ' px'; });
+bindeRegler('minflaeche', 'minflaeche', function (v) { return (+v).toFixed(2) + ' %'; });
+bindeRegler('deckung', 'deckung', function (v) { return v + ' %'; });
+
+$('passen').value = P.passen;
+$('passen').addEventListener('change', function () { P.set('passen', this.value); laufen(); });
+$('palette').value = P.palette;
+$('palette').addEventListener('change', function () { P.set('palette', this.value); laufen(); });
+$('drehen').checked = P.drehen;
+$('drehen').addEventListener('change', function () { P.set('drehen', this.checked); laufen(); });
+$('ziel').addEventListener('change', function () { P.set('ziel', this.value); keysLaden(); });
+$('key').addEventListener('change', function () { $('bSave').disabled = !(S.svg && this.value); });
+$('herkunft').value = P.herkunft;
+$('herkunft').addEventListener('change', function () {
+  P.set('herkunft', this.value); herkunftHinweis(); if (S.roh) laufen();
+});
+$('quelle').addEventListener('input', function () { if (S.roh) { S.svg = svgBauen(); quelltext(); } });
+
+function herkunftHinweis() {
+  var v = $('herkunft').value;
+  var t = v === 'fremd'
+    ? '<b>Nicht auslieferbar.</b> Als Vorlage im Entwurf in Ordnung, im Bundle nicht — der Bake kennt das Feld noch nicht, also ist es bis dahin eine Zusage an dich selbst.'
+    : 'Steht im Kopfkommentar der Datei. Kostet einen Klick und beantwortet später die Frage, die sonst niemand mehr beantworten kann.';
+  $('herkunfthinweis').innerHTML = t;
+}
+herkunftHinweis();
+
+// Segmentschalter (Art, Form)
+function seg(id, name, nach) {
+  var box = $(id), attr = id === 'artseg' ? 'art' : 'form';
+  SOT.$$('button', box).forEach(function (b) {
+    b.classList.toggle('on', b.dataset[attr] === P[name]);
+    b.addEventListener('click', function () {
+      P.set(name, b.dataset[attr]);
+      SOT.$$('button', box).forEach(function (x) { x.classList.toggle('on', x === b); });
+      if (nach) nach();
+      laufen();
+    });
+  });
+}
+seg('artseg', 'art', artHinweis);
+seg('formseg', 'form');
+
+function artHinweis() {
+  var t = { tile: 'Sechs Layer, Palette der Kollektion, Hex-viewBox.',
+            glyphe: 'Ein Pfad, <code>currentColor</code>, keine Palette — Petroglyphen-Set.',
+            referenz: 'Wird nie zum Asset. Bleibt Stimmung und Notiz.' }[P.art];
+  $('arthint').innerHTML = 'Vorschlag aus Seitenverhältnis und Alphakanal, Bestätigung von Hand. ' + t;
+}
+artHinweis();
+
+$('bCopy').addEventListener('click', function () {
+  if (!S.svg) return;
+  if (navigator.clipboard) navigator.clipboard.writeText(S.svg).then(function () { SOT.toast('SVG kopiert'); });
+  else { $('src').select(); SOT.toast('Quelltext markiert'); }
+});
+$('bReset').addEventListener('click', function () {
+  S.roh = null; S.bands = []; S.svg = ''; S.fit = null;
+  $('traceBox').innerHTML = '<p class="empty">Verworfen.</p>';
+  SOT.clear($('stats')); SOT.clear($('urteil')); SOT.clear($('probes'));
+  SOT.clear($('stack')); bandListe(); quelltext();
+  $('quellzeile').textContent = 'Verworfen. Nichts überschrieben — Annehmen ist ein eigener Schritt.';
+  $('bSave').disabled = true;
+});
+$('bSave').addEventListener('click', speichern);
+$('bPublish').addEventListener('click', veroeffentlichen);
+
+// Erst den Wunsch aus der URL sichern: SOT.tabs() ruft onChange schon bei
+// seiner eigenen Erstauswahl, und die schreibt ?ansicht sonst zurück auf den
+// ersten Reiter, bevor er gesetzt werden kann.
+var wunschAnsicht = P.ansicht;
+var T = SOT.tabs('tabs', function (name) { P.set('ansicht', name); });
+T.select(wunschAnsicht);
+
+SOT.debug(P, { extra: [
+  { label: 'demo', onclick: function () { aufnehmen('Beispiel-Screenshot', demoBild(7)); } },
+  { label: 'raster', onclick: function () { location.href = P.link({ raster: !P.raster || null }); } }
+]});
+
+serverPruefen();
+if (P.demo) aufnehmen('Beispiel-Screenshot', demoBild(7));
+</script>
+</body>
+</html>

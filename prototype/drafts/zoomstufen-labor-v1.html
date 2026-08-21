@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Zoomstufen-Labor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+:root{
+  --bg:#DCE3D8; --panel:#ECEFE6; --panel2:#E2E7DC; --ink:#22302C; --ink2:#5A6B64;
+  --ember:#C96F2E; --emberglow:rgba(224,138,60,.20);
+  --bone:#F2EDE0; --line:#B8C2B4; --good:#4E7D5B; --bad:#9C4A33;
+  --shadow:0 2px 10px rgba(30,45,40,.12);
+}
+body.night{
+  --bg:#0D151D; --panel:#141F28; --panel2:#101A22; --ink:#E6E1D2; --ink2:#8B9690;
+  --ember:#E08A3C; --emberglow:rgba(224,138,60,.32);
+  --bone:#1B2731; --line:#2C3B44; --good:#7FB08B; --bad:#D07B5E;
+  --shadow:0 2px 14px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{background:var(--bg);color:var(--ink);font-family:'Instrument Sans',system-ui,sans-serif;
+     transition:background 1s ease,color 1s ease;min-height:100vh;}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;}}
+.wrap{max-width:1120px;margin:0 auto;padding:12px 14px 40px;}
+
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:4px 2px 12px;border-bottom:1px solid var(--line);}
+.brand{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px;letter-spacing:.14em;line-height:1;}
+.brand small{display:block;font-family:'Space Mono',monospace;font-weight:400;font-size:10px;letter-spacing:.1em;color:var(--ink2);margin-top:4px;}
+.clock{text-align:right;font-family:'Space Mono',monospace;white-space:nowrap;}
+.clock b{font-size:22px;font-weight:700;display:block;line-height:1;}
+.clock span{font-size:10px;color:var(--ink2);letter-spacing:.1em;}
+
+main{display:grid;grid-template-columns:minmax(320px,1fr) 340px;gap:16px;margin-top:14px;align-items:start;}
+@media (max-width:900px){main{grid-template-columns:1fr;}}
+
+/* ---------- Treppe ---------- */
+.treppe{display:flex;gap:4px;margin-bottom:10px;}
+.stufe{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 8px;cursor:pointer;transition:.15s;}
+.stufe:hover{border-color:var(--ember);}
+.stufe.on{border-color:var(--ember);background:var(--bone);}
+.stufe b{display:block;font-family:'Space Mono',monospace;font-size:12px;}
+.stufe span{font-size:9.5px;color:var(--ink2);letter-spacing:.04em;}
+
+.mapbox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px;box-shadow:var(--shadow);position:relative;}
+canvas{display:block;width:100%;height:auto;border-radius:4px;}
+.mapnote{position:absolute;left:16px;bottom:16px;font-family:'Space Mono',monospace;font-size:10px;
+         color:var(--ink2);background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:3px 7px;pointer-events:none;}
+
+.ctrl{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center;}
+button{font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;color:var(--ink);
+       background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 11px;cursor:pointer;transition:.15s;}
+button:hover{border-color:var(--ember);}
+button.pri{background:var(--ember);border-color:var(--ember);color:#fff;}
+button.on{border-color:var(--ember);color:var(--ember);}
+button:disabled{opacity:.35;cursor:default;}
+select{font-family:'Instrument Sans',sans-serif;font-size:12px;color:var(--ink);background:var(--panel);
+       border:1px solid var(--line);border-radius:7px;padding:7px 8px;}
+.spacer{flex:1;}
+
+aside{display:flex;flex-direction:column;gap:10px;}
+.pane{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:11px 12px;box-shadow:var(--shadow);}
+h4{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink2);margin:0 0 8px;font-weight:400;}
+h4.sp{margin-top:14px;}
+table{width:100%;border-collapse:collapse;font-size:11.5px;}
+th,td{text-align:left;padding:3px 4px;border-bottom:1px solid var(--line);}
+th{font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);font-weight:400;}
+td.n{text-align:right;font-family:'Space Mono',monospace;}
+tr.hi td{color:var(--ember);font-weight:600;}
+p{font-size:12px;line-height:1.5;margin:0 0 8px;}
+p.dim{color:var(--ink2);font-size:11.5px;}
+.gross{font-family:'Space Mono',monospace;font-size:19px;line-height:1.2;}
+.gross s{text-decoration:none;color:var(--ink2);font-size:13px;}
+.leg{display:flex;flex-wrap:wrap;gap:3px 9px;font-family:'Space Mono',monospace;font-size:9px;color:var(--ink2);margin-top:8px;}
+.leg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:3px;vertical-align:-1px;}
+kbd{font-family:'Space Mono',monospace;font-size:9.5px;border:1px solid var(--line);border-radius:3px;padding:0 4px;background:var(--panel2);}
+.warn{border-left:3px solid var(--ember);padding-left:9px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">STROMLINIEN<small>ZOOMSTUFEN-LABOR · v1 · echte Kachel-Daten</small></div>
+  <div class="clock"><b id="cKm">—</b><span id="cLvl">Ebene —</span></div>
+</header>
+
+<main>
+  <section>
+    <div class="treppe" id="treppe"></div>
+    <div class="mapbox">
+      <canvas id="cv"></canvas>
+      <div class="mapnote" id="note">—</div>
+    </div>
+    <div class="ctrl">
+      <button class="pri" id="bNext">▸ Epochenübergang</button>
+      <button id="bPrev">◂ zurück</button>
+      <select id="selKam">
+        <option value="land">Kamera: Land halten</option>
+        <option value="felder">Kamera: Felderzahl halten</option>
+      </select>
+      <select id="selOrt"></select>
+      <span class="spacer"></span>
+      <button id="bSied" class="on">Siedlung</button>
+      <button id="bNight">Nacht</button>
+    </div>
+    <div class="leg" id="leg"></div>
+  </section>
+
+  <aside>
+    <div class="pane">
+      <h4>Was der Übergang kostet</h4>
+      <div class="gross" id="gross">—</div>
+      <p class="dim" id="grossTxt">—</p>
+      <h4 class="sp">Die drei Ebenen (aus den Daten)</h4>
+      <table id="tblLvl"></table>
+      <h4 class="sp">Kinder je Feld · gemessen</h4>
+      <div id="kinder"></div>
+    </div>
+
+    <div class="pane">
+      <h4>Was hier echt ist</h4>
+      <p>Gelände, Flusslauf und Ebenen kommen aus <code>rhein-tiles-v4.data.js</code>
+        (Geodaten-Pipeline, gebacken am 20. Aug 2026). <b>Nichts ist erfunden</b> — auch nicht
+        die Kinderfelder: die feinere Ebene weiss von sich aus mehr über dasselbe Land.</p>
+      <p class="dim" id="beleg">—</p>
+      <h4 class="sp">Der Befund</h4>
+      <div class="warn" id="befund">—</div>
+    </div>
+  </aside>
+</main>
+</div>
+
+<script src="rhein-tiles-v4.data.js"></script>
+<script>
+/* =====================================================================
+   STROMLINIEN · Zoomstufen-Labor v1
+   Zeigt den Epochenübergang als ZOOMWECHSEL auf echten Daten: nicht die
+   Karte wird grösser, das Feld wird kleiner. Die bespielte Siedlung ist in
+   WELTKOORDINATEN (km) verankert, nicht in Zellindizes — nur darum
+   übersteht sie den Wechsel.
+   Debug: ?ebene=0|1|2 ?kamera=land|felder ?ort=<id> ?siedlung=aus ?night
+   ===================================================================== */
+const TS=window.RHEIN_TILESET, S3=Math.sqrt(3);
+const TERRNAME=['Flachland','Ufer','Bergland','Fluss','See','Nordsee','Nebenlauf','Hang'];
+const TERRCOL=['#CFD8C8','#C2D2C0','#A9B4A4','#7FB2AC','#8FBDB6','#6FA6B8','#9CC6C0','#B6BEAE'];
+const TERRNIGHT=['#1E2C34','#22333A','#182530','#2E5457','#2F5A5C','#26454F','#39646A','#1B2830'];
+const TILE_NM={fisch:'Fischgrund',ufer:'Uferlager',wald:'Auenwald',terrasse:'Hochterrasse',
+               hoehle:'Höhle',flint:'Feuerstein',pfahl:'Pfahlbau'};
+const TILECOL={fisch:'#4a90b0',ufer:'#C96F2E',wald:'#5B7F52',terrasse:'#8A8A6E',
+               hoehle:'#5A6B64',flint:'#D8CDB0',pfahl:'#3E8B86'};
+
+/* ---------- Geometrie: identisch zu bake.mjs und rhein-tiles-v4 ---------- */
+const axialOf=(c,r)=>c-((r-(r&1))/2);
+const centerKm=(c,r,hexKm)=>[hexKm*(axialOf(c,r)+r/2), hexKm*1.5/S3*r];
+function cellAtKm(x,y,hexKm){
+  const s=hexKm/S3;
+  const q=((S3/3)*x-y/3)/s, r=((2/3)*y)/s;
+  let rx=Math.round(q),ry=Math.round(-q-r),rz=Math.round(r);
+  const dx=Math.abs(rx-q),dy=Math.abs(ry-(-q-r)),dz=Math.abs(rz-r);
+  if(dx>dy&&dx>dz)rx=-ry-rz; else if(!(dy>dz))rz=-rx-ry;
+  return [rx+((rz-(rz&1))/2), rz];
+}
+const kmOfLonLat=(lon,lat)=>[(lon-TS.cfg.lon0)*TS.cfg.kmx,(TS.cfg.lat1-lat)*TS.cfg.kmy];
+/* Fläche eines Hexes: (3√3/2)·s² mit s = hexKm/√3  →  (√3/2)·hexKm² */
+const flaeche=hexKm=>S3/2*hexKm*hexKm;
+
+/* ---------- Zellzugriff: base64 erst bei Sichtkontakt ---------- */
+const cache=new Map();
+function tileOf(L,tx,ty){
+  const key=L.id+':'+tx+','+ty;
+  if(cache.has(key))return cache.get(key);
+  const raw=L.tiles[tx+','+ty];
+  let v=null;
+  if(raw){const dec=b=>Uint8Array.from(atob(b),ch=>ch.charCodeAt(0));
+    v={t:dec(raw.t),s:dec(raw.s)};}
+  cache.set(key,v);return v;
+}
+/* null = die Pipeline hat hier keine Daten (Abdeckung ist bewusst sparsam) */
+function terrOf(L,c,r){
+  if(c<0||r<0||c>=L.cols||r>=L.rows)return null;
+  const t=tileOf(L,Math.floor(c/L.tile),Math.floor(r/L.tile));
+  if(!t)return null;
+  return t.t[(r%L.tile)*L.tile+(c%L.tile)];
+}
+
+/* =====================================================================
+   ORTE — echte Koordinaten, damit der Ausschnitt nicht geraten ist
+   ===================================================================== */
+const ORTE=[
+  {id:'chur',nm:'Chur · Talmitte',lon:9.53,lat:46.85},
+  {id:'landquart',nm:'Landquart · Tardisfurt',lon:9.567,lat:46.966},
+  {id:'rheindelta',nm:'Rheindelta · Seeufer',lon:9.63,lat:47.50},
+  {id:'konstanz',nm:'Konstanz · Seeausfluss',lon:9.177,lat:47.663},
+];
+
+/* =====================================================================
+   ZUSTAND
+   ===================================================================== */
+/* Startebene 1, nicht 0: die gestaltete Weltkarte der App (22×44 Felder auf
+   ~90 km Tal) liegt bei ~4 km/Hex, also nahe an Ebene 1 (2 km). Ebene 0
+   (10 km/Hex) ist die Kampagnen-Übersicht, keine Spielebene. */
+let lvl=1, kamera='land', ortId='landquart', mitSiedlung=true;
+let mitte=[0,0], spanKm=0, spanStart=0, anim=null;
+/* Die bespielte Karte: Weltkoordinaten in km, nicht Zellindizes. */
+let siedlung=[], menschen=[], startEbene=0, startFelder=0;
+
+/* Siedlung entsteht aus dem echten Flusslauf der Ebene 0: jede zweite
+   Wegzelle im Fenster bekommt ein Plättchen, dessen Art aus dem Gelände
+   folgt. Damit ist auch die bespielte Karte nicht erfunden. */
+function baueSiedlung(){
+  siedlung=[];menschen=[];
+  const L=TS.levels[lvl], ort=ORTE.find(o=>o.id===ortId), zk=kmOfLonLat(ort.lon,ort.lat);
+  const nah=L.path.filter(p=>{
+    const[x,y]=centerKm(p[0],p[1],L.hexKm);
+    return Math.hypot(x-zk[0],y-zk[1])<L.hexKm*13;
+  });
+  nah.forEach((p,i)=>{
+    if(i%2)return;
+    const t=terrOf(L,p[0],p[1]);
+    const art=t===3||t===6?'fisch':t===4?'pfahl':t===1?'ufer':t===2||t===7?'terrasse':'wald';
+    siedlung.push({km:centerKm(p[0],p[1],L.hexKm),art});
+  });
+  /* zwei Menschen auf die erste und die mittlere Stelle */
+  if(siedlung.length){
+    menschen.push({km:siedlung[0].km.slice(),wer:'jaeger'});
+    menschen.push({km:siedlung[Math.floor(siedlung.length/2)].km.slice(),wer:'sammler'});
+  }
+  startEbene=lvl;
+  startFelder=belegteFelder(TS.levels[lvl]).size;
+}
+/* Welche Felder der Ebene tragen etwas Bespieltes? */
+function belegteFelder(L){
+  const s=new Set();
+  siedlung.forEach(t=>{const[c,r]=cellAtKm(t.km[0],t.km[1],L.hexKm);s.add(c+','+r);});
+  menschen.forEach(m=>{const[c,r]=cellAtKm(m.km[0],m.km[1],L.hexKm);s.add(c+','+r);});
+  return s;
+}
+/* Kinder des ALTEN Spielfelds: alle Felder dieser Ebene, deren Mittelpunkt
+   in einem der damals bespielten Felder liegt. Das ist das neue Spielfeld. */
+function kinderDesSpielfelds(vonL,nachL){
+  const eltern=belegteFelder(vonL);
+  if(!eltern.size)return {n:0,verteilung:new Map()};
+  const vert=new Map(); let n=0;
+  eltern.forEach(k=>{
+    const[pc,pr]=k.split(',').map(Number);
+    const[px,py]=centerKm(pc,pr,vonL.hexKm);
+    const f=vonL.hexKm/nachL.hexKm, sp=Math.ceil(f)+2;
+    const[cc,cr]=cellAtKm(px,py,nachL.hexKm);
+    let z=0;
+    for(let r=cr-sp;r<=cr+sp;r++)for(let c=cc-sp;c<=cc+sp;c++){
+      const[x,y]=centerKm(c,r,nachL.hexKm);
+      const[qc,qr]=cellAtKm(x,y,vonL.hexKm);
+      if(qc===pc&&qr===pr){z++;n++;}
+    }
+    vert.set(z,(vert.get(z)||0)+1);
+  });
+  return {n,verteilung:vert};
+}
+
+/* =====================================================================
+   KAMERA
+   ===================================================================== */
+const SPAN_HEX=24;      /* so viele Felder breit ist der Blick auf der Startebene */
+function setzeKamera(neu){
+  const ort=ORTE.find(o=>o.id===ortId);
+  if(neu){
+    mitte=kmOfLonLat(ort.lon,ort.lat);
+    spanStart=TS.levels[lvl].hexKm*SPAN_HEX;
+    spanKm=spanStart; return;
+  }
+  /* „Land halten": derselbe Ausschnitt, feinere Felder — die Felderzahl explodiert.
+     „Felderzahl halten": der Ausschnitt schrumpft mit der Feldgrösse — man spielt
+     danach in einem Bruchstück des alten Tals weiter. */
+  spanKm = kamera==='felder' ? TS.levels[lvl].hexKm*SPAN_HEX : spanStart;
+}
+
+/* =====================================================================
+   ZEICHNEN
+   ===================================================================== */
+const cv=$('cv'), ctx=cv.getContext('2d');
+function $(id){return document.getElementById(id);}
+function groesse(){
+  const w=cv.parentElement.clientWidth-16, h=Math.round(Math.min(660,Math.max(420,w*0.72)));
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  cv.width=w*dpr;cv.height=h*dpr;cv.style.height=h+'px';
+  return {w,h,dpr};
+}
+function hexPfad(x,y,rad){
+  ctx.beginPath();
+  for(let i=0;i<6;i++){
+    const a=Math.PI/180*(60*i-90);
+    const px=x+rad*Math.cos(a), py=y+rad*Math.sin(a);
+    i?ctx.lineTo(px,py):ctx.moveTo(px,py);
+  }
+  ctx.closePath();
+}
+function zeichne(t){
+  const {w,h,dpr}=groesse();
+  const L=TS.levels[lvl];
+  const px=w*dpr/spanKm;                       /* Bildpunkte je km */
+  const s=L.hexKm/S3, rad=s*px;
+  const nacht=document.body.classList.contains('night');
+  const FARB=nacht?TERRNIGHT:TERRCOL;
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle=getComputedStyle(document.body).getPropertyValue('--panel2');
+  ctx.fillRect(0,0,cv.width,cv.height);
+  /* km → Bildpunkt */
+  const ox=cv.width/2-mitte[0]*px, oy=cv.height/2-mitte[1]*px;
+  const X=x=>x*px+ox, Y=y=>y*px+oy;
+
+  /* Sichtbarer Zellbereich */
+  const x0=mitte[0]-spanKm/2, x1=mitte[0]+spanKm/2;
+  const spanY=spanKm*cv.height/cv.width;
+  const y0=mitte[1]-spanY/2, y1=mitte[1]+spanY/2;
+  const r0=Math.max(0,Math.floor(y0/(L.hexKm*1.5/S3))-1);
+  const r1=Math.min(L.rows-1,Math.ceil(y1/(L.hexKm*1.5/S3))+1);
+  const c0=Math.max(0,Math.floor(x0/L.hexKm)-2), c1=Math.min(L.cols-1,Math.ceil(x1/L.hexKm)+2);
+
+  let gezeichnet=0, ohneDaten=0;
+  const eltern=t!==undefined&&anim?anim.elternHexKm:0;
+  ctx.lineWidth=Math.max(.3,rad*.045);
+  ctx.strokeStyle=nacht?'rgba(255,255,255,.07)':'rgba(0,0,0,.10)';
+
+  for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){
+    const terr=terrOf(L,c,r);
+    const[kx,ky]=centerKm(c,r,L.hexKm);
+    let cx=X(kx), cy=Y(ky), rr=rad;
+    if(eltern){
+      /* Aufbruch-Animation: das Kind startet im Mittelpunkt seines Elternfelds */
+      const[pc,pr]=cellAtKm(kx,ky,eltern);
+      const[ex,ey]=centerKm(pc,pr,eltern);
+      cx=X(ex+(kx-ex)*t); cy=Y(ey+(ky-ey)*t); rr=rad*(.15+.85*t);
+    }
+    if(cx<-rad||cy<-rad||cx>cv.width+rad||cy>cv.height+rad)continue;
+    hexPfad(cx,cy,rr);
+    if(terr===null){ohneDaten++;ctx.fillStyle=nacht?'#0F1720':'#D5D9CF';}
+    else{ctx.fillStyle=FARB[terr];gezeichnet++;}
+    ctx.fill();
+    if(rad>4)ctx.stroke();
+  }
+
+  /* Bespieltes: Plättchen und Menschen sitzen an km-Koordinaten */
+  if(mitSiedlung){
+    const g=Math.max(4.5,rad*.62);
+    siedlung.forEach(tl=>{
+      const cx=X(tl.km[0]), cy=Y(tl.km[1]);
+      hexPfad(cx,cy,g);
+      ctx.fillStyle=TILECOL[tl.art];ctx.fill();
+      ctx.lineWidth=Math.max(.6,g*.14);
+      ctx.strokeStyle=nacht?'rgba(0,0,0,.6)':'rgba(20,35,30,.55)';ctx.stroke();
+    });
+    ctx.font='700 '+Math.max(9,Math.min(18,rad*.9))+'px "Space Mono", monospace';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    menschen.forEach(m=>{
+      const cx=X(m.km[0]), cy=Y(m.km[1]);
+      ctx.lineWidth=3;ctx.strokeStyle=nacht?'#0D151D':'#ECEFE6';
+      const z=m.wer==='jaeger'?'➤':'✦';
+      ctx.strokeText(z,cx,cy);
+      ctx.fillStyle=nacht?'#E6E1D2':'#22302C';ctx.fillText(z,cx,cy);
+    });
+  }
+
+  /* Umriss des alten Spielfelds — macht sichtbar, wie klein es geworden ist */
+  if(mitSiedlung&&lvl>startEbene){
+    const vonL=TS.levels[startEbene];
+    ctx.lineWidth=2;ctx.strokeStyle=getComputedStyle(document.body).getPropertyValue('--ember');
+    ctx.setLineDash([5,4]);
+    belegteFelder(vonL).forEach(k=>{
+      const[c,r]=k.split(',').map(Number);
+      const[kx,ky]=centerKm(c,r,vonL.hexKm);
+      hexPfad(X(kx),Y(ky),vonL.hexKm/S3*px);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+  }
+  return {gezeichnet,ohneDaten};
+}
+
+/* =====================================================================
+   ÜBERGANG
+   ===================================================================== */
+function uebergang(richtung){
+  const ziel=lvl+richtung;
+  if(ziel<0||ziel>=TS.levels.length)return;
+  const von=TS.levels[lvl];
+  lvl=ziel;
+  setzeKamera(false);
+  /* Aufbruch nur animieren, solange die Felderzahl im Blick es zulässt —
+     sonst kostet jedes Bild eine Neuberechnung aller Elternmittelpunkte. */
+  const felderImBlick=Math.pow(spanKm/TS.levels[lvl].hexKm,2)*0.8;
+  if(richtung>0&&felderImBlick<7000){
+    anim={elternHexKm:von.hexKm,t0:performance.now(),dauer:850};
+    const schritt=()=>{
+      const t=Math.min(1,(performance.now()-anim.t0)/anim.dauer);
+      const e=1-Math.pow(1-t,3);
+      zeichne(e);
+      if(t<1)requestAnimationFrame(schritt); else {anim=null;alles();}
+    };
+    requestAnimationFrame(schritt);
+  }else alles();
+}
+
+/* =====================================================================
+   PANEL
+   ===================================================================== */
+function alles(){
+  const st=zeichne();
+  const L=TS.levels[lvl];
+  $('cKm').textContent=L.hexKm+' km';
+  $('cLvl').textContent='Ebene '+L.id+' · '+flaeche(L.hexKm).toFixed(L.hexKm<1?2:1)+' km² je Feld';
+  $('note').textContent=st.gezeichnet.toLocaleString('de-CH')+' Felder im Blick'+
+    (st.ohneDaten?' · '+st.ohneDaten.toLocaleString('de-CH')+' ohne Daten':'')+
+    ' · Ausschnitt '+Math.round(spanKm)+' km';
+
+  /* Treppe */
+  $('treppe').innerHTML=TS.levels.map(l=>
+    '<div class="stufe'+(l.id===lvl?' on':'')+'" data-l="'+l.id+'"><b>'+l.hexKm+' km/Hex</b>'+
+    '<span>Ebene '+l.id+' · '+l.cols+'×'+l.rows+'</span></div>').join('');
+  $('treppe').querySelectorAll('.stufe').forEach(el=>el.onclick=()=>{
+    lvl=+el.dataset.l;setzeKamera(false);alles();});
+
+  /* Ebenen-Tabelle */
+  $('tblLvl').innerHTML='<tr><th>Ebene</th><th class="n">km/Hex</th><th class="n">km² je Feld</th><th class="n">Raster</th></tr>'+
+    TS.levels.map(l=>'<tr'+(l.id===lvl?' class="hi"':'')+'><td>'+l.id+'</td><td class="n">'+l.hexKm+
+      '</td><td class="n">'+flaeche(l.hexKm).toFixed(l.hexKm<1?2:1)+'</td><td class="n">'+l.cols+'×'+l.rows+'</td></tr>').join('');
+
+  /* Kosten des Übergangs */
+  if(!mitSiedlung||lvl===startEbene){
+    const naechste=TS.levels[lvl+1];
+    if(naechste&&mitSiedlung){
+      const k=kinderDesSpielfelds(L,naechste);
+      $('gross').innerHTML=startFelder+' Felder <s>bespielt</s> → '+k.n+' Kinder';
+      $('grossTxt').innerHTML='Beim Übergang auf Ebene '+naechste.id+' zerfällt jedes bespielte Feld in ~'+
+        Math.round(k.n/Math.max(1,startFelder))+'. Aus '+startFelder+' bespielten Feldern wird ein Spielfeld von <b>'+
+        k.n+'</b> — dieselbe Siedlung, aber wieder Rand.';
+      zeigeKinder(k);
+    }else{
+      $('gross').textContent=startFelder+' Felder bespielt';
+      $('grossTxt').textContent='Feinste Ebene erreicht — die Pipeline liefert keine weitere.';
+      $('kinder').innerHTML='';
+    }
+  }else{
+    const vonL=TS.levels[startEbene];
+    const k=kinderDesSpielfelds(vonL,L);
+    const jetzt=belegteFelder(L).size;
+    $('gross').innerHTML=jetzt+' von '+k.n+' Feldern <s>belegt</s>';
+    $('grossTxt').innerHTML='Vor dem Übergang waren es '+startFelder+' von '+startFelder+
+      ' (alles). Jetzt sitzt dieselbe Siedlung auf <b>'+(100*jetzt/k.n).toFixed(1)+' %</b> ihres Spielfelds. '+
+      'Der gestrichelte Umriss zeigt, wo das alte Feld lag.';
+    zeigeKinder(k);
+  }
+
+  /* Beleg */
+  $('beleg').innerHTML='Gebacken '+TS.generated.slice(0,10)+' · Hauptlauf '+TS.totalKm+' km · '+
+    TS.levels.map(l=>Object.keys(l.tiles).length+' Kacheln (E'+l.id+')').join(' · ')+
+    '. Die Ebene 2 deckt bewusst nur den Alpenrhein ab; graue Felder heissen „keine Daten", nicht „leer".';
+
+  /* Befund */
+  const f=TS.levels[0].hexKm/TS.levels[1].hexKm;
+  $('befund').innerHTML='<p>Die Pipeline springt je Ebene um <b>Faktor '+f+' in der Länge</b>, also '+
+    '<b>'+(f*f)+'× in der Fläche</b>. Ein Feld zerfällt damit in <b>~25 Kinder</b>, nicht in 7 — und weil sich '+
+    'Hex-Raster nicht exakt verschachteln, schwankt die Zahl von Feld zu Feld (gemessen 22–27).</p>'+
+    '<p class="dim">Für einen Epochenübergang ist ×25 viel: ein bespieltes Tal von 20 Feldern wird zu 500. '+
+    'Entweder braucht die Pipeline eine Zwischenebene (~4–5 km/Hex, dann ×5 je Schritt), oder der Zoomwechsel '+
+    'geschieht nur zwei- bis dreimal in der Kampagne — und man spielt danach in einem <i>Bruchstück</i> des alten Tals '+
+    'weiter (Kamera „Felderzahl halten" zeigt genau das).</p>';
+
+  $('bPrev').disabled=lvl===0;
+  $('bNext').disabled=lvl>=TS.levels.length-1;
+  $('leg').innerHTML=TERRNAME.slice(0,5).concat(['Nebenlauf','Hang']).map((n,i)=>{
+    const idx=i<5?i:(i===5?6:7);
+    return '<span><i style="background:'+(document.body.classList.contains('night')?TERRNIGHT:TERRCOL)[idx]+'"></i>'+n+'</span>';
+  }).join('')+'<span><i style="background:#D5D9CF"></i>keine Daten</span>'+
+    Object.keys(TILE_NM).map(k=>'<span><i style="background:'+TILECOL[k]+'"></i>'+TILE_NM[k]+'</span>').join('');
+}
+function zeigeKinder(k){
+  const arr=[...k.verteilung.entries()].sort((a,b)=>a[0]-b[0]);
+  const max=Math.max(...arr.map(e=>e[1]));
+  $('kinder').innerHTML='<table><tr><th>Kinder</th><th class="n">Felder</th><th></th></tr>'+
+    arr.map(([n,z])=>'<tr><td>'+n+'</td><td class="n">'+z+'</td><td style="padding-left:6px">'+
+      '<span style="display:inline-block;height:7px;border-radius:2px;background:var(--ember);width:'+
+      Math.round(60*z/max)+'px"></span></td></tr>').join('')+'</table>'+
+    '<p class="dim" style="margin-top:6px">Hex-Raster verschachteln sich nicht: die Kinderzahl je Feld schwankt.</p>';
+}
+
+/* =====================================================================
+   STEUERUNG
+   ===================================================================== */
+$('bNext').onclick=()=>uebergang(1);
+$('bPrev').onclick=()=>uebergang(-1);
+$('selKam').onchange=e=>{kamera=e.target.value;setzeKamera(false);alles();};
+$('selOrt').onchange=e=>{ortId=e.target.value;lvl=0;setzeKamera(true);baueSiedlung();alles();};
+$('bSied').onclick=e=>{mitSiedlung=!mitSiedlung;e.target.classList.toggle('on',mitSiedlung);alles();};
+$('bNight').onclick=e=>{document.body.classList.toggle('night');e.target.classList.toggle('on');alles();};
+addEventListener('resize',()=>alles());
+addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight')uebergang(1);
+  if(e.key==='ArrowLeft')uebergang(-1);
+});
+/* Klick auf die Karte verschiebt die Mitte — genug Navigation für ein Labor */
+cv.onclick=e=>{
+  const b=cv.getBoundingClientRect(), dpr=cv.width/b.width;
+  const px=cv.width/spanKm;
+  mitte=[mitte[0]+((e.clientX-b.left)*dpr-cv.width/2)/px,
+         mitte[1]+((e.clientY-b.top)*dpr-cv.height/2)/px];
+  alles();
+};
+
+(function init(){
+  const q=new URLSearchParams(location.search);
+  if(q.has('ort')&&ORTE.some(o=>o.id===q.get('ort')))ortId=q.get('ort');
+  $('selOrt').innerHTML=ORTE.map(o=>'<option value="'+o.id+'"'+(o.id===ortId?' selected':'')+'>'+o.nm+'</option>').join('');
+  if(q.get('kamera')==='felder'){kamera='felder';$('selKam').value='felder';}
+  if(q.get('siedlung')==='aus'){mitSiedlung=false;$('bSied').classList.remove('on');}
+  if(q.has('night')){document.body.classList.add('night');$('bNight').classList.add('on');}
+  setzeKamera(true);
+  baueSiedlung();
+  const e=+q.get('ebene');
+  if(e>0&&e<TS.levels.length){lvl=e;setzeKamera(false);}
+  alles();
+})();
+</script>
+</body>
+</html>

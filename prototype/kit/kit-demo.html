@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baukasten-Musterbogen — sot.css / sot.js</title>
+<link rel="stylesheet" href="sot.css">
+<link rel="stylesheet" href="sot-hex.css">
+<link rel="stylesheet" href="sot-doc.css">
+<style>
+  /* Nur für den Musterbogen selbst — nichts davon gehört in den Baukasten. */
+  .demo{margin:0 0 30px;}
+  .demo>h2.sec{display:flex;align-items:baseline;gap:10px;}
+  .demo>h2.sec code{font-size:10px;}
+  .swatches{display:flex;flex-wrap:wrap;gap:6px;}
+  .sw{width:78px;font-family:var(--f-mono);font-size:8.5px;color:var(--ink2);text-align:center;}
+  .sw i{display:block;height:34px;border-radius:var(--r-sm);border:1px solid var(--line);margin-bottom:3px;}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media (max-width:700px){.two{grid-template-columns:1fr;}}
+  #demomap{max-width:340px;}
+</style>
+</head>
+<body>
+
+<button class="modebtn"></button>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker">Prototyp-Baukasten · Musterbogen</div>
+  <h1>sot.css / sot.js</h1>
+  <p>Jede Primitive des Baukastens einmal gezeigt, in allen Zuständen. Dies ist die
+  lebende Referenz: wer eine Primitive ändert, prüft sie hier. Und wer einen neuen
+  Prototyp baut, sucht hier zuerst — es ist schneller, als es nochmal zu schreiben.</p>
+  <p class="hint">Debug: <code>?night</code> · <code>?werkbank</code> · <code>?debug</code> ·
+  <code>?hilfe</code> · <code>?lod=s|m|l</code> · <code>?slots</code></p>
+</header>
+
+<!-- ============================================================ Tokens === -->
+<section class="demo">
+  <h2 class="sec">Tokens <code>sot.css</code></h2>
+  <p class="secsub">Drei Register über denselben Variablennamen: Tag (Standard),
+  <code>body.night</code> (Spielmechanik Nacht), <code>body.werkbank</code>
+  (Werkzeuge und Viewer — kühl, damit man sie nicht fürs Spiel hält).</p>
+  <div class="pane">
+    <h4>Flächen &amp; Schrift</h4>
+    <div class="swatches" id="swBase"></div>
+    <h4 class="sp">Akzent &amp; Wertung</h4>
+    <div class="swatches" id="swAcc"></div>
+    <h4 class="sp">Gelände</h4>
+    <div class="swatches" id="swTerr"></div>
+    <h4 class="sp">Status</h4>
+    <div class="swatches" id="swSt"></div>
+  </div>
+</section>
+
+<!-- ======================================================== Typografie === -->
+<section class="demo">
+  <h2 class="sec">Typografie</h2>
+  <div class="pane">
+    <h1>Bricolage Grotesque 800</h1>
+    <h2>Überschrift zweiter Ordnung</h2>
+    <h3>Überschrift dritter Ordnung</h3>
+    <h4>Etikett über einer Fläche</h4>
+    <p>Instrument Sans trägt den Lauftext. <b>Fett</b>, <i>kursiv</i>,
+    <code>Space Mono im Code</code>, <kbd>←</kbd> <kbd>→</kbd> als Taste,
+    ein <mark>hervorgehobenes</mark> Wort, <span class="dim">gedimmt</span>,
+    <span class="good">gut</span> · <span class="bad">schlecht</span> ·
+    <span class="warn">Achtung</span>.</p>
+    <p class="mono num">1 470 · 11 700 v. Chr. · 3.1415</p>
+  </div>
+</section>
+
+<!-- ========================================================= Bedienung === -->
+<section class="demo">
+  <h2 class="sec">Bedienung</h2>
+  <div class="two">
+    <div class="pane">
+      <h4>Knöpfe</h4>
+      <div class="row">
+        <button>Standard</button>
+        <button class="primary">Primär</button>
+        <button class="on">Aktiv</button>
+        <button class="ghost">Geist</button>
+        <button class="danger">Gefahr</button>
+        <button class="armed">Scharf</button>
+        <button class="small">Klein</button>
+        <button disabled>Gesperrt</button>
+      </div>
+      <h4 class="sp">Segmentierte Wahl <code>.seg</code></h4>
+      <div class="seg" id="demoSeg">
+        <button class="on">Karte</button><button>Werte</button><button>Regeln</button>
+      </div>
+      <h4 class="sp">Eingaben</h4>
+      <div class="frow">
+        <div class="field"><label>Name</label><input type="text" value="Alpenrhein"></div>
+        <div class="field"><label>Runde</label><input type="number" value="7"></div>
+      </div>
+      <div class="reihe" style="margin-top:8px">
+        <label>Pegel</label><input type="range" min="0" max="100" value="62" id="demoRange">
+        <span class="wert" id="demoRangeV">62 m³/s</span>
+      </div>
+      <label class="chk"><input type="checkbox" checked> Fundstellen einblenden</label>
+      <label class="chk"><input type="checkbox"> Nebel des Vergessens</label>
+      <div class="ctrl">
+        <button class="small">Zurücksetzen</button>
+        <span class="spacer"></span>
+        <button class="primary small">Übernehmen</button>
+      </div>
+    </div>
+    <div>
+      <h4>Reiter <code>.tabs</code> + <code>.pane</code></h4>
+      <div class="tabs" id="demoTabs">
+        <button data-tab="a" class="on">Feld</button>
+        <button data-tab="b">Katalog</button>
+        <button data-tab="c">Regeln</button>
+      </div>
+      <div class="pane" data-tab="a">
+        <h4>Feld C4 · R7</h4>
+        <div class="kv"><span>Gelände</span><b>Uferzone</b></div>
+        <div class="kv"><span>Feldwert</span><b class="good">+3</b></div>
+        <div class="kv"><span>Menschen</span><b>2</b></div>
+        <div class="quelle" style="margin-top:8px"><b>Quelle:</b> Grabungsbericht
+        Chur-Welschdörfli 1986 — historisch inspiriert und vereinfacht.</div>
+      </div>
+      <div class="pane hid" data-tab="b">
+        <div class="itemlist">
+          <div class="itemrow sel"><b>Fischerhütte</b><small>+2 N</small></div>
+          <div class="itemrow"><b>Uferpfad</b><small>+1 M</small></div>
+          <div class="itemrow off"><b>Pfahlbau</b><small>gesperrt</small></div>
+        </div>
+      </div>
+      <div class="pane hid" data-tab="c">
+        <div class="regel"><span class="nr">1</span><span>Ein Plättchen liegt nur
+        an einer Kante an, die dasselbe Gelände trägt.</span></div>
+        <div class="regel"><span class="nr">2</span><span>Wer die Furt hält, zahlt
+        keinen Übergang.</span></div>
+      </div>
+      <div class="grp open" style="margin-top:14px">
+        <div class="ghead"><span class="lbl">Gruppe, aufklappbar</span><span class="cnt">3</span></div>
+        <div class="gbody">
+          <div class="chips">
+            <span class="chip on">Fluss</span><span class="chip">Hang</span>
+            <span class="chip on good">Wald</span><span class="chip on bad">Brand</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================= Zahlen === -->
+<section class="demo">
+  <h2 class="sec">Zahl &amp; Zustand</h2>
+  <div class="pane">
+    <h4>Kennzahlen <code>.res</code> + <code>.stat</code></h4>
+    <div class="res">
+      <div class="stat"><b>12</b><span>Nahrung</span><div class="delta pos">+3</div></div>
+      <div class="stat"><b>5</b><span>Schutz</span><div class="delta neg">−1</div></div>
+      <div class="stat"><b>8</b><span>Material</span><div class="delta">±0</div></div>
+      <div class="stat" id="demoFlash"><b>3</b><span>Kultur</span><div class="delta pos">+1</div></div>
+    </div>
+    <h4 class="sp">Fortschritt <code>.prog</code></h4>
+    <div class="prog">
+      <div class="lbl"><span>Sesshaftigkeit</span><span>13 / 20</span></div>
+      <div class="bar"><div class="fill" style="width:65%"></div></div>
+    </div>
+    <h4 class="sp">Zeitleiste <code>.timeline</code></h4>
+    <div class="timeline" id="demoTl"></div>
+    <h4 class="sp">Zustandspunkt <code>.dot</code></h4>
+    <div class="row mono small">
+      <span><span class="dot"></span>aktiv</span>
+      <span><span class="dot idle"></span>ruht</span>
+      <span><span class="dot good"></span>gesichert</span>
+      <span><span class="dot bad"></span>Fehler</span>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================== Merkmale === -->
+<section class="demo">
+  <h2 class="sec">Merkmale</h2>
+  <div class="pane">
+    <h4>Plakette <code>.badge</code> — Kartenstatus</h4>
+    <div class="row">
+      <span class="badge b-done">Umgesetzt</span>
+      <span class="badge b-concept">Konzept</span>
+      <span class="badge b-idea">Idee</span>
+      <span class="badge b-rej">Verworfen</span>
+      <span class="badge b-open">Offen</span>
+    </div>
+    <h4 class="sp">Marke <code>.pill</code> — Belegstatus (Quellenlage)</h4>
+    <div class="row">
+      <span class="pill belegt">belegt</span>
+      <span class="pill wahrscheinlich">wahrscheinlich</span>
+      <span class="pill rekonstruiert">rekonstruiert</span>
+      <span class="pill erfunden">erfunden</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ Hinweise === -->
+<section class="demo">
+  <h2 class="sec">Hinweise</h2>
+  <div class="two">
+    <div>
+      <div class="why"><b>Warum</b>Die Glut-Kante trägt die Begründung einer
+      Entscheidung. Sie steht im Handbuch neben jeder Karte, die etwas festlegt.</div>
+      <div class="gap"><b>Was fehlt</b>Die Warn-Kante trägt die Lücke: was noch
+      nicht geprüft, nicht gemessen, nicht entschieden ist.</div>
+      <div class="gap none"><b>Nicht erfüllt</b>Rote Kante — die Vorgabe ist
+      nachweislich nicht eingehalten.</div>
+      <div class="gap full"><b>Erfüllt</b>Grüne Kante — geprüft und in Ordnung.</div>
+    </div>
+    <div class="pane">
+      <h4>Legende <code>.leg</code></h4>
+      <div class="leg">
+        <span><i style="background:var(--river)"></i>Fluss</span>
+        <span><i style="background:var(--lake)"></i>See</span>
+        <span><i style="background:var(--wald)"></i>Wald</span>
+        <span><i style="background:var(--hang)"></i>Hang</span>
+        <span><i style="background:var(--kies)"></i>Kies</span>
+      </div>
+      <h4 class="sp">Tabelle <code>table.t</code></h4>
+      <table class="t">
+        <tr><th>Epoche</th><th class="n">Felder</th><th class="n">km²</th></tr>
+        <tr><td>Mesolithikum</td><td class="n">420</td><td class="n">1 455</td></tr>
+        <tr class="hi"><td>Neolithikum</td><td class="n">112</td><td class="n">388</td></tr>
+        <tr><td>Bronzezeit</td><td class="n">1 569</td><td class="n">5 435</td></tr>
+      </table>
+      <h4 class="sp">Protokoll <code>.log</code></h4>
+      <div class="log">
+        <div class="li good"><span class="rn">R3 ·N</span><span><b>Fund</b> Feuerstelle am Ufer</span></div>
+        <div class="li bad"><span class="rn">R5 ·N</span><span><b>Verlust</b> Hochwasser nimmt zwei Plättchen</span></div>
+        <div class="li dim"><span class="rn">R6 ·M</span><span>Vorzeichen: der Pegel steigt</span></div>
+      </div>
+      <p class="note"><b>Fußnote.</b> Historische Ereignisse sind historisch
+      inspiriert und vereinfacht.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================== Rückmeldungen === -->
+<section class="demo">
+  <h2 class="sec">Rückmeldungen <code>sot.js</code></h2>
+  <div class="pane">
+    <p class="dim small">Toast, Überlagerung und Blatt legt <code>sot.js</code>
+    selbst an — kein Markup nötig.</p>
+    <div class="row">
+      <button id="bToast">SOT.toast()</button>
+      <button id="bOverlay">SOT.overlay()</button>
+      <button id="bSheet">SOT.sheet()</button>
+      <button id="bHelp">SOT.hilfe()</button>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================================== Hexraster === -->
+<section class="demo">
+  <h2 class="sec">Hexraster <code>sot-hex.css</code> / <code>sot-hex.js</code></h2>
+  <p class="secsub">Spitz-oben, odd-r-Offset. <code>SOT.hex.autosize()</code> setzt
+  <code>--hexw</code> und die Detailstufe — auch dann noch, wenn der Behälter erst
+  später sichtbar wird. Die sechs Slots liegen auf einem Ring bei ~22 %, weil die
+  Boxecken eines Spitz-oben-Sechsecks leer sind.</p>
+  <div class="two">
+    <div class="pane">
+      <div class="map" id="demomap"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="small" id="bSlots">Slot-Raster</button>
+        <button class="small" id="bLod">Detailstufe</button>
+        <span class="hint" id="lodOut"></span>
+      </div>
+      <div class="leg">
+        <span><i style="background:var(--river)"></i>water</span>
+        <span><i style="background:var(--lake)"></i>lake</span>
+        <span><i style="background:var(--flach)"></i>flach</span>
+        <span><i style="background:var(--ufer)"></i>ufer</span>
+        <span><i style="background:var(--hang)"></i>hang</span>
+        <span><i style="background:var(--wald)"></i>wald</span>
+      </div>
+    </div>
+    <div class="pane">
+      <h4>Geometrie — gerechnet, nicht behauptet</h4>
+      <div id="hexFacts"></div>
+      <h4 class="sp">Nachbarn von <code id="nbOf"></code></h4>
+      <div id="nbOut" class="mono small"></div>
+      <p class="note">Diese Tabelle muss mit
+      <code>app/src/stromlinien/grid.ts</code> identisch bleiben.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================================== Dokumente === -->
+<section class="demo">
+  <h2 class="sec">Wissensdokument <code>sot-doc.css</code> / <code>sot-doc.js</code></h2>
+  <p class="secsub">Die Karte des Handbuchs: <code>data-s</code> trägt den Status,
+  Plakette und Chevron kommen von <code>SOT.doc.init()</code>. Die Publish-Ansicht
+  leitet sich aus <code>data-s</code> ab — darum muss er stimmen.</p>
+  <h2 class="chap" id="kdemo"><span class="n">01</span>Beispielkapitel</h2>
+  <p class="chapsub">Ein Kapitel mit vier Karten in vier Zuständen.</p>
+  <div class="card openc" data-s="done"><div class="chead"><h3>Etwas, das in der App läuft</h3></div>
+    <div class="cbody"><p>Aufgeklappt, weil <code>.openc</code> gesetzt ist.
+    Standard ist zu — ein Handbuch mit 80 offenen Karten ist keins.</p>
+    <div class="why"><b>Warum</b>Der Status ist die Wahrheit über den Stand, nicht
+    eine Absichtserklärung.</div></div></div>
+  <div class="card" data-s="concept"><div class="chead"><h3>Entschieden, noch nicht gebaut</h3></div>
+    <div class="cbody"><p>Erscheint in der Publish-Ansicht.</p></div></div>
+  <div class="card" data-s="idea"><div class="chead"><h3>Noch nicht entschieden</h3></div>
+    <div class="cbody"><p>Nur in der Entwicklungs-Ansicht.</p></div></div>
+  <div class="card" data-s="rej"><div class="chead"><h3>Verworfen — mit Begründung</h3></div>
+    <div class="cbody"><p>Verworfene Ideen behalten ihre Karte. Die Geschichte ist
+    Teil des Zwecks des Dokuments.</p></div></div>
+</section>
+
+<footer>
+  <b>Musterbogen des Prototyp-Baukastens</b> · <code>prototype/kit/kit-demo.html</code><br>
+  Wer eine Primitive ändert, prüft sie hier. Wer eine neue hinzufügt, zeigt sie hier.
+  Sonst weiß der nächste Prototyp nicht, dass sie existiert.
+</footer>
+
+</div><!-- /wrap -->
+
+<div class="sheet" id="demoSheet">
+  <div class="handle"></div>
+  <div class="shead"><h3>Blatt von unten</h3><button class="small closesheet">Schließen</button></div>
+  <div class="sbody">
+    <p class="dim small">Ein <code>.sheet</code> fährt von unten ein (mobil) oder
+    mit <code>.right</code> von rechts (Lager-Menü). <code>SOT.sheet()</code>
+    verdrahtet Verdunkelung, Esc und <code>.closesheet</code>.</p>
+    <div class="kv"><span>Plättchen im Lager</span><b>4</b></div>
+    <div class="kv"><span>Menschen</span><b>7</b></div>
+  </div>
+</div>
+
+<script src="sot.js"></script>
+<script src="sot-hex.js"></script>
+<script src="sot-doc.js"></script>
+<script>
+'use strict';
+var $ = SOT.$, el = SOT.el;
+
+var P = SOT.params({
+  lod:   { t:'enum', values:['auto','s','m','l'], def:'auto', help:'Detailstufe erzwingen' },
+  slots: { t:'flag', help:'Slot-Raster über jedem Feld einblenden' },
+  size:  { t:'int', def:0, min:0, max:200, help:'Feldbreite in px festnageln (0 = automatisch)' },
+  demo:  { t:'flag', help:'Toast beim Laden zeigen' }
+});
+
+/* ---------- Tokens als Farbtafeln ---------- */
+function swatches(id, names){
+  var box = $(id);
+  names.forEach(function(n){
+    box.appendChild(el('div.sw', null, [ el('i', {style:{background:'var(--'+n+')'}}), '--'+n ]));
+  });
+}
+swatches('swBase', ['bg','panel','panel2','ink','ink2','line','bone']);
+swatches('swAcc',  ['ember','emberglow','good','bad','warn']);
+swatches('swTerr', ['river','riverdeep','lake','flach','ufer','hang','wald','kies','trocken','brand','rom','tile']);
+swatches('swSt',   ['st-done','st-concept','st-idea','st-rej','st-open']);
+
+/* ---------- Bedienung ---------- */
+SOT.tabs('#demoTabs');
+SOT.groups();
+$('#demoRange').addEventListener('input', function(){
+  $('#demoRangeV').textContent = this.value + ' m³/s';
+});
+SOT.$$('#demoSeg button').forEach(function(b){
+  b.addEventListener('click', function(){
+    SOT.$$('#demoSeg button').forEach(function(o){ o.classList.remove('on'); });
+    b.classList.add('on');
+  });
+});
+$('#demoFlash').addEventListener('click', function(){
+  this.classList.remove('flash');
+  void this.offsetWidth;          /* Reflow: sonst startet die Animation nicht neu */
+  this.classList.add('flash');
+});
+
+/* ---------- Zeitleiste ---------- */
+var tl = $('#demoTl');
+for (var i = 1; i <= 10; i++){
+  var cls = '.tl-seg' + (i < 7 ? '.done' : '') + (i === 7 ? '.now' : '') + (i % 4 === 0 ? '.anchor' : '');
+  tl.appendChild(el('div' + cls, { text: i }));
+}
+
+/* ---------- Rückmeldungen ---------- */
+$('#bToast').addEventListener('click', function(){ SOT.toast('Zwei Plättchen gingen verloren.'); });
+$('#bOverlay').addEventListener('click', function(){
+  SOT.overlay({
+    tag: 'Anker-Ereignis · Runde 7',
+    title: 'Die große Kälte',
+    text: 'Der Sommer bleibt aus. Was habt ihr vorbereitet?',
+    choices: [
+      { label:'Vorräte anlegen', hint:'−2 Material · Kälte kostet 2 Nahrung', primary:true,
+        onclick:function(){ SOT.toast('Vorräte angelegt.'); } },
+      { label:'Nichts tun', hint:'Kälte kostet 4 Nahrung',
+        onclick:function(){ SOT.toast('Vier Nahrung verloren.'); } }
+    ]
+  });
+});
+var sheet = SOT.sheet('#demoSheet');
+$('#bSheet').addEventListener('click', sheet.open);
+$('#bHelp').addEventListener('click', function(){ SOT.hilfe(P.spec); });
+
+/* Tag/Nacht verdrahtet SOT.doc.init() weiter unten — hier KEIN eigener
+   Handler auf .modebtn, sonst schaltet ein Klick zweimal und damit nichts. */
+
+/* ---------- Hexraster ---------- */
+var COLS = 5, ROWS = 5;
+var TERRAIN = [
+  ['hang','hang','flach','flach','ufer'],
+  ['hang','flach','ufer','water','water'],
+  ['flach','ufer','water','water','lake'],
+  ['wald','flach','ufer','water','lake'],
+  ['wald','wald','flach','ufer','water']
+];
+var map = $('#demomap');
+SOT.hex.grid(map, COLS, ROWS, function(cell, c, r){
+  var t = TERRAIN[r][c];
+  cell.classList.add(t, 'clickable');
+  if (t !== 'water' && t !== 'lake'){
+    cell.appendChild(el('div.glyph', { html:
+      '<svg viewBox="0 0 24 24"><path d="M4 18 L12 6 L20 18 Z" fill="currentColor" opacity=".55"/></svg>' }));
+  }
+  if (c === 2 && r === 2) cell.classList.add('furt');
+  if (c === 1 && r === 1){
+    cell.classList.add('placed');
+    SOT.hex.mark(cell, 'krone', el('div.pers', { text:'✦' }));
+    SOT.hex.mark(cell, 'wange', el('div.evmark', { html:'❄<span class="dur">2</span>' }));
+    SOT.hex.mark(cell, 'ferse', el('div.sdot.flora'));
+    SOT.hex.mark(cell, 'ferse', el('div.sdot.fauna'));
+    SOT.hex.mark(cell, 'fuss',  el('span', { text:'◈' }));
+    SOT.hex.mark(cell, 'zahl',  el('span', { text:'3' }));
+  }
+  if (c === 3 && r === 3) cell.classList.add('valid');
+  if (c === 0 && r === 4) cell.classList.add('sel');
+  if (c === 4 && r === 0) cell.classList.add('fog');
+});
+
+var sizer = SOT.hex.autosize(map, COLS, {
+  max: P.size || 999,
+  min: P.size || 18,
+  onSize: function(w, lod){
+    $('#lodOut').textContent = '--hexw ' + w + 'px · data-lod ' + (map.dataset.lod || '');
+    facts(w);
+  }
+});
+if (P.lod !== 'auto') map.dataset.lod = P.lod;
+if (P.slots) SOT.$$('.cell', map).forEach(SOT.hex.slotgrid);
+
+$('#bSlots').addEventListener('click', function(){
+  var on = map.querySelector('.slotgrid');
+  if (on) SOT.$$('.slotgrid', map).forEach(function(g){ g.remove(); });
+  else SOT.$$('.cell', map).forEach(SOT.hex.slotgrid);
+});
+$('#bLod').addEventListener('click', function(){
+  var order = ['s','m','l'], i = order.indexOf(map.dataset.lod || 'l');
+  map.dataset.lod = order[(i + 1) % 3];
+  $('#lodOut').textContent = 'data-lod ' + map.dataset.lod + ' (erzwungen)';
+});
+
+/* Geometrie vorrechnen statt behaupten. */
+function facts(w){
+  var g = SOT.hex.gridSize(COLS, ROWS, w, 4);
+  var mid = SOT.hex.center(2, 2, w, 4);
+  $('#hexFacts').innerHTML =
+    '<div class="kv"><span>h / w</span><b>' + SOT.hex.RATIO.toFixed(4) + '</b></div>' +
+    '<div class="kv"><span>Feldbreite</span><b>' + w + ' px</b></div>' +
+    '<div class="kv"><span>Feldhöhe</span><b>' + SOT.hex.height(w).toFixed(1) + ' px</b></div>' +
+    '<div class="kv"><span>Raster ' + COLS + '×' + ROWS + '</span><b>' +
+      Math.round(g.w) + ' × ' + Math.round(g.h) + ' px</b></div>' +
+    '<div class="kv"><span>Mitte von C2·R2</span><b>' +
+      Math.round(mid.x) + ' , ' + Math.round(mid.y) + '</b></div>' +
+    '<div class="kv"><span>Entfernung C0R0 → C4R4</span><b>' +
+      SOT.hex.dist({c:0,r:0},{c:4,r:4}) + ' Felder</b></div>' +
+    '<div class="kv"><span>Ring 2 um C2·R2</span><b>' +
+      SOT.hex.ring(2,2,2).length + ' Felder</b></div>';
+}
+
+/* Nachbarn: ungerade Zeile, weil dort die Zeilenparität sichtbar wird. */
+$('#nbOf').textContent = 'C2 · R3 (odd)';
+$('#nbOut').innerHTML = SOT.hex.neighbors(2,3).map(function(n){
+  return n.dir + ' → C' + n.c + '·R' + n.r;
+}).join(' &nbsp;·&nbsp; ');
+
+map.addEventListener('click', function(ev){
+  var f = SOT.hex.cellOf(ev);
+  if (!f) return;
+  SOT.$$('.cell.sel', map).forEach(function(c){ c.classList.remove('sel'); });
+  f.el.classList.add('sel');
+  var nb = SOT.hex.neighborsIn(f.c, f.r, COLS, ROWS);
+  SOT.toast('C' + f.c + '·R' + f.r + ' — ' + nb.length + ' Nachbarn auf der Karte');
+});
+
+/* ---------- Wissensdokument ---------- */
+SOT.doc.init({ key: 'sot-kitdemo-mode' });
+
+/* ---------- Debugstrip ---------- */
+SOT.debug(P);
+if (P.demo) SOT.toast('Musterbogen geladen — ?debug zeigt die Leiste.');
+</script>
+</body>
+</html>

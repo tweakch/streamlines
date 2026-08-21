@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Technik-Handbuch</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+:root{
+  --bg:#DCE3D8; --panel:#ECEFE6; --panel2:#E2E7DC; --ink:#22302C; --ink2:#5A6B64;
+  --river:#7FB2AC; --ember:#C96F2E; --line:#B8C2B4;
+  --shadow:0 2px 10px rgba(30,45,40,.10);
+  --st-done:#4E7D5B; --st-mess:#3E6E8C; --st-open:#7A6A9C;
+}
+body.night{
+  --bg:#0D151D; --panel:#141F28; --panel2:#101A22; --ink:#E6E1D2; --ink2:#8B9690;
+  --river:#2E5457; --ember:#E08A3C; --line:#2C3B44;
+  --shadow:0 2px 14px rgba(0,0,0,.5);
+  --st-done:#7FB08B; --st-mess:#7FA8C4; --st-open:#A798C9;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{scroll-behavior:smooth;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Instrument Sans',system-ui,sans-serif;transition:background .9s,color .9s;line-height:1.6;}
+.wrap{max-width:820px;margin:0 auto;padding:20px 16px 80px;}
+header.hero{padding:26px 0 10px;}
+.hero .kicker{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.2em;color:var(--ember);text-transform:uppercase;}
+.hero h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(30px,7vw,46px);line-height:1;margin:8px 0 10px;}
+.hero p{color:var(--ink2);max-width:62ch;margin:0 0 10px;}
+.modebtn{position:fixed;top:14px;right:14px;z-index:50;font-family:'Space Mono',monospace;font-size:11px;border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);border-radius:20px;padding:7px 13px;cursor:pointer;}
+h2.chap{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:21px;margin:40px 0 4px;display:flex;align-items:baseline;gap:10px;}
+h2.chap .n{font-family:'Space Mono',monospace;font-size:12px;color:var(--ember);}
+.chapsub{font-size:12.5px;color:var(--ink2);margin:0 0 14px;}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:12px;box-shadow:var(--shadow);padding:15px;font-size:13.5px;}
+.card h3{font-size:14.5px;font-weight:600;margin:0 0 8px;display:flex;align-items:center;gap:9px;}
+.card h3 .badge{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:10px;color:var(--bg);white-space:nowrap;}
+.b-done{background:var(--st-done);} .b-mess{background:var(--st-mess);} .b-open{background:var(--st-open);}
+.card p{margin:0 0 10px;} .card p:last-child{margin-bottom:0;}
+.card ul,.card ol{margin:0 0 10px;padding-left:20px;} .card li{margin-bottom:5px;}
+table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0;}
+th{text-align:left;font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);padding:5px 8px;border-bottom:1.5px solid var(--line);}
+td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top;}
+td.n,th.n{text-align:right;font-family:'Space Mono',monospace;}
+.gut{color:var(--st-done);font-weight:700;} .schlecht{color:var(--ember);font-weight:700;}
+.why{background:var(--panel2);border-left:3px solid var(--ember);border-radius:0 8px 8px 0;padding:9px 12px;font-size:12px;margin:10px 0;}
+.why b{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ember);display:block;margin-bottom:3px;}
+code{font-family:'Space Mono',monospace;font-size:11.5px;background:var(--panel2);padding:1px 5px;border-radius:4px;}
+pre{font-family:'Space Mono',monospace;font-size:11px;line-height:1.5;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:11px 13px;overflow-x:auto;margin:10px 0;}
+pre b{color:var(--ember);font-weight:700;}
+.dim{color:var(--ink2);font-size:12px;}
+.toc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:18px;font-size:13px;}
+.toc a{color:var(--ink);text-decoration:none;border-bottom:1px dotted var(--ink2);}
+.toc b{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);display:block;margin-bottom:6px;}
+.toc ol{margin:0;padding-left:20px;} .toc li{margin-bottom:3px;}
+footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--line);font-size:11px;color:var(--ink2);line-height:1.6;}
+.regel{display:flex;gap:10px;align-items:flex-start;margin-bottom:9px;}
+.regel .nr{font-family:'Space Mono',monospace;font-size:10px;color:var(--ember);border:1px solid var(--line);border-radius:6px;padding:2px 6px;flex-shrink:0;margin-top:2px;}
+</style>
+</head>
+<body>
+<button class="modebtn" onclick="document.body.classList.toggle('night');this.textContent=document.body.classList.contains('night')?'☀ TAG':'☾ NACHT'">☾ NACHT</button>
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker">Technik-Handbuch · Renderpipeline · Stand 20. August 2026</div>
+  <h1>Wie die Karte gezeichnet wird</h1>
+  <p>Die Prototypen von STROMLINIEN zeichnen Hexraster auf ein Canvas — von 22×44 Feldern im Spiel bis zu 28 576 Feldern im Eiszeit-Labor, und bald mehr. Dieses Dokument beschreibt, <b>wie</b> das geschieht, <b>was gemessen</b> wurde und <b>welche Regeln</b> daraus folgen. Es ist das technische Gegenstück zum <a href="stromlinien-handbuch.html">Handbuch</a>, das die Spielregeln und die Designgeschichte hält.</p>
+  <p class="dim">Bezugspunkt aller Zahlen: <code>eiszeit-labor-v2</code>, 152×188 = 28 576 Felder à 1 km. Es ist der schwerste Prototyp, und was dort trägt, trägt überall. <b>Nachtrag:</b> der Nachfolger <code>eiszeit-labor-v3</code> hat 353 400 Felder — die Probe darauf steht weiter unten unter „Die Probe aufs Exempel".</p>
+  <div class="toc"><b>Kapitel</b><ol>
+    <li><a href="#k1">Wie hier gemessen wird</a></li>
+    <li><a href="#k2">Der Befund: das Primitiv war falsch</a></li>
+    <li><a href="#k3">Zwei Betriebsarten</a></li>
+    <li><a href="#k4">Das Zellbild</a></li>
+    <li><a href="#k5">Eine Farbe, zwei Verbraucher</a></li>
+    <li><a href="#k6">Der Vektorpfad, aufgeräumt</a></li>
+    <li><a href="#k7">Was es gebracht hat</a></li>
+    <li><a href="#k8">Wie es mit mehr Daten skaliert</a></li>
+    <li><a href="#k9">Regeln für neue Zeichenpässe</a></li>
+    <li><a href="#k10">Offene Hebel</a></li>
+    <li><a href="#k11">Der Weg auf grössere Karten</a></li>
+  </ol></div>
+</header>
+
+<h2 class="chap" id="k1"><span class="n">1</span> Wie hier gemessen wird</h2>
+<p class="chapsub">Ohne echte Uhr ist jede Optimierung Geschmackssache.</p>
+
+<div class="card">
+  <h3><span class="badge b-mess">Werkzeug</span> Der Messstand</h3>
+  <p>Prototypen werden sonst mit <code>chrome --headless --screenshot</code> geprüft. Für Zeitmessungen ist das <b>unbrauchbar</b>: mit <code>--virtual-time-budget</code> läuft eine virtuelle Uhr, die während synchroner Arbeit stillsteht — <code>performance.now()</code> liefert Differenzen von 0.0 ms. Der eingebaute <code>?bench</code> gilt deshalb nur im echten Browser.</p>
+  <p>Der Messstand ist stattdessen headless Chrome <b>ohne</b> virtuelle Zeit, gesteuert über das DevTools-Protokoll: Port öffnen, per WebSocket verbinden, <code>Runtime.evaluate</code> mit <code>awaitPromise</code>. Node 22+ hat <code>WebSocket</code> global, es braucht keine Abhängigkeit.</p>
+<pre>chrome --headless=new --disable-gpu --remote-debugging-port=9333 \
+       --user-data-dir=&lt;temp&gt; --window-size=1600,1000 &lt;datei-url&gt;
+GET  http://127.0.0.1:9333/json/list      → webSocketDebuggerUrl
+WS   Runtime.enable · Log.enable · Page.enable
+WS   <b>Runtime.evaluate</b> { expression, awaitPromise:true, returnByValue:true }</pre>
+  <p>Die Sonde im Seitenkontext wartet erst auf <code>RUN.fertig</code>, misst dann jede Grösse als <b>Median aus sieben Läufen</b> und gibt ein JSON zurück. Weil die Prototypen ihre Zustände in Modul-Konstanten halten, ist alles direkt ansprechbar — <code>zeichne()</code>, <code>zellBasisBauen()</code>, <code>RASTER</code>, <code>AN</code>.</p>
+  <div class="why"><b>Zwei Fallen</b>Erstens: <code>Runtime.evaluate</code> direkt nach dem Start trifft die Seite, bevor ihr Skript gelaufen ist — <code>Page.reload</code> und eine Wartezeit davor, sonst „RUN is not defined“. Zweitens: <code>Runtime.exceptionThrown</code> und <code>Log.entryAdded</code> mitschreiben, sonst sieht man einen Seitenfehler nur als leeres Ergebnis.</div>
+  <p class="dim">Alle Zahlen hier sind <b>Software-Rendering</b> (SwiftShader, keine GPU), dpr 1, Canvas 1278×748. Das ist der schlechteste Fall: ein echter Browser komponiert über die GPU. Für Vergleiche zwischen zwei Fassungen ist es der beste Fall, weil nichts von einem Treiber verdeckt wird.</p>
+</div>
+
+<div class="card">
+  <h3><span class="badge b-mess">Werkzeug</span> Bildvergleich statt Augenmass</h3>
+  <p>Ein zweiter Renderpfad muss <i>dasselbe</i> Bild ergeben. Augenmass reicht dafür nicht — beim ersten Vergleich schien die Schraffur der geschätzten Felder plötzlich über die ganze Karte zu laufen. Die Prüfung: zwei Screenshots in ein Canvas laden, pixelweise vergleichen und die Abweichung als <b>10×10-Dichtekarte in Prozent</b> ausgeben. Ergebnis:</p>
+<pre>9 9 7 5 8 7 9 9 9 9   ← Nordrand (Deutschland, Höhen geschätzt)
+9 7 4 0 2 1 2 5 9 9
+1 0 0 0 0 0 0 0 5 9
+0 0 0 0 0 0 0 0 8 9   ← Ostrand (Vorarlberg, Liechtenstein)
+0 0 0 0 0 0 0 1 9 9
+0 0 0 0 0 0 0 0 4 8
+0 0 0 0 0 0 0 0 0 2
+0 0 0 0 0 0 0 0 0 0   <b>Mitte (Schweiz): 0 % — die Schraffur sitzt richtig.</b>
+0 0 0 0 0 0 0 0 0 0
+0 0 2 0 0 0 3 2 0 0   ← Südzipfel (Italien)</pre>
+  <p>Es war also kein Fehler, sondern eine Fehllesung: die Schraffur liegt in der <b>Basis</b>, und im Hochglazial verdeckt das Eis sie fast überall. In der eisfreien Endlage wird sichtbar, was immer schon da war.</p>
+</div>
+
+<h2 class="chap" id="k2"><span class="n">2</span> Der Befund: das Primitiv war falsch</h2>
+<p class="chapsub">Gemessen am 20. August 2026, vor dem Umbau.</p>
+
+<div class="card">
+  <h3><span class="badge b-mess">Messung</span> Wo die Zeit hinging</h3>
+  <table>
+    <tr><th>Vorgang</th><th class="n">ms</th><th>Bedeutung</th></tr>
+    <tr><td>Bild, warme Basis</td><td class="n schlecht">392</td><td>2.5 fps beim Abspielen</td></tr>
+    <tr><td>Bild, kalte Basis</td><td class="n schlecht">1066</td><td>0.9 fps — <b>jeder Zoom-/Pan-Schritt</b></td></tr>
+    <tr><td>· davon Basis-Bake</td><td class="n">894</td><td>Gelände + Schummerung + Schraffur</td></tr>
+    <tr><td>· davon Schraffur</td><td class="n">345</td><td><code>clip()</code> über 6 220 Hexe</td></tr>
+    <tr><td>Eis-Pass</td><td class="n">284</td><td>von 392 ms des warmen Bildes</td></tr>
+    <tr><td>Eisrand (5 954 Kanten)</td><td class="n gut">~0</td><td>unschuldig</td></tr>
+    <tr><td>Nunatak · Moräne · Schotter · Findlinge</td><td class="n gut">0–2</td><td>unschuldig</td></tr>
+    <tr><td><code>ableiten()</code>, ganzes Raster</td><td class="n gut">0.4</td><td rowspan="4">das ganze Modell kostet<br>pro Bild unter 7 ms</td></tr>
+    <tr><td><code>schritt()</code>, 25 Jahre</td><td class="n gut">1.7</td></tr>
+    <tr><td>Eisstausee-Flut (Priority-Flood)</td><td class="n gut">4.0</td></tr>
+    <tr><td><code>gleichgewicht()</code>, ein Dijkstra</td><td class="n">15.7</td></tr>
+    <tr><td>Lauf über 30 000 Jahre</td><td class="n">1 683</td><td>Ladezeit, 1 200 Schritte</td></tr>
+  </table>
+  <p><b>Das Modell war unschuldig.</b> Der Verdacht lag auf dem Priority-Flood, der bei jedem Jahreswechsel neu läuft — er kostet 4 ms. Die Physik zusammen bleibt unter 7 ms pro Bild. <b>Das Zeichnen war 100 % des Problems.</b></p>
+</div>
+
+<div class="card">
+  <h3><span class="badge b-done">Diagnose</span> 28 576 Vektorhexe für 2.6 Pixel</h3>
+  <p>In der Gesamtansicht sind <b>alle</b> Felder sichtbar und ein Hex hat <b>2.64 px</b> Radius. Jeder Zeichenpass baute daraus 28 576 Pfade à sechs Kanten — rund 171 000 Pfadoperationen. Die Basis tat es, das Eis tat es, die Schraffur tat es ein drittes Mal. Die <i>gefüllte Fläche</i> ist dabei belanglos (unter einer Million Pixel); die <i>Pfadkonstruktion</i> ist alles.</p>
+  <div class="why"><b>Die Gegenprobe, die gegen die Intuition läuft</b>Schaltet man die Schummerung aus, fallen alle Zellen in <i>einen</i> grossen Pfad statt in 54 kleine — und es wird <b>langsamer</b>: 1 224 statt 549 ms bei identischer Pixelzahl. „Mehr batchen“ ist also nicht die Antwort. Wenn ein grösserer Batch teurer wird, ist nicht die Batchgrösse falsch, sondern das Primitiv.</div>
+  <p>Dazu zwei Strukturfehler, die nichts mit Geometrie zu tun hatten:</p>
+  <ul>
+    <li>Der Batch-Schlüssel war eine <b>Zeichenkette</b> (<code>'k2_7'</code>) in einer <code>Map</code> — 28 576 Zeichenketten-Verkettungen und Map-Zugriffe pro Bild, dazu ein <code>push</code> in ein frisch erzeugtes Array.</li>
+    <li>Der Basis-Cache hing an der <b>Kamera</b>: <code>zustandKey()</code> enthielt <code>zoom</code>, <code>ox</code>, <code>oy</code>. Jeder Mausrad-Tick verwarf ihn. Der Cache griff genau dann nicht, wenn man ihn brauchte.</li>
+  </ul>
+</div>
+
+<h2 class="chap" id="k3"><span class="n">3</span> Zwei Betriebsarten</h2>
+<p class="chapsub">Ein Hexagon von 2.6 px ist ein Bildpunkt. Ein Hexagon von 13 px ist ein Hexagon.</p>
+
+<div class="card">
+  <h3><span class="badge b-done">Umgesetzt</span> Umschaltung am Hexradius</h3>
+  <p>Der Renderer hat zwei Betriebsarten, und die Schwelle ist der Hexradius in Gerätepixeln:</p>
+  <table>
+    <tr><th>Betriebsart</th><th>wann</th><th>Flächen</th><th>Linien</th></tr>
+    <tr><td><b>Zellbild</b></td><td>Radius &lt; 8 px<br>(Übersicht)</td><td>eine Bitmap, ein <code>drawImage</code></td><td>Vektor</td></tr>
+    <tr><td><b>Hexpfade</b></td><td>Radius ≥ 8 px<br>(hineingezoomt)</td><td>gebündelte Hexpfade</td><td>Vektor</td></tr>
+  </table>
+  <p>Die <b>Linien</b> — Eisrand, Eisströme, Nunatakker, Findlinge, Landmarken, Inspektor-Marke — sind in beiden Betriebsarten Vektor. Sie sind gemessen billig (der Eisrand mit 5 954 Kanten kostet ~0 ms) und sie tragen die Lesbarkeit: der helle Saum macht die Front als <i>Linie</i> lesbar, nicht bloss als Farbwechsel. Ausgetauscht werden nur die <b>Flächen</b>, und genau dort lagen die 28 576 Pfade.</p>
+  <p>Steuerung: <code>?raster=auto|bild|hex</code> (Vorgabe <code>auto</code>), Schwelle <code>?rasterab=8</code>. <code>RASTER</code> ist absichtlich ein <code>let</code> — der Messstand schaltet zur Laufzeit um und misst beide Betriebsarten am selben Zustand.</p>
+  <div class="why"><b>Warum nicht eine Betriebsart für alles</b>Ziegel statt Sechsecke sind bei 2.6 px unsichtbar und bei 13 px eine andere Karte. Umgekehrt sind Hexpfade bei 13 px richtig — dann sind nur noch wenige tausend Felder sichtbar, und das kostet unter 10 ms. Jede Betriebsart ist dort richtig, wo sie greift; der Preis ist die Pflicht, dass beide <i>dieselbe</i> Farbe treffen (Kap. 5).</div>
+</div>
+
+<h2 class="chap" id="k4"><span class="n">4</span> Das Zellbild</h2>
+<p class="chapsub">Eine Zelle ist ein Bildpunkt. Der Rest ist Skalieren.</p>
+
+<div class="card">
+  <h3><span class="badge b-done">Umgesetzt</span> Der Trick: doppelte Breite</h3>
+  <p>Das Hexraster ist <b>pointy-top, odd-r</b> — ungerade Zeilen sind um eine halbe Zelle nach rechts versetzt. Eine Bitmap mit einem Bildpunkt pro Zelle kann diesen halben Versatz nicht darstellen. Also belegt jede Zelle <b>zwei</b> Bildpunkte, und der Halbzellen-Versatz ist genau <b>ein</b> Bildpunkt:</p>
+<pre>Zeile 0 (gerade):  <b>[0 0][1 1][2 2][3 3]</b>…
+Zeile 1 (ungerade):   <b>[0 0][1 1][2 2][3 3]</b>…
+                    ↑ ein Bildpunkt Versatz = eine halbe Zelle</pre>
+  <p>Damit ist das ganze Raster <b>ein</b> Bild und <b>ein</b> <code>drawImage</code> — nicht 188 Zeilenstreifen. Die Rechnung dazu ist exakt, nicht genähert: bei Zellbreite <code>PITCHKM</code> deckt ein Bildpunkt <code>PITCHKM/2</code> ab, Zelle <i>c</i> einer geraden Zeile liegt auf den Punkten 2<i>c</i> und 2<i>c</i>+1, in einer ungeraden Zeile auf 2<i>c</i>+1 und 2<i>c</i>+2 — dort sitzt ihr Mittelpunkt eine halbe Zellbreite weiter rechts, wie <code>centerX()</code> es verlangt.</p>
+<pre>ZW = 2·COLS + 1 · ZH = ROWS        <b>152×188 Zellen → 305×188 Bildpunkte</b>
+zp(c,r) = r·ZW + 2c + (r&amp;1)         linker der zwei Punkte
+ZX0 = centerX(0,0) − PITCHKM/2      linke Kante von Punkt 0
+drawImage(zellCv, 0,0,ZW,ZH,  sx(ZX0), sy(ZY0),
+          ZW·(PITCHKM/2)·zoom·dpr,  ZH·ROWKM·zoom·dpr)</pre>
+  <p>Die ungenutzten Randpunkte (links in ungeraden, rechts in geraden Zeilen) bekommen die Farbe ihres Nachbarn, sonst blitzt dort der leere Puffer. <code>imageSmoothingEnabled = false</code> hält die Kanten scharf.</p>
+  <p>Die Zellen erscheinen als <b>Ziegel</b> statt als Sechsecke. Die Fläche stimmt exakt (<code>PITCHKM × ROWKM</code> ist die Hexfläche), die Form nicht — bei 2.6 px Radius ist das unsichtbar, und darüber zeichnet ohnehin der Vektorpfad.</p>
+</div>
+
+<div class="card">
+  <h3><span class="badge b-done">Umgesetzt</span> Zwei Puffer, eine Schleife</h3>
+  <p>Es gibt zwei <code>Uint32Array</code> in Zellkoordinaten:</p>
+  <ul>
+    <li><code>ZBASIS</code> — das <b>Gelände</b>. Klasse, Schummerung, Hauch auf geschätzten Feldern. Es hängt nur an Anzeigeschaltern, nicht am Jahr <i>und nicht an der Kamera</i>. Neu gebaut wird es, wenn <code>[schumm, wasser, gesch, seenSpaet]</code> kippt — Zoomen und Ziehen berühren es nie. Kosten: <b>0.2 ms</b>.</li>
+    <li><code>ZBILD</code> — was geblittet wird. Pro Bild: <code>ZBILD.set(ZBASIS)</code> (ein memcpy), dann <b>eine</b> Schleife über alle Zellen, die die Flächenschichten in derselben Reihenfolge wie der Vektorpfad einmischt: Seen nach der Freigabe → Schürfung → Schotterflur → Eis → Eisstausee → Endmoräne.</li>
+  </ul>
+  <p>Kein Canvas-Aufruf pro Zelle, keine Allokation, kein Zwischenarray. Die Halbdurchlässigkeit rechnet die Schleife selbst: je Stufe liegen Farbanteil × Alpha und (1 − Alpha) fertig bereit, eine Mischung ist eine Multiplikation und eine Addition je Kanal. Das Ergebnis ist dieselbe Farbe, die die Canvas-Komposition liefert.</p>
+  <div class="why"><b>Der eigentliche Gewinn ist nicht der Faktor</b>Das Zellbild ist <b>kameraunabhängig</b> und skaliert mit <b>Bildschirmpixeln statt mit Zellen</b>. Ein viermal feineres Raster macht die Bitmap grösser, aber nicht das Blitten — die Kosten hängen an der Fläche, die auf dem Schirm landet. Deshalb ist das die Umstellung, die vor mehr Höhendaten kommt, und nicht danach.</div>
+</div>
+
+<h2 class="chap" id="k5"><span class="n">5</span> Eine Farbe, zwei Verbraucher</h2>
+<p class="chapsub">Der einzige neue Fehler, den eine zweite Betriebsart einführen kann, ist Drift.</p>
+
+<div class="card">
+  <h3><span class="badge b-done">Umgesetzt</span> Tabellen, keine zweite Rechnung</h3>
+  <p>Zwei Renderpfade, die dieselbe Karte zeichnen, können auf genau eine Weise falsch werden: sie rechnen die Farbe zweimal und irgendwann unterschiedlich. Deshalb liegt <b>jede Farbe doppelt in einer Tabelle</b> — als CSS-Zeichenkette für den Vektorpfad und als gepackte RGBA-Ganzzahl für das Zellbild —, aber sie entsteht <b>einmal</b>:</p>
+  <table>
+    <tr><th>Tabelle</th><th>Zeilen</th><th>Index</th></tr>
+    <tr><td><code>geoCss</code> / <code>geoBit</code></td><td>6 Klassen × (10 Schummerstufen + ungeschummert)</td><td><code>geoIndex(klasse, i)</code></td></tr>
+    <tr><td><code>eisTab</code> / <code>eisBit</code></td><td>2 Firn × 10 Dicken × 5 Schummerstufen</td><td><code>eisIndex(d, firn, i)</code></td></tr>
+    <tr><td><code>S_ABTRAG</code> … <code>S_MORAENE</code></td><td>je Schicht 3–5 Alphastufen</td><td>Stufe aus dem Messwert</td></tr>
+  </table>
+  <p>Dazu <code>klasseSicht(i)</code> als <b>eine</b> Stelle für die Regel „bei ‚Seen erst nach der Freigabe‘ trägt die Zelle das Gelände unter dem See“. Vorher stand sie inline im Basis-Bake; jetzt lesen beide Pfade dieselbe Funktion.</p>
+  <p>Nebeneffekt: der Batch-Schlüssel <i>ist</i> die Tabellenzeile. Damit verschwindet die Zeichenketten-Map von selbst — die Optimierung fiel aus der Aufräumarbeit heraus, sie war nicht ihr Ziel.</p>
+</div>
+
+<h2 class="chap" id="k6"><span class="n">6</span> Der Vektorpfad, aufgeräumt</h2>
+<p class="chapsub">Er bleibt zuständig, sobald Hexe wie Hexe aussehen sollen.</p>
+
+<div class="card">
+  <h3><span class="badge b-done">Umgesetzt</span> Sammler statt Arrays, Muster statt Clip</h3>
+  <ul>
+    <li><b>Sammler.</b> Ein Bündel vorgehaltener <code>Float32Array</code>-Puffer mit Füllständen: <code>leeren()</code> nullt nur die Zähler, <code>add(zeile, x, y)</code> schreibt zwei Werte. Keine Zeichenketten, keine <code>Map</code>, keine neuen Arrays pro Bild. Ein Sammler für das Gelände (66 Zeilen), einer für das Eis (100).</li>
+    <li><b>Schraffur als Kachel.</b> Vorher: <code>clip()</code> über den Pfad aller geschätzten Zellen, dann ~200 Diagonalen über das ganze Canvas — der Browser muss aus dem komplexen Pfad eine Maske rastern, gemessen <b>345 ms</b>. Jetzt: eine 11-px-Kachel mit einer Diagonale von (0,0) nach (S,S) als <code>createPattern</code>, damit den Pfad füllen. Ein Pfad, eine Füllung, kein Clip. Im Zellbild hat eine Schraffur keinen Platz — dort tragen geschätzte Felder einen warmen Hauch. Gleiche Aussage, andere Auflösung.</li>
+  </ul>
+  <p>Damit fällt der Basis-Bake in der Gesamtansicht von 894 auf <b>701 ms</b> und das warme Bild von 392 auf <b>273 ms</b>. Beides bleibt zu langsam für die Übersicht — deshalb zeichnet sie das Zellbild. Beim Hineinzoomen, wo dieser Pfad greift, kostet ein Bild <b>9 ms</b> warm und <b>19 ms</b> kalt.</p>
+</div>
+
+<h2 class="chap" id="k7"><span class="n">7</span> Was es gebracht hat</h2>
+<p class="chapsub">Gleicher Rechner, gleiche Ansicht, gleicher Zustand.</p>
+
+<div class="card">
+  <h3><span class="badge b-mess">Messung</span> Vorher / Nachher, gleiche Ansicht</h3>
+  <p>Gesamtansicht, 28 576 sichtbare Felder, Jahr 23 000 cal BP:</p>
+  <table>
+    <tr><th>Vorgang</th><th class="n">vorher</th><th class="n">nachher</th><th class="n">Faktor</th></tr>
+    <tr><td>Bild, warm</td><td class="n">392 ms</td><td class="n gut">2.0 ms</td><td class="n">196×</td></tr>
+    <tr><td>Bild, kalt (jeder Zoom-/Pan-Schritt)</td><td class="n">1 066 ms</td><td class="n gut">2.0 ms</td><td class="n">533×</td></tr>
+    <tr><td>Abspielen: Schritt + Bild + HUD</td><td class="n">255 ms</td><td class="n gut">7.9 ms</td><td class="n">32×</td></tr>
+    <tr><td>Gelände-Basis bauen</td><td class="n">894 ms</td><td class="n gut">0.2 ms</td><td class="n">—</td></tr>
+  </table>
+  <p>Aus 0.9–2.5 fps werden rund <b>125 fps</b> — gedeckelt durch alles andere im Bild: der Rest der 7.9 ms pro Abspielbild ist Modellschritt, HUD-Text und Zeitleiste, nicht die Karte.</p>
+  <p>Der zweite Vergleich zeigt, warum die Umschaltung an dieser Stelle sitzt. Beide Spalten sind <b>derselbe Code</b>, nur mit <code>?raster=bild</code> gegen <code>?raster=hex</code> am selben Zustand:</p>
+  <table>
+    <tr><th>Ansicht</th><th class="n">Zellbild</th><th class="n">Hexpfade</th></tr>
+    <tr><td>Übersicht, Bild warm</td><td class="n gut">2.0 ms</td><td class="n">273 ms</td></tr>
+    <tr><td>Übersicht, Abspielbild</td><td class="n gut">7.9 ms</td><td class="n">242 ms</td></tr>
+    <tr><td>Übersicht, Erbe-Ansicht (alle Schichten)</td><td class="n gut">1.0 ms</td><td class="n">81 ms</td></tr>
+    <tr><td>Hineingezoomt, Hexradius 11.8 px</td><td>—</td><td class="n gut">9 ms warm · 19 ms kalt</td></tr>
+  </table>
+  <p>Die letzte Zeile ist der Grund, den Vektorpfad zu behalten: dort sind nur noch wenige tausend Felder sichtbar, und aufgeräumt kostet er dort nichts. Die 273 ms in der ersten Zeile sind übrigens schon <b>nach</b> dem Aufräumen — vor Sammler und Musterschraffur waren es 392 ms.</p>
+  <p class="dim">Ein Hebel bleibt messbar: bei <b>dpr 2</b> kostet das Zellbild in der Übersicht 30 ms statt 2 ms — die Bitmap ist gleich, aber der Blit deckt vier Mal so viele Pixel, und ohne GPU rechnet das die CPU. Auf einem echten Browser mit GPU-Komposition ist das ein Texturblit. <code>?dpr=1</code> macht den Unterschied greifbar; die Vorgabe bleibt <code>min(2, devicePixelRatio)</code>, weil Schärfe in der Werkbank mehr wert ist als 28 ms Reserve.</p>
+</div>
+
+<h2 class="chap" id="k8"><span class="n">8</span> Wie es mit mehr Daten skaliert</h2>
+<p class="chapsub">Die Höhenlücke ausserhalb der Schweiz wird geschlossen — danach ist mehr Raster da.</p>
+
+<div class="card">
+  <h3><span class="badge b-open">Vorausschau</span> Wenn das Raster viermal feiner wird</h3>
+  <p>Bei <code>hexKm 0.5</code> sind es 114 304 Felder. Das Zeichnen skaliert dann mit Bildschirmpixeln, alles andere linear mit Zellen:</p>
+  <table>
+    <tr><th>Grösse</th><th class="n">heute</th><th class="n">4× Zellen, alter Renderer</th><th class="n">4× Zellen, Zellbild</th></tr>
+    <tr><td>Bild, Übersicht</td><td class="n">392 ms</td><td class="n schlecht">~1 600 ms</td><td class="n gut">~5 ms</td></tr>
+    <tr><td>Lauf / Ladezeit</td><td class="n">1.7 s</td><td class="n">~7 s</td><td class="n">~7 s</td></tr>
+    <tr><td>Stützstellen im Speicher</td><td class="n">19.2 MB</td><td class="n schlecht">77 MB</td><td class="n schlecht">77 MB</td></tr>
+    <tr><td>Zell-Bitmap</td><td class="n">305×188</td><td class="n">—</td><td class="n gut">609×376</td></tr>
+  </table>
+  <p>Das Zeichnen ist damit erledigt. Was bleibt, sind drei Decken, die <b>nichts mit dem Renderer zu tun haben</b> — sie stehen hier, damit sie beim nächsten Sprung nicht überraschen:</p>
+  <ol>
+    <li><b>Stützstellen-Speicher.</b> 61 Bilder × 28 576 Zellen × 11 Byte = 19.2 MB, der Preis für billiges Zurückspulen. Zwei Schnitte, beide billig: <code>ABTRAG</code> (Float32, 4 der 11 Byte) gar nicht je Stützstelle halten — es ist monoton, eine Endkarte plus Freigabejahr genügt; und alle 1 000 statt 500 Jahre eine Stützstelle, ein Sprung kostet dann ~40 Schritte ≈ 68 ms. Zusammen 19.2 → <b>6.2 MB</b>, bei 4× Zellen 25 statt 77 MB.</li>
+    <li><b>Der Lauf im Hauptthread.</b> 1.7 s in 60-ms-Häppchen, damit die Seite atmet. Das Modell berührt kein DOM — es sind Typed Arrays. Ein Web Worker mit <code>ArrayBuffer</code>-Transfer der Stützstellen macht die Ladezeit unsichtbar und ist die Voraussetzung dafür, dass so etwas auf einem Telefon läuft.</li>
+    <li><b>Der Bake darf keine Länderraster als Ganzes laden</b> — <span style="color:var(--st-done)">erledigt</span>. Er las ein Rasterfenster in einem Stück (~40 MB beim Sonny-DTM Schweiz mit 50 m); bei einer 10-m-Quelle für Österreich wären es über 1 GB, für eine Abtastung auf 200 m — 400-fach überzählig. Jetzt liegt zwischen Bake und Dateien ein Register (siehe unten).</li>
+  </ol>
+</div>
+
+<div class="card">
+  <h3><span class="badge b-done">Umgesetzt</span> Die Probe aufs Exempel: 12× Zellen statt 4×</h3>
+  <p class="dim">Nachtrag vom 20. August 2026. Die Tabelle darüber ist eine <i>Vorhersage</i> für 4× Zellen. Kurz darauf wuchs das Raster nicht auf das Vierfache, sondern auf das <b>Zwölffache</b>: <code>eiszeit-labor-v3</code> deckt den ganzen Alpenbogen ab, 744×475 = <b>353 400</b> Felder statt 28 576. Damit ist die Vorhersage prüfbar — und sie hat sich in beide Richtungen bewahrheitet.</p>
+  <table>
+    <tr><th>Grösse</th><th class="n">28 576 Zellen</th><th class="n">353 400 Zellen (12.4×)</th><th class="n">Vorhersage traf</th></tr>
+    <tr><td>Bild, Übersicht (Zellbild)</td><td class="n">2.0 ms</td><td class="n gut">flüssig, kein Bildproblem</td><td class="n gut">ja</td></tr>
+    <tr><td>Lauf / Ladezeit</td><td class="n">1.7 s</td><td class="n schlecht">20 s (30–34 s mit Kalben)</td><td class="n">ja — linear, wie erwartet</td></tr>
+    <tr><td>Datenfile</td><td class="n">312 KB</td><td class="n">3.7 MB</td><td class="n">nicht bedacht</td></tr>
+    <tr><td>Zell-Bitmap</td><td class="n">305×188</td><td class="n gut">1 488×475</td><td class="n gut">ja</td></tr>
+  </table>
+  <p><b>Das Zeichnen ist tatsächlich kein Thema mehr.</b> Die Umstellung auf das Zellbild war die richtige Reihenfolge: das Raster hat sich verzwölffacht, und die Karte ist nicht langsamer geworden, weil die Kosten an den Bildschirmpixeln hängen und nicht an den Zellen. Der alte Vektorpfad hätte hier rechnerisch bei ~4 800 ms pro Bild gelegen.</p>
+  <p><b>Was jetzt die Decke ist, ist der Lauf</b> — und zwar genau die erste der drei Decken oben, nur früher als gedacht: 20 s im Hauptthread sind für eine Werkbank noch erträglich, für ein Telefon nicht. Der Web Worker ist damit von „irgendwann" auf „als nächstes" gerückt. Die zweite Überraschung steht nicht in der Tabelle: <b>der Priority-Flood der Eisstauseen</b>, in v2 ein Anzeige-Detail von wenigen Millisekunden, kostet im Zeitschritt so viel, dass er nur alle 250 Jahre voll laufen darf und dazwischen billig nachgezogen wird (siehe Handbuch, Kap. 8). Ein Feature, das aus der Anzeige in die Physik wandert, wechselt seine Kostenklasse.</p>
+  <div class="why"><b>Was die grosse Karte über die Messmethode verraten hat</b>Die Sweeps liefen wie gehabt: headless Chrome über das DevTools-Protokoll, echte Uhr, ein Chrome-Prozess je Parametersatz, Sondenskript im Seitenkontext. Zwei Dinge musste die Methode lernen. Erstens: das Datenfile ist jetzt 3.7 MB, und die alte feste Wartezeit von 2 s nach dem Reload reichte nicht mehr — die Sonde lief los, bevor der Prototyp seine Objekte deklariert hatte, und meldete <code>RUN is not defined</code>. Ein Ladefehler und ein Modellfehler sehen im Protokoll gleich aus; wer das verwechselt, sucht den Fehler an der falschen Stelle. Zweitens: eine einzige Kennzahl über die ganze Karte ist wertlos geworden. „Tiefster Eisrand" war für den Alpenrhein aussagekräftig (420 m), über den ganzen Bogen mischt sie den Rheinlappen mit dem Gardalappen, der 300 m tiefer endete. Kennzahlen brauchen jetzt einen <b>Bezugsrahmen je Lappen</b> — sechs Fenster (Rhein, Zürich, Garda, Ivrea, Bayern, Rhône), sechs Zahlen.</div>
+</div>
+
+<div class="card">
+  <h3><span class="badge b-mess">Messung</span> v3 vollständig vermessen: wohin die 31 Sekunden gehen</h3>
+  <p class="dim">20. August 2026, headless Chrome ohne virtuelle Zeit, dpr 1, Canvas 958×548, Vorgabeparameter, Median. Die Tabelle darüber nannte für den Lauf eine Spanne („20 s, 30–34 s mit Kalben"); hier steht die Zerlegung.</p>
+  <table>
+    <tr><th>Anteil am Seitenaufbau</th><th class="n">Zeit</th><th>gemessen als</th></tr>
+    <tr><td>Alles ausser dem Lauf (Datenfile lesen, Felder aufbauen, Bettfeld, erstes Bild)</td><td class="n gut">1.1 s</td><td><code>?traegheit=0</code></td></tr>
+    <tr><td><b>Der Lauf</b> — 1 200 Zeitschritte à 25 Jahre</td><td class="n schlecht">30.8 s</td><td><code>M.laufMs</code></td></tr>
+    <tr><td class="dim">…davon 27 Gleichgewichte (Dijkstra über 353 400 Felder, je 200 ms)</td><td class="n">5.4 s</td><td>Sonde</td></tr>
+    <tr><td class="dim">…davon Eisstauseen im Zeitschritt (volle Flutung alle 250 Jahre)</td><td class="n">12.3 s</td><td><code>?stausee=0</code>: 19.3 s</td></tr>
+    <tr><td>Gesamt bis „fertig"</td><td class="n">31.6 s</td><td>Wanduhr</td></tr>
+  </table>
+  <p>Je Zeitschritt sind das <b>~24 ms</b> (200 Jahre = 190 ms), je volle Flutung <b>55 ms</b> (6 842 Seefelder in ~140 Flächen). Das Bettfeld kostet einmalig 370 ms.</p>
+  <table>
+    <tr><th>Variante</th><th class="n">Laden</th><th class="n">Heap</th><th>was sie zeigt</th></tr>
+    <tr><td>Vorgaben</td><td class="n">31.6 s</td><td class="n">325 MB</td><td>Bezugspunkt</td></tr>
+    <tr><td><code>?kalben=0</code></td><td class="n">19.4 s</td><td class="n">—</td><td>Kalben + seine Flutungen = 12 s</td></tr>
+    <tr><td><code>?stausee=0</code></td><td class="n">19.3 s</td><td class="n">—</td><td>dieselben 12 s, anders abgeschaltet</td></tr>
+    <tr><td><code>?dt=50</code></td><td class="n">22.8 s</td><td class="n">323 MB</td><td>halb so viele Schritte, aber gleich viele Flutungen</td></tr>
+    <tr><td><code>?key=1000</code></td><td class="n">30.5 s</td><td class="n gut">215 MB</td><td>Stützstellen sind Speicher, nicht Zeit</td></tr>
+    <tr><td><code>?bett=0&amp;profil=0</code></td><td class="n">30.1 s</td><td class="n">343 MB</td><td>das Bett kostet nichts Nennenswertes</td></tr>
+    <tr><td><code>?traegheit=0</code></td><td class="n gut">1.1 s</td><td class="n gut">82 MB</td><td>ohne Lauf: der Rest ist billig</td></tr>
+  </table>
+  <p><b>Der Speicher ist die zweite Decke, und er ist grösser als vorhergesagt.</b> 61 Stützstellen × 353 400 Felder × 11 Byte = <b>226 MB</b>, dazu die Arbeitsfelder: <b>325 MB</b> Heap nach dem Laden, gegen 82 MB ohne Lauf. Die Vorhersage für 4× Zellen lautete 77 MB — bei 12.4× Zellen sind es 226. Das ist linear und damit korrekt vorhergesagt, nur ist die Zahl in einer anderen Klasse: auf einem Telefon mit 2 GB ist das kein Detail mehr. <code>?key=1000</code> halbiert sie ohne Zeitverlust.</p>
+  <table>
+    <tr><th>Zeichnen, Vollansicht (170 880 Eisfelder)</th><th class="n">warm</th><th class="n">kalt</th></tr>
+    <tr><td>Zellbild (Vorgabe unter 8 px Hexradius)</td><td class="n gut">14 ms</td><td class="n gut">12 ms</td></tr>
+    <tr><td>Erbe-Ansicht (Eis aus, alle Hinterlassenschaften an)</td><td class="n gut">3.5 ms</td><td class="n gut">3.5 ms</td></tr>
+    <tr><td>Hineingezoomt auf Chur, <code>z=8</code> (4.7 px — noch Zellbild)</td><td class="n gut">16 ms</td><td class="n gut">16 ms</td></tr>
+    <tr><td><code>?raster=hex</code> über die ganze Karte</td><td class="n schlecht">12.2 s</td><td class="n schlecht">110.9 s</td></tr>
+  </table>
+  <p>Die Vorhersage „der alte Vektorpfad hätte hier rechnerisch bei ~4 800 ms gelegen" war <b>zu freundlich</b>: gemessen sind es 12.2 s für ein warmes Bild und 110.9 s, wenn die Gelände-Basis dazu neu gebaut wird — Faktor 2.5 bzw. 23 gegenüber der linearen Hochrechnung. Vektorgeometrie skaliert bei dieser Zellzahl schlechter als linear. Die Umschaltung bei 8 px ist damit nicht bloss eine Optimierung, sondern das, was den Prototyp überhaupt bedienbar hält.</p>
+</div>
+
+<div class="card">
+  <h3><span class="badge b-open">Befund</span> Zwei Stellen, an denen die Bedienung hängt — beide sind billig zu heilen</h3>
+  <p>Das Zeichnen ist erledigt (14 ms). Was sich <i>anfühlt</i> wie ein langsamer Renderer, sind zwei Stellen ausserhalb davon.</p>
+  <p><b>Erstens: der Eisstausee-Flood läuft je angezeigtem Bild.</b> <code>ableiten()</code> setzt am Ende <code>stauGueltig = false</code>, und <code>zeichne()</code> holt die Flutung im Zellbild-Pfad nach. Im Lauf darf der Flood aus Kostengründen nur alle 250 Jahre voll laufen — beim <i>Abspielen</i> läuft er 8-mal pro Sekunde.</p>
+  <table>
+    <tr><th>Abspielen, Vollansicht, Tempo 400 a/s</th><th class="n">Bild</th><th class="n">fps</th></tr>
+    <tr><td>Vorgaben (Eisstausee-Schicht an)</td><td class="n schlecht">126 ms</td><td class="n schlecht">7.9</td></tr>
+    <tr><td>Eisstausee-Schicht aus</td><td class="n gut">19 ms</td><td class="n gut">52.6</td></tr>
+  </table>
+  <p>Zerlegt (Zustand 100 Jahre weiterstellen, dann zeichnen): Modellschritt <b>93 ms</b> · Flutung <b>60 ms</b> · Karte <b>12 ms</b>. Ohne die Seen: 63 · — · 10 ms. Die Flutung kostet also <b>fünfmal so viel wie das ganze Kartenbild</b>. Sie gehört nicht in den Zeichenpfad: der Zeitschritt hat den Seespiegel bereits gerechnet, die Anzeige müsste ihn nur lesen — oder ihn höchstens so oft nachziehen, wie sich das Jahr um <code>kalbJede</code> bewegt hat.</p>
+  <p><b>Zweitens: ein Sprung nach vorn spielt den Lauf noch einmal ab.</b> <code>zustandBei()</code> lädt eine Stützstelle nur, wenn das Zieljahr <i>hinter</i> dem Stand liegt; nach vorn schreitet es Schritt für Schritt.</p>
+  <table>
+    <tr><th>Sprung auf der Zeitleiste</th><th class="n">heute</th><th class="n">über die Stützstelle</th></tr>
+    <tr><td>rückwärts, beliebiges Jahr</td><td class="n gut">71–284 ms</td><td class="n">— (macht es schon so)</td></tr>
+    <tr><td>vorwärts 1 000 Jahre</td><td class="n">850 ms</td><td class="n gut">187 ms</td></tr>
+    <tr><td>vorwärts 5 000 Jahre</td><td class="n schlecht">4.2 s</td><td class="n gut">4 ms</td></tr>
+    <tr><td>vorwärts 10 500 Jahre</td><td class="n schlecht">9.2 s</td><td class="n gut">406 ms</td></tr>
+  </table>
+  <p>Die Bedingung müsste lauten: Stützstelle laden, wenn das Ziel <i>hinter</i> dem Stand liegt <b>oder</b> mehr als <code>keyEvery</code> davor. Dann kostet kein Sprung mehr als die Schritte einer halben Stützstellen-Strecke.</p>
+  <div class="why"><b>Gegenprobe, weil ein schnellerer Weg zum falschen Zustand nichts wert ist</b>Dieselben vier Zieljahre einmal geschritten und einmal über die Stützstelle: die Eisfläche stimmt auf das Feld genau überein (157 641 km² gegen 157 641), das Volumen auf <b>0.06 %</b> (78 012 gegen 77 963 km³). Die Abweichung ist die Quantisierung der Stützstelle — die Dicke liegt dort als <code>Uint16</code> in ganzen Metern. Wer rückwärts springt, nimmt sie längst in Kauf; nach vorn wäre sie dieselbe.</div>
+  <p class="dim">Beide Befunde sind reine Ablaufkosten, keine Modellfragen — der Zustand ändert sich durch keine der beiden Korrekturen. Was danach bleibt, ist der Zeitschritt selbst (24 ms) und der Lauf im Hauptthread; dafür steht der Web Worker weiter auf der Liste.</p>
+</div>
+
+<div class="card">
+  <h3><span class="badge b-done">Umgesetzt</span> Der Höhenstapel: mehrere DTMs mit Vorrang</h3>
+  <p>Die Datenseite derselben Frage. Statt einer festen Datei liest die Pipeline aus einem <b>Register</b>, <code>pipeline/sources/hoehen.manifest.json</code>, und die <b>Reihenfolge ist der Vorrang</b>: die erste Quelle, die für einen Punkt einen Wert liefert, gewinnt. LiDAR (Sonny) vor Radar (Copernicus — ein Radar-DEM misst Baumkronen und Dächer mit).</p>
+  <p><code>pipeline/fetch/hoehen-quellen.mjs</code> öffnet die Quellen und liest je Quelle das Regionsfenster <b>blockweise</b>, mit ganzzahligem Schritt auf <code>--maxAufl</code> ausgedünnt (Vorgabe 50 m). Damit hängt der Speicher an der <i>Zielauflösung</i>, nicht an der Quelle — dieselbe Umkehrung wie beim Zellbild, eine Stufe früher in der Kette. Das CRS kommt aus den GeoKeys der Datei (geographisch oder UTM); ein unbekanntes CRS bricht mit Meldung ab, statt still falsch zu rechnen.</p>
+  <p>Zwei Dinge, die daran wichtiger sind als die Geschwindigkeit:</p>
+  <ul>
+    <li><b>Herkunft je Feld.</b> Das Datenfile trägt ein <code>quelle</code>-Array und eine <code>hoehenquellen</code>-Legende. „Echt oder geschätzt“ war bisher die einzige Auskunft über eine Höhe; jetzt steht da, <i>welche</i> Quelle das Feld getragen hat — und bei einer Zelle am Landesrand die mit den meisten Stichproben.</li>
+    <li><b>Eine Sprechstunde vor dem Bake.</b> <code>--pruefen</code> listet, welche Einträge eine Datei haben, mit welcher Auflösung und Übersichtsebene gelesen wird, was sonst in <code>data/</code> liegt, und probiert die Deckung auf einem 2-km-Gitter ab: „gedeckt 77.6 %, ohne Quelle 22.4 %“. Diese Zahl deckt sich mit den 21.8 % geschätzten Feldern des Bakes — die beiden Wege bestätigen sich gegenseitig.</li>
+  </ul>
+  <div class="why"><b>Der Beleg, dass der Umbau nichts verschoben hat</b>Bei 50 m liest die CH-Quelle mit Schritt 1, also ihr natives Raster, und interpoliert wie vorher. Gegenprobe: das neu gebackene Datenfile trägt in <code>elev</code>, <code>emin</code>, <code>emax</code> und <code>flags</code> <b>dieselben Bytes</b> wie das alte. Ein Refactor an der Datenwurzel ohne diesen Vergleich wäre eine Wette auf die eigene Sorgfalt — die Kalibrierung des Eismodells (tiefster Eisrand 420 m ü. M., Front bei Schaffhausen) hängt an genau diesen Zahlen.</div>
+  <p class="dim">Stand bei der Erstfassung dieses Kapitels: alle vier Dateien für die Eiszeit-Region fehlten noch (AT, DE, IT; LI erwies sich als bereits in der CH-Datei enthalten). <b>FR</b> und <b>NL</b> bleiben offen — sie liegen ausserhalb jeder Eiszeit-Region und werden erst für das Rhein-Tileset gebraucht; das Register unterscheidet das über das Feld <code>fuer</code>, damit ein Bake nur öffnet, was er braucht.</p>
+</div>
+
+<div class="card">
+  <h3><span class="badge b-done">Umgesetzt</span> Der Lückenschluss brach die Kalibrierung — und das war der Beweis</h3>
+  <p>Mit den echten DTMs platziert (20. Aug 2026, CH/AT/DE/IT, alle Sonny, 50 m) fiel die geschätzte Fläche von 6 220 auf <b>10 von 28 576 Feldern</b>. Die Gegenprobe zeigt, dass das nicht kosmetisch ist: <code>?nurecht</code> (schliesst die verbliebenen 10 Felder aus) ändert die Hochglazial-Fläche jetzt nur noch um <b>0.03 %</b> — vorher waren es 42 % (11 400 gegen 19 592 km²).</p>
+  <p>Aber: mit den echten Höhen und den <i>unveränderten</i> Modellparametern erreichte das Eis auf einmal <b>weder Schaffhausen noch Killwangen</b> — die zwei Marken, gegen die das Modell seit v1 kalibriert war. Fläche 19 592 → 10 950 km², Eisrand 420 → 523 m ü. M.</p>
+  <div class="why"><b>Warum das kein Rückschlag war, sondern der Beleg</b>Die geschätzte Füllung (nächster Nachbar + 30 Glättungsschritte) war <i>glatter</i> als das wirkliche Alpenrelief im Nährgebiet (Rätikon, Silvretta, Verwall) — sie trug mehr Eis-Nachschub in die Zunge, als das echte Gelände zulässt. Die alte Kalibrierung stand also auf einer Landschaft, die es nie gab. Genau das ist der Fall, für den Kapitel 1 den Messstand gebaut hat: eine Behauptung („Front erreicht Schaffhausen") lässt sich an echten Daten <i>widerlegen</i>, nicht nur bestätigen.</div>
+  <p>Neu kalibriert: ein Sweep über 24 headless-Läufe (echte Uhr, <code>?tau=</code> in Schritten von 1–20 kPa) fand bei <b>τ = 98 kPa</b> statt 140 wieder den dokumentierten Eisrand exakt bei 420 m, beide Marken mit Abstand erreicht statt auf der Kippe, und die übrige Zeitreihe (Chur eisfrei vor 15 000 cal BP, Egesen-Delle moderat, Säntis/Tödi als Fels mit dünnem Firnfeld) unauffällig. 98 kPa liegt zudem näher an publizierten Werten für Talgletscher (Grössenordnung 50–150 kPa) als die alten 140 — die neue Kalibrierung ist nicht nur eine, die wieder passt, sondern eine, die plausibler ist.</p>
+  <p class="dim">Ausführlich im <a href="stromlinien-handbuch.html">Handbuch</a>, Kapitel „Das Erbe der Eiszeit". Diese Karte hat keinen unabhängigen externen Massstab mehr, den sie noch nicht berührt hätte — jeder weitere Regler-Sweep ist ab hier Feinschliff, nicht Fehlersuche.</p>
+</div>
+
+<h2 class="chap" id="k9"><span class="n">9</span> Regeln für neue Zeichenpässe</h2>
+<p class="chapsub">Wer den nächsten Kartenpass baut, hält sich an diese sieben Sätze.</p>
+
+<div class="card">
+  <div class="regel"><span class="nr">1</span><div><b>Flächen ins Zellbild, Linien in den Vektor.</b> Ein neuer Flächenzustand je Feld ist eine Mischstufe in der Schleife von <code>zellBildZeichnen()</code> und ein Zweig im Vektorpfad. Ein Rand, ein Pfeil, ein Punkt bleibt Vektor.</div></div>
+  <div class="regel"><span class="nr">2</span><div><b>Kein Canvas-Aufruf pro Zelle.</b> Kein <code>fill()</code>, <code>stroke()</code>, <code>drawImage()</code>, <code>arc()</code> in einer Schleife über Felder. Für die Übersicht heisst das: gar keiner.</div></div>
+  <div class="regel"><span class="nr">3</span><div><b>Der Batch-Schlüssel ist eine Zahl.</b> Nie eine Zeichenkette, nie eine <code>Map</code>. Wenn eine Farbe aus Zuständen entsteht, ist die Zeile einer Tabelle der Schlüssel.</div></div>
+  <div class="regel"><span class="nr">4</span><div><b>Farben liegen in Tabellen, nicht in Rechnungen.</b> Jede Farbe entsteht einmal und liegt als CSS <i>und</i> als Ganzzahl bereit. Zwei Renderpfade dürfen nie zweimal rechnen.</div></div>
+  <div class="regel"><span class="nr">5</span><div><b>Kein <code>clip()</code> über einen Pfad aus Feldern.</b> Eine Maske aus tausenden Subpfaden zu rastern kostet mehr als alles, was danach kommt. Muster, Tabellenfarbe oder Mischstufe.</div></div>
+  <div class="regel"><span class="nr">6</span><div><b>Caches werden vom Inhalt verworfen, nicht von der Kamera.</b> Wenn im Cache-Schlüssel <code>zoom</code>, <code>ox</code> oder <code>oy</code> steht, greift er beim Ziehen nie. Puffer in Zell- oder Weltkoordinaten halten.</div></div>
+  <div class="regel"><span class="nr">7</span><div><b>Messen, dann behaupten.</b> Der Messstand aus Kapitel 1 dauert zwei Minuten. Vier von fünf Vermutungen in dieser Sache waren falsch — inklusive „der Priority-Flood ist schuld“ (4 ms) und „grössere Batches helfen“ (langsamer).</div></div>
+</div>
+
+<h2 class="chap" id="k10"><span class="n">10</span> Offene Hebel</h2>
+<p class="chapsub">Nach Wirkung geordnet, nicht nach Aufwand.</p>
+
+<div class="card">
+  <h3><span class="badge b-open">Offen</span> Was als nächstes lohnt</h3>
+  <table>
+    <tr><th>Hebel</th><th>Wirkung</th><th>wann</th></tr>
+    <tr><td><s>Eisstausee-Flut aus dem Zeichenpfad nehmen</s> — <b>umgesetzt</b></td><td>Abspielen 7.9 → 26.6 fps</td><td>erledigt 21. Aug 2026</td></tr>
+    <tr><td><s>Vorwärtssprung über die Stützstelle</s> — <b>umgesetzt</b></td><td>Sprung 8.6 s → 0.4 s, Fläche unverändert</td><td>erledigt 21. Aug 2026</td></tr>
+    <tr><td><s>Vergleichssort im Gleichgewicht</s> — <b>umgesetzt</b> (Zählsortierung)</td><td>Gleichgewicht 220 → 152 ms</td><td>erledigt 21. Aug 2026</td></tr>
+    <tr><td><b>Front vom Feldmass entkoppeln</b> — <b>umgesetzt</b>, siehe Kapitel 11</td><td>Verfeinerung k³ → k²</td><td>erledigt 21. Aug 2026</td></tr>
+    <tr><td>Stützstellen-Diät (<code>ABTRAG</code> raus, 1 000-Jahr-Raster)</td><td>v2: 19.2 → 6.2 MB · <b>v3: 226 → 115 MB</b> (mit <code>?key=1000</code> gemessen, ohne Zeitverlust)</td><td>vor dem feineren Raster</td></tr>
+    <tr><td>Lauf in einen Web Worker</td><td>Ladezeit unsichtbar, mobilfähig — auf v3 sind es 30.8 s im Hauptthread</td><td>vor einem Prolog auf dem Telefon</td></tr>
+    <tr><td>Bake blockweise + beim Lesen downsamplen</td><td>kein OOM bei 10-m-Quellen</td><td>mit der zweiten Höhenquelle</td></tr>
+    <tr><td>Zeitleiste nur neu zeichnen, wenn sich das Jahr <i>sichtbar</i> ändert</td><td>ein Teil der 7.9 ms</td><td>Kleinigkeit</td></tr>
+    <tr><td>HUD-Text nur bei Änderung schreiben (heute ~30 DOM-Schreibvorgänge pro Bild)</td><td>ein Teil der 7.9 ms</td><td>Kleinigkeit</td></tr>
+    <tr><td><code>?gitter</code> im Zellbild</td><td>Anzeigelücke: das Gitter fehlt in der Übersicht</td><td>wenn es jemand braucht</td></tr>
+  </table>
+  <p class="dim">Nicht auf der Liste: Nunatakker und Eisrand im Zellbild als Zellfarbe. Beide sind Linien, beide sind messbar billig, und beide verlieren ihre Aussage, wenn sie zu Farbflächen werden.</p>
+</div>
+
+<h2 class="chap" id="k11"><span class="n">11</span> Der Weg auf grössere Karten</h2>
+<p class="chapsub">Nicht „was könnte man tun", sondern: was kostet ein Feld, wie viele Felder werden es, und welcher Hebel greift an welchem Faktor. 21. August 2026.</p>
+
+<div class="card">
+  <h3><span class="badge b-mess">Messung</span> Was ein Feld kostet — und dass es linear bleibt</h3>
+  <p>Derselbe Prüfstand auf beiden Prototypen, gleiche Maschine, gleiche Uhr. <code>eiszeit-labor-v2</code> hat 28 576 Felder, <code>v3</code> hat 353 400 — <b>12.4×</b>. Wenn irgendwo eine Cache-Klippe läge, stünde sie in der letzten Spalte.</p>
+  <table>
+    <tr><th>Baustein</th><th class="n">v2, 28 576</th><th class="n">v3, 353 400</th><th class="n">ns/Feld v2</th><th class="n">ns/Feld v3</th></tr>
+    <tr><td>Zeitschritt <code>schritt()</code></td><td class="n">1.6 ms</td><td class="n">18.8 ms</td><td class="n">56.0</td><td class="n gut">53.2</td></tr>
+    <tr><td>Gleichgewicht <code>gleichgewicht()</code></td><td class="n">18.2 ms</td><td class="n">220.6 ms</td><td class="n">636.9</td><td class="n gut">624.2</td></tr>
+    <tr><td>Eisstausee <code>stauseen()</code></td><td class="n">3.6 ms</td><td class="n">57.9 ms</td><td class="n">126.0</td><td class="n schlecht">163.8</td></tr>
+    <tr><td class="dim">…davon die Reihenfolge-Sortierung</td><td class="n">7.3 ms</td><td class="n">62.8 ms</td><td class="n">312</td><td class="n">300</td></tr>
+    <tr><td>Kartenbild (Zellbild, Vollansicht)</td><td class="n">2.6 ms</td><td class="n">9.0 ms</td><td>—</td><td>—</td></tr>
+  </table>
+  <p><b>Die Kosten je Feld sind flach.</b> Zeitschritt, Gleichgewicht und Sortierung kosten bei zwölffacher Kartengrösse <i>dasselbe</i> je Feld — der Speicherzugriff ist sequentiell genug, dass die Arbeitsmenge (bei v3 rund 14 MB Typed Arrays) den Cache zwar sprengt, die Bandbreite aber reicht. Die eine Ausnahme ist der <b>Priority-Flood</b>: +30 % je Feld. Das ist der Heap — wahlfreier Zugriff über die ganze Karte, und das ist genau das Muster, das mit der Kartengrösse schlechter wird.</p>
+  <div class="why"><b>Daraus wird eine Kostengleichung, und die stimmt</b>Lauf ≈ N × (Schritte × 53 ns + Flutungen × 164 ns + Sprossen × 624 ns). Eingesetzt: 353 400 × (1 200 × 53 + 120 × 164 + 27 × 624) ns = <b>35.4 s</b> — gemessen sind es 32.3 s, also 10 % daneben. Damit lässt sich rechnen statt raten. Die Anteile: <b>63 % Zeitschritte, 20 % Flutungen, 17 % Gleichgewichte</b>. Und: die Zahl der Flutungen (alle <code>kalbJede</code> = 250 <i>Jahre</i>) und der Sprossen (27) hängt <i>nicht</i> am Raster — nur die Schritte tun das.</div>
+</div>
+
+<div class="card">
+  <h3><span class="badge b-open">Befund</span> Die Falle: ein feineres Raster kostet nicht k², sondern k³</h3>
+  <p>Der Prototyp zeigt es selbst an, ohne dass die Folge je ausgesprochen wurde: <code>effFront = min(vFront, hexKm·1000/dt)</code>. Bei 1 km und 25 Jahren steht dort <code>min(40, 40)</code> — die Front läuft <b>genau ein Feld je Zeitschritt</b>, das Modell sitzt exakt auf der Schranke.</p>
+  <p>Halbiert man die Feldweite, halbiert sich damit die Frontgeschwindigkeit auf 20 m/a — es sei denn, <code>dt</code> halbiert sich mit. Also: Felder × k², Schritte × k, <b>Kosten × k³</b>.</p>
+  <table>
+    <tr><th>Raster</th><th class="n">Felder</th><th class="n">Schritte</th><th class="n">Lauf heute</th><th class="n">Stützstellen</th></tr>
+    <tr><td>1 km (heute)</td><td class="n">353 400</td><td class="n">1 200</td><td class="n">32 s</td><td class="n">226 MB</td></tr>
+    <tr><td>0.5 km</td><td class="n">1 413 600</td><td class="n">2 400</td><td class="n schlecht">231 s</td><td class="n schlecht">904 MB</td></tr>
+    <tr><td>0.25 km</td><td class="n">5 654 400</td><td class="n">4 800</td><td class="n schlecht">27 min</td><td class="n schlecht">3.6 GB</td></tr>
+    <tr><td class="dim">1 km, fünffache Fläche (Europa)</td><td class="n">1 767 000</td><td class="n">1 200</td><td class="n">160 s</td><td class="n schlecht">1.13 GB</td></tr>
+  </table>
+  <p><b>Der Ausweg ist billig und heute nachweisbar folgenlos.</b> Die Front schiebt sich über einen Zähler je Feld (<code>VOR[i] += vorStep</code>, ab 1 ist das Feld gefüllt); ein Überschuss über 1 verfällt. Trägt man ihn stattdessen im selben Schritt an das nächste Feld weiter, hängt die Frontgeschwindigkeit nicht mehr an der Feldweite und <code>dt</code> darf bei 25 Jahren bleiben — aus k³ wird k². Bei 1 km ist <code>vorStep</code> <b>exakt 1.0</b>, es gibt also gar keinen Überschuss: die Änderung ist bei heutiger Auflösung Byte für Byte wirkungslos und damit mit derselben Gegenprobe zu belegen, mit der der Höhenstapel belegt wurde.</p>
+  <p class="dim">Wirkung allein davon: 0.5 km 231 → 141 s, 0.25 km 27 → 9.4 min. Das ist der einzige Hebel in dieser Liste, der einen <i>Exponenten</i> ändert; alle anderen ändern Faktoren.</p>
+  <p><span class="badge b-done">Umgesetzt</span> Der Überschuss wandert jetzt: <code>frontWeiter()</code> arbeitet eine Warteschlange ab statt einer zweiten Rasterschleife, damit die Kosten an der Zahl der überquerten Felder hängen und nicht an der Kartengrösse. <code>effFront()</code> meldet folgerichtig wieder die eingestellte Geschwindigkeit. Abschaltbar mit <code>?frontrest=0</code> — und genau dieser Schalter macht die Sache prüfbar.</p>
+  <div class="why"><b>Die Gegenprobe ohne feineres Raster: <code>?dt=50</code> als Stellvertreter</b>Ein 0.5-km-Datenfile gibt es noch nicht, also lässt sich der Fall „ein Schritt trägt weiter als ein Feld" nicht direkt fahren. Er lässt sich aber <i>erzeugen</i>: bei <code>?dt=50</code> ist <code>vorStep</code> ebenfalls 2, aus demselben Grund und mit derselben Folge. Verglichen wird gegen den feinen Lauf (dt 25), einmal mit verfallendem und einmal mit wanderndem Überschuss — mittlere Abweichung der Eisfläche über neun Prüfjahre: <b>0.44 % → 0.22 %</b>. Aussagekräftig ist aber erst, <i>wo</i> der Gewinn liegt: im <b>Vorstoss</b> (35 000–26 000 cal BP) fällt sie von 0.48 / 0.96 / 0.58 % auf <b>0.05 / 0.03 / 0.08 %</b>, im Rückzug ändert sich nichts. Genau das muss herauskommen — dieses Modell zieht sich zurück, indem Eis an Ort und Stelle dünner wird, nicht indem eine Front wandert. Ein Hebel, der auch dort etwas geändert hätte, wäre verdächtig gewesen.</div>
+</div>
+
+<div class="card">
+  <h3><span class="badge b-mess">Messung</span> Wo Faktoren zu holen sind — jeder mit seiner Zahl</h3>
+  <table>
+    <tr><th>Hebel</th><th class="n">gemessen</th><th>greift an</th></tr>
+    <tr><td><b>Flutung nur bei Bedarf</b> — zwischen zwei Flutungen (250 a) ändern <b>0.26–0.46 %</b> der Felder ihre Stautiefe, die volle Flutung kostet trotzdem 58 ms</td><td class="n gut">bis 100×</td><td>20 % des Laufs + jedes Abspielbild</td></tr>
+    <tr><td><b>Aktive Menge im Zeitschritt</b> — je Schritt ändern <b>2.8–31.2 %</b> der Felder ihre Dicke (Mittel 15.9 %); „Eis oder Eisnachbar" sind 6–51 %</td><td class="n gut">2–4×</td><td>63 % des Laufs</td></tr>
+    <tr><td><b>Zählsortierung statt Vergleichssort</b> — die Reihenfolge im Gleichgewicht wird heute als geboxtes JS-Array mit Komparator sortiert</td><td class="n gut">66.9 → 1.7 ms (39×)</td><td>28 % jedes Gleichgewichts, 5 % des Laufs</td></tr>
+    <tr><td><b>Zeilenschleifen statt <code>i % COLS</code></b> — Division und <code>dirsOf(r)</code> je Feld statt je Zeile</td><td class="n">1.6 ms je Durchgang über N</td><td>~10 % des Zeitschritts</td></tr>
+    <tr><td><b>Stützstellen: <code>ABTRAG</code> raus und packen</b> — 3.71 MB je Bild roh, 1.00 MB mit <code>deflate-raw</code> (70 ms); <code>ABTRAG</code> allein ist 38 % roh und <b>57 % gepackt</b>, ist aber monoton und braucht keine Stützstelle</td><td class="n gut">226 → 27 MB (8.5×)</td><td>der Speicherwall</td></tr>
+    <tr><td>Web Worker mit <code>ArrayBuffer</code>-Transfer</td><td class="n">—</td><td>macht 32 s unsichtbar; Voraussetzung für alles Parallele</td></tr>
+    <tr><td>Domänenzerlegung auf mehrere Worker (6-Nachbar-Stencil, ein Feld Halo)</td><td class="n">~5× auf 8 Kernen</td><td>Zeitschritt</td></tr>
+  </table>
+  <div class="why"><b>Wie viel im Zeitschritt überhaupt noch drin ist</b>Gegenprobe mit dem nackten Muster: ein reiner Lesedurchgang über N kostet 2.9 ms, ein Durchgang mit 6-Nachbar-Zugriff <b>6.6 ms</b>. Der Zeitschritt kostet 18.8 ms und macht zwei solche Durchgänge — er liegt also rund 40 % über dem, was das Muster kostet. <b>Mikrooptimierung im Zeitschritt bringt höchstens 2×, nicht 10×.</b> Die grossen Faktoren liegen darüber: weniger Felder anfassen (aktive Menge), weniger oft anfassen (Flutung), oder mehr Kerne.</div>
+  <p class="dim">Dieselbe Sortier-Falle steckt ein zweites Mal in <code>fliessbahnen()</code>: <code>liste.push(i)</code> über alle Eisfelder, dann <code>liste.sort()</code> mit Komparator. Gleicher Hebel, gleiche Zahl.</p>
+</div>
+
+<div class="card">
+  <h3><span class="badge b-open">Offen</span> Reihenfolge — und was am Ende herauskommt</h3>
+  <ol>
+    <li><span class="badge b-done">Umgesetzt</span> <b>Front vom Feldmass entkoppeln</b> (k³ → k²). Heute folgenlos, morgen der Unterschied zwischen 9 und 27 Minuten. Zuerst, weil es ein Exponent ist.</li>
+    <li><b>Stützstellen-Diät und -Packung</b> (226 → 27 MB). Kein Modelleingriff, und der Speicher ist bei grösseren Karten die härtere Wand als die Zeit: 0.25 km wären sonst 3.6 GB. <b>Offen</b>, und zwar mit Absicht: die Packung braucht <code>CompressionStream</code>, das ist asynchron, und <code>ladeKeyframe()</code> steht mitten im synchronen <code>zustandBei()</code>. Der Weg führt über Punkt 4 — erst der Worker, dann die Packung. Der billige Zwischenschritt heisst <code>?key=1000</code>: gemessen halbiert er den Speicher (226 → 115 MB) ohne Laufzeitkosten, verdoppelt aber die Schritte nach einem Sprung. Das ist eine Abwägung für die Werkbank, keine für den Code — deshalb steht die Vorgabe unverändert bei 500.</li>
+    <li><span class="badge b-done">Umgesetzt</span> <b>Flutung aus dem Zeichenpfad</b> — die Anzeige übernimmt die Spiegel des Zeitschritts. <b>Offen</b> bleibt die <i>inkrementelle</i> Flutung im Lauf selbst (20 % des Laufs, gemessene Kopffreiheit bis 100×).</li>
+    <li><b>Lauf in den Worker</b>, Stützstellen als Transfer. Danach Domänenzerlegung. <span class="dim">Zu prüfen ist dabei eine Eigenheit dieses Formats: ein Prototyp muss per Doppelklick aus <code>file://</code> laufen, und Worker sind von dort aus heikel — notfalls Blob-URL, sonst bleibt der Worker dem Server-Betrieb vorbehalten.</span></li>
+    <li><span class="badge b-done">Umgesetzt</span> <b>Zählsortierung, Zeilenschleifen, Vorwärtssprung über die Stützstelle</b> — die freien Kleinigkeiten; zusammen 31 % vom Gleichgewicht, 3.4× beim Abspielen und 22× beim Sprung.</li>
+    <li><b>Aktive Menge im Zeitschritt</b>, sobald der Worker steht (dort ist die Buchführung billiger zu tragen).</li>
+    <li><b>Gleichgewichte vorrechnen</b> statt je Lauf: sie hängen nur an Gelände, τ-Feld und Schneegrenze — 27 Sprossen könnten aus dem Bake kommen. Spart 17 % des Laufs, unabhängig vom Raster.</li>
+    <li>Erst danach <b>GPU</b> (der Zeitschritt ist ein Stencil auf einem regelmässigen Gitter) und, wenn es je unter 250 m gehen soll, <b>adaptive Verfeinerung</b> am Eisrand statt überall.</li>
+  </ol>
+  <p><b>Rechnung für 0.25 km über den ganzen Bogen</b> (5.65 Mio. Felder), mit der Kostengleichung oben: heute 27 min → mit 1. neun Minuten → mit 6. rund 3.5 min → mit 4. rund <b>45 s</b>, bei 215 MB Stützstellen. Das ist keine Messung, sondern eine Hochrechnung aus gemessenen Bausteinen; sie steht hier, damit sie widerlegt werden kann.</p>
+  <div class="why"><b>Was jede dieser Änderungen braucht, bevor sie zählt</b>Die Kalibrierung des Eismodells hängt an Zahlen, die sich leicht unbemerkt verschieben (tiefster Eisrand, Front an elf △-Marken, sieben eisfreie Gegenproben). Jede Optimierung hier ist eine Wette darauf, dass sie den <i>Zustand</i> nicht ändert — und diese Wette ist prüfbar zu machen: ein <code>?pruefe</code>-Modus, der zu festen Jahren eine Prüfsumme über <code>H</code> plus Fläche, Volumen und Eisrand ausgibt. Vorher/nachher identisch heisst: der Hebel war wirklich nur Ablauf. Der Höhenstapel wurde genau so belegt („dieselben Bytes"), und ohne dieses Netz sollte keiner der acht Punkte angefasst werden.</div>
+</div>
+
+<div class="card">
+  <h3><span class="badge b-done">Umgesetzt</span> Fünf Hebel gezogen — und warum zwei davon fast danebengingen</h3>
+  <p>Zuerst gebaut wurde das Netz: <code>?pruefe</code> nimmt <b>während des Laufs</b> an neun festen Jahren einen Fingerabdruck von <code>H</code>, <code>VOR</code>, <code>VERWEIL</code>, <code>ABTRAG</code> und <code>SANDER</code> (FNV-1a über ganzzahlig gerundete Werte — bitweise wäre zu streng, jede umgestellte Summenreihenfolge meldete sonst einen Unterschied, den keine Kennzahl je sieht) und legt ihn als <code>window.PRUEFUNG</code> ab. Erst danach wurde etwas angefasst.</p>
+  <table>
+    <tr><th>Hebel</th><th class="n">vorher</th><th class="n">nachher</th></tr>
+    <tr><td>Gleichgewicht (Zählsortierung statt Vergleichssort)</td><td class="n">220.6 ms</td><td class="n gut">152.3 ms</td></tr>
+    <tr><td>Abspielen mit Eisstausee-Schicht</td><td class="n schlecht">7.9 fps</td><td class="n gut">26.6 fps</td></tr>
+    <tr><td class="dim">…davon das Kartenbild</td><td class="n">70 ms</td><td class="n gut">11.6 ms</td></tr>
+    <tr><td>Sprung vorwärts 1 000 Jahre</td><td class="n">850 ms</td><td class="n gut">4–196 ms</td></tr>
+    <tr><td>Sprung vorwärts 10 500 Jahre</td><td class="n schlecht">8 556 ms</td><td class="n gut">381 ms</td></tr>
+    <tr><td>Ganzer Lauf</td><td class="n">29.8 s</td><td class="n">28.9 s</td></tr>
+  </table>
+  <p>Der Lauf gewinnt nur die 27 × 68 ms der Sortierung — rund 1.8 s, am Rand des Messrauschens dieser Maschine. Das ist erwartbar: die Sortierung steckt im Gleichgewicht, und Gleichgewichte sind bloss 17 % des Laufs. Die grossen Zahlen stehen bei der <b>Bedienung</b>, und das ist auch der Punkt — 30 s Ladezeit erträgt eine Werkbank, 7.9 fps beim Abspielen nicht.</p>
+  <p><b>Der Zustand ist dabei Feld für Feld derselbe geblieben</b>: alle fünf Fingerabdrücke stimmen an allen neun Prüfjahren überein, Fläche, Volumen und Eisrand ebenso. Zwei Entwürfe haben das vorher <i>nicht</i> geschafft, und beide Fehler sind lehrreicher als die Hebel selbst:</p>
+  <ol>
+    <li><b>Die Bedingung hing am falschen Wert.</b> Der erste Entwurf des Frontüberschusses fragte <code>VOR[i] &gt; 1</code> — aufgelaufener Fortschritt. <code>VOR</code> läuft aber auch bei <code>vorStep</code> = 1 über 1 hinaus, sobald ein dünnes Feld mehrere Schritte am Stück Anschluss hat. Damit war der angeblich tote Zweig bei 1 km <i>lebendig</i>: +0.3 % Eisfläche im Vorstoss. Richtig ist <code>vorStep &gt; 1</code> — eine Konstante des Schritts, kein Zustand des Feldes.</li>
+    <li><b>Die Gegenprobe prüfte sich selbst.</b> Der Sprungvergleich rief für den „alten Weg" <code>zustandBei()</code> auf — dieselbe Funktion, die gerade geändert worden war. Nach der Änderung verglich er die Stützstelle mit der Stützstelle und meldete pflichtschuldig „identisch". Der alte Weg muss im Prüfcode <b>ausgeschrieben</b> stehen, sonst misst man nichts.</li>
+  </ol>
+  <p class="dim">Die Zählsortierung sortiert innerhalb eines Zentimeter-Eimers nach; ohne dieses Nachsortieren wäre die Reihenfolge nur zentimetergenau, und die Massenbilanz summiert den Nachschub streng von oben nach unten. Getauscht wird nur bei echt grösser — dieselbe Stabilität, die <code>Array.prototype.sort</code> zusichert. Belegt ist die Ordnungsgleichheit mit <code>?zaehlsort=0</code>, das auf den alten Vergleichssort zurückschaltet: beide Fassungen liefern in zwei verschiedenen Konfigurationen dieselben neun Prüfsummen.</p>
+  <div class="why"><b>Der Pixelvergleich, bis er restlos aufging</b>Bei 20 000 cal BP wichen <b>0.043 %</b> der Bildpunkte ab; mit abgeschalteter Eisstausee-Schicht blieben 0.008 %, also 67 Bildpunkte. Zwei Kontrollen haben den Rest zerlegt. Erstens: derselbe Stand zweimal aufgenommen ergibt <b>0 Bildpunkte</b> Unterschied — der Messstand ist deterministisch, die 67 sind echt. Zweitens: dasselbe Jahr im neuen Stand einmal über die Stützstelle und einmal <i>durchgeschritten</i> — durchgeschritten ist das Bild <b>pixelgleich</b> mit dem alten Stand. Damit ist die Ursache benannt und nicht bloss vermutet: es ist die Quantisierung der Stützstelle (Dicke als <code>Uint16</code> in ganzen Metern) auf dem neuen Vorwärtssprung, also genau der Handel, der oben mit „Volumen auf 0.06 %" beziffert ist — und den man rückwärts längst eingeht. 67 Bildpunkte sind die Felder, bei denen das Runden eine Schotter- oder Moränenschwelle kippt. Die restlichen vier Fünftel sind die Seen: die Anzeige übernimmt die Spiegel jetzt vom Zeitschritt, sie sind also bis zu <code>kalbJede</code> Jahre alt — genau so alt, wie das Modell sie selbst benutzt. Ein Teil davon ist sogar eine <i>Korrektur</i>: ein Feld ist Eis oder See, nie beides, und dieser Ausschluss stand bisher nur implizit darin, dass ohnehin vor jedem Bild neu geflutet wurde. Jetzt steht er im Zeichenpfad.</div>
+</div>
+
+<footer>
+  <b>STROMLINIEN · Technik-Handbuch.</b> Gegenstück zum <a href="stromlinien-handbuch.html" style="color:var(--ink2)">Handbuch</a> (Spielregeln und Designgeschichte). Alle Messwerte: headless Chrome ohne virtuelle Zeit, Software-Rendering, dpr 1, Canvas 1278×748, <code>eiszeit-labor-v2</code> mit 28 576 Feldern, Median aus sieben Läufen, 20. August 2026 — ausgenommen die drei Karten ab „Die Probe aufs Exempel", die auf <code>eiszeit-labor-v3</code> mit 353 400 Feldern messen (dort dpr 1, Canvas 958×548). Höhen: Sonny-DTM CH/AT/DE/IT/FR 50 m (CC BY 4.0).
+</footer>
+</div>
+</body>
+</html>

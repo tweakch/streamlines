@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Klimatile-Stilguide — Layer-Template &amp; Master-Set-Probe</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+:root{
+  --bg:#DCE3D8; --panel:#ECEFE6; --panel2:#E2E7DC; --ink:#22302C; --ink2:#5A6B64;
+  --ember:#C96F2E; --line:#B8C2B4; --shadow:0 2px 10px rgba(30,45,40,.10);
+  --ok:#4E7D5B; --warn:#9C4A33;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Instrument Sans',system-ui,sans-serif;line-height:1.6;}
+.wrap{max-width:900px;margin:0 auto;padding:20px 16px 80px;}
+header.hero{padding:10px 0;}
+.kicker{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.2em;color:var(--ember);text-transform:uppercase;}
+h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(26px,6vw,38px);line-height:1.05;margin:8px 0 10px;}
+header p{color:var(--ink2);max-width:68ch;margin:0 0 6px;font-size:14px;}
+.status{font-family:'Space Mono',monospace;font-size:11px;padding:4px 10px;border-radius:12px;display:inline-block;margin:10px 0;}
+.status.ok{background:var(--ok);color:#fff;}
+.status.bad{background:var(--warn);color:#fff;}
+h2.sec{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:19px;margin:34px 0 4px;}
+.secsub{font-size:12.5px;color:var(--ink2);margin:0 0 14px;}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow);}
+.layerlegend{display:grid;grid-template-columns:1fr;gap:6px;font-size:12.5px;margin:8px 0;}
+.layerlegend div{display:flex;gap:8px;}
+.layerlegend code{flex-shrink:0;width:170px;font-size:11px;}
+pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:10.5px;line-height:1.5;overflow-x:auto;max-height:340px;}
+mark{background:none;color:var(--ember);font-weight:700;}
+code{font-family:'Space Mono',monospace;background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:11.5px;}
+
+.tilecard h3{font-size:15px;margin:0 0 2px;}
+.mood{font-size:12.5px;color:var(--ink2);margin:0 0 12px;font-style:italic;}
+.sizes{display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;}
+.sizebox{text-align:center;}
+.sizebox .box{border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--panel2);}
+.sizebox svg{display:block;width:100%;height:auto;}
+.sizebox span{display:block;font-family:'Space Mono',monospace;font-size:10px;color:var(--ink2);margin-top:4px;}
+.s32 .box{width:32px;}
+.s128 .box{width:128px;}
+.s256 .box{width:256px;}
+
+.layertoggles{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.layertoggles label{font-family:'Space Mono',monospace;font-size:10px;border:1px solid var(--line);border-radius:12px;padding:4px 10px;cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:5px;background:var(--panel2);}
+.layertoggles input{margin:0;}
+
+.gap{border-radius:8px;padding:9px 12px;font-size:12px;margin:14px 0 0;border-left:3px solid var(--warn);background:var(--panel2);}
+.gap b{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--warn);display:block;margin-bottom:5px;}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);font-size:11px;color:var(--ink2);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker">Werkstatt-Prüfstand · Stand 21. Aug 2026</div>
+  <h1>Klimatile-Stilguide</h1>
+  <p>Erste Umsetzung von Kapitel 7 aus <code>art-direction-handbuch.html</code>: ein Stil-Guide-Template mit den sechs benannten Layern und einer lokalen CSS-Variablen-Palette je Datei, geprüft an drei Schlüsselkombinationen aus der Holozän-Stufen×Klimaregionen-Matrix (Kap. 2). Quelle: <code>pipeline/assets/climate-tiles/</code> — eigenständige, im Explorer sichtbare SVG-Dateien, noch ohne Anbindung an Bake/Bundle (dafür ist es zu früh, siehe Kap. 8 „offen").</p>
+  <div id="serverstatus"></div>
+</header>
+
+<h2 class="sec">Das Template</h2>
+<p class="secsub"><code>pipeline/assets/climate-tiles/_template.svg</code> — Referenz für jede künftige Kombination. Layer-Namen und Farbvariablen bleiben über alle Dateien gleich, ihre Werte sind pro Kombination frei.</p>
+<div class="card">
+  <div class="layerlegend">
+    <div><code>base-terrain</code> Bodenfarbe, Grundform, Relief</div>
+    <div><code>vegetation-primary</code> dominante Baum-/Strauchschicht</div>
+    <div><code>vegetation-secondary</code> Unterwuchs, Gräser, Heide</div>
+    <div><code>water-features</code> Gewässer, falls vorhanden</div>
+    <div><code>climate-indicators</code> Schnee, Dürre-Risse, Nebel, Salzkruste</div>
+    <div><code>human-traces</code> sehr dezent, nur Subboreal/Subatlantikum</div>
+    <div><code>edge-mask</code> Hex-Kontur fürs Kanten-Matching</div>
+  </div>
+  <pre id="templatesrc">wird geladen …</pre>
+</div>
+
+<h2 class="sec">Drei Schlüsselkombinationen</h2>
+<p class="secsub">Je Kombination: 32 / 128 / 256 px (Kap. 1 Skalierbarkeit) und Layer einzeln abschaltbar, um die Trennung zu prüfen.</p>
+<div id="tiles"></div>
+
+<footer>Klimatile-Stilguide · <code>prototype/drafts/klimatile-stilguide-v1.html</code> · verlangt <code>pipeline/asset-server.mjs</code> für den Datei-Zugriff (CORS blockiert <code>fetch()</code> unter <code>file://</code>). Debug: <code>?server=&lt;url&gt;</code>, <code>?tile=&lt;dateiname&gt;</code> (nur diese Kombination zeigen).</footer>
+</div>
+
+<script>
+const qs = new URLSearchParams(location.search);
+const SERVER = qs.get('server') || (location.protocol === 'file:' ? 'http://127.0.0.1:8182' : '');
+const ONLY = qs.get('tile');
+
+const LAYER_IDS = ['base-terrain','vegetation-primary','vegetation-secondary','water-features','climate-indicators','human-traces'];
+const LAYER_LABEL = { 'base-terrain':'Boden', 'vegetation-primary':'Veg. primär', 'vegetation-secondary':'Veg. sekundär', 'water-features':'Wasser', 'climate-indicators':'Klima', 'human-traces':'Mensch' };
+
+const TILES = [
+  { file: 'atlantikum-mitteleuropa.svg', title: 'Atlantikum × Mitteleuropäisch-temperiert', mood: '„üppig, fast bedrückend dicht" — maximale Waldausdehnung, keine menschlichen Spuren.' },
+  { file: 'subboreal-pontisch.svg', title: 'Subboreal × Pontisch-steppisch', mood: 'Steppen-Wald-Mosaik, kühler und trockener — erste, sehr zurückhaltende Eingriffe.' },
+  { file: 'subatlantikum-nahost.svg', title: 'Subatlantikum × Arid/Naher Osten', mood: '„die fragile Balance zwischen Fruchtbarkeit und Trockenheit" — Leben folgt dem Wadi.' },
+];
+
+function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+async function holen(pfad) {
+  const url = SERVER ? `${SERVER}/${pfad}` : `/${pfad}`;
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`${res.status} ${pfad}`);
+  return res.text();
+}
+
+function baueLayerToggles(card, ids) {
+  const wrap = card.querySelector('.layertoggles');
+  for (const id of ids) {
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = true;
+    cb.addEventListener('change', () => {
+      card.querySelectorAll(`#${CSS.escape(id)}`).forEach((g) => { g.style.display = cb.checked ? '' : 'none'; });
+    });
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(LAYER_LABEL[id] || id));
+    wrap.appendChild(label);
+  }
+}
+
+async function init() {
+  const statusEl = document.getElementById('serverstatus');
+  let svgTemplateTxt;
+  try {
+    svgTemplateTxt = await holen('pipeline/assets/climate-tiles/_template.svg');
+    statusEl.innerHTML = '<span class="status ok">Server erreichbar</span>';
+  } catch (err) {
+    statusEl.innerHTML = `<span class="status bad">Kein Zugriff auf pipeline/assets/ (${esc(String(err.message || err))}) — <code>node pipeline/asset-server.mjs</code> starten, dann neu laden.</span>`;
+    document.getElementById('templatesrc').textContent = 'nicht geladen — siehe Statuszeile oben.';
+    return;
+  }
+
+  const highlighted = esc(svgTemplateTxt).replace(/id="([a-z-]+)"/g, 'id="<mark>$1</mark>"').replace(/&lt;mark&gt;/g, '<mark>').replace(/&lt;\/mark&gt;/g, '</mark>');
+  document.getElementById('templatesrc').innerHTML = highlighted;
+
+  const tilesEl = document.getElementById('tiles');
+  const liste = ONLY ? TILES.filter((t) => t.file === ONLY) : TILES;
+  for (const tile of liste) {
+    let svgTxt;
+    try {
+      svgTxt = await holen(`pipeline/assets/climate-tiles/${tile.file}`);
+    } catch (err) {
+      continue;
+    }
+    const card = document.createElement('div');
+    card.className = 'card tilecard';
+    card.innerHTML = `
+      <h3>${esc(tile.title)}</h3>
+      <p class="mood">${esc(tile.mood)}</p>
+      <div class="sizes">
+        <div class="sizebox s32"><div class="box"></div><span>32px</span></div>
+        <div class="sizebox s128"><div class="box"></div><span>128px</span></div>
+        <div class="sizebox s256"><div class="box"></div><span>256px</span></div>
+      </div>
+      <div class="layertoggles"></div>
+    `;
+    tilesEl.appendChild(card);
+    card.querySelectorAll('.box').forEach((box) => { box.innerHTML = svgTxt; });
+    baueLayerToggles(card, LAYER_IDS);
+  }
+}
+init();
+</script>
+</body>
+</html>

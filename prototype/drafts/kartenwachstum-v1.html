@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Kartenwachstum</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+:root{
+  --bg:#DCE3D8; --panel:#ECEFE6; --panel2:#E2E7DC; --ink:#22302C; --ink2:#5A6B64;
+  --ember:#C96F2E; --bone:#F2EDE0; --line:#B8C2B4; --good:#4E7D5B; --bad:#9C4A33;
+  --nebel:#C3CABF; --vergessen:#B9C1B6;
+  --shadow:0 2px 10px rgba(30,45,40,.12);
+}
+body.night{
+  --bg:#0D151D; --panel:#141F28; --panel2:#101A22; --ink:#E6E1D2; --ink2:#8B9690;
+  --ember:#E08A3C; --bone:#1B2731; --line:#2C3B44; --good:#7FB08B; --bad:#D07B5E;
+  --nebel:#0B1219; --vergessen:#131C24;
+  --shadow:0 2px 14px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{background:var(--bg);color:var(--ink);font-family:'Instrument Sans',system-ui,sans-serif;
+     transition:background 1s ease,color 1s ease;min-height:100vh;}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;}}
+.wrap{max-width:1140px;margin:0 auto;padding:12px 14px 40px;}
+
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:4px 2px 12px;border-bottom:1px solid var(--line);}
+.brand{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px;letter-spacing:.14em;line-height:1;}
+.brand small{display:block;font-family:'Space Mono',monospace;font-weight:400;font-size:10px;letter-spacing:.1em;color:var(--ink2);margin-top:4px;}
+.clock{text-align:right;font-family:'Space Mono',monospace;white-space:nowrap;}
+.clock b{font-size:20px;font-weight:700;display:block;line-height:1;}
+.clock span{font-size:10px;color:var(--ink2);letter-spacing:.1em;}
+
+main{display:grid;grid-template-columns:minmax(320px,1fr) 348px;gap:16px;margin-top:14px;align-items:start;}
+@media (max-width:900px){main{grid-template-columns:1fr;}}
+
+.treppe{display:flex;gap:3px;margin-bottom:10px;}
+.ep{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 5px;cursor:pointer;transition:.15s;text-align:center;}
+.ep:hover{border-color:var(--ember);}
+.ep.on{border-color:var(--ember);background:var(--bone);}
+.ep b{display:block;font-family:'Space Mono',monospace;font-size:10.5px;}
+.ep span{font-size:8.5px;color:var(--ink2);letter-spacing:.02em;}
+.ep.spaet{opacity:.55;border-style:dashed;}
+
+.mapbox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px;box-shadow:var(--shadow);position:relative;}
+canvas{display:block;width:100%;height:auto;border-radius:4px;cursor:crosshair;}
+.mapnote{position:absolute;left:16px;bottom:16px;font-family:'Space Mono',monospace;font-size:10px;
+         color:var(--ink2);background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:3px 7px;pointer-events:none;}
+
+.ctrl{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center;}
+button{font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;color:var(--ink);
+       background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 11px;cursor:pointer;transition:.15s;}
+button:hover{border-color:var(--ember);}
+button.pri{background:var(--ember);border-color:var(--ember);color:#fff;}
+button.on{border-color:var(--ember);color:var(--ember);}
+button:disabled{opacity:.35;cursor:default;}
+.sl{display:flex;align-items:center;gap:7px;font-family:'Space Mono',monospace;font-size:10px;color:var(--ink2);}
+.sl input{accent-color:var(--ember);width:80px;}
+.spacer{flex:1;}
+
+aside{display:flex;flex-direction:column;gap:10px;}
+.pane{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:11px 12px;box-shadow:var(--shadow);}
+h4{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink2);margin:0 0 8px;font-weight:400;}
+h4.sp{margin-top:14px;}
+p{font-size:12px;line-height:1.5;margin:0 0 8px;}
+p.dim{color:var(--ink2);font-size:11.5px;}
+.zahlen{display:flex;gap:6px;margin-bottom:8px;}
+.z{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:6px 4px;text-align:center;}
+.z b{display:block;font-family:'Space Mono',monospace;font-size:15px;line-height:1.2;}
+.z span{font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);}
+.z.v b{color:var(--ember);}
+table{width:100%;border-collapse:collapse;font-size:11px;}
+th,td{text-align:left;padding:3px 4px;border-bottom:1px solid var(--line);}
+th{font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);font-weight:400;}
+td.n{text-align:right;font-family:'Space Mono',monospace;}
+tr.hi td{color:var(--ember);font-weight:600;}
+.bar{display:inline-block;height:7px;border-radius:2px;background:var(--ember);}
+.bar.ab{background:var(--bad);}
+.leg{display:flex;flex-wrap:wrap;gap:3px 9px;font-family:'Space Mono',monospace;font-size:9px;color:var(--ink2);margin-top:8px;}
+.leg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:3px;vertical-align:-1px;}
+.warn{border-left:3px solid var(--ember);padding-left:9px;}
+.warn.rot{border-left-color:var(--bad);}
+kbd{font-family:'Space Mono',monospace;font-size:9.5px;border:1px solid var(--line);border-radius:3px;padding:0 4px;background:var(--panel2);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">STROMLINIEN<small>KARTENWACHSTUM · v1 · die Welt wächst mit den Wegen</small></div>
+  <div class="clock"><b id="cEp">—</b><span id="cSpan">—</span></div>
+</header>
+
+<main>
+  <section>
+    <div class="treppe" id="treppe"></div>
+    <div class="mapbox">
+      <canvas id="cv"></canvas>
+      <div class="mapnote" id="note">—</div>
+    </div>
+    <div class="ctrl">
+      <button class="pri" id="bNext">▸ nächste Epoche</button>
+      <button id="bPrev">◂ zurück</button>
+      <button id="bTeilen">＋ Gruppe teilen</button>
+      <button id="bVergessen" class="on">Nebel des Vergessens</button>
+      <span class="spacer"></span>
+      <label class="sl">Sicht <input type="range" id="rSicht" min="1" max="12" value="7"><b id="vSicht">7</b></label>
+      <button id="bNight">Nacht</button>
+    </div>
+    <div class="leg" id="leg"></div>
+    <p class="dim" style="margin-top:8px">Klick auf die Karte <b>zieht die gewählte Gruppe dorthin</b> — das Tal hinter ihr fällt in den Nebel. Die Dichte bleibt immer dieselbe: 2 km je Feld, 3,5 km² Land.</p>
+  </section>
+
+  <aside>
+    <div class="pane">
+      <h4 id="epTitel">—</h4>
+      <div class="zahlen">
+        <div class="z"><b id="zBek">0</b><span>bekannt</span></div>
+        <div class="z v"><b id="zVerg">0</b><span>vergessen</span></div>
+        <div class="z"><b id="zKm">0</b><span>km²</span></div>
+        <div class="z"><b id="zDelta">—</b><span>vs. vorher</span></div>
+      </div>
+      <p id="epTxt">—</p>
+      <p class="dim" id="epReich">—</p>
+      <h4 class="sp">Die Wachstumskurve</h4>
+      <table id="tblEp"></table>
+      <p class="dim">Gerechnet für dieselbe Ausgangslage — was jede Epoche <i>könnte</i>, nicht was gespielt wurde.</p>
+    </div>
+
+    <div class="pane">
+      <h4>Wie gerechnet wird</h4>
+      <p>Von jeder Gruppe aus läuft eine <b>Kostensuche</b> über das echte Gelände: jedes Feld
+        kostet, was es zu durchqueren kostet. Das Budget ist die <b>Reichweite der Epoche</b>
+        (Tagesreisen × km je Tag). Dazu kommt, was man von der Gruppe aus <b>sieht</b>,
+        ohne hinzugehen.</p>
+      <table id="tblKost"></table>
+      <p class="dim" style="margin-top:8px">Gelände aus <code>rhein-tiles-v4.data.js</code>, Ebene 1
+        (2 km/Hex) — dieselbe Auflösung in <b>jeder</b> Epoche.</p>
+      <h4 class="sp">Wo die Metrik endet</h4>
+      <div class="warn rot" id="grenze">—</div>
+    </div>
+  </aside>
+</main>
+</div>
+
+<script src="rhein-tiles-v4.data.js"></script>
+<script>
+/* =====================================================================
+   STROMLINIEN · Kartenwachstum v1
+   Gegenentwurf zum Zoomstufen-Labor. Dort wurde das Feld kleiner; hier
+   bleibt die Dichte gleich und die WELT wird grösser — entlang der Wege,
+   die Menschen einer Epoche tatsächlich gehen konnten. Und sie wird
+   kleiner, wo niemand mehr hingeht: was verlassen wird, fällt in Nebel.
+   Debug: ?epoche=0..6 ?ort=<id> ?sicht=N ?vergessen=aus ?night
+   ===================================================================== */
+const TS=window.RHEIN_TILESET, S3=Math.sqrt(3);
+const L=TS.levels[1];                    /* 2 km/Hex — konstant, in allen Epochen */
+const TERRNAME=['Flachland','Ufer','Bergland','Fluss','See','Nordsee','Nebenlauf','Hang'];
+const TERRCOL=['#CFD8C8','#BFD2BE','#A9B4A4','#7FB2AC','#8FBDB6','#6FA6B8','#9CC6C0','#B6BEAE'];
+const TERRNIGHT=['#1E2C34','#22333A','#182530','#2E5457','#2F5A5C','#26454F','#39646A','#1B2830'];
+
+const axialOf=(c,r)=>c-((r-(r&1))/2);
+const centerKm=(c,r)=>[L.hexKm*(axialOf(c,r)+r/2), L.hexKm*1.5/S3*r];
+function cellAtKm(x,y){
+  const s=L.hexKm/S3, q=((S3/3)*x-y/3)/s, r=((2/3)*y)/s;
+  let rx=Math.round(q),ry=Math.round(-q-r),rz=Math.round(r);
+  const dx=Math.abs(rx-q),dy=Math.abs(ry-(-q-r)),dz=Math.abs(rz-r);
+  if(dx>dy&&dx>dz)rx=-ry-rz; else if(!(dy>dz))rz=-rx-ry;
+  return [rx+((rz-(rz&1))/2), rz];
+}
+const kmOfLonLat=(lon,lat)=>[(lon-TS.cfg.lon0)*TS.cfg.kmx,(TS.cfg.lat1-lat)*TS.cfg.kmy];
+const FLAECHE=S3/2*L.hexKm*L.hexKm;      /* km² je Feld — ändert sich nie */
+const DE=[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]];
+const DO=[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
+const dirs=r=>(((r%2)+2)%2)?DO:DE;
+
+const cache=new Map();
+function terrOf(c,r){
+  if(c<0||r<0||c>=L.cols||r>=L.rows)return null;
+  const tx=Math.floor(c/L.tile), ty=Math.floor(r/L.tile), key=tx+','+ty;
+  let t=cache.get(key);
+  if(t===undefined){
+    const raw=L.tiles[key];
+    t=raw?Uint8Array.from(atob(raw.t),ch=>ch.charCodeAt(0)):null;
+    cache.set(key,t);
+  }
+  if(!t)return null;
+  return t[(r%L.tile)*L.tile+(c%L.tile)];
+}
+
+/* =====================================================================
+   DIE EPOCHEN — nicht als Kartengrösse, sondern als REICHWEITE
+   Was ein Mensch dieser Zeit an einem Tag schafft, und wie viele Tage
+   weit sein Leben ihn überhaupt führt. Die Kartengrösse ist das Ergebnis.
+   ===================================================================== */
+/* Zwei Budgets je Epoche, weil zwei verschiedene Dinge wachsen:
+   heim = das Gebiet, das die Gruppe im Jahreslauf wirklich abläuft (Fläche)
+   fern = wie weit Wege zu ANDEREN ORTEN reichen (Linien, kein Gebiet)
+   Beide in km-Äquivalent. Die Kartengrösse ist das Ergebnis, nicht die Vorgabe. */
+const EPOCHEN=[
+ {id:'meso',nm:'Mesolithikum',von:-9600,bis:-5500,kmTag:25,heim:55,fern:0,boot:false,strasse:false,
+  txt:'Jagd und Sammeln im Jahreslauf. Man kennt ein <b>Streifgebiet</b> — und man kennt es ganz, weil man es abläuft. Ziele gibt es keine: es gibt nur das Gebiet.',
+  beleg:'Streifgebiete rezenter Wildbeutergruppen liegen ethnographisch bei <b>100–2 000 km²</b>; das Modell trifft diesen Bereich. Die Wegkosten selbst sind rekonstruiert.'},
+ {id:'neo',nm:'Neolithikum',von:-5500,bis:-2200,kmTag:25,heim:6,fern:18,boot:'einbaum',strasse:false,
+  txt:'Sesshaft — und dadurch <b>ärmer an Welt</b>. Das Dorfterritorium ist klein und wird dafür genau gekannt. Neu ist etwas anderes: der Einbaum macht den Fluss zum Weg, und damit gibt es erstmals <b>Ziele</b> statt nur Gebiet.',
+  beleg:'Neolithische Wirtschaftsradien von 1–3 km um die Siedlung (5–50 km² Territorium) sind Standardannahme der Siedlungsarchäologie. Einbäume am Bodensee sind <b>belegt</b>.'},
+ {id:'bronze',nm:'Bronzezeit',von:-2200,bis:-800,kmTag:28,heim:8,fern:210,boot:'einbaum',strasse:false,
+  txt:'Metall kommt von weit her. Wissen wächst jetzt <b>entlang des Wassers</b>: ein Band, das dem Fluss folgt, mit blinden Flanken. Das Tal daneben bleibt fremd.',
+  beleg:'Fernhandel mit Kupfer, Zinn und Bernstein ist <b>belegt</b>; die Talwege am Alpenrhein sind rekonstruiert.'},
+ {id:'eisen',nm:'Eisenzeit',von:-800,bis:-15,kmTag:30,heim:10,fern:330,boot:'planke',strasse:false,
+  txt:'Saumpfade über die Pässe, befestigte Höhen im Tal. Die Welt reicht über den Kamm — auf schmalen Linien, und wer sie hält, kontrolliert sie.',
+  beleg:'Passverkehr über Splügen und San Bernardino ist für die Eisenzeit <b>wahrscheinlich</b>, befestigte Höhensiedlungen im Alpenrheintal sind nachgewiesen.'},
+ {id:'roem',nm:'Römerzeit',von:-15,bis:400,kmTag:30,heim:14,fern:600,boot:'planke',strasse:true,
+  txt:'Die <b>Strasse</b> macht den Talboden billig: dieselben Beine kommen weiter, und die Wege sind nicht mehr die eigenen. Zum ersten Mal wächst die Karte, ohne dass jemand im Tal es wollte.',
+  beleg:'Römische Tagesmärsche von ~30 km und Strassenstationen im Abstand von 30–40 km sind <b>belegt</b>.'},
+ {id:'mittel',nm:'Mittelalter',von:400,bis:1500,kmTag:35,heim:16,fern:850,boot:'planke',strasse:true,
+  txt:'Markt, Wallfahrt, Fähre, Kloster. Die Welt ist ein <b>Netz</b> aus Orten mit weiten leeren Flächen dazwischen — man kennt Rom und nicht das Nachbartal.',
+  beleg:'Fussreisende 30–40 km/Tag, Reiter 50–60 km/Tag sind aus Reiseberichten <b>belegt</b>.'},
+ {id:'neuzeit',nm:'Neuzeit',von:1500,bis:1900,kmTag:40,heim:18,fern:1200,boot:'planke',strasse:true,spaet:true,
+  txt:'Hier stimmt die Rechnung nicht mehr: Druck, Karte, Post und Schule bringen Wissen über Orte, die niemand der Gruppe betreten hat. <b>Wissen löst sich von den Füssen.</b>',
+  beleg:'Ab dem 16. Jh. entkoppelt gedruckte Kartografie das Wissen von der eigenen Bewegung — die Reichweiten-Metrik verliert ihren Griff.'},
+];
+
+/* Geländekosten in km-Äquivalent je Feld (Feld = 2 km).
+   Wichtig: sobald es Boote gibt, ist Wasser BILLIGER als Land — nur dann
+   entstehen Korridore statt Flecken. Ohne Boot ist der Fluss eine Sperre. */
+function kosten(t,ep){
+  if(t===null)return null;                       /* keine Daten = unpassierbar */
+  const boot=ep.boot;
+  if(t===3||t===6){                              /* Fluss / Nebenlauf */
+    if(!boot)return 12;                          /* Sperre, nur an Furten querbar */
+    return boot==='planke'?0.6:1.0;              /* das Wasser trägt */
+  }
+  if(t===4||t===5){                              /* See / Meer */
+    if(!boot)return null;
+    return boot==='planke'?0.8:1.4;
+  }
+  if(t===2)return 14;                            /* Bergland */
+  if(t===7)return 5;                             /* Hang */
+  return ep.strasse?1.2:2;                       /* Flachland / Ufer */
+}
+
+/* Ziele: die echten Landmarken des Datensatzes (23 Orte am Rhein). */
+const ZIELE=TS.landmarks.map(l=>{
+  const x=(l.lon-TS.cfg.lon0)*TS.cfg.kmx, y=(TS.cfg.lat1-l.lat)*TS.cfg.kmy;
+  const s=L.hexKm/S3, q=((S3/3)*x-y/3)/s, rr=((2/3)*y)/s;
+  let rx=Math.round(q),ry=Math.round(-q-rr),rz=Math.round(rr);
+  const dx=Math.abs(rx-q),dy=Math.abs(ry-(-q-rr)),dz=Math.abs(rz-rr);
+  if(dx>dy&&dx>dz)rx=-ry-rz; else if(!(dy>dz))rz=-rx-ry;
+  return {nm:l.name,c:rx+((rz-(rz&1))/2),r:rz};
+});
+
+/* =====================================================================
+   ZUSTAND
+   ===================================================================== */
+const ORTE=[
+  {id:'landquart',nm:'Landquart',lon:9.567,lat:46.966},
+  {id:'chur',nm:'Chur',lon:9.53,lat:46.85},
+  {id:'rheindelta',nm:'Rheindelta',lon:9.63,lat:47.50},
+];
+let epI=0, sicht=7, zeigeVergessen=true, ortId='landquart';
+let gruppen=[], gewaehlt=0, jeBekannt=new Set(), bekannt=new Set(), vorherN=null;
+let mitte=[368,558], spanKm=300;   /* Chur bis Basel und der Bodensee im Bild */
+const dorf=[];                                  /* was gebaut wurde, bleibt liegen */
+
+function start(){
+  const o=ORTE.find(x=>x.id===ortId), k=kmOfLonLat(o.lon,o.lat);
+  const[c,r]=cellAtKm(k[0],k[1]);
+  gruppen=[{c,r,nm:'Sippe'}]; gewaehlt=0;
+  jeBekannt=new Set(); vorherN=null;
+  dorf.length=0;
+  /* Ein kleines Dorf am Ausgangspunkt — es bleibt liegen, auch wenn die
+     Gruppe weiterzieht. Genau dann steht es im Nebel. */
+  dorf.push([c,r]);
+  for(const[dr,dc]of dirs(r)){const t=terrOf(c+dc,r+dr); if(t!==null&&t!==2&&t!==4&&dorf.length<5)dorf.push([c+dc,r+dr]);}
+  rechne();
+}
+
+/* ---------- Kostensuche: das Herz des Modells ----------
+   Eine Suche, zwei Lesarten. Bis zum Heimat-Budget gilt: was erreichbar ist,
+   ist auch bekannt — man läuft sein Gebiet ab. Darüber hinaus gilt das NICHT:
+   man reist zu Orten, nicht durch Flächen. Bekannt ist dann nur ein
+   Sichtstreifen entlang der günstigsten Wege dorthin. Daraus wird von selbst
+   ein Fleck, ein Band oder ein Netz — ohne dass es drei Modelle bräuchte. */
+let letzteWege=[];
+function rechne(){
+  const ep=EPOCHEN[epI];
+  const dist=new Map(), prev=new Map(), q=[];
+  gruppen.forEach(g=>q.push({k:g.c+','+g.r,d:0,p:null}));
+  const max=Math.max(ep.heim,ep.fern);
+  let guard=400000;
+  while(q.length&&guard-->0){
+    q.sort((a,b)=>a.d-b.d);
+    const n=q.shift();
+    if(dist.has(n.k))continue;
+    if(n.d>max)continue;
+    dist.set(n.k,n.d); if(n.p)prev.set(n.k,n.p);
+    const[c,r]=n.k.split(',').map(Number);
+    for(const[dr,dc]of dirs(r)){
+      const nc=c+dc, nr=r+dr, nk=nc+','+nr;
+      if(dist.has(nk))continue;
+      const w=kosten(terrOf(nc,nr),ep);
+      if(w===null)continue;
+      q.push({k:nk,d:n.d+w,p:n.k});
+    }
+  }
+  const wissen=new Set();
+  /* 1. Heimatgebiet — Fläche */
+  dist.forEach((d,k)=>{ if(d<=ep.heim)wissen.add(k); });
+  /* 2. Sicht von der Gruppe aus: sehen, ohne hinzugehen.
+     Aber Sicht geht NICHT durch Berge — sie folgt dem Tal. Darum kein
+     Kreis, sondern eine Breitensuche über alles, was nicht Bergland ist;
+     die Flanke selbst sieht man (sie ist die Wand, die den Blick beendet). */
+  gruppen.forEach(g=>sichtfeld(g.c,g.r,sicht).forEach(k=>wissen.add(k)));
+  /* 3. Wege zu erreichbaren Zielen — Linien mit Sichtstreifen */
+  const wegSicht=Math.max(1,Math.round(sicht/3));
+  letzteWege=[];
+  if(ep.fern>ep.heim)ZIELE.forEach(z=>{
+    const k=z.c+','+z.r, d=dist.get(k);
+    if(d===undefined||d>ep.fern)return;
+    const weg=[]; let cur=k, schutz=5000;
+    while(cur&&schutz-->0){ weg.push(cur); cur=prev.get(cur); }
+    letzteWege.push({nm:z.nm,weg});
+    weg.forEach(wk=>{
+      const[wc,wr]=wk.split(',').map(Number);
+      for(let dr=-wegSicht;dr<=wegSicht;dr++)for(let dc=-wegSicht-1;dc<=wegSicht+1;dc++){
+        const nc=wc+dc,nr=wr+dr;
+        if(hexDist(wc,wr,nc,nr)>wegSicht)continue;
+        if(terrOf(nc,nr)===null)continue;
+        wissen.add(nc+','+nr);
+      }
+    });
+  });
+  bekannt=wissen;
+  bekannt.forEach(k=>jeBekannt.add(k));
+  zeichneAlles();
+}
+/* Sichtfeld: n Schritte weit, aber nur durch offenes Gelände; Bergfelder
+   werden gesehen, aber nicht durchschaut. Macht aus dem Sichtkreis ein Tal. */
+function sichtfeld(c0,r0,n){
+  const gesehen=new Set([c0+','+r0]), q=[[c0,r0,0]];
+  while(q.length){
+    const[c,r,d]=q.shift();
+    if(d>=n)continue;
+    for(const[dr,dc]of dirs(r)){
+      const nc=c+dc,nr=r+dr,k=nc+','+nr;
+      if(gesehen.has(k))continue;
+      const t=terrOf(nc,nr); if(t===null)continue;
+      gesehen.add(k);
+      if(t!==2)q.push([nc,nr,d+1]);        /* Bergland beendet den Blick */
+    }
+  }
+  return gesehen;
+}
+function hexDist(c1,r1,c2,r2){
+  const a1=axialOf(c1,r1), a2=axialOf(c2,r2);
+  const x1=a1, z1=r1, y1=-x1-z1, x2=a2, z2=r2, y2=-x2-z2;
+  return Math.max(Math.abs(x1-x2),Math.abs(y1-y2),Math.abs(z1-z2));
+}
+/* Was jede Epoche aus derselben Ausgangslage könnte — die Wachstumskurve.
+   Einmal gerechnet und gemerkt; sie ändert sich nur, wenn Gruppen umziehen. */
+let kurveCache=null;
+function kurve(){
+  if(kurveCache)return kurveCache;
+  const merke=epI, merkeB=bekannt, merkeJe=jeBekannt, merkeW=letzteWege;
+  const out=[];
+  EPOCHEN.forEach((e,i)=>{ epI=i; jeBekannt=new Set(); rechneStill(); out.push(bekannt.size); });
+  epI=merke; bekannt=merkeB; jeBekannt=merkeJe; letzteWege=merkeW;
+  kurveCache=out; return out;
+}
+function rechneStill(){ const z=zeichneAlles; zeichneAlles=()=>{}; rechne(); zeichneAlles=z; }
+
+/* =====================================================================
+   ZEICHNEN
+   ===================================================================== */
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id);
+function zeichne(){
+  const w=cv.parentElement.clientWidth-16, h=Math.round(Math.min(600,Math.max(400,w*0.66)));
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  cv.width=w*dpr; cv.height=h*dpr; cv.style.height=h+'px';
+  const nacht=document.body.classList.contains('night');
+  const FARB=nacht?TERRNIGHT:TERRCOL;
+  const cs=getComputedStyle(document.body);
+  const NEBEL=cs.getPropertyValue('--nebel').trim(), VERG=cs.getPropertyValue('--vergessen').trim();
+  const px=cv.width/spanKm, s=L.hexKm/S3, rad=s*px;
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle=NEBEL; ctx.fillRect(0,0,cv.width,cv.height);
+  const ox=cv.width/2-mitte[0]*px, oy=cv.height/2-mitte[1]*px;
+  const X=x=>x*px+ox, Y=y=>y*px+oy;
+  const spanY=spanKm*cv.height/cv.width;
+  const r0=Math.max(0,Math.floor((mitte[1]-spanY/2)/(L.hexKm*1.5/S3))-1);
+  const r1=Math.min(L.rows-1,Math.ceil((mitte[1]+spanY/2)/(L.hexKm*1.5/S3))+1);
+  const c0=Math.max(0,Math.floor((mitte[0]-spanKm/2)/L.hexKm)-2);
+  const c1=Math.min(L.cols-1,Math.ceil((mitte[0]+spanKm/2)/L.hexKm)+2);
+  const pfad=(x,y,rr)=>{ctx.beginPath();
+    for(let i=0;i<6;i++){const a=Math.PI/180*(60*i-90);
+      const pxx=x+rr*Math.cos(a),pyy=y+rr*Math.sin(a); i?ctx.lineTo(pxx,pyy):ctx.moveTo(pxx,pyy);}
+    ctx.closePath();};
+
+  let nb=0,nv=0;
+  ctx.lineWidth=Math.max(.25,rad*.05);
+  ctx.strokeStyle=nacht?'rgba(255,255,255,.05)':'rgba(0,0,0,.07)';
+  for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){
+    const k=c+','+r;
+    const ist=bekannt.has(k), war=jeBekannt.has(k);
+    if(!ist&&!(war&&zeigeVergessen))continue;      /* echter Nebel: nichts zeigen */
+    const t=terrOf(c,r); if(t===null)continue;
+    const[kx,ky]=centerKm(c,r);
+    const cx=X(kx), cy=Y(ky);
+    if(cx<-rad||cy<-rad||cx>cv.width+rad||cy>cv.height+rad)continue;
+    pfad(cx,cy,rad);
+    if(ist){ctx.fillStyle=FARB[t];nb++;}
+    else{ctx.fillStyle=FARB[t];ctx.globalAlpha=.38;nv++;}
+    ctx.fill(); ctx.globalAlpha=1;
+    if(rad>3.5)ctx.stroke();
+    if(!ist){                                       /* Schleier über das Vergessene */
+      pfad(cx,cy,rad); ctx.fillStyle=VERG; ctx.globalAlpha=.48; ctx.fill(); ctx.globalAlpha=1;
+    }
+  }
+  /* Die Wege selbst — erst dadurch sieht man das Netz statt nur das Band */
+  if(letzteWege.length){
+    ctx.strokeStyle=nacht?'rgba(224,138,60,.55)':'rgba(201,111,46,.5)';
+    ctx.lineWidth=Math.max(1,rad*.28); ctx.lineJoin='round';
+    letzteWege.forEach(w=>{
+      ctx.beginPath();
+      w.weg.forEach((k,i)=>{
+        const[c,r]=k.split(',').map(Number), [kx,ky]=centerKm(c,r);
+        i?ctx.lineTo(X(kx),Y(ky)):ctx.moveTo(X(kx),Y(ky));
+      });
+      ctx.stroke();
+    });
+  }
+  /* Das Dorf — auch wenn es im Nebel liegt */
+  dorf.forEach(([c,r])=>{
+    const[kx,ky]=centerKm(c,r), cx=X(kx), cy=Y(ky);
+    const drin=bekannt.has(c+','+r);
+    pfad(cx,cy,Math.max(2.5,rad*.5));
+    ctx.fillStyle=drin?'#C96F2E':'rgba(201,111,46,.35)'; ctx.fill();
+  });
+  /* Gruppen */
+  ctx.font='700 '+Math.max(11,Math.min(20,rad*1.5))+'px "Space Mono", monospace';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  gruppen.forEach((g,i)=>{
+    const[kx,ky]=centerKm(g.c,g.r), cx=X(kx), cy=Y(ky);
+    ctx.beginPath(); ctx.arc(cx,cy,Math.max(7,rad*1.5),0,7);
+    ctx.strokeStyle=i===gewaehlt?'#C96F2E':(nacht?'rgba(230,225,210,.5)':'rgba(34,48,44,.45)');
+    ctx.lineWidth=i===gewaehlt?2.2:1.2; ctx.stroke();
+    ctx.lineWidth=3; ctx.strokeStyle=nacht?'#0D151D':'#ECEFE6'; ctx.strokeText('➤',cx,cy);
+    ctx.fillStyle=nacht?'#E6E1D2':'#22302C'; ctx.fillText('➤',cx,cy);
+  });
+  return {nb,nv};
+}
+
+function zeichneAlles(){
+  const st=zeichne();
+  const ep=EPOCHEN[epI];
+  const nb=bekannt.size, nv=[...jeBekannt].filter(k=>!bekannt.has(k)).length;
+  $('cEp').textContent=ep.nm;
+  $('cSpan').textContent=jahr(ep.von)+' – '+jahr(ep.bis);
+  $('note').textContent=nb.toLocaleString('de-CH')+' Felder bekannt · '+
+    Math.round(nb*FLAECHE).toLocaleString('de-CH')+' km² · Ausschnitt '+spanKm+' km';
+  $('zBek').textContent=nb; $('zVerg').textContent=nv;
+  $('zKm').textContent=Math.round(nb*FLAECHE).toLocaleString('de-CH');
+  $('zDelta').innerHTML=vorherN===null?'—':(nb-vorherN>=0?'+':'−')+Math.abs(nb-vorherN);
+  $('epTitel').textContent=ep.nm+' · '+jahr(ep.von)+' – '+jahr(ep.bis);
+  $('epTxt').innerHTML=ep.txt;
+  $('epReich').innerHTML='<b>Heimatgebiet</b> '+ep.heim+' km Wegbudget (Fläche) · '+
+    (ep.fern>ep.heim?'<b>Wege</b> bis '+ep.fern+' km — '+letzteWege.length+' von '+ZIELE.length+' Orten erreichbar':'<b>keine Ziele</b> — nur Gebiet')+
+    ' · Tagesreise '+ep.kmTag+' km'+
+    (ep.boot?' · Wasser trägt ('+(ep.boot==='planke'?'Plankenboot':'Einbaum')+')':' · Wasser ist Sperre')+
+    (ep.strasse?' · Strasse':'')+'<br><b>Beleg:</b> '+ep.beleg;
+
+  $('treppe').innerHTML=EPOCHEN.map((e,i)=>
+    '<div class="ep'+(i===epI?' on':'')+(e.spaet?' spaet':'')+'" data-i="'+i+'"><b>'+e.nm+'</b>'+
+    '<span>'+e.heim+' / '+e.fern+' km</span></div>').join('');
+  $('treppe').querySelectorAll('.ep').forEach(el=>el.onclick=()=>{
+    vorherN=bekannt.size; epI=+el.dataset.i; rechne();});
+
+  const k=kurve(), max=Math.max(...k);
+  $('tblEp').innerHTML='<tr><th>Epoche</th><th class="n">km²</th><th class="n">Felder</th><th></th></tr>'+
+    EPOCHEN.map((e,i)=>{
+      const ab=i>0&&k[i]<k[i-1];
+      return '<tr'+(i===epI?' class="hi"':'')+'><td>'+e.nm+'</td><td class="n">'+
+      Math.round(k[i]*FLAECHE).toLocaleString('de-CH')+
+      '</td><td class="n">'+k[i]+'</td><td style="padding-left:6px"><span class="bar'+(ab?' ab':'')+
+      '" style="width:'+Math.round(58*k[i]/max)+'px"></span></td></tr>';}).join('');
+
+  $('tblKost').innerHTML='<tr><th>Gelände</th><th class="n">km-Äquivalent</th></tr>'+
+    [0,1,7,2,3,4].map(t=>{
+      const v=kosten(t,ep);
+      return '<tr><td>'+TERRNAME[t]+'</td><td class="n">'+(v===null?'unpassierbar':v.toFixed(1))+'</td></tr>';
+    }).join('');
+
+  $('grenze').innerHTML='<p>Du hast die Metrik bis ins <b>16. Jahrhundert</b> für legitim erklärt — '+
+    'die Rechnung bestätigt das: bis dahin ist bekanntes Land <b>begangenes Land</b>. '+
+    'Danach bringt gedruckte Kartografie Wissen über Orte, die niemand der Gruppe betreten hat. '+
+    'Ab der Neuzeit müsste die Karte also <b>nicht mehr durch Füsse, sondern durch Nachrichten</b> wachsen — '+
+    'ein anderer Mechanismus, nicht ein grösseres Budget.</p>';
+
+  $('leg').innerHTML=
+    [0,1,7,2,3,4].map(t=>'<span><i style="background:'+(document.body.classList.contains('night')?TERRNIGHT:TERRCOL)[t]+'"></i>'+TERRNAME[t]+'</span>').join('')+
+    '<span><i style="background:var(--vergessen)"></i>vergessen</span>'+
+    '<span><i style="background:var(--nebel)"></i>nie gesehen</span>'+
+    '<span><i style="background:#C96F2E"></i>Dorf</span>';
+  $('bPrev').disabled=epI===0; $('bNext').disabled=epI>=EPOCHEN.length-1;
+}
+const jahr=y=>y<0?Math.abs(y).toLocaleString('de-CH')+' v. Chr.':y.toLocaleString('de-CH')+' n. Chr.';
+
+/* =====================================================================
+   STEUERUNG
+   ===================================================================== */
+$('bNext').onclick=()=>{if(epI<EPOCHEN.length-1){vorherN=bekannt.size;epI++;rechne();}};
+$('bPrev').onclick=()=>{if(epI>0){vorherN=bekannt.size;epI--;rechne();}};
+$('bTeilen').onclick=()=>{
+  const g=gruppen[gewaehlt];
+  gruppen.push({c:g.c,r:g.r,nm:'Sippe '+(gruppen.length+1)});
+  gewaehlt=gruppen.length-1; kurveCache=null; rechne();
+};
+$('bVergessen').onclick=e=>{zeigeVergessen=!zeigeVergessen;e.target.classList.toggle('on',zeigeVergessen);zeichneAlles();};
+$('bNight').onclick=e=>{document.body.classList.toggle('night');e.target.classList.toggle('on');zeichneAlles();};
+$('rSicht').oninput=e=>{sicht=+e.target.value;$('vSicht').textContent=sicht;kurveCache=null;rechne();};
+cv.onclick=e=>{
+  const b=cv.getBoundingClientRect(), dpr=cv.width/b.width, px=cv.width/spanKm;
+  const kx=mitte[0]+((e.clientX-b.left)*dpr-cv.width/2)/px;
+  const ky=mitte[1]+((e.clientY-b.top)*dpr-cv.height/2)/px;
+  const[c,r]=cellAtKm(kx,ky);
+  if(terrOf(c,r)===null)return;
+  vorherN=bekannt.size; kurveCache=null;
+  gruppen[gewaehlt]={...gruppen[gewaehlt],c,r};
+  rechne();
+};
+addEventListener('resize',zeichneAlles);
+addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight')$('bNext').click();
+  if(e.key==='ArrowLeft')$('bPrev').click();
+});
+
+(function init(){
+  const q=new URLSearchParams(location.search);
+  if(q.has('ort')&&ORTE.some(o=>o.id===q.get('ort')))ortId=q.get('ort');
+  if(q.has('sicht')){sicht=Math.max(1,Math.min(12,+q.get('sicht')));$('rSicht').value=sicht;$('vSicht').textContent=sicht;}
+  if(q.get('vergessen')==='aus'){zeigeVergessen=false;$('bVergessen').classList.remove('on');}
+  if(q.has('night')){document.body.classList.add('night');$('bNight').classList.add('on');}
+  start();
+  const e=+q.get('epoche');
+  if(e>0&&e<EPOCHEN.length){
+    /* Epochen der Reihe nach durchlaufen, damit „vergessen" echt entsteht */
+    for(let i=1;i<=e;i++){vorherN=bekannt.size;epI=i;rechne();}
+  }
+})();
+</script>
+</body>
+</html>

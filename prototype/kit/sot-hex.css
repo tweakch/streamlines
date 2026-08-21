@@ -1,0 +1,188 @@
+/* ============================================================================
+   sot-hex.css — STROMLINIEN Prototyp-Baukasten · Hexraster (CSS-Variante)
+
+   Spitz-oben-Sechsecke, odd-r-Offset (ungerade Zeilen nach rechts versetzt) —
+   dieselbe Konvention wie app/src/stromlinien/grid.ts. Verlangt sot.css.
+
+   Bauart: eine Zeile je .hexrow, .cell zeichnet sich per clip-path zweimal
+   (::before = Kante, ::after = Fläche). Kein SVG, kein Canvas — darum sind
+   Marken einfach normale Kindelemente und in `em` bemessen, sie skalieren
+   also mit --hexw mit.
+
+   Größe:  .map{--hexw:…} setzt alles andere. Nicht von Hand rechnen —
+           SOT.hex.autosize(el, cols) macht es und wiederholt es, sobald der
+           Behälter sichtbar wird (clientWidth ist 0 solange ein Elternteil
+           noch .hid trägt — der klassische Fehler).
+
+   Für große Karten (>~2000 Felder) ist diese Variante zu langsam; dort SVG
+   oder Canvas nehmen und nur die Farbtokens aus sot.css benutzen.
+   ========================================================================= */
+
+.map{
+  --hexw:72px;
+  --hexh:calc(var(--hexw)*1.1547);   /* 2/√3 — Spitz-oben */
+  --hexgap:4px;
+}
+.map.tight{--hexgap:0px;}
+@media (max-width:390px){.map{--hexgap:3px;}}
+
+.hexrow{display:flex;gap:var(--hexgap);}
+.hexrow.odd{margin-left:calc(var(--hexw)/2 + var(--hexgap)/2);}
+.hexrow + .hexrow{margin-top:calc(var(--hexh)*-0.25 + var(--hexgap));}
+
+.cell{
+  position:relative;flex:none;
+  width:var(--hexw);height:var(--hexh);
+  display:flex;align-items:center;justify-content:center;
+  /* Schriftgröße folgt der Feldbreite: Marken in em bleiben proportional. */
+  font-size:clamp(7px,calc(var(--hexw)*.135),15px);
+  --edge:var(--line);--fill:var(--tile);
+  transition:filter .25s;
+}
+.cell::before,.cell::after{
+  content:'';position:absolute;
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+}
+.cell::before{inset:0;background:var(--edge);transition:background .25s;}
+.cell::after{inset:1.5px;background-color:var(--fill);transition:background-color 1.4s ease;}
+
+/* --------------------------------------------------------------- Gelände ---
+   Beide Schreibweisen sind gültig: `.cell.water` (Spielprototypen) und
+   `.cell.t-water` (Editoren). Wer neu baut, nimmt t-*: es kollidiert mit
+   nichts und liest sich als „Terrain".
+   -------------------------------------------------------------------------- */
+.cell.water,.cell.t-water{--fill:var(--river);--edge:var(--riverdeep);}
+.cell.lake,.cell.t-lake{--fill:var(--lake);--edge:var(--riverdeep);}
+.cell.flach,.cell.t-flach{--fill:var(--flach);}
+.cell.ufer,.cell.t-ufer{--fill:var(--ufer);}
+.cell.hang,.cell.t-hang{--fill:var(--hang);}
+.cell.berg,.cell.t-berg{--fill:var(--hang);}
+.cell.wald,.cell.t-wald{--fill:var(--wald);}
+.cell.kies,.cell.t-kies{--fill:var(--kies);}
+.cell.trocken,.cell.t-trocken{--fill:var(--trocken);}
+.cell.brand,.cell.t-brand{--fill:var(--brand);}
+
+/* Schraffuren statt weiterer Farben: Steigung liest sich als Struktur,
+   und die Palette bleibt beim Gelände sparsam. */
+.cell.hang::after,.cell.t-hang::after{
+  background-image:repeating-linear-gradient(135deg,transparent 0 5px,rgba(90,107,100,.13) 5px 7px);}
+.cell.berg::after,.cell.t-berg::after{
+  background-image:repeating-linear-gradient(115deg,transparent 0 4px,rgba(60,72,66,.16) 4px 8px);}
+/* Furt: das Wasser wird flach — quer gestreift, nicht durchgefärbt. */
+.cell.furt::after{
+  background-image:repeating-linear-gradient(0deg,var(--river) 0 4px,var(--lake) 4px 8px);}
+
+/* --------------------------------------------------------------- Zustände ---*/
+.cell.clickable{cursor:pointer;}
+.cell.valid{--edge:var(--ember);cursor:pointer;}
+.cell.valid:active{filter:brightness(1.06);}
+.cell.invalid{opacity:.4;cursor:not-allowed;}
+.cell.sel,.cell.inspect{--edge:var(--ink);filter:drop-shadow(0 0 7px rgba(30,45,40,.4));}
+body.night .cell.sel,body.night .cell.inspect{filter:drop-shadow(0 0 7px rgba(230,225,210,.32));}
+.cell.ghost{opacity:.28;}
+.cell.fog{--fill:var(--panel2);--edge:var(--line);}
+.cell.reveal{animation:sot-reveal 1.1s ease-out both;}
+@keyframes sot-reveal{0%{opacity:0;transform:scale(.4)}55%{opacity:1;transform:scale(1.05)}100%{transform:scale(1)}}
+
+/* ---------------------------------------------------------------- Schichten ---
+   Grund (::before/::after) → Aufdruck (.lay) → Kern (.glyph) →
+   Kanten (.link) → Slots (Marken). Reihenfolge = z-index.
+   -------------------------------------------------------------------------- */
+/* Aufdruck: Tönung (Arten) und Schleier (Ereignis) über der Fläche. */
+.lay{position:absolute;inset:1.5px;z-index:1;pointer-events:none;
+     clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);}
+.lay.tint{background-image:repeating-linear-gradient(58deg,transparent 0 6px,rgba(78,125,91,.22) 6px 9px);}
+.lay.wash-warm{background:rgba(201,111,46,.22);}
+.lay.wash-cold{background:rgba(255,255,255,.42);}
+body.night .lay.wash-cold{background:rgba(220,232,240,.24);}
+.lay.wash-silt{background:rgba(198,178,124,.34);}
+.lay.wash-ill{background:rgba(156,74,51,.26);}
+.lay.wash-mud{background:rgba(120,92,60,.3);}
+
+/* Kern: das Plättchen. Halbe Feldbreite, damit die Slots Platz haben. */
+.glyph{position:relative;z-index:2;width:50%;height:50%;color:var(--tileink);
+       display:flex;align-items:center;justify-content:center;}
+.glyph svg{width:100%;height:100%;display:block;}
+.cell.placed .glyph{color:var(--ink);}
+
+/* Kanten: Verbünde und Störungen. Der Balken sitzt MITTIG auf der Kante,
+   halb im eigenen und halb im Nachbarfeld — so liest er sich als
+   Verbindung und nicht als Verzierung. Kantenmitten des Spitz-oben-Sechsecks:
+   W (0,50) · E (100,50) · NW (25,12.5) · NE (75,12.5) · SW (25,87.5) · SE (75,87.5). */
+.link{position:absolute;z-index:3;width:26%;height:.38em;min-height:2px;
+      border-radius:var(--r-pill);pointer-events:none;
+      background:var(--good);box-shadow:0 0 0 1.5px var(--bg);}
+.link.mal{background:var(--bad);}
+.link.thin{height:.26em;}
+.link.d-W {left:0;   top:50%;   transform:translate(-50%,-50%) rotate(90deg);}
+.link.d-E {left:100%;top:50%;   transform:translate(-50%,-50%) rotate(90deg);}
+.link.d-NW{left:25%; top:12.5%; transform:translate(-50%,-50%) rotate(-30deg);}
+.link.d-NE{left:75%; top:12.5%; transform:translate(-50%,-50%) rotate(30deg);}
+.link.d-SW{left:25%; top:87.5%; transform:translate(-50%,-50%) rotate(30deg);}
+.link.d-SE{left:75%; top:87.5%; transform:translate(-50%,-50%) rotate(-30deg);}
+
+/* --------------------------------------------------------------- Slots -----
+   Sechs feste Plätze, damit ein Feld über die Epochen mehr tragen kann,
+   ohne dass es zufällig aussieht:
+     .kern   Mitte           — das Plättchen (.glyph)
+     .krone  oben rechts     — Menschen
+     .wange  oben links      — Ereignis + Restdauer
+     .ferse  unten links     — Arten (Flora/Fauna)
+     .fuss   unten Mitte     — Zeichen / Fundstelle / Ortsname
+     .zahl   unten rechts    — Feldwert
+   Geometrie-Warnung: beim Spitz-oben-Sechseck sind die vier BOXECKEN LEER.
+   Innerhalb der Silhouette liegt am Rand nur, was zwischen ~20 % und ~80 %
+   Höhe sitzt — darum liegen alle Marken auf einem Ring bei ~22 %.
+   -------------------------------------------------------------------------- */
+.slot{position:absolute;z-index:4;display:flex;align-items:center;justify-content:center;
+      font-family:var(--f-mono);pointer-events:none;}
+.slot.krone{top:21%;right:6%;gap:2px;}
+.slot.wange{top:21%;left:6%;}
+.slot.ferse{bottom:22%;left:8%;gap:.22em;}
+.slot.fuss {bottom:7%;left:0;right:0;font-size:.95em;color:var(--ember);}
+.slot.zahl {bottom:19%;right:7%;font-size:1.05em;font-weight:700;color:var(--good);}
+.slot.zahl.neg{color:var(--bad);}
+
+/* Marken in den Slots */
+.pers{width:1.65em;height:1.65em;border-radius:50%;background:var(--ember);color:#14100a;
+      font-family:var(--f-body);font-size:1em;font-weight:700;display:flex;
+      align-items:center;justify-content:center;border:1.5px solid var(--bg);
+      box-shadow:0 1px 3px rgba(0,0,0,.3);}
+.pers.more{background:var(--ink);color:var(--bg);font-size:.8em;}
+.evmark{width:1.75em;height:1.75em;border-radius:.45em;background:var(--panel);
+        border:1.5px solid var(--bad);color:var(--bad);font-size:1em;position:relative;
+        display:flex;align-items:center;justify-content:center;}
+.evmark .dur{position:absolute;bottom:-.45em;right:-.4em;background:var(--bad);color:var(--bone);
+             font-size:.72em;line-height:1;padding:.1em .3em;border-radius:.5em;}
+.sdot{width:.55em;height:.55em;min-width:4px;min-height:4px;border-radius:50%;}
+.sdot.flora{background:var(--good);}
+.sdot.fauna{background:var(--ember);}
+.achtung{width:.75em;height:.75em;min-width:7px;min-height:7px;border-radius:50%;
+         background:var(--ember);border:1.5px solid var(--bg);}
+/* Ortsname im Feld — auf Wasser hell, sonst gedimmt. */
+.lmk{position:absolute;z-index:4;bottom:20%;left:0;right:0;text-align:center;
+     font-family:var(--f-mono);font-size:max(6px,.52em);letter-spacing:.1em;
+     text-transform:uppercase;color:var(--ink2);pointer-events:none;}
+.cell.water .lmk,.cell.lake .lmk,.cell.t-water .lmk,.cell.t-lake .lmk{color:rgba(255,255,255,.85);}
+
+/* Slot-Raster als Designer-Hilfe: SOT.hex.slotgrid(cell) hängt es ein. */
+.slotgrid{position:absolute;inset:0;z-index:7;pointer-events:none;}
+.slotgrid i{position:absolute;font-family:var(--f-mono);font-size:7.5px;letter-spacing:.06em;
+            font-style:normal;color:var(--ember);background:var(--panel);
+            border:1px solid var(--ember);border-radius:4px;padding:1px 3px;white-space:nowrap;}
+.slotgrid i.g-kern {top:50%;left:50%;transform:translate(-50%,-50%);}
+.slotgrid i.g-krone{top:12%;right:-6px;}
+.slotgrid i.g-wange{top:12%;left:-6px;}
+.slotgrid i.g-ferse{bottom:14%;left:-6px;}
+.slotgrid i.g-fuss {bottom:-9px;left:50%;transform:translateX(-50%);}
+.slotgrid i.g-zahl {bottom:12%;right:-6px;}
+
+/* ------------------------------------------------------- Detailstufen -----
+   Gemessen in feld-labor-v1: unter ~52 px trägt ein Feld keine sechs Marken
+   mehr. Die Stufe NIMMT SLOTS WEG statt sie zu schrumpfen — SOT.hex.autosize()
+   setzt data-lod="s|m|l" am Rasterbehälter.
+   -------------------------------------------------------------------------- */
+.map[data-lod="s"] .slot.ferse,
+.map[data-lod="s"] .slot.wange,
+.map[data-lod="s"] .lmk{display:none;}
+.map[data-lod="m"] .slot.ferse{display:none;}

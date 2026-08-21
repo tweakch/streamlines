@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terrain-Asset-Editor</title>
+<style>
+  :root{
+    --bg:#1b211d; --panel:#232a25; --panel2:#2a3129; --line:#3a4339;
+    --fg:#e7ede6; --dim:#9aa89c; --accent:#7fb2ac; --warn:#d99a4e; --bad:#d97b6c; --good:#8fc98a;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 "Segoe UI",system-ui,sans-serif;}
+  header{display:flex;align-items:center;gap:1em;padding:.6em 1em;background:var(--panel);border-bottom:1px solid var(--line);}
+  header h1{font-size:1em;margin:0;font-weight:600;}
+  header h1 small{display:block;font-weight:400;color:var(--dim);font-size:.85em;}
+  .status{margin-left:auto;display:flex;align-items:center;gap:.5em;font-size:.9em;}
+  .dot{width:.6em;height:.6em;border-radius:50%;background:var(--bad);flex:none;}
+  .dot.ok{background:var(--good);}
+  main.layout{display:grid;grid-template-columns:240px 1fr 1fr;gap:1px;background:var(--line);min-height:calc(100vh - 52px);}
+  main.layout>section, main.layout>aside{background:var(--bg);padding:1em;overflow:auto;}
+  h2{font-size:.8em;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:0 0 .7em;}
+  select{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:.4em .6em;font:inherit;}
+  .colpicker{display:flex;align-items:center;gap:.5em;margin-bottom:.8em;font-size:.9em;color:var(--dim);}
+  .colpicker select{flex:1;}
+  .gallery-item{display:flex;align-items:center;gap:.6em;padding:.4em;border-radius:6px;cursor:pointer;border:1px solid transparent;}
+  .gallery-item:hover{background:var(--panel);}
+  .gallery-item.sel{background:var(--panel2);border-color:var(--accent);}
+  .gallery-item .thumb{width:34px;height:39px;flex:none;}
+  .gallery-item .thumb svg{width:100%;height:100%;display:block;}
+  .gallery-item .name{font-weight:600;}
+  .gallery-item .key{display:block;color:var(--dim);font-size:.8em;font-family:ui-monospace,monospace;}
+  .gallery-item .dirty{color:var(--warn);margin-left:.3em;}
+  textarea#src{width:100%;height:260px;background:#12160f;color:#cfe0cf;border:1px solid var(--line);border-radius:6px;padding:.6em;font:12px/1.4 ui-monospace,monospace;resize:vertical;}
+  .preview-row{display:flex;gap:1em;align-items:flex-start;margin:.8em 0;}
+  .preview-box{width:90px;height:104px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px;}
+  .preview-box svg{width:100%;height:100%;display:block;}
+  .btnrow{display:flex;gap:.5em;margin-top:.6em;flex-wrap:wrap;}
+  button{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:.5em .9em;font:inherit;cursor:pointer;}
+  button:hover:not(:disabled){border-color:var(--accent);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  button.primary{background:var(--accent);color:#0e1613;border-color:var(--accent);font-weight:600;}
+  button.primary:hover:not(:disabled){filter:brightness(1.08);}
+  .hint{color:var(--dim);font-size:.85em;margin-top:.5em;}
+  .toolbar{display:flex;align-items:center;gap:.8em;margin-bottom:.7em;flex-wrap:wrap;}
+  .toolbar label{display:flex;align-items:center;gap:.4em;font-size:.9em;color:var(--dim);}
+  #mapcanvas{background:#12160f;border:1px solid var(--line);border-radius:6px;max-width:100%;}
+  .hud{margin-top:.7em;font-size:.85em;color:var(--dim);font-family:ui-monospace,monospace;white-space:pre-wrap;}
+  .hud b{color:var(--fg);}
+  .toast{position:fixed;bottom:1.2em;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--accent);color:var(--fg);padding:.6em 1.1em;border-radius:8px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:20;}
+  .toast.show{opacity:1;}
+  .logpanel{position:fixed;inset:0;background:rgba(10,14,10,.72);display:flex;align-items:center;justify-content:center;z-index:30;}
+  .logpanel.hid{display:none;}
+  .logbox{background:var(--panel);border:1px solid var(--line);border-radius:10px;width:min(560px,90vw);max-height:70vh;display:flex;flex-direction:column;}
+  .logbox header{background:transparent;border:none;}
+  .logbox pre{margin:0;padding:0 1em 1em;overflow:auto;font:12px/1.5 ui-monospace,monospace;color:var(--dim);flex:1;}
+  .logbox pre b{color:var(--fg);}
+  .logbox footer{padding:.7em 1em;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:.5em;}
+</style>
+</head>
+<body>
+<header>
+  <h1>Terrain-Asset-Editor<small>Einzelne Datei bearbeiten → veröffentlichen → Karte rendert das Bundle</small></h1>
+  <div class="status"><span class="dot" id="statusDot"></span><span id="statusTxt">prüfe Server…</span></div>
+</header>
+
+<main class="layout">
+  <aside>
+    <h2>Terrain-Tiles</h2>
+    <div class="colpicker"><span>Kollektion</span><select id="editCollection"></select></div>
+    <div id="gallery"></div>
+    <p class="hint">Dateien liegen einzeln unter <code>pipeline/assets/terrain/&lt;kollektion&gt;/*.svg</code> — im Explorer sichtbar, mit jedem Text-/Vektoreditor bearbeitbar.</p>
+  </aside>
+
+  <section>
+    <h2>Editor</h2>
+    <div class="preview-row">
+      <div class="preview-box" id="livePreview"></div>
+      <div>
+        <div id="selName" style="font-weight:600;"></div>
+        <div class="hint" id="selKey" style="font-family:ui-monospace,monospace;"></div>
+        <div class="hint">Live-Vorschau links, unabhängig von der Karte rechts — die Karte zeigt erst nach „Veröffentlichen" den neuen Stand.</div>
+      </div>
+    </div>
+    <textarea id="src" spellcheck="false" disabled></textarea>
+    <div class="btnrow">
+      <button id="btnSave" disabled>Speichern</button>
+      <button id="btnReset" disabled>Verwerfen</button>
+      <button id="btnPublish" class="primary" disabled>Veröffentlichen →</button>
+    </div>
+    <p class="hint" id="editHint"></p>
+  </section>
+
+  <section>
+    <h2>Karte (gebündelte Assets)</h2>
+    <div class="toolbar">
+      <label>Kollektion <select id="mapCollection"></select></label>
+      <label><input type="radio" name="mode" value="bitmap" checked> gebündelt (Bitmap-Cache)</label>
+      <label><input type="radio" name="mode" value="vector"> geklippt pro Feld (ungebündelt)</label>
+      <label>Hexbreite <input type="range" id="hexw" min="24" max="90" value="56"></label>
+      <button id="btnBench">Benchmark</button>
+    </div>
+    <canvas id="mapcanvas"></canvas>
+    <div class="hud" id="hud"></div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+<div class="logpanel hid" id="logPanel">
+  <div class="logbox">
+    <header><h1 style="margin:0;">Veröffentlichen…</h1></header>
+    <pre id="logText"></pre>
+    <footer><button id="btnCloseLog">Schliessen</button></footer>
+  </div>
+</div>
+
+<script>
+'use strict';
+const qp = new URLSearchParams(location.search);
+const SERVER = qp.get('server') || '';
+const NAMES = { flach: 'Flachland', ufer: 'Ufer', hang: 'Hang', water: 'Fluss', lake: 'See', wald: 'Wald', berg: 'Berg', eis: 'Eis' };
+
+/* ---------- Hex-Geometrie: pointy-top, odd-r — wie app/src/stromlinien/grid.ts ---------- */
+const SQ3 = Math.sqrt(3);
+const par = r => ((r % 2) + 2) % 2;
+const wx = (c, r) => c + 0.5 * par(r);
+const wy = r => r * 0.8660254;
+function hexPath(ctx, sx, sy, z) {
+  const hh = z / SQ3;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy - hh);
+  ctx.lineTo(sx + z / 2, sy - hh / 2);
+  ctx.lineTo(sx + z / 2, sy + hh / 2);
+  ctx.lineTo(sx, sy + hh);
+  ctx.lineTo(sx - z / 2, sy + hh / 2);
+  ctx.lineTo(sx - z / 2, sy - hh / 2);
+  ctx.closePath();
+}
+
+/* ---------- Demo-Gitter: alle acht Terrain-Arten — Fluss + See im Talboden,
+   Ufer/Flachland/Hang/Wald/Berg/Eis symmetrisch nach aussen (Talquerschnitt). ---------- */
+const DEMO_ROWS = [
+  'IIBBBBBII',
+  'IBTHHHTBI',
+  'BTHFFFHTB',
+  'THFUWUFHT',
+  'HFUWLWUFH',
+  'THFUWUFHT',
+  'BTHFFFHTB',
+  'IBTHHHTBI',
+  'IIBBBBBII',
+];
+const CODE2KEY = { H: 'hang', F: 'flach', U: 'ufer', W: 'water', L: 'lake', T: 'wald', B: 'berg', I: 'eis' };
+const GRID = [];
+DEMO_ROWS.forEach((row, r) => { for (let c = 0; c < row.length; c++) GRID.push({ c, r, key: CODE2KEY[row[c]] }); });
+
+/* ---------- Zustand ---------- */
+const state = {
+  editCollection: null, mapCollection: null, collections: [],
+  assets: [], selected: null, serverOk: false,
+  bundle: null, bitmaps: {}, mode: 'bitmap', hexw: 56,
+};
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+/* ---------- Bundle laden (die veröffentlichte, gebackene Fassung — alle Kollektionen) ---------- */
+function loadBundle() {
+  return new Promise((resolve) => {
+    const old = document.getElementById('bundleScript');
+    if (old) old.remove();
+    delete window.TERRAIN_ASSETS;
+    const s = document.createElement('script');
+    s.id = 'bundleScript';
+    s.src = 'terrain-assets.bundle.js?v=' + encodeURIComponent(Date.now());
+    s.onload = () => { state.bundle = window.TERRAIN_ASSETS || null; rasterizeAll().then(resolve); };
+    s.onerror = () => resolve();
+    document.body.appendChild(s);
+  });
+}
+
+async function rasterizeAll() {
+  if (!state.bundle) return;
+  state.bitmaps = {};
+  const SIZE = 160; // Basisauflösung des Bitmap-Cache — unabhängig vom aktuellen Zoom
+  const h = SIZE * state.bundle.hex.h / state.bundle.hex.w;
+  for (const [col, data] of Object.entries(state.bundle.collections)) {
+    state.bitmaps[col] = {};
+    for (const key of Object.keys(data.tiles)) {
+      const svg = data.tiles[key].svg;
+      const uri = 'data:image/svg+xml;charset=utf-8;base64,' + btoa(unescape(encodeURIComponent(svg)));
+      const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = uri; });
+      const off = document.createElement('canvas'); off.width = Math.ceil(SIZE); off.height = Math.ceil(h);
+      off.getContext('2d').drawImage(img, 0, 0, SIZE, h);
+      state.bitmaps[col][key] = off;
+    }
+  }
+}
+
+function fillMapCollectionSelect() {
+  const sel = document.getElementById('mapCollection');
+  const cols = state.bundle ? Object.keys(state.bundle.collections).sort() : [];
+  sel.innerHTML = cols.map(c => `<option value="${c}">${c}</option>`).join('');
+  if (!cols.includes(state.mapCollection)) state.mapCollection = cols[0] || null;
+  sel.value = state.mapCollection || '';
+}
+document.getElementById('mapCollection').addEventListener('change', (e) => { state.mapCollection = e.target.value; draw(); });
+
+/* ---------- Server: Editor-Quelle (live von Platte) ---------- */
+async function initCollections() {
+  try {
+    const r = await fetch(SERVER + '/api/collections', { cache: 'no-store' });
+    if (!r.ok) throw new Error('http ' + r.status);
+    state.collections = (await r.json()).collections;
+    state.serverOk = true;
+  } catch {
+    state.serverOk = false;
+    state.collections = state.bundle ? Object.keys(state.bundle.collections).sort() : [];
+  }
+  const dot = document.getElementById('statusDot'), txt = document.getElementById('statusTxt');
+  dot.classList.toggle('ok', state.serverOk);
+  txt.textContent = state.serverOk
+    ? 'Server verbunden — Speichern & Veröffentlichen aktiv'
+    : 'kein Server — nur Ansicht (node pipeline/asset-server.mjs starten)';
+  document.getElementById('editHint').textContent = state.serverOk ? '' : 'Editor ist deaktiviert, solange kein Server läuft.';
+
+  const sel = document.getElementById('editCollection');
+  sel.innerHTML = state.collections.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+async function loadEditCollection(collection) {
+  state.editCollection = collection;
+  document.getElementById('editCollection').value = collection;
+  if (state.serverOk) {
+    const r = await fetch(SERVER + '/api/terrain-assets?collection=' + encodeURIComponent(collection), { cache: 'no-store' });
+    const data = await r.json();
+    state.assets = data.tiles.map(t => ({ key: t.key, svg: t.svg, saved: t.svg, dirty: false }));
+  } else if (state.bundle && state.bundle.collections[collection]) {
+    const tiles = state.bundle.collections[collection].tiles;
+    state.assets = Object.keys(tiles).sort().map(key => ({ key, svg: tiles[key].svg, saved: tiles[key].svg, dirty: false }));
+  } else {
+    state.assets = [];
+  }
+  state.selected = null;
+  if (state.assets.length) selectAsset(qp.get('tile') && state.assets.some(a => a.key === qp.get('tile')) ? qp.get('tile') : state.assets[0].key);
+  else renderGallery();
+}
+document.getElementById('editCollection').addEventListener('change', (e) => loadEditCollection(e.target.value));
+
+/* ---------- Galerie ---------- */
+function renderGallery() {
+  const el = document.getElementById('gallery');
+  el.innerHTML = '';
+  state.assets.forEach(a => {
+    const item = document.createElement('div');
+    item.className = 'gallery-item' + (a.key === state.selected ? ' sel' : '');
+    item.innerHTML = `<div class="thumb">${a.svg}</div><div><span class="name">${NAMES[a.key] || a.key}</span>${a.dirty ? '<span class="dirty">●</span>' : ''}<span class="key">${a.key}.svg</span></div>`;
+    item.addEventListener('click', () => selectAsset(a.key));
+    el.appendChild(item);
+  });
+}
+
+function selectAsset(key) {
+  state.selected = key;
+  const a = state.assets.find(x => x.key === key);
+  const ta = document.getElementById('src');
+  ta.value = a ? a.svg : '';
+  ta.disabled = !state.serverOk;
+  document.getElementById('selName').textContent = key;
+  document.getElementById('selKey').textContent = `pipeline/assets/terrain/${state.editCollection}/${key}.svg`;
+  document.getElementById('livePreview').innerHTML = a ? a.svg : '';
+  document.getElementById('btnSave').disabled = !state.serverOk;
+  document.getElementById('btnReset').disabled = !state.serverOk;
+  document.getElementById('btnPublish').disabled = !state.serverOk;
+  renderGallery();
+}
+
+document.getElementById('src').addEventListener('input', (e) => {
+  const a = state.assets.find(x => x.key === state.selected);
+  if (!a) return;
+  a.svg = e.target.value;
+  a.dirty = a.svg !== a.saved;
+  document.getElementById('livePreview').innerHTML = a.svg;
+  renderGallery();
+});
+
+async function saveAsset(a) {
+  const r = await fetch(SERVER + '/api/terrain-assets/save', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ collection: state.editCollection, key: a.key, svg: a.svg }),
+  });
+  if (!r.ok) throw new Error((await r.json()).fehler || 'Speichern fehlgeschlagen');
+  a.saved = a.svg; a.dirty = false;
+}
+
+document.getElementById('btnSave').addEventListener('click', async () => {
+  const a = state.assets.find(x => x.key === state.selected);
+  if (!a) return;
+  try { await saveAsset(a); renderGallery(); toast(`${state.editCollection}/${a.key}.svg gespeichert`); }
+  catch (err) { toast('Fehler: ' + err.message); }
+});
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  const a = state.assets.find(x => x.key === state.selected);
+  if (!a) return;
+  a.svg = a.saved; a.dirty = false;
+  selectAsset(a.key);
+});
+
+document.getElementById('btnPublish').addEventListener('click', async () => {
+  const logPanel = document.getElementById('logPanel'), logText = document.getElementById('logText');
+  logText.textContent = ''; logPanel.classList.remove('hid');
+  const log = (line) => { logText.textContent += line + '\n'; logText.scrollTop = logText.scrollHeight; };
+  try {
+    const dirty = state.assets.filter(a => a.dirty);
+    for (const a of dirty) { log(`speichere ${state.editCollection}/${a.key}.svg …`); await saveAsset(a); }
+    log('starte Bake (node pipeline/bake-terrain-assets.mjs) — bündelt ALLE Kollektionen …');
+    const r = await fetch(SERVER + '/api/publish', { method: 'POST' });
+    const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = '';
+    let ok = false;
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const ev = JSON.parse(line);
+        if (ev.type === 'log') log(ev.zeile);
+        if (ev.type === 'fertig') { ok = ev.ok; if (!ok) log('FEHLER: ' + ev.message); }
+      }
+    }
+    if (ok) {
+      log('geladen: neues Bundle …');
+      await loadBundle();
+      fillMapCollectionSelect();
+      draw();
+      log(`fertig — Version ${state.bundle ? state.bundle.version : '?'}`);
+      toast('Veröffentlicht — Karte rendert die neue Version');
+      renderGallery();
+    }
+  } catch (err) {
+    log('FEHLER: ' + err.message);
+  }
+});
+document.getElementById('btnCloseLog').addEventListener('click', () => document.getElementById('logPanel').classList.add('hid'));
+
+/* ---------- Karte ---------- */
+const canvas = document.getElementById('mapcanvas');
+const ctx = canvas.getContext('2d');
+function layout() {
+  const cols = DEMO_ROWS[0].length, rows = DEMO_ROWS.length, z = state.hexw;
+  const w = Math.ceil((cols + 0.5) * z + z);
+  const h = Math.ceil(rows * 0.8660254 * z + (2 * z / SQ3) + z * 0.3);
+  canvas.width = w; canvas.height = h;
+  return { ox: z * 0.75, oy: z * 0.75 };
+}
+/* gebündelt: direktes drawImage, das SVG hat seine Hexkontur schon als
+   Transparenz eingebrannt. geklippt: dieselbe Bitmap, aber mit frisch
+   aufgebautem Pfad + clip() pro Feld — genau die Arbeit, die der Cache spart. */
+function draw() {
+  const { ox, oy } = layout();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const z = state.hexw;
+  const h = z * (200 / SQ3) / 100;
+  const bmps = state.bitmaps[state.mapCollection] || {};
+  for (const cell of GRID) {
+    const sx = ox + wx(cell.c, cell.r) * z, sy = oy + wy(cell.r) * z;
+    const bmp = bmps[cell.key];
+    if (!bmp) continue;
+    if (state.mode === 'bitmap') {
+      ctx.drawImage(bmp, sx - z / 2, sy - h / 2, z, h);
+    } else {
+      ctx.save();
+      hexPath(ctx, sx, sy, z);
+      ctx.clip();
+      ctx.drawImage(bmp, sx - z / 2, sy - h / 2, z, h);
+      ctx.restore();
+    }
+  }
+}
+document.getElementById('hexw').addEventListener('input', (e) => { state.hexw = Number(e.target.value); draw(); });
+document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', (e) => { state.mode = e.target.value; draw(); }));
+
+/* ---------- Benchmark: echte Uhr, N volle Kartenbilder je Modus ---------- */
+function benchOnce(mode, n) {
+  const prevMode = state.mode; state.mode = mode; draw(); // warm-up, nicht gezählt
+  const t0 = performance.now();
+  for (let i = 0; i < n; i++) draw();
+  const t1 = performance.now();
+  state.mode = prevMode; draw();
+  return (t1 - t0) / n;
+}
+document.getElementById('btnBench').addEventListener('click', runBench);
+function runBench() {
+  const n = 60;
+  const msBitmap = benchOnce('bitmap', n);
+  const msClipped = benchOnce('vector', n);
+  const factor = msClipped / Math.max(msBitmap, 0.001);
+  document.getElementById('hud').innerHTML =
+    `<b>Benchmark</b> (${n} Kartenbilder je Modus, ${GRID.length} Hexfelder, Kollektion "${state.mapCollection}", echte Uhr):\n` +
+    `gebündelt: <b>${msBitmap.toFixed(3)} ms</b>/Bild\n` +
+    `geklippt pro Feld: <b>${msClipped.toFixed(3)} ms</b>/Bild\n` +
+    `Faktor: <b>${factor.toFixed(1)}×</b> schneller gebündelt`;
+}
+
+/* ---------- Start ---------- */
+(async function init() {
+  await loadBundle();
+  await initCollections();
+  fillMapCollectionSelect();
+  if (qp.get('mapCollection') && state.bundle && state.bundle.collections[qp.get('mapCollection')]) { state.mapCollection = qp.get('mapCollection'); document.getElementById('mapCollection').value = state.mapCollection; }
+  const startCol = qp.get('collection') && state.collections.includes(qp.get('collection')) ? qp.get('collection') : state.collections[0];
+  if (startCol) await loadEditCollection(startCol);
+  if (qp.get('hexw')) { state.hexw = Number(qp.get('hexw')) || state.hexw; document.getElementById('hexw').value = state.hexw; }
+  if (qp.get('mode') === 'vector') { state.mode = 'vector'; document.querySelector('input[name=mode][value=vector]').checked = true; }
+  draw();
+  if (qp.has('bench')) runBench();
+})();
+</script>
+</body>
+</html>
