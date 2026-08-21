@@ -16,8 +16,16 @@ import {
 } from './shell/storage'
 import { StartScreen } from './stromlinien/StartScreen'
 import { StromlinienGame } from './stromlinien/StromlinienGame'
-import { newState } from './stromlinien/engine'
-import type { RegionCell } from './stromlinien/types'
+import { newState, reducer } from './stromlinien/engine'
+import type { GameState, RegionCell } from './stromlinien/types'
+import {
+  DEFAULT_VIEW,
+  HEXAGON_R,
+  buildRegion,
+  hexagonCells,
+  keyOf,
+  worldCellAt,
+} from './stromlinien/world'
 
 /*
  * Die Shell (Meta-UI, Port von shell-v2): Titelbild → Klan gründen →
@@ -38,11 +46,74 @@ type Screen =
   | 'regeln'
   | 'ueber'
 
+/*
+ * Dev-Hook: `?dev=spiel` springt mit einem Beispielgebiet (Sechseck um die
+ * Schaaner Furt) direkt ins Spiel, `?dev=welt` auf die Weltkarte. Nur im
+ * Dev-Server — im Produktionsbündel ist `import.meta.env.DEV` falsch und der
+ * Block fällt beim Bauen weg.
+ *
+ * Grund: die Prototypen haben laut prototype/README alle Debug-Parameter,
+ * damit sich jeder Innenzustand ohne Klicken erreichen (und per Screenshot
+ * prüfen) lässt. Die App hatte keine — damit war kein Bildschirm hinter der
+ * Gebietswahl verifizierbar.
+ */
+const devFlag = import.meta.env.DEV
+  ? new URLSearchParams(window.location.search).get('dev')
+  : null
+
+function devRegion(): RegionCell[] {
+  const keys = hexagonCells(DEFAULT_VIEW.c, DEFAULT_VIEW.r, HEXAGON_R)
+    .filter(([c, r]) => worldCellAt(c, r))
+    .map(([c, r]) => keyOf(c, r))
+  return buildRegion(new Set(keys))
+}
+
 function App() {
-  const [store, setStore] = useState(loadProfileStore)
-  const [screen, setScreen] = useState<Screen>('titel')
-  const [pendingRegion, setPendingRegion] = useState<RegionCell[] | null>(null)
+  const [store, setStore] = useState(() => {
+    const s = loadProfileStore()
+    if (devFlag && !activeProfile(s)) return createProfile(s, 'Dev-Klan')
+    return s
+  })
+  const [screen, setScreen] = useState<Screen>(
+    devFlag === 'spiel' || devFlag === 'intro' || devFlag === 'nacht'
+      ? 'spiel'
+      : devFlag === 'welt'
+        ? 'welt'
+        : 'titel',
+  )
+  const [pendingRegion, setPendingRegion] = useState<RegionCell[] | null>(
+    devFlag === 'spiel' || devFlag === 'intro' || devFlag === 'nacht'
+      ? devRegion()
+      : null,
+  )
+  /* `?dev=spiel` überspringt das Intro über den echten START-Pfad, damit der
+     laufende Tag prüfbar ist; `?dev=intro` hält davor an. */
+  const [devInitial] = useState<GameState | null>(() => {
+    if (devFlag !== 'spiel' && devFlag !== 'nacht') return null
+    const s = reducer(newState(devRegion()), { type: 'START' })
+    const q = new URLSearchParams(window.location.search)
+    /* `&runde=N` setzt die Runde, ohne sie zu spielen — Ressourcen bleiben
+       auf Startwerten. Reicht, um rundenabhängige Anzeigen zu prüfen
+       (Vorzeichen, Handlungsfenster, Zeitleiste). */
+    const r = Number(q.get('runde'))
+    if (r >= 1 && r <= 10) s.round = r
+    /* `&antwort=5:1` wählt vorab eine Antwort, `?dev=nacht` deckt sofort
+       auf — damit ist prüfbar, dass die Wahl den Ausgang ändert. */
+    for (const paar of (q.get('antwort') ?? '').split(',').filter(Boolean)) {
+      const [ar, ai] = paar.split(':').map(Number)
+      if (ar >= 1 && ai >= 0) s.antwort[ar] = ai
+    }
+    if (devFlag === 'nacht') {
+      s.phase = 'night'
+      s.nightPending = true
+    }
+    return s
+  })
   const backRef = useRef<Screen[]>([])
+
+  /* `?dev=fehler` prüft die Fehlerfall-Karte — im Prototyp spielmenue-v1 war
+     das ein Menüeintrag „Fehlerfall testen". */
+  if (devFlag === 'fehler') throw new Error('Absturz-Test über ?dev=fehler')
 
   const profile = activeProfile(store)
   const save = profile ? loadSave(profile.id) : null
@@ -155,7 +226,10 @@ function App() {
     case 'ueber':
       return <AboutScreen onBack={back} />
     case 'spiel': {
-      const initial = save?.state ?? (pendingRegion ? newState(pendingRegion) : null)
+      const initial =
+        save?.state ??
+        devInitial ??
+        (pendingRegion ? newState(pendingRegion) : null)
       if (!initial) return null /* durch effectiveScreen nicht erreichbar */
       return (
         <StromlinienGame

@@ -206,12 +206,58 @@ export interface NightDef {
   fx: (s: GameState, schutz: number) => NightResult
 }
 
+/*
+ * Ein Anker ist mehr als eine Rundenzahl (Port aus ereignis-labor-v1).
+ * Er hat eine Dramaturgie über mehrere Runden:
+ *
+ *   Vorzeichen   `vor` Runden vor dem Einschlag, im Morgenbericht
+ *   Angebot      am Tag: `antworten`, solange das Fenster offen ist
+ *   Einschlag    in der Nacht — `fx` liest die Wahl aus `s.antwort[runde]`
+ *   Nachwirkung  am Morgen danach
+ *
+ * Das Datum gehört dem EINSCHLAG; die Vorzeichen laufen davor. Ohne
+ * Handlungsfenster ist ein Anker eine Rechnung, die man bezahlt — mit
+ * Fenster eine Entscheidung, die man beim zweiten Mal anders trifft.
+ */
+export interface AnswerDef {
+  txt: string
+  /** Preis im Klartext, steht auf dem Knopf. */
+  kosten: string
+  /** Was es bewirkt — vor der Wahl lesbar, nicht erst danach. */
+  fx: string
+  /** Ist der Preis bezahlbar? Fehlt sie, ist die Antwort immer wählbar. */
+  can?: (s: GameState) => boolean
+  /** Preis abbuchen. Läuft im Moment der Wahl, nicht beim Einschlag. */
+  pay?: (s: GameState) => void
+}
+
+export interface AnchorDef extends NightDef {
+  /** Runden Vorlauf für das Vorzeichen. 0 = kommt ohne Warnung. */
+  vor: number
+  vorT?: string
+  nachT?: string
+  antworten?: AnswerDef[]
+}
+
+/** Steht das Handlungsfenster dieses Ankers in Runde `round` offen? */
+export function fensterOffen(s: GameState, ankerRunde: number): boolean {
+  const a = ANCHORS[ankerRunde]
+  if (!a?.antworten) return false
+  if (s.antwort[ankerRunde] !== undefined) return false
+  return s.round >= ankerRunde - a.vor && s.round <= ankerRunde
+}
+
 /* Anker-Ereignisse (belegt, vereinfacht) – geschehen IMMER in dieser Runde */
-export const ANCHORS: Record<number, NightDef> = {
+export const ANCHORS: Record<number, AnchorDef> = {
   3: {
     tag: 'Belegtes Ereignis · ~8 400 v. Chr.',
     h: 'Die Wälder erobern das Tal',
     p: 'Nach der Eiszeit kehrt der Wald zurück. Wo Tundra war, rauschen jetzt Auen. Holz gibt es im Überfluss.',
+    vor: 1,
+    vorT: 'Die Weiden am Ufer treiben früher als sonst, und im Süden steht ein Grün, das im letzten Sommer noch Stein war.',
+    nachT: 'Der Wald steht. Holz gibt es im Überfluss — und Deckung für alles, was jagt.',
+    /* Kein Handlungsfenster: nicht jeder Anker verlangt eine Antwort.
+       Ein Geschenk bleibt ein Geschenk. */
     fx(s) {
       s.woodBoost = true
       s.b += 1
@@ -225,25 +271,86 @@ export const ANCHORS: Record<number, NightDef> = {
     tag: 'Belegtes Ereignis · ~6 200 v. Chr.',
     h: 'Die große Kälte',
     p: 'Ein jäher Klimasturz – in Eisbohrkernen bis heute lesbar. Jahrzehnte aus Frost und Missjagd. Niemand im Tal hat so etwas je erlebt.',
+    vor: 2,
+    vorT: 'Der Sommer kommt zu spät und geht zu früh. Die Beeren bleiben klein, das Wild zieht tiefer als gewohnt.',
+    nachT: 'Wer Vorräte und Schutz hatte, ist noch da. Die anderen sind fortgezogen oder nicht mehr.',
+    antworten: [
+      {
+        txt: 'Vorräte anlegen',
+        kosten: '−2 Material',
+        fx: 'Der Winter kostet nur die Hälfte',
+        can: (s) => s.b >= 2,
+        pay: (s) => {
+          s.b -= 2
+        },
+      },
+      {
+        txt: 'Holz schlagen, das Feuer durchbrennen lassen',
+        kosten: '−1 Nahrung',
+        fx: 'Schutz zählt in dieser Nacht doppelt',
+        can: (s) => s.n >= 1,
+        pay: (s) => {
+          s.n -= 1
+        },
+      },
+    ],
     fx(s, schutz) {
-      if (schutz >= 5) {
-        s.n = Math.max(0, s.n - 2)
-        return { txt: 'Euer Schutz hält stand. −2 Nahrung.', good: true }
+      const wahl = s.antwort[5]
+      const wirkt = wahl === 1 ? schutz * 2 : schutz
+      const halb = wahl === 0
+      if (wirkt >= 5) {
+        const kosten = halb ? 1 : 2
+        s.n = Math.max(0, s.n - kosten)
+        return {
+          txt: `Euer Schutz hält stand. −${kosten} Nahrung.${
+            wahl === 1 ? ' Das Feuer brannte durch.' : ''
+          }`,
+          good: true,
+        }
       }
-      s.n = Math.max(0, s.n - 4)
-      return { txt: 'Ungeschützt trifft euch die Kälte. −4 Nahrung.', good: false }
+      const kosten = halb ? 2 : 4
+      s.n = Math.max(0, s.n - kosten)
+      return {
+        txt: halb
+          ? 'Die Vorräte federn die Kälte ab. −2 Nahrung.'
+          : 'Ungeschützt trifft euch die Kälte. −4 Nahrung.',
+        good: halb,
+      }
     },
   },
   7: {
     tag: 'Belegtes Ereignis · ~4 300 v. Chr.',
     h: 'Die ersten Bauern am See',
     p: 'Fremde mit Saatgut und neuen Bauweisen erreichen das Seeufer. Ihre Häuser stehen auf Pfählen im flachen Wasser.',
+    vor: 1,
+    vorT: 'Am See sind Feuer, die niemandem gehören, den ihr kennt. Und Spuren von Booten, die anders gebaut sind.',
+    nachT: 'Die Bauweise wandert flussaufwärts, langsamer als das Gerücht davon.',
+    antworten: [
+      {
+        txt: 'Handeln und die Bauweise lernen',
+        kosten: '−1 Nahrung',
+        fx: 'Ein Plättchen mehr und +1 Kultur',
+        can: (s) => s.n >= 1,
+        pay: (s) => {
+          s.n -= 1
+        },
+      },
+      {
+        txt: 'Auf Abstand bleiben',
+        kosten: 'nichts',
+        fx: 'Nur ein Pfahlbau — dafür bleibt das Tal euer',
+      },
+    ],
     fx(s) {
+      const wahl = s.antwort[7]
       s.pfahlUnlocked = true
-      s.pending.push('pfahl', 'pfahl')
-      s.k += 1
+      const zahl = wahl === 0 ? 3 : wahl === 1 ? 1 : 2
+      for (let i = 0; i < zahl; i++) s.pending.push('pfahl')
+      s.k += wahl === 0 ? 2 : 1
       return {
-        txt: 'PFAHLBAU freigeschaltet – zwei Plättchen kommen auf deine Hand. (+1 Kultur)',
+        txt: `PFAHLBAU freigeschaltet – ${zahl} Plättchen ${
+          zahl === 1 ? 'kommt' : 'kommen'
+        } auf deine Hand. (+${wahl === 0 ? 2 : 1} Kultur)`,
         good: true,
       }
     },
@@ -252,18 +359,39 @@ export const ANCHORS: Record<number, NightDef> = {
     tag: 'Belegtes Ereignis · ~3 400 v. Chr.',
     h: 'Der See steigt',
     p: 'Nasse Jahrhunderte. Das Wasser holt sich die flachen Ufer zurück.',
+    vor: 2,
+    vorT: 'Nasse Jahre. Der Steg, der im Frühling gebaut wurde, steht im Herbst im Wasser.',
+    nachT: 'Der See hat eine neue Linie. Wer auf Pfählen baute, wohnt jetzt weiter draussen — und trocken.',
+    antworten: [
+      {
+        txt: 'Höher bauen — auf Pfähle',
+        kosten: '−3 Material',
+        fx: 'Was am Ufer steht, steht danach über dem Wasser',
+        can: (s) => s.b >= 3,
+        pay: (s) => {
+          s.b -= 3
+        },
+      },
+      {
+        txt: 'Dem See das Ufer lassen',
+        kosten: 'nichts',
+        fx: 'Ihr weicht zurück — es kostet mehr Material',
+      },
+    ],
     fx(s) {
+      const wahl = s.antwort[9]
       s.fishBlocked = true
-      if (s.tiles.some((t) => t.type === 'pfahl')) {
+      if (wahl === 0 || s.tiles.some((t) => t.type === 'pfahl')) {
         s.k += 2
         return {
-          txt: 'Eure Pfahlbauten stehen über der Flut – die Bauweise besteht die Probe. (+2 Kultur, Fischgründe morgen gestört)',
+          txt: 'Eure Bauten stehen über der Flut – die Bauweise besteht die Probe. (+2 Kultur, Fischgründe morgen gestört)',
           good: true,
         }
       }
-      s.b = Math.max(0, s.b - 2)
+      const kosten = wahl === 1 ? 3 : 2
+      s.b = Math.max(0, s.b - kosten)
       return {
-        txt: 'Das Ufer versinkt. −2 Material, Fischgründe morgen gestört.',
+        txt: `Das Ufer versinkt. −${kosten} Material, Fischgründe morgen gestört.`,
         good: false,
       }
     },

@@ -1,7 +1,16 @@
-import { ANCHORS, DECK_WEIGHTS, FUND, NIGHTS, ROUNDS, TILES } from './data'
+import {
+  ANCHORS,
+  DECK_WEIGHTS,
+  FUND,
+  NIGHTS,
+  ROUNDS,
+  TILES,
+  fensterOffen,
+} from './data'
 import { adjCells, buildRegionGrid } from './grid'
 import type {
   Cell,
+  ChronikEintrag,
   GameState,
   PersonId,
   PlacedTile,
@@ -40,10 +49,22 @@ export function newState(region: RegionCell[]): GameState {
     combos: [],
     overlay: null,
     nightPending: false,
+    antwort: {},
+    chronik: [],
     toast: null,
     ceremStep: 0,
     ceremFundament: 'none',
   }
+}
+
+/** Chronik-Eintrag anhängen; die Liste bleibt gedeckelt. */
+function chron(
+  s: GameState,
+  art: ChronikEintrag['art'],
+  txt: string,
+): void {
+  s.chronik.push({ round: s.round, art, txt })
+  if (s.chronik.length > 40) s.chronik.splice(0, s.chronik.length - 40)
 }
 
 /** Effektiver Schutz inkl. Jäger (+2, solange er im Tal steht). */
@@ -219,6 +240,7 @@ export type Action =
   | { type: 'PLACE'; handIdx: number; cellIdx: number }
   | { type: 'MOVE_PERSON'; person: PersonId; cellIdx: number }
   | { type: 'WERKZEUG' }
+  | { type: 'ANSWER'; anchorRound: number; idx: number }
   | { type: 'BEGIN_NIGHT' }
   | { type: 'REVEAL_NIGHT' }
   | { type: 'END_NIGHT' }
@@ -292,6 +314,7 @@ export function reducer(prev: GameState, action: Action): GameState {
       s.authGot += a.pts
       s.authMax += a.max
       if (a.fundIdx !== null) {
+        chron(s, 'fund', `Fundstelle entdeckt: ${FUND[a.fundIdx].name}`)
         s.overlay = { kind: 'fund', fundIdx: a.fundIdx }
         setToast(s, `FUNDSTELLE ENTDECKT · +${FUND[a.fundIdx].k} Kultur`)
       } else {
@@ -327,6 +350,21 @@ export function reducer(prev: GameState, action: Action): GameState {
       setToast(s, 'Werkzeuge aus Feuerstein – +2 Schutz')
       return s
     }
+    /* Antwort auf ein Vorzeichen: kostet sofort, wirkt erst in der Nacht.
+       Genau darin liegt der Reiz — man zahlt gegen etwas, das noch nicht
+       geschehen ist. */
+    case 'ANSWER': {
+      if (s.phase !== 'day') return prev
+      const a = ANCHORS[action.anchorRound]
+      const opt = a?.antworten?.[action.idx]
+      if (!opt || !fensterOffen(s, action.anchorRound)) return prev
+      if (opt.can && !opt.can(s)) return prev
+      opt.pay?.(s)
+      s.antwort[action.anchorRound] = action.idx
+      chron(s, 'wahl', `${opt.txt} (${opt.kosten})`)
+      setToast(s, `${opt.txt} — ${opt.fx}`)
+      return s
+    }
     case 'BEGIN_NIGHT': {
       if (s.placedThisDay === 0 || s.phase !== 'day') return prev
       s.phase = 'night'
@@ -339,6 +377,7 @@ export function reducer(prev: GameState, action: Action): GameState {
       const { def, anchor } = pickNight(s)
       const result = def.fx(s, effectiveSchutz(s))
       s.n = Math.max(0, s.n - 1) // der Stamm isst
+      chron(s, anchor ? 'anker' : 'nacht', `${def.h} — ${result.txt}`)
       s.overlay = {
         kind: 'night',
         anchor,

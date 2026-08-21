@@ -64,6 +64,17 @@ export interface NightResult {
   good: boolean
 }
 
+/**
+ * Ein Eintrag der Chronik. Sie ersetzt den einzelnen `lastEvent`-String:
+ * dieselbe Quelle bedient jetzt den Morgenbericht („was die Nacht
+ * hinterliess"), die Resume-Karten der Shell und später den Chronik-Screen.
+ */
+export interface ChronikEintrag {
+  round: number
+  art: 'nacht' | 'anker' | 'fund' | 'wahl'
+  txt: string
+}
+
 export type Overlay =
   | { kind: 'fund'; fundIdx: number }
   | {
@@ -115,6 +126,14 @@ export interface GameState {
   overlay: Overlay
   /** Nacht angebrochen, Ereignis noch nicht aufgedeckt. */
   nightPending: boolean
+  /**
+   * Gewählte Antwort je Anker-Runde (Index in ANCHORS[r].antworten).
+   * Das Handlungsfenster steht von der Vorzeichen-Runde bis zum Tag des
+   * Einschlags offen; danach liest `fx` die Wahl und der Ausgang hängt daran.
+   */
+  antwort: Record<number, number>
+  /** Jüngster Eintrag zuletzt; auf die letzten 40 begrenzt. */
+  chronik: ChronikEintrag[]
   toast: { msg: string; id: number } | null
   ceremStep: number
   ceremFundament: 'pfahl' | 'ufer' | 'none'

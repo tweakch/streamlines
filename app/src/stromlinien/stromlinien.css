@@ -104,8 +104,19 @@
 }
 .sl .hdrbtns {
   display: flex;
+  align-items: center;
   gap: 6px;
   margin-left: 10px;
+}
+/* Autosave-Indikator im Kopf: nur der Punkt. Der Kopf traegt schon Marke,
+   Jahr und Phase — Text daneben laesst die Jahreszahl umbrechen. */
+.sl .hdrbtns .autosave {
+  margin-right: 4px;
+}
+.sl .mfoot .autosave {
+  display: inline-flex;
+  margin-right: 6px;
+  vertical-align: 1px;
 }
 .sl .iconbtn {
   width: 38px;
@@ -1263,4 +1274,85 @@
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* ---------------- Morgenbericht & Handlungsfenster ----------------
+   Der Ort, an dem ein Ereignis spricht, bevor es geschieht: Vorzeichen,
+   Nachwirkung und die Antworten, die nur bis zur Nacht wählbar sind. */
+.sl .morgen {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ember);
+  border-radius: 8px;
+  padding: 9px 11px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.sl .morgen .mtag {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ember);
+  margin-bottom: 5px;
+}
+.sl .morgen .mz {
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0 0 6px;
+  color: var(--ink);
+}
+.sl .morgen .mz:last-child {
+  margin-bottom: 0;
+}
+.sl .morgen .mz.k-nach {
+  color: var(--ink2);
+}
+.sl .fenster {
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+.sl .fenster > b {
+  display: block;
+  font-size: 12.5px;
+  margin-bottom: 6px;
+}
+.sl button.antw {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 7px 9px;
+  margin-bottom: 5px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.sl button.antw:hover:not(:disabled) {
+  border-color: var(--ember);
+}
+.sl button.antw:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.sl button.antw .atxt {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.sl button.antw .ako {
+  display: block;
+  font-family: 'Space Mono', monospace;
+  font-size: 9.5px;
+  color: var(--ink2);
+  margin-top: 2px;
+}
+.sl .fenster .ahint {
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--ink2);
+  margin-top: 4px;
 }

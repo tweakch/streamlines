@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { useEffect, useMemo, useReducer, useState } from 'react'
 import type { CSSProperties } from 'react'
 import './stromlinien.css'
 import { clearSave, writeSave } from '../shell/storage'
@@ -11,7 +11,7 @@ import {
   reducer,
   tileEffects,
 } from './engine'
-import { ANCHORS } from './data'
+import { ANCHORS, fensterOffen } from './data'
 import { gridBounds, personTargets } from './grid'
 import { HINT_INSPECT } from './world'
 import type { Cell, GameState, PersonId, TileKind } from './types'
@@ -50,30 +50,69 @@ export function StromlinienGame({
 
   const night = state.phase === 'night' || state.phase === 'gameover'
 
-  /* „zuletzt: …" für die Resume-Karten der Shell. */
-  const lastEventRef = useRef<string | null>(initialLastEvent)
-  useEffect(() => {
-    const o = state.overlay
-    if (o?.kind === 'night') lastEventRef.current = `${o.h} — ${o.result.txt}`
-    if (o?.kind === 'fund')
-      lastEventRef.current = `Fundstelle entdeckt: ${FUND[o.fundIdx].name}`
-  }, [state.overlay])
+  /* „zuletzt: …" für die Resume-Karten der Shell — jetzt aus der Chronik
+     abgeleitet statt in einem eigenen Ref mitgeführt. Eine Quelle, kein
+     Nebenzustand, der auseinanderlaufen kann. */
+  const lastEvent =
+    state.chronik.length > 0
+      ? state.chronik[state.chronik.length - 1].txt
+      : initialLastEvent
 
   /* Autosave nach jeder Aktion: Schliessen verliert nie mehr als die
-     aktuelle Eingabe. Beendete Partien räumen ihren Stand weg. */
+     aktuelle Eingabe. Beendete Partien räumen ihren Stand weg.
+     Der Indikator macht das sichtbar — sonst muss man es glauben. */
+  const [saving, setSaving] = useState(false)
   useEffect(() => {
     if (state.phase === 'gameover' || state.phase === 'final') {
       clearSave(profileId)
       return
     }
     if (state.phase === 'intro') return
-    writeSave(profileId, state, lastEventRef.current)
-  }, [state, profileId])
+    writeSave(profileId, state, lastEvent)
+    /* Quittung für einen Schreibvorgang nach aussen: der Punkt blinkt kurz
+       und fällt von selbst zurück. Der Zeitgeber beendet die Kette, ein
+       Render-Kreis ist damit ausgeschlossen. */
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSaving(true)
+    const t = setTimeout(() => setSaving(false), 650)
+    return () => clearTimeout(t)
+  }, [state, profileId, lastEvent])
 
   function abandonRun() {
     clearSave(profileId)
     onExit()
   }
+
+  /*
+   * Der Morgenbericht ist vollständig aus der Runde ABGELEITET — kein
+   * eigener Zustand, also auch nichts, was ein Spielstand mitschleppen oder
+   * eine Migration nachziehen müsste. Vorzeichen laufen von `r − vor` bis
+   * zur Runde vor dem Einschlag, die Nachwirkung steht am Morgen danach.
+   */
+  const bericht = useMemo(() => {
+    const zeilen: Array<{ art: string; txt: string }> = []
+    const offen: number[] = []
+    /* Was die Nacht hinterliess: der jüngste Chronik-Eintrag der Vorrunde.
+       Bisher stand das nur flüchtig im Toast und war beim Weiterspielen weg. */
+    const nacht = [...state.chronik]
+      .reverse()
+      .find(
+        (e) =>
+          e.round === state.round - 1 &&
+          (e.art === 'nacht' || e.art === 'anker'),
+      )
+    if (nacht) zeilen.push({ art: 'nachtrag', txt: `In der Nacht: ${nacht.txt}` })
+    for (const key of Object.keys(ANCHORS)) {
+      const r = Number(key)
+      const a = ANCHORS[r]
+      if (a.vorT && state.round >= r - a.vor && state.round < r)
+        zeilen.push({ art: 'vor', txt: a.vorT })
+      if (a.nachT && state.round === r + 1)
+        zeilen.push({ art: 'nach', txt: a.nachT })
+      if (fensterOffen(state, r)) offen.push(r)
+    }
+    return { zeilen, offen }
+  }, [state])
 
   /* Das Spielfeld ist das geformte Weltkarten-Gebiet: gerendert wird sein
      Begrenzungsrechteck, Lücken bleiben unsichtbare Geisterzellen. */
@@ -314,6 +353,16 @@ export function StromlinienGame({
             </span>
           </div>
           <div className="hdrbtns">
+            {/* Nur der Punkt: der Kopf trägt schon Marke, Jahr und Phase.
+                Der Wortlaut steht im Lager-Menü, wo man nachsieht, wenn man
+                um seinen Fortschritt fürchtet. */}
+            <span
+              className={`autosave${saving ? ' saving' : ''}`}
+              title={saving ? 'speichert …' : 'Stand gespeichert'}
+              aria-label={saving ? 'speichert' : 'Stand gespeichert'}
+            >
+              <span className="dot" />
+            </span>
             <button
               className="iconbtn"
               onClick={onExit}
@@ -403,6 +452,47 @@ export function StromlinienGame({
             )
           })}
         </div>
+
+        {state.phase === 'day' && bericht.zeilen.length > 0 && (
+          <div className="morgen">
+            <div className="mtag">Der Morgen</div>
+            {bericht.zeilen.map((z, i) => (
+              <p key={i} className={`mz k-${z.art}`}>
+                {z.txt}
+              </p>
+            ))}
+            {bericht.offen.map((r) => {
+              const a = ANCHORS[r]
+              return (
+                <div className="fenster" key={r}>
+                  <b>Was tut das Tal?</b>
+                  {a.antworten!.map((opt, i) => {
+                    const kann = !opt.can || opt.can(state)
+                    return (
+                      <button
+                        key={i}
+                        className="antw"
+                        disabled={!kann}
+                        onClick={() =>
+                          dispatch({ type: 'ANSWER', anchorRound: r, idx: i })
+                        }
+                      >
+                        <span className="atxt">{opt.txt}</span>
+                        <span className="ako">
+                          {opt.kosten} · {opt.fx}
+                        </span>
+                      </button>
+                    )
+                  })}
+                  <div className="ahint">
+                    Nichts tun ist auch eine Antwort — dann trifft das Ereignis
+                    das Tal, wie es ist.
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {inspectIdx !== null && (
           <TileInfo
@@ -584,7 +674,14 @@ export function StromlinienGame({
               </span>
             </button>
             <div className="mfoot">
-              Verlassen geht direkt über ⬡ oben — Autosave macht es verlustfrei.
+              <span className={`autosave${saving ? ' saving' : ''}`}>
+                <span className="dot" />
+                <span className="autosave-txt">
+                  {saving ? 'speichert …' : 'gespeichert'}
+                </span>
+              </span>
+              Autosave nach jeder Aktion — Schliessen verliert nie mehr als die
+              aktuelle Eingabe. Verlassen geht direkt über ⬡ oben.
             </div>
           </div>
         </div>

@@ -84,8 +84,10 @@ export function fogKey(profileId: string): string {
 
 /* ---------------- Autosave ---------------- */
 
+/** v2 (Aug 2026): `state.antwort` und `state.chronik` kamen mit der
+ *  Ereignis-Dramaturgie dazu. */
 export interface SaveGame {
-  v: 1
+  v: 2
   state: GameState
   lastEvent: string | null
   savedAt: number
@@ -95,9 +97,18 @@ export function loadSave(profileId: string): SaveGame | null {
   try {
     const raw = JSON.parse(
       localStorage.getItem(`${SAVE_PREFIX}:${profileId}`) ?? 'null',
-    ) as SaveGame | null
-    if (raw && raw.v === 1 && raw.state && Array.isArray(raw.state.cells))
-      return raw
+    ) as (Omit<SaveGame, 'v'> & { v: number }) | null
+    if (!raw || !raw.state || !Array.isArray(raw.state.cells)) return null
+    /* v1 → v2: laufende Partien überleben den Sprung, sie haben nur noch
+       keine Antwort gewählt. Ein Versionsbruch würde sie wegwerfen. */
+    if (raw.v === 1) {
+      return {
+        ...raw,
+        v: 2,
+        state: { ...raw.state, antwort: {}, chronik: [] },
+      }
+    }
+    if (raw.v === 2) return raw as SaveGame
   } catch {
     /* unlesbarer Stand zählt als kein Stand */
   }
@@ -110,7 +121,7 @@ export function writeSave(
   lastEvent: string | null,
 ): void {
   try {
-    const save: SaveGame = { v: 1, state, lastEvent, savedAt: Date.now() }
+    const save: SaveGame = { v: 2, state, lastEvent, savedAt: Date.now() }
     localStorage.setItem(`${SAVE_PREFIX}:${profileId}`, JSON.stringify(save))
   } catch {
     /* Speicher voll — die Partie läuft im Reducer weiter */
