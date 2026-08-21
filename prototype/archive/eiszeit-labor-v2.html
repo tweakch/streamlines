@@ -1,0 +1,2530 @@
+<!doctype html>
+<!--
+  eiszeit-labor-v2 — Vorstoss und Rückzug des Linth-/Rheingletschers auf echtem
+  Gelände, mit GEDÄCHTNIS und ERBE.
+
+  Neu gegenüber v1: v1 rechnete pro Jahr ein Gleichgewicht aus der Schneegrenze
+  (reine Funktion der ELA) — bei gleicher Schneegrenze sahen Vorstoss und
+  Rückzug identisch aus, es gab keine Trägheit und nichts, was bleibt. v2 ist
+  ein LAUF durch die Zeit: die Eisdicke wandert mit begrenzten Raten auf das
+  Gleichgewicht zu (Front kriecht, Eis schmilzt mit seiner Schmelzrate), und
+  was das Eis dabei hinterlässt, wird mitgeschrieben — Verweildauer der Front
+  (Endmoränen), Schürfung, Schotterflur, Findlinge, Freigabejahr je Feld.
+
+  Daten: prototype/drafts/eiszeit-labor-v2.data.js, gebacken von
+  pipeline/fetch/bake-eiszeit.mjs (Sonny-DTM Schweiz 50 m, OSM-Gewässer).
+
+  Debug-Parameter (ohne Klick erreichbare Zustände):
+    ?jahr=-23000     Jahr setzen (−40000 … −10000, negativ = v. Chr.)
+    ?play | ?rueck   Lauf vorwärts abspielen   ?vor = Film zurückspulen
+    ?tempo=1000      Jahre pro Sekunde        ?loop  am Ende umkehren
+    ?ela=1500        Schneegrenze festnageln (überschreibt die Klimakurve)
+    ?traegheit=0     Gedächtnis aus → v1-Verhalten (Gleichgewicht je Jahr)
+    ?dt=50 ?vfront=40 ?vwachs=1.5 ?ablmin=0.4 ?schuerf=1 ?key=500  Lauf-Parameter
+    ?tau=140 ?g=2 ?zehr=0.3 ?kappe=1600 ?t0=120 ?rand=3 ?riegel=40 ?mind=25 ?rau=45
+    ?beta=0.6 ?ablmax=12 ?accmax=2.5 ?elaoff=0     Modellparameter
+    ?bilanz=0        Massenbilanz-Grenze aus (nur die rohe Diffusionsfront)
+    ?nurecht         nur Felder mit echten DTM-Höhen ins Modell
+    ?erbe            Erbe-Ansicht (Hinterlassenschaften statt Eis)
+    ?moraene=0 ?abtrag ?sander=0 ?findlinge=0 ?stausee=0 ?seenspaet=0
+    ?endlage          direkt auf 10 000 v. Chr. springen (Endlage des Laufs)
+    ?eis=0 ?rand=0 ?stroeme ?nuna=0 ?wasser=0 ?schumm=0 ?gesch=0 ?labels=0 ?gitter
+    ?lon=9.5&lat=46.9&z=12   Kamera setzen     ?panel=0  Panel zu
+    ?feld=76,120     Feld-Inspektor öffnen (auch ?feld=9.53,46.85 als lon,lat)
+    ?stats           HUD mit Rechen-/Zeichenzeiten     ?bench  Messlauf
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Eiszeit-Labor v2 — Gedächtnis und Erbe</title>
+<style>
+  :root{
+    --bg:#0b1418; --bg2:#101d23; --line:#1d3138; --fg:#dce8ee; --dim:#7f97a1;
+    --akz:#8fd6c8; --eis:#cfe9f8; --warn:#e8a96f;
+    --panel:300px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+    font:13px/1.5 "Segoe UI",system-ui,sans-serif;overflow:hidden}
+  button,input,select{font:inherit;color:inherit}
+
+  #app{display:grid;height:100%;
+    grid-template-columns:var(--panel) 1fr;
+    grid-template-rows:38px 1fr 96px 20px;
+    grid-template-areas:"kopf kopf" "panel karte" "zeit zeit" "fuss fuss"}
+  #app.zu{--panel:0px}
+
+  header{grid-area:kopf;display:flex;align-items:center;gap:12px;padding:0 10px;
+    border-bottom:1px solid var(--line);background:var(--bg2)}
+  header h1{font-size:13px;font-weight:600;margin:0;letter-spacing:.02em}
+  header .sub{color:var(--dim);font-size:11px}
+  header .rechts{margin-left:auto;display:flex;gap:6px;align-items:center}
+  footer{grid-area:fuss;border-top:1px solid var(--line);background:var(--bg2);
+    color:var(--dim);font-size:10.5px;padding:0 10px;display:flex;align-items:center;gap:10px}
+
+  /* ---- Panel ---- */
+  #panel{grid-area:panel;overflow-y:auto;border-right:1px solid var(--line);
+    background:var(--bg2);padding:8px 10px 24px}
+  #app.zu #panel{display:none}
+  .grp{border-top:1px solid var(--line);padding:8px 0 4px;margin-top:4px}
+  .grp:first-child{border-top:0;margin-top:0}
+  .grp>h2{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;
+    color:var(--dim);margin:0 0 6px;font-weight:600}
+  .reihe{display:flex;align-items:center;gap:6px;margin:3px 0}
+  .reihe label{flex:1;font-size:11.5px}
+  .reihe .wert{color:var(--akz);font-variant-numeric:tabular-nums;font-size:11px;min-width:52px;text-align:right}
+  input[type=range]{width:100%;accent-color:var(--akz);height:16px}
+  .kv{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;padding:1.5px 0}
+  .kv b{font-weight:600;font-variant-numeric:tabular-nums}
+  .chk{display:flex;align-items:center;gap:6px;font-size:11.5px;padding:1.5px 0;cursor:pointer}
+  .chk input{accent-color:var(--akz)}
+  .hint{color:var(--dim);font-size:10.5px;margin:4px 0 0}
+
+  .phase{display:block;width:100%;text-align:left;background:transparent;border:0;
+    border-left:2px solid transparent;padding:3px 6px;cursor:pointer;border-radius:0 3px 3px 0}
+  .phase:hover{background:#17272e}
+  .phase.an{background:#17272e;border-left-color:var(--akz)}
+  .phase .j{color:var(--dim);font-size:10px;display:block;font-variant-numeric:tabular-nums}
+  .phase .n{font-size:11.5px}
+
+  /* Plättchen-Vorschau (Tile-Art) */
+  #tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 4px;margin-top:2px}
+  #tiles figure{margin:0;text-align:center}
+  #tiles canvas{width:100%;height:auto;display:block}
+  #tiles figcaption{font-size:9.5px;color:var(--dim);line-height:1.25;margin-top:2px}
+
+  .lm{display:flex;justify-content:space-between;gap:6px;font-size:11px;padding:1px 0;cursor:pointer}
+  .lm:hover{color:var(--akz)}
+  .lm i{font-style:normal;color:var(--dim);font-variant-numeric:tabular-nums}
+  .lm.eis i{color:var(--eis)}
+
+  /* ---- Karte ---- */
+  #karte{grid-area:karte;position:relative;overflow:hidden;background:#081114}
+  #cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}
+  #cv.zieht{cursor:grabbing}
+  #hud{position:absolute;left:8px;top:8px;display:flex;flex-direction:column;gap:4px;
+    pointer-events:none;text-shadow:0 1px 3px #000}
+  #jahrGross{font-size:26px;font-weight:600;letter-spacing:.01em;font-variant-numeric:tabular-nums}
+  #phaseGross{font-size:12px;color:var(--akz)}
+  #eisGross{font-size:11px;color:var(--dim)}
+  #stats{position:absolute;right:8px;top:8px;font:10.5px/1.5 ui-monospace,Consolas,monospace;
+    color:var(--dim);text-align:right;pointer-events:none;display:none;text-shadow:0 1px 3px #000}
+  #legende{position:absolute;left:8px;bottom:26px;display:flex;flex-wrap:wrap;gap:2px 10px;
+    max-width:60%;pointer-events:none;font-size:10.5px;text-shadow:0 1px 3px #000}
+  #legende span{display:flex;align-items:center;gap:4px}
+  #legende i{width:9px;height:9px;border-radius:2px;display:inline-block}
+  #skala{position:absolute;right:8px;bottom:8px;font-size:10px;color:var(--dim);
+    text-align:right;pointer-events:none;text-shadow:0 1px 3px #000}
+  #skala div{border-bottom:2px solid var(--dim);height:5px;margin-bottom:2px}
+  #insp{position:absolute;right:8px;bottom:34px;width:216px;background:#0d1b21ee;
+    border:1px solid var(--line);border-radius:5px;padding:7px 9px;display:none}
+  #insp h3{margin:0 0 4px;font-size:11.5px}
+  #insp .zu{position:absolute;right:4px;top:2px;background:none;border:0;color:var(--dim);cursor:pointer}
+  #insp .kv{font-size:11px}
+
+  /* ---- Zeitleiste ---- */
+  #zeit{grid-area:zeit;border-top:1px solid var(--line);background:var(--bg2);
+    display:grid;grid-template-columns:1fr auto;grid-template-rows:1fr;
+    align-items:center;gap:10px;padding:6px 10px;min-height:0;overflow:hidden}
+  /* Die Box gibt die Hoehe vor, das Canvas liegt absolut darin — sonst
+     bestimmt die Bitmap-Groesse des Canvas die Zeilenhoehe (und wachst). */
+  #zeitBox{position:relative;height:100%;min-width:0;min-height:0}
+  #zeitCv{position:absolute;inset:0;width:100%;height:100%;display:block;
+    cursor:ew-resize;touch-action:none}
+  #steuer{display:flex;align-items:center;gap:5px}
+  #steuer button{background:#16272e;border:1px solid var(--line);border-radius:4px;
+    padding:5px 9px;cursor:pointer;min-width:34px}
+  #steuer button:hover{border-color:var(--akz)}
+  #steuer button.an{border-color:var(--akz);color:var(--akz)}
+  #steuer select{background:#16272e;border:1px solid var(--line);border-radius:4px;padding:4px 6px}
+  .kbtn{background:#16272e;border:1px solid var(--line);border-radius:4px;padding:3px 7px;cursor:pointer;font-size:11px}
+  .kbtn:hover{border-color:var(--akz)}
+
+  /* ---- Lauf-Fortschritt ---- */
+  #lauf{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    background:#081114cc;z-index:8}
+  #lauf.an{display:flex}
+  #laufBox{width:270px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;
+    padding:12px 14px}
+  #laufBox h3{margin:0 0 3px;font-size:12.5px}
+  #laufBar{height:5px;background:#16272e;border-radius:3px;overflow:hidden;margin:8px 0 5px}
+  #laufBar i{display:block;height:100%;width:0;background:var(--akz);transition:width .1s linear}
+  #laufTxt{color:var(--dim);font-size:10.5px}
+
+  .knopfreihe{display:flex;gap:5px;margin-top:5px}
+  .knopfreihe .kbtn{flex:1;text-align:center}
+  .warn{color:var(--warn)}
+  #erbeLeg{position:absolute;right:8px;top:8px;background:#0d1b21dd;border:1px solid var(--line);
+    border-radius:5px;padding:6px 8px;font-size:10.5px;display:none;pointer-events:none}
+  #erbeLeg.an{display:block}
+  #erbeLeg div{display:flex;align-items:center;gap:5px;padding:.5px 0}
+  #erbeLeg i{width:9px;height:9px;border-radius:2px;display:inline-block;flex:none}
+
+  @media (max-width:900px){
+    #app{grid-template-columns:0 1fr}
+    #panel{position:absolute;left:0;top:38px;bottom:0;width:290px;z-index:5;display:block;
+      box-shadow:0 0 24px #000a}
+    #app.zu #panel{display:none}
+    #legende{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button class="kbtn" id="panelBtn" title="Panel ein-/ausblenden">☰</button>
+    <h1>Eiszeit-Labor <span class="sub">v2 · Gedächtnis &amp; Erbe des Linth-/Rheingletschers</span></h1>
+    <div class="rechts">
+      <span class="sub" id="elaKopf">Schneegrenze —</span>
+      <button class="kbtn" id="fitBtn" title="Ganzes Gebiet zeigen">⤢</button>
+    </div>
+  </header>
+
+  <div id="panel">
+    <div class="grp">
+      <h2>Klima-Zeitleiste</h2>
+      <div id="phasen"></div>
+      <p class="hint">Die Schneegrenze (ELA) steuert alles: sinkt sie, wächst das
+        Nährgebiet und das Eis schiebt sich talwärts. Kurve historisch inspiriert
+        und vereinfacht.</p>
+    </div>
+
+    <div class="grp">
+      <h2>Gedächtnis (Trägheit)</h2>
+      <label class="chk"><input type="checkbox" id="cTraeg" checked> Trägheit an — das Eis hinkt dem Klima nach</label>
+      <div class="reihe"><label for="sDt">Zeitschritt</label><span class="wert" id="wDt"></span></div>
+      <input type="range" id="sDt" min="25" max="200" step="25">
+      <div class="reihe"><label for="sVFront">Fronttempo (Vorstoss)</label><span class="wert" id="wVFront"></span></div>
+      <input type="range" id="sVFront" min="5" max="200" step="5">
+      <div class="reihe"><label for="sVWachs">Aufbaurate der Dicke</label><span class="wert" id="wVWachs"></span></div>
+      <input type="range" id="sVWachs" min="0.2" max="8" step="0.2">
+      <div class="reihe"><label for="sAblMin">Zehrung über der Schneegrenze</label><span class="wert" id="wAblMin"></span></div>
+      <input type="range" id="sAblMin" min="0.05" max="3" step="0.05">
+      <p class="hint">Ohne Trägheit ist der Zustand eine reine Funktion der
+        Schneegrenze — dann sind Vorstoss und Rückzug bei gleicher ELA identisch
+        (so rechnete v1). Mit Trägheit wandert die Dicke mit begrenzten Raten
+        aufs Gleichgewicht zu: die Front kriecht vorwärts, das Eis schmilzt mit
+        seiner Schmelzrate zurück. Daraus entsteht totes Eis in den
+        Zungenbecken — und Stillstände, an denen Moränen wachsen.</p>
+      <div class="knopfreihe">
+        <button class="kbtn" id="bLaufNeu">Lauf neu rechnen</button>
+        <button class="kbtn" id="bEndlage">Endlage</button>
+      </div>
+    </div>
+
+    <div class="grp">
+      <h2>Eismodell</h2>
+      <div class="reihe"><label for="sTau">Fliessgrenze des Eises</label><span class="wert" id="wTau"></span></div>
+      <input type="range" id="sTau" min="40" max="240" step="5">
+      <div class="reihe"><label for="sG">Grundgefälle der Eisoberfläche</label><span class="wert" id="wG"></span></div>
+      <input type="range" id="sG" min="0" max="20" step="0.5">
+      <div class="reihe"><label for="sZehr">Zehrung unter der Schneegrenze</label><span class="wert" id="wZehr"></span></div>
+      <input type="range" id="sZehr" min="0" max="3" step="0.1">
+      <div class="reihe"><label for="sKappe">Firnhöhe über der Schneegrenze</label><span class="wert" id="wKappe"></span></div>
+      <input type="range" id="sKappe" min="600" max="2600" step="50">
+      <div class="reihe"><label for="sT0">Firnauflage im Nährgebiet</label><span class="wert" id="wT0"></span></div>
+      <input type="range" id="sT0" min="0" max="400" step="10">
+      <div class="reihe"><label for="sRand">Randabfall</label><span class="wert" id="wRand"></span></div>
+      <input type="range" id="sRand" min="0" max="6" step="1">
+      <div class="reihe"><label for="sRiegel">Riegelwirkung der Grate</label><span class="wert" id="wRiegel"></span></div>
+      <input type="range" id="sRiegel" min="0" max="100" step="5">
+      <div class="reihe"><label for="sMin">Mindestdicke fürs Plättchen</label><span class="wert" id="wMin"></span></div>
+      <input type="range" id="sMin" min="0" max="120" step="5">
+      <div class="reihe"><label for="sRau">Front-Rauschen</label><span class="wert" id="wRau"></span></div>
+      <input type="range" id="sRau" min="0" max="120" step="5">
+      <div class="reihe"><label for="sBeta">Massenbilanz-Gradient</label><span class="wert" id="wBeta"></span></div>
+      <input type="range" id="sBeta" min="0.1" max="1.5" step="0.05">
+      <div class="reihe"><label for="sAbl">grösste Zehrung</label><span class="wert" id="wAbl"></span></div>
+      <input type="range" id="sAbl" min="2" max="30" step="1">
+      <div class="reihe"><label for="sEla">Schneegrenze-Versatz</label><span class="wert" id="wEla"></span></div>
+      <input type="range" id="sEla" min="-400" max="400" step="10">
+      <label class="chk" style="margin-top:4px"><input type="checkbox" id="cBilanz" checked> Massenbilanz begrenzt die Front</label>
+      <p class="hint">Kalibrierprobe: im Hochglazial soll die Front die
+        △-Marken (belegte Maximalausdehnung) gerade erreichen und der Randen
+        nördlich von Schaffhausen frei bleiben; Säntis und Tödi ragen als Fels
+        heraus. Mit den Standardwerten bleibt das Eis bei Killwangen knapp
+        darunter — die Regler sind dafür da.</p>
+    </div>
+
+    <div class="grp">
+      <h2>Plättchen: Eis und was bleibt</h2>
+      <div id="tiles"></div>
+      <p class="hint">Oben das Grund-Terrain „Eis“ wie in v1: Helligkeit =
+        Eisdicke, Randzellen tragen den Eisrand, Nährgebiet ist Firn, Gipfel über
+        der Eisoberfläche bleiben Fels (Nunatak). Unten das <b>Erbe</b> — die
+        vier Marken, die liegen bleiben, wenn das Eis weg ist. Sie sind der
+        Grund, warum das Eis nicht nur Kulisse ist: es hinterlässt Gelände.</p>
+    </div>
+
+    <div class="grp">
+      <h2>Erbe der Eiszeit</h2>
+      <label class="chk"><input type="checkbox" id="cErbe"> <b>Erbe-Ansicht</b> (Eis aus, Erbe an)</label>
+      <label class="chk"><input type="checkbox" id="cMoraene" checked> Endmoränen (Verweildauer der Front)</label>
+      <label class="chk"><input type="checkbox" id="cAbtrag"> Schürfung (wo das Eis gehobelt hat)</label>
+      <label class="chk"><input type="checkbox" id="cSander" checked> Schotterflur vor der Front</label>
+      <label class="chk"><input type="checkbox" id="cFindlinge" checked> Findlinge</label>
+      <label class="chk"><input type="checkbox" id="cStausee" checked> Eisstauseen</label>
+      <label class="chk"><input type="checkbox" id="cSeenSpaet" checked> Seen erst nach der Freigabe</label>
+      <div class="reihe"><label for="sMorSchwelle">Moräne ab Verweildauer</label><span class="wert" id="wMorSchwelle"></span></div>
+      <input type="range" id="sMorSchwelle" min="100" max="3000" step="100">
+      <p class="hint">Was der Lauf mitschreibt: wie lange die Front auf einem
+        Feld stand (Wallkranz), wie viel Eis × Gefälle × Zeit darüber
+        hinweggegangen ist (Schürfung), wie lange ein Feld eisfreies Vorfeld
+        war (Schotterflur) — und wohin die Findlinge getragen wurden.
+        Die Schürfung wird <b>nicht</b> ins Gelände zurückgeschrieben: das DTM
+        ist die Landschaft <i>nach</i> der Eiszeit, die Schürfung wäre sonst
+        doppelt gezählt.</p>
+      <div id="findListe"></div>
+    </div>
+
+    <div class="grp">
+      <h2>Endlage → Startkarte</h2>
+      <div class="kv"><span>Jahr</span><b id="eJahr">—</b></div>
+      <div class="kv"><span>Restliches Eis</span><b id="eEis">—</b></div>
+      <div class="kv"><span>davon auf geschätzten Höhen</span><b id="eGesch">—</b></div>
+      <div class="kv"><span>Moränenfelder</span><b id="eMor">—</b></div>
+      <div class="kv"><span>Schotterflur</span><b id="eSan">—</b></div>
+      <div class="kv"><span>Findlinge</span><b id="eFind">—</b></div>
+      <div class="kv"><span>Seen (frei)</span><b id="eSeen">—</b></div>
+      <div class="knopfreihe">
+        <button class="kbtn" id="bExport">Startkarte exportieren</button>
+      </div>
+      <p class="hint">Die Endlage bei 10 000 v. Chr. als JSON: Gelände je Feld
+        (base64-Uint8 wie die Pipeline-Dateien) plus eine Liste von
+        <b>Fundstellen-Kandidaten</b> mit lon/lat — Findlinge, Moränenwälle,
+        Zungenbecken-Seen. Damit kann eine spätere Portierung die Startkarte von
+        Modul I aus dem Lauf ableiten statt sie unabhängig zu zeichnen.
+        <span class="warn">Noch keine Zuordnung auf das 22×44-Weltraster</span> —
+        <code>app/src/stromlinien/world.ts</code> ist gestaltet und nicht
+        georeferenziert. Die Endlage selbst ist brauchbar: nur 12 % des
+        Resteises liegen auf geschätzten Höhen (253 von 2 192 km²).
+        <span class="warn">Die kalibrierte Maximalausdehnung hängt aber an den
+        geschätzten Feldern</span> — ohne sie (Schalter „nur echte Höhen“)
+        wirken sie als Wand und der Rheingletscher erreicht Schaffhausen nicht
+        mehr: 11 400 km² statt 19 592, tiefster Eisrand 479 statt 421 m.
+        Die DTM-Lücke ausserhalb der Schweiz zu schliessen bleibt deshalb
+        nötig, damit die Kalibrierung auf gemessenem Gelände steht.</p>
+    </div>
+
+    <div class="grp">
+      <h2>Anzeige</h2>
+      <label class="chk"><input type="checkbox" id="cEis" checked> Eis</label>
+      <label class="chk"><input type="checkbox" id="cRand" checked> Eisrand betonen</label>
+      <label class="chk"><input type="checkbox" id="cStroeme"> Eisströme (Fluss­bahnen)</label>
+      <label class="chk"><input type="checkbox" id="cNuna" checked> Nunatakker</label>
+      <label class="chk"><input type="checkbox" id="cWasser" checked> Heutige Seen &amp; Flüsse</label>
+      <label class="chk"><input type="checkbox" id="cSchumm" checked> Höhenschummerung</label>
+      <label class="chk"><input type="checkbox" id="cGesch" checked> Geschätzte Höhen schraffieren</label>
+      <label class="chk"><input type="checkbox" id="cNurEcht"> Nur echte Höhen im Modell</label>
+      <label class="chk"><input type="checkbox" id="cLabels" checked> Landmarken</label>
+      <label class="chk"><input type="checkbox" id="cGitter"> Hexgitter</label>
+      <p class="hint">Das DTM endet an der Landesgrenze. Auf den schraffierten
+        Feldern rechnet das Modell mit geschätzten Höhen (Laplace-Ausgleich
+        zwischen den bekannten Gebieten) — die Eiskappe über Vorarlberg und
+        dem Alpstein-Ostrand ist damit eher Schätzung als Ergebnis. „Nur echte
+        Höhen“ blendet sie aus dem Modell aus.</p>
+    </div>
+
+    <div class="grp">
+      <h2>Kennzahlen</h2>
+      <div class="kv"><span>Eisfläche</span><b id="kFlaeche">—</b></div>
+      <div class="kv"><span>davon Nährgebiet</span><b id="kNaehr">—</b></div>
+      <div class="kv"><span>grösste Eisdicke</span><b id="kDicke">—</b></div>
+      <div class="kv"><span>Eisvolumen (grob)</span><b id="kVol">—</b></div>
+      <div class="kv"><span>tiefster Eisrand</span><b id="kFront">—</b></div>
+      <div class="kv"><span>Nunatakker</span><b id="kNuna">—</b></div>
+      <div class="kv"><span>Gleichgewichtsfläche</span><b id="kGl">—</b></div>
+      <div class="kv"><span>Nachhang</span><b id="kNach">—</b></div>
+      <div class="kv"><span>totes Eis</span><b id="kTot">—</b></div>
+      <p class="hint">„Nachhang“ = Eisfläche gegen die Fläche, die zur
+        Schneegrenze dieses Jahres gehören würde. <b>Positiv (Überhang)</b>: das
+        Eis liegt noch, obwohl das Klima es nicht mehr trägt — beim Rückzug.
+        <b>Negativ</b>: das Eis hinkt einem wachsenden Gleichgewicht nach — beim
+        Vorstoss. Bei gleicher Schneegrenze trägt der Rückzug deshalb mehr Eis
+        als der Vorstoss; das ist die Hysterese, die v1 nicht haben konnte.
+        „Totes Eis“ sind Felder, deren Gleichgewicht bei null liegt und die
+        trotzdem noch Eis tragen. Die <b>Eisfläche</b> zählt genau die Felder,
+        die auch gezeichnet werden (Dicke ≥ Mindestdicke) — v1 zählte nur die
+        vom Dijkstra besuchten Felder mit beliebig dünnem Eis, dort fehlten
+        eigenständige Firnfelder in der Zahl und hauchdünner Randabfall zählte
+        mit. Die Flächen der beiden Versionen sind deshalb nicht vergleichbar,
+        der tiefste Eisrand schon.</p>
+    </div>
+
+    <div class="grp">
+      <h2>Landmarken</h2>
+      <div id="lmListe"></div>
+      <p class="hint">Wert = Eisdicke am Ort, „—“ = eisfrei. Klick fliegt hin.</p>
+    </div>
+
+    <div class="grp">
+      <h2>Daten &amp; Quellen</h2>
+      <div id="quellen"></div>
+    </div>
+  </div>
+
+  <div id="karte">
+    <canvas id="cv"></canvas>
+    <div id="hud">
+      <div id="jahrGross">—</div>
+      <div id="phaseGross">—</div>
+      <div id="eisGross">—</div>
+    </div>
+    <div id="stats"></div>
+    <div id="legende"></div>
+    <div id="skala"><div></div><span id="skalaTxt">—</span></div>
+    <div id="insp">
+      <button class="zu" id="inspZu">✕</button>
+      <h3 id="inspT">Feld</h3>
+      <div id="inspB"></div>
+    </div>
+    <div id="erbeLeg"></div>
+    <div id="lauf"><div id="laufBox">
+      <h3>Der Lauf wird gerechnet</h3>
+      <div class="hint">30 000 Jahre in Schritten — das Eis muss die Zeit
+        durchlaufen, sonst hätte es kein Gedächtnis.</div>
+      <div id="laufBar"><i></i></div>
+      <div id="laufTxt">—</div>
+    </div></div>
+  </div>
+
+  <div id="zeit">
+    <div id="zeitBox"><canvas id="zeitCv"></canvas></div>
+    <div id="steuer">
+      <button id="bAnf" title="An den Anfang (40 000 v. Chr.)">⏮</button>
+      <button id="bRueck" title="Lauf abspielen (Zeit vorwärts)">▶</button>
+      <button id="bVor" title="Film zurückspulen (derselbe Lauf, rückwärts betrachtet)">◀</button>
+      <button id="bStop" title="Pause">⏸</button>
+      <select id="tempo">
+        <option value="150">150 Jahre/s</option>
+        <option value="400" selected>400 Jahre/s</option>
+        <option value="1000">1000 Jahre/s</option>
+        <option value="2500">2500 Jahre/s</option>
+      </select>
+      <button id="bLoop" title="Schleife: am Ende umkehren">⇄</button>
+    </div>
+  </div>
+
+  <footer>
+    <span>eiszeit-labor-v2 · Höhen: DTM Schweiz 50 m © Sonny (CC BY 4.0) · Gewässer: © OpenStreetMap (ODbL)</span>
+    <span style="margin-left:auto">Eisverlauf historisch inspiriert und vereinfacht — kein glaziologisches Modell.</span>
+  </footer>
+</div>
+
+<script src="eiszeit-labor-v2.data.js"></script>
+<script>
+'use strict';
+const D = window.EISZEIT_DATEN, G = D.grid, CFG = D.cfg;
+const SQRT3 = Math.sqrt(3), s = G.hexKm / SQRT3;
+const COLS = G.cols, ROWS = G.rows, N = COLS * ROWS;
+const Q = new URLSearchParams(location.search);
+
+/* ---------- Daten dekodieren ---------- */
+function b64(str, T){
+  const bin = atob(str), u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return T === Uint8Array ? u8 : new T(u8.buffer, 0, u8.length / 2);
+}
+const ELEV = b64(D.elev, Int16Array), EMIN = b64(D.emin, Int16Array),
+      EMAX = b64(D.emax, Int16Array), FLAGS = b64(D.flags, Uint8Array);
+const F_GESCH = 1, F_SEE = 2, F_FLUSS = 4;
+/* Herkunft der Höhe je Feld (0 = keine Quelle). Ältere Datenfiles haben das
+   Feld nicht — dann bleibt es leer und der Inspektor sagt nur „geschätzt“. */
+const QUELLE = D.quelle ? b64(D.quelle, Uint8Array) : null;
+const QUELLEN = D.hoehenquellen ?? [];
+const quelleVon = (i) => {
+  if (!QUELLE || !QUELLE[i]) return null;
+  return QUELLEN.find(q => q.nr === QUELLE[i]) ?? null;
+};
+
+/* ---------- Hexgeometrie (pointy-top, odd-r — wie grid.ts/bake.mjs) ---------- */
+const axialOf = (c, r) => c - ((r - (r & 1)) / 2);
+const offsetOf = (q, r) => [q + ((r - (r & 1)) / 2), r];
+const DIRS_EVEN = [[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]];
+const DIRS_ODD  = [[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
+/* Parität der GLOBALEN Zeile entscheidet — G.r0 ist gerade gebacken, also
+   stimmt die lokale Parität mit der globalen überein. */
+const dirsOf = (r) => (r & 1 ? DIRS_ODD : DIRS_EVEN);
+const idx = (c, r) => r * COLS + c;
+/* Zellmittelpunkt in lokalen km (Ursprung = Mitte der Zelle 0,0) */
+const cx0 = G.originKm[0], cy0 = G.originKm[1];
+const centerX = (c, r) => s * SQRT3 * (axialOf(G.c0 + c, G.r0 + r) + (G.r0 + r) / 2) - cx0;
+const centerY = (r) => s * 1.5 * (G.r0 + r) - cy0;
+const WKM = COLS * s * SQRT3 + s * SQRT3, HKM = ROWS * s * 1.5 + s;
+function cubeRound(x, y, z){
+  let rx = Math.round(x), ry = Math.round(y), rz = Math.round(z);
+  const dx = Math.abs(rx-x), dy = Math.abs(ry-y), dz = Math.abs(rz-z);
+  if (dx > dy && dx > dz) rx = -ry-rz; else if (dy > dz) ry = -rx-rz; else rz = -rx-ry;
+  return [rx, ry, rz];
+}
+function cellAtLocal(x, y){ // lokale km → lokale Zelle
+  const gx = x + cx0, gy = y + cy0;
+  const q = ((SQRT3/3)*gx - gy/3)/s, r = ((2/3)*gy)/s;
+  const [qx,,qz] = cubeRound(q, -q-r, r);
+  const [gc, gr] = offsetOf(qx, qz);
+  return [gc - G.c0, gr - G.r0];
+}
+const lonLatOfLocal = (x, y) => [CFG.lon0 + (x + cx0)/CFG.kmx, CFG.lat1 - (y + cy0)/CFG.kmy];
+const localOfLonLat = (lon, lat) => [(lon-CFG.lon0)*CFG.kmx - cx0, (CFG.lat1-lat)*CFG.kmy - cy0];
+
+/* ---------- Gelände: Steigung, Schummerung, Klasse ---------- */
+const SLOPE = new Float32Array(N), SHADE = new Float32Array(N), KLASSE = new Uint8Array(N);
+const K = { flach:0, huegel:1, berg:2, hoch:3, see:4, fluss:5 };
+{
+  const dM = G.hexKm * 1000;
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++){
+    const i = idx(c, r), dirs = dirsOf(r);
+    let gx = 0, gy = 0, n = 0;
+    for (let d = 0; d < 6; d++){
+      const nc = c + dirs[d][1], nr = r + dirs[d][0];
+      if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS) continue;
+      const dz = ELEV[idx(nc, nr)] - ELEV[i];
+      const ax = centerX(nc, nr) - centerX(c, r), ay = centerY(nr) - centerY(r);
+      const L = Math.hypot(ax, ay) || 1;
+      gx += (dz / dM) * (ax / L); gy += (dz / dM) * (ay / L); n++;
+    }
+    if (n){ gx /= n; gy /= n; }
+    SLOPE[i] = Math.hypot(gx, gy) * 2.2; // grobe Hangneigung (m/m)
+    /* Licht von Nordwest */
+    SHADE[i] = Math.max(-1, Math.min(1, (-gx * 0.72 + gy * 0.72) * 3.2));
+    const relief = EMAX[i] - EMIN[i];
+    KLASSE[i] = (FLAGS[i] & F_SEE) ? K.see
+      : (FLAGS[i] & F_FLUSS) ? K.fluss
+      : ELEV[i] >= 2100 ? K.hoch
+      : (SLOPE[i] >= 0.30 || relief >= 420) ? K.berg
+      : (SLOPE[i] >= 0.10 || relief >= 160) ? K.huegel
+      : K.flach;
+  }
+}
+/* Festes Rauschen pro Zelle — macht die Front zackig statt mathematisch glatt */
+const RAUSCH = new Float32Array(N);
+{ let x = 987654321;
+  for (let i = 0; i < N; i++){ x ^= x << 13; x ^= x >>> 17; x ^= x << 5; RAUSCH[i] = ((x >>> 0) / 4294967296) - 0.5; } }
+
+/* ---------- Klimakurve: Jahr (negativ = v. Chr.) → Schneegrenze in m ---------- */
+const PHASEN = [
+  { j0:-40000, j1:-28000, kurz:'Mittelwürm', name:'Mittelwürm',            txt:'Wechselhaft kalt. Gletscher füllen die Hochtäler, das Vorland bleibt frei.' },
+  { j0:-28000, j1:-24500, kurz:'Vorstoss', name:'Vorstoss ins Vorland',  txt:'Die Schneegrenze fällt unter 1500 m — die Eisströme verlassen die Alpen.' },
+  { j0:-24500, j1:-21000, kurz:'Hochglazial', name:'Hochglazial (Maximum)', txt:'Zürcher Lobus bis Killwangen, Rheingletscher bis Schaffhausen. Über Chur liegt mehr als ein Kilometer Eis.' },
+  { j0:-21000, j1:-17500, kurz:'Zusammenbruch', name:'Zusammenbruch',         txt:'Rascher Rückzug: die Zungenbecken vor den Alpen werden frei.' },
+  { j0:-17500, j1:-15000, kurz:'Randseen', name:'Alpenrandseen',         txt:'Zürichsee, Walensee und Bodensee füllen die ausgeschürften Becken.' },
+  { j0:-15000, j1:-13000, kurz:'Bølling', name:'Bølling / Allerød',     txt:'Warmphase: die Täler sind bis Chur eisfrei, Wald wandert ein.' },
+  { j0:-13000, j1:-11700, kurz:'Egesen', name:'Jüngere Dryas (Egesen)',txt:'Letzter Kälterückschlag — die Gletscher stossen in den Hochtälern noch einmal vor.' },
+  { j0:-11700, j1:-10000, kurz:'Ausgang', name:'Ausgang der Eiszeit',   txt:'Die Gletscher schrumpfen auf ungefähr heutige Grösse. Das Tal steht offen.' },
+];
+const ELA_KURVE = [
+  [-40000,2350],[-37000,2200],[-34000,2100],[-31000,1950],[-29000,1800],
+  [-28000,1650],[-26000,1420],[-24500,1260],[-23000,1200],[-21500,1230],
+  [-21000,1300],[-20000,1450],[-19000,1620],[-18000,1800],[-17500,1900],
+  [-16500,2060],[-15500,2200],[-15000,2300],[-14200,2450],[-13000,2420],
+  /* Egesen (Jüngere Dryas): in v1 lag die Delle bei 2120 m — und zwar bei
+     11 700/11 200 v. Chr., also NACH dem Ende der Jüngeren Dryas, die die
+     Phasentabelle bei 11 700 endet. Beides korrigiert: die Delle liegt jetzt
+     im Egesen-Fenster und ist flacher. Grund: eine Schneegrenze von 2120 m
+     schaltet im Modell die Talzunge wieder ein und füllte das Rheintal bei
+     Chur mit 1 661 m Eis — 1 000 Jahre vor Spielbeginn. Die belegte
+     Egesen-Schneegrenze liegt 500–700 m unter der heutigen (~2900 m), also bei
+     2250–2450 m; 2280 m ist das kalte Ende davon. */
+  [-12600,2330],[-12200,2280],[-11800,2300],[-11400,2360],[-11000,2400],
+  [-10500,2440],[-10000,2480],
+];
+const J0 = -40000, J1 = -10000;
+function elaOf(jahr){
+  const K2 = ELA_KURVE;
+  if (jahr <= K2[0][0]) return K2[0][1];
+  if (jahr >= K2[K2.length-1][0]) return K2[K2.length-1][1];
+  for (let i = 1; i < K2.length; i++){
+    if (jahr <= K2[i][0]){
+      const [a, av] = K2[i-1], [b, bv] = K2[i];
+      const t = (jahr - a) / (b - a);
+      return av + (bv - av) * (t*t*(3-2*t)); // smoothstep — keine Knicke
+    }
+  }
+  return K2[K2.length-1][1];
+}
+const phaseOf = (jahr) => PHASEN.find(p => jahr >= p.j0 && jahr < p.j1) || PHASEN[PHASEN.length-1];
+
+/* ---------- Zustand ---------- */
+const ELA_BASIS = 1200, HMIN = 40; // Bezugs-Schneegrenze (Hochglazial) · kleinste Rechendicke
+const P = { // Modellparameter
+  g0: +(Q.get('g') ?? 2),          // m Grundgefälle der Eisoberfläche je km
+  /* War 140 kPa, kalibriert gegen das GESCHÄTZTE Gelände im Nährgebiet (Bit0,
+     nächster-Nachbar + Laplace-Glättung). Mit echten Höhen für AT/DE/IT (Aug
+     2026, sechs Sonny-DTMs statt einem) erreichte das Eis bei 140 kPa weder
+     Schaffhausen noch Killwangen mehr (Fläche 19'592 → 10'950 km², Eisrand
+     420 → 523 m) — die geschätzte Füllung war glatter als das echte Relief
+     und trug dadurch mehr Nachschub in die Zunge, als real ankommt. 98 kPa
+     (Sweep über 24 Läufe, echte Uhr, headless) trifft den Eisrand wieder
+     exakt bei 420 m und erreicht beide belegten Marken mit Abstand, nicht auf
+     der Kippe — und liegt damit näher an typischen Literaturwerten für
+     Talgletscher (Grössenordnung 50–150 kPa) als der alte Wert. */
+  tau: +(Q.get('tau') ?? 98),      // kPa Fliessgrenze (plastisches Fliessgesetz)
+  zehr: +(Q.get('zehr') ?? 0.3),   // m/km zusätzlicher Abfall je 100 m unter der Schneegrenze
+  kappe: +(Q.get('kappe') ?? 1600),// m Firnhöhe: Deckel der Eisoberfläche über der Schneegrenze
+  rand: +(Q.get('rand') ?? 3),     // Felder, über die die Dicke am Eisrand ausläuft
+  t0: +(Q.get('t0') ?? 120),       // m Firnauflage im Nährgebiet
+  riegel: +(Q.get('riegel') ?? 40),// % des Zellreliefs, das als Riegel wirkt
+  minD: +(Q.get('mind') ?? 25),    // m Mindestdicke, damit das Feld „Eis“ ist
+  rau: +(Q.get('rau') ?? 45),      // m Front-Rauschen
+  elaOff: +(Q.get('elaoff') ?? 0), // m Versatz der Schneegrenze
+  beta: +(Q.get('beta') ?? 0.6),     // m/a Massenbilanz je 100 m Hoehenabstand
+  accMax: +(Q.get('accmax') ?? 2.5), // m/a groesste Naehrung
+  ablMax: +(Q.get('ablmax') ?? 12),  // m/a groesste Zehrung
+};
+const AN = {
+  eis:  Q.get('eis') !== '0',
+  rand: Q.get('rand') !== '0',
+  stroeme: Q.has('stroeme'),
+  nuna: Q.get('nuna') !== '0',
+  wasser: Q.get('wasser') !== '0',
+  schumm: Q.get('schumm') !== '0',
+  gesch: Q.get('gesch') !== '0',
+  nurEcht: Q.has('nurecht'),
+  labels: Q.get('labels') !== '0',
+  gitter: Q.has('gitter'),
+  bilanz: Q.get('bilanz') !== '0',
+  /* Erbe */
+  erbe: Q.has('erbe'),
+  moraene: Q.get('moraene') !== '0',
+  abtrag: Q.has('abtrag'),
+  sander: Q.get('sander') !== '0',
+  findlinge: Q.get('findlinge') !== '0',
+  stausee: Q.get('stausee') !== '0',
+  seenSpaet: Q.get('seenspaet') !== '0',
+};
+let jahr = Q.has('jahr') ? Math.max(J0, Math.min(J1, +Q.get('jahr'))) : -23000;
+let elaFix = Q.has('ela') ? +Q.get('ela') : null; // überschreibt die Kurve
+let richtung = Q.has('rueck') ? 1 : (Q.has('vor') ? -1 : 0);
+if (Q.has('play') && !richtung) richtung = 1;
+let tempo = +(Q.get('tempo') ?? 400);
+let loop = Q.has('loop');
+let inspZelle = null;
+
+/* ---------- Eisfluss-Modell ----------
+   Max-First-Dijkstra über das Hexgitter: Nährgebiet (Gelände über der
+   Schneegrenze) setzt eine Eisoberfläche, die sich mit festem Gefälle
+   ausbreitet. Eis fliesst nur weiter, wenn die Oberfläche dort noch über dem
+   Untergrund liegt — Gebirgsriegel sperren die Front, Pässe lassen sie über.
+   Die Eisoberfläche fällt entlang jedes Wegs monoton, deshalb ist ein
+   Dijkstra mit Max-Heap exakt (kein Nachrelaxieren nötig).                */
+/* SURF/Heap in DOUBLE: mit Float32 rundet der gespeicherte Wert unter das
+   gerechnete `cand`, `cand <= SURF[j]` wird nie wahr und die Front relaxiert
+   endlos im Kreis (in flachen Gebieten mit gleichen Hoehen sofort toedlich). */
+const SURF = new Float64Array(N), FROM = new Int32Array(N), FLUX = new Float32Array(N);
+const ACC = new Float64Array(N), EIS = new Uint8Array(N);
+const DIST = new Int32Array(N), QUEUE = new Int32Array(N);
+const GEW = new Float64Array(6); // Abflussgewichte je Nachbarrichtung
+const GLATT = new Float64Array(N);
+const ORDER = new Int32Array(N);
+let heapK = new Float64Array(N * 4), heapV = new Int32Array(N * 4), heapN = 0, lastKey = 0;
+function hPush(k, v){
+  if (heapN === heapK.length){
+    const nk = new Float64Array(heapN * 2), nv = new Int32Array(heapN * 2);
+    nk.set(heapK); nv.set(heapV); heapK = nk; heapV = nv;
+  }
+  let i = heapN++;
+  heapK[i] = k; heapV[i] = v;
+  while (i > 0){
+    const p = (i - 1) >> 1;
+    if (heapK[p] >= heapK[i]) break;
+    const tk = heapK[p], tv = heapV[p];
+    heapK[p] = heapK[i]; heapV[p] = heapV[i]; heapK[i] = tk; heapV[i] = tv; i = p;
+  }
+}
+function hPop(){
+  const topK = heapK[0], topV = heapV[0], n = --heapN;
+  heapK[0] = heapK[n]; heapV[0] = heapV[n];
+  let i = 0;
+  for (;;){
+    const l = 2*i+1, r = l+1; let m = i;
+    if (l < n && heapK[l] > heapK[m]) m = l;
+    if (r < n && heapK[r] > heapK[m]) m = r;
+    if (m === i) break;
+    const tk = heapK[m], tv = heapV[m];
+    heapK[m] = heapK[i]; heapV[m] = heapV[i]; heapK[i] = tk; heapV[i] = tv; i = m;
+  }
+  lastKey = topK; return topV;
+}
+const M = { ela:NaN, eis:0, naehr:0, maxD:0, volKm3:0, frontM:Infinity, nuna:0, ms:0,
+            glEis:0, nachhang:0, totEis:0, laufMs:0, sprossen:0 };
+/* Gleichgewicht zu einer Schneegrenze — der Baustein, nicht mehr der Zustand.
+   In v1 WAR das der Zustand (und damit gab es keine Trägheit); hier liefert es
+   nur das Ziel, auf das die Eisdicke im Lauf zuwandert. Schreibt SURF/EIS. */
+function gleichgewicht(ela){
+  const t0 = performance.now();
+  SURF.fill(-1e9); FROM.fill(-1); heapN = 0;
+  const nurEcht = AN.nurEcht;
+  for (let i = 0; i < N; i++){
+    if (nurEcht && (FLAGS[i] & F_GESCH)) continue;
+    if (ELEV[i] >= ela){
+      /* Die Eisoberfläche im Nährgebiet liegt NICHT auf den Gipfeln, sondern
+         gedeckelt bei der Firnhöhe — sonst starten die Eisströme auf 3400 m und
+         überfluten das ganze Vorland. Die Gipfel darüber bleiben Fels: so
+         entstehen Nunatakker von selbst.
+         v1 liess diesen Deckel mit der halben Rate der Schneegrenze STEIGEN
+         (`+ 0.5*(ela - ELA_BASIS)`) — ein wärmeres Klima erlaubte damit ein
+         höheres Eisgewölbe. In v1 fiel das nicht auf, weil jedes Jahr für sich
+         gerechnet wurde; mit Gedächtnis rastet der Überschuss ein: gemessen
+         trug ein Talfeld bei Chur bei Schneegrenze 1800 m dasselbe Eis wie im
+         Hochglazial und stand bei 10 000 v. Chr. noch unter 1533 m Eis, statt
+         unter 464 m. Der Deckel ist deshalb FEST: bei der Hochglazial-
+         Schneegrenze (1200 m) genau wie in v1 — die Kalibrierung hängt an
+         dieser Sprosse —, bei wärmerem Klima tiefer statt höher. (Physikalisch
+         müsste er mit steigender Schneegrenze sogar FALLEN; das wäre eine
+         Neukalibrierung und bleibt offen.) */
+      const S = Math.min(EMIN[i] + P.t0, ELA_BASIS + P.kappe);
+      if (S > SURF[i]){ SURF[i] = S; hPush(S, i); }
+    }
+  }
+  const riegel = P.riegel / 100, rau = P.rau, g0 = P.g0, zehr = P.zehr / 100;
+  const FLIESS = 1000 * (P.tau / 8.829); // τ[kPa] → m²/km (ρg = 8829 N/m³)
+  let ordN = 0;
+  while (heapN){
+    const i = hPop(), S = lastKey;
+    if (S < SURF[i] - 1e-3) continue; // veralteter Eintrag
+    ORDER[ordN++] = i;
+    /* Abfall der Eisoberfläche je Kilometer, aus drei Anteilen:
+       1. PLASTISCH: Eis fliesst, wenn die Schubspannung an der Sohle die
+          Fliessgrenze erreicht — Gefälle ≈ τ/(ρ·g·H). Also: dünnes Eis fällt
+          steil (ein 3000er trägt einen kurzen Kargletscher), dickes Eis fällt
+          flach (ein gefüllter Trog schiebt 80 km weit). Ohne diesen Term
+          reichte im Modell jeder einzelne Gipfel bis ins Mittelland.
+       2. GRUNDGEFÄLLE: konstanter Zuschlag (Reibung, Formwiderstand).
+       3. ZEHRUNG: je tiefer das Nachbarfeld unter der Schneegrenze liegt,
+          desto mehr schmilzt dort weg — das begrenzt die Zunge. */
+    const H = S - ELEV[i];
+    const abfall = (FLIESS / (H > HMIN ? H : HMIN) + g0) * G.hexKm;
+    const c = i % COLS, r = (i - c) / COLS, dirs = dirsOf(r);
+    for (let d = 0; d < 6; d++){
+      const nc = c + dirs[d][1], nr = r + dirs[d][0];
+      if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS) continue;
+      const j = nr * COLS + nc;
+      if (nurEcht && (FLAGS[j] & F_GESCH)) continue;
+      const cand = S - abfall - zehr * Math.max(0, ela - ELEV[j]) * G.hexKm;
+      if (cand <= SURF[j]) continue;
+      const bett = ELEV[j] + riegel * (EMAX[j] - ELEV[j]);
+      if (cand <= bett + P.minD + RAUSCH[j] * rau) continue;
+      SURF[j] = cand; FROM[j] = i; hPush(cand, j);
+    }
+  }
+  /* ---- Eisoberfläche glätten ----
+     Der Dijkstra baut um jede Quelle einen Kegel; wo Kegel aneinanderstossen,
+     bleiben Grate in der Oberfläche stehen. Auf dem Vorland stehen die Quellen
+     in einer Linie (der Alpenrand), also stehen die Grate parallel — und die
+     Massenbilanz liess das Eis genau dort verhungern: die Zunge zerfiel in
+     parallele Finger. Ein paar Ausgleichsschritte bügeln die Grate aus (eine
+     Eisoberfläche IST glatt), danach muss die Reihenfolge neu sortiert werden,
+     weil der Bilanz-Durchlauf sie streng absteigend braucht. */
+  for (let pass = 0; pass < 3; pass++){
+    for (let k = 0; k < ordN; k++){
+      const i = ORDER[k];
+      const c = i % COLS, r = (i - c) / COLS, dirs = dirsOf(r);
+      let sum = 0, n = 0;
+      for (let d = 0; d < 6; d++){
+        const nc = c + dirs[d][1], nr = r + dirs[d][0];
+        if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS) continue;
+        const j = nr * COLS + nc;
+        if (SURF[j] < -1e8) continue;
+        sum += SURF[j]; n++;
+      }
+      if (n) GLATT[i] = 0.45 * SURF[i] + 0.55 * (sum / n);
+      else GLATT[i] = SURF[i];
+    }
+    for (let k = 0; k < ordN; k++){ const i = ORDER[k]; SURF[i] = GLATT[i]; }
+  }
+  {
+    const teil = Array.prototype.slice.call(ORDER.subarray(0, ordN));
+    teil.sort((a, b) => SURF[b] - SURF[a]);
+    for (let k = 0; k < ordN; k++) ORDER[k] = teil[k];
+  }
+
+  /* ---- Massenbilanz: wie weit reicht das Eis wirklich? ----
+     Die Front oben sagt nur, wie hoch die Eisoberfläche liegen KÖNNTE. Ob dort
+     noch Eis ankommt, entscheidet der Nachschub: jedes Feld über der
+     Schneegrenze nährt, jedes darunter zehrt (linear mit dem Höhenabstand).
+     Der Nachschub wird entlang des steilsten Oberflächenabfalls summiert —
+     wo die Summe auf null fällt, endet die Zunge. Deshalb macht ein einzelner
+     1300-m-Hügel nur einen Fleck, die Bündner Alpen aber einen 80-km-Strom. */
+  ACC.fill(0); EIS.fill(0);
+  const beta = P.beta / 100, accMax = P.accMax, ablMax = P.ablMax;
+  const hexA0 = (SQRT3 / 2) * G.hexKm * G.hexKm;
+  for (let k = 0; k < ordN; k++){
+    const i = ORDER[k];
+    if (SURF[i] <= ELEV[i]) continue;
+    if (!AN.bilanz){ EIS[i] = 1; continue; }
+    let bal = beta * (SURF[i] - ela);
+    if (bal > accMax) bal = accMax;
+    if (bal < -ablMax) bal = -ablMax;
+    const tot = ACC[i] + bal * hexA0;
+    if (tot <= 0) continue; // hier verhungert der Eisstrom
+    EIS[i] = 1;
+    /* Abfluss auf ALLE tieferen Nachbarn verteilen, gewichtet mit dem
+       Oberflächengefälle. Nur der steilste Nachbar (wie in der Hydrologie
+       üblich) erzeugt auf glattem Vorland parallele Abflussrinnen — und
+       zwischen den Rinnen verhungert das Eis: die Zunge zerfiel in Streifen.
+       Eis fliesst breit, nicht in Bächen. */
+    const c = i % COLS, r = (i - c) / COLS, dirs = dirsOf(r);
+    let sum = 0;
+    for (let d = 0; d < 6; d++){
+      const nc = c + dirs[d][1], nr = r + dirs[d][0];
+      if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS){ GEW[d] = 0; continue; }
+      const j = nr * COLS + nc;
+      const dz = SURF[i] - SURF[j];
+      GEW[d] = dz > 0 ? dz : 0;
+      sum += GEW[d];
+    }
+    if (sum <= 0) continue;
+    for (let d = 0; d < 6; d++){
+      if (!GEW[d]) continue;
+      const nc = c + dirs[d][1], nr = r + dirs[d][0];
+      ACC[nr * COLS + nc] += tot * (GEW[d] / sum);
+    }
+  }
+  /* ---- Randabfall ----
+     Der Front-Dijkstra kennt die Zunge nicht, er liefert nur eine mögliche
+     Oberfläche; ohne Nachbehandlung endet das Eis als Klippe. Also: Abstand
+     jeder Eiszelle zum ECHTEN Rand (offener Boden, an dem das Eis endet —
+     Fels über der Eisoberfläche zählt nicht, sonst würden Nunatakker das
+     Taleis dünn machen) und die Dicke über die letzten Felder auslaufen. */
+  const randF = P.rand;
+  if (randF > 0){
+    DIST.fill(0);
+    let qa = 0, qb = 0;
+    for (let k = 0; k < ordN; k++){
+      const i = ORDER[k];
+      if (!EIS[i]) continue;
+      const c = i % COLS, r = (i - c) / COLS, dirs = dirsOf(r);
+      let rand = false;
+      for (let d = 0; d < 6; d++){
+        const nc = c + dirs[d][1], nr = r + dirs[d][0];
+        if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS){ rand = true; break; }
+        const j = nr * COLS + nc;
+        if (!EIS[j] && ELEV[j] < SURF[i]){ rand = true; break; }
+      }
+      if (rand){ DIST[i] = 1; QUEUE[qb++] = i; }
+    }
+    while (qa < qb){
+      const i = QUEUE[qa++];
+      const c = i % COLS, r = (i - c) / COLS, dirs = dirsOf(r);
+      for (let d = 0; d < 6; d++){
+        const nc = c + dirs[d][1], nr = r + dirs[d][0];
+        if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS) continue;
+        const j = nr * COLS + nc;
+        if (!EIS[j] || DIST[j]) continue;
+        DIST[j] = DIST[i] + 1; QUEUE[qb++] = j;
+      }
+    }
+    for (let k = 0; k < ordN; k++){
+      const i = ORDER[k];
+      if (!EIS[i] || !DIST[i] || DIST[i] > randF) continue;
+      const f = DIST[i] / (randF + 1);
+      SURF[i] = ELEV[i] + (SURF[i] - ELEV[i]) * f;
+      if (SURF[i] <= ELEV[i] + 1){ SURF[i] = ELEV[i] + 1; }
+    }
+  }
+  /* ---- Firnfelder ----
+     Über der Schneegrenze bleibt Schnee liegen, auch wo kein Eisstrom
+     hinfliesst: hohe Massive, die über der Firnhöhe stehen, tragen ein dünnes
+     eigenes Firnfeld. Erst hier angewandt, damit sie die Front nicht nähren —
+     ohne diesen Schritt blättern die Höchstgebiete als ‚eisfrei‘ auf. */
+  for (let i = 0; i < N; i++){
+    if (EIS[i] || ELEV[i] < ela) continue;
+    if (nurEcht && (FLAGS[i] & F_GESCH)) continue;
+    EIS[i] = 1;
+    SURF[i] = ELEV[i] + Math.max(15, Math.min(P.t0, (ELEV[i] - ela) * 0.35));
+  }
+  M.ms = performance.now() - t0;
+}
+const HEXA = (SQRT3 / 2) * G.hexKm * G.hexKm; // Fläche eines Hex der Weite hexKm
+M.hexA = HEXA;
+
+/* ---------- Gleichgewichts-Leiter ----------
+   Der Lauf braucht in jedem Zeitschritt das Gleichgewicht zur Schneegrenze
+   dieses Jahres — 1200 Dijkstra-Läufe à 20 ms wären 24 Sekunden. Stattdessen
+   wird das Gleichgewicht auf einer LEITER von Schneegrenzen (50-m-Sprossen)
+   berechnet, jede Sprosse einmal und nur bei Bedarf, und dazwischen linear
+   verrechnet. Der Lauf kostet damit ~30 echte Gleichgewichte statt 1200. */
+const LEITER_MAX = 3000, LEITER_STEP = 50;
+/* Die UNTERSTE Sprosse ist der Anker der Klemmung — und sie muss die kälteste
+   sein, die die Klimakurve wirklich erreicht (1200 m). Eine erfundene kältere
+   Sprosse (ELA 800) hat wegen der mit der Schneegrenze fallenden Firnhöhe
+   lokal WENIGER Eis und zog die kalibrierte Maximallage über die Klemmung
+   herunter: 17 847 statt 19 596 km². */
+let LEITER_MIN = 1200, LEITER_N = 1, leiter = [];
+function leiterSpanne(){
+  let mn = Infinity;
+  for (const [, v] of ELA_KURVE) if (v < mn) mn = v;
+  mn = Math.min(mn + P.elaOff, elaFix ?? Infinity);
+  LEITER_MIN = Math.floor(mn / LEITER_STEP) * LEITER_STEP;
+  LEITER_N = Math.round((LEITER_MAX - LEITER_MIN) / LEITER_STEP) + 1;
+  leiter = new Array(LEITER_N).fill(null);
+  M.sprossen = 0;
+}
+const sprosseEla = (k) => LEITER_MIN + k * LEITER_STEP;
+/* Die Sprossen werden MONOTON gemacht: eine tiefere Schneegrenze darf auf
+   keinem Feld weniger Eis ergeben als eine höhere. Klingt selbstverständlich,
+   ist es aber nicht — die Firnhöhe („Deckel“ der Eisoberfläche) steigt mit der
+   Schneegrenze, ein wärmeres Klima erlaubt also lokal ein HÖHERES Eisgewölbe.
+   In v1 fiel das nicht auf, weil jedes Jahr für sich gerechnet wurde. Mit
+   Gedächtnis rastet der Überschuss ein: gemessen lag die Eisfläche bei 26 000
+   v. Chr. um 4 % ÜBER dem Gleichgewicht und die Front tiefer als im
+   Hochglazial — das Maximum lag vor dem Maximum.
+   Geklemmt wird von der KALTEN Seite her nach unten: die wärmere Sprosse darf
+   nie mehr Eis tragen als die kältere. Andersherum (kalte Sprosse auf die warme
+   heben) wuchs die kalibrierte Maximalausdehnung um 10 % — und die Kalibrierung
+   am Kartenbild hängt genau an der kalten Sprosse. */
+function sprosse(k){
+  if (leiter[k]) return leiter[k];
+  gleichgewicht(sprosseEla(k));
+  const a = new Uint16Array(N);
+  for (let i = 0; i < N; i++){
+    const d = EIS[i] ? SURF[i] - ELEV[i] : 0;
+    a[i] = d > 0 ? (d > 65535 ? 65535 : d | 0) : 0;
+  }
+  leiter[k] = a; M.sprossen++;
+  if (k > 0){
+    const kalt = sprosse(k - 1); // kälter — darf nie weniger Eis haben
+    for (let i = 0; i < N; i++) if (a[i] > kalt[i]) a[i] = kalt[i];
+  }
+  return a;
+}
+function leiterLeeren(){ leiterSpanne(); }
+leiterSpanne();
+const HZ = new Float32Array(N); // Zieldicke (Gleichgewicht) zur aktuellen ELA
+function zielDicke(ela){
+  const t = (Math.max(LEITER_MIN, Math.min(LEITER_MAX, ela)) - LEITER_MIN) / LEITER_STEP;
+  const k0 = Math.max(0, Math.min(LEITER_N - 1, Math.floor(t)));
+  const k1 = Math.min(LEITER_N - 1, k0 + 1);
+  const f = t - k0;
+  const a = sprosse(k0);
+  if (k1 === k0 || f <= 0){ for (let i = 0; i < N; i++) HZ[i] = a[i]; return; }
+  const b = sprosse(k1);
+  for (let i = 0; i < N; i++) HZ[i] = a[i] + (b[i] - a[i]) * f;
+}
+
+/* ---------- Der Lauf: Eis mit Gedächtnis ----------
+   Zustand ist die Eisdicke H. Pro Zeitschritt wandert sie auf die Zieldicke zu,
+   aber mit BEGRENZTEN RATEN:
+     · Wachstum der Dicke: höchstens vWachs Meter je Jahr.
+     · Vorstoss der Front: ein eisfreies Feld wird erst zu Eis, wenn die Front
+       es erreicht hat (Fortschritt vFront Meter je Jahr, aufsummiert bis eine
+       Hexbreite zusammen ist) — Eis kriecht, es erscheint nicht.
+     · Rückzug: höchstens die Schmelzrate am Ort. Wo das Gleichgewicht auf null
+       fällt, das Eis aber 600 m dick liegt, braucht es Jahrhunderte — das ist
+       das TOTE EIS in den Zungenbecken.
+   Daraus folgt Hysterese: bei derselben Schneegrenze sieht der Vorstoss anders
+   aus als der Rückzug. Genau das konnte v1 nicht. */
+const R = {
+  traegheit: Q.get('traegheit') !== '0',
+  dt: +(Q.get('dt') ?? 25),          // Jahre je Zeitschritt
+  vFront: +(Q.get('vfront') ?? 40),  // m/a Vorstoss der Front
+  vWachs: +(Q.get('vwachs') ?? 1.5), // m/a Aufbau der Dicke
+  ablMin: +(Q.get('ablmin') ?? 0.4), // m/a Zehrung oberhalb der Schneegrenze
+  schuerf: +(Q.get('schuerf') ?? 1), // Faktor der Schürfung
+  keyEvery: +(Q.get('key') ?? 500),  // Jahre je Stützstelle
+  morSchwelle: +(Q.get('mor') ?? 700), // Jahre Verweildauer für „Moräne“
+};
+const H = new Float32Array(N);        // Eisdicke jetzt
+const VOR = new Float32Array(N);      // Frontfortschritt ins Feld (0…1)
+const VERWEIL = new Float32Array(N);  // Jahre als Frontfeld → Endmoräne
+const ABTRAG = new Float32Array(N);   // Schürfung (Eis × Gefälle × Zeit)
+const SANDER = new Float32Array(N);   // Jahre als eisfreies Vorfeld
+const FREI = new Int32Array(N);       // letztes Jahr mit Eis (0 = nie)
+const ERST = new Int32Array(N);       // erstes Jahr mit Eis (0 = nie)
+const NIVEAU = new Float32Array(N);   // Wasserspiegel (Eisstausee)
+const STAU = new Float32Array(N);     // Stautiefe in m
+let FIND = [];                        // abgelegte Findlinge
+let PART = [];                        // wandernde Findlinge im Lauf
+const RUN = { frames: [], serie: [], fertig: false, aufzeichnen: false,
+              abtragMax: 1, verweilMax: 1, sanderMax: 1 };
+let simJahr = J0;
+
+/* Findling-Quellen: echte Leitgesteine des Rheingletschers. Ein Findling ist
+   ein Fels, den das Eis von seinem Herkunftsort weggetragen und dort abgelegt
+   hat, wo es zerfiel — deshalb ist er im Spiel ein Fundstellen-Kandidat mit
+   Herkunft, nicht bloss ein Stein. */
+const FQUELLEN = [
+  { name:'Julier-Granit',      lon:9.60, lat:46.50, farbe:'#e8b0c8' },
+  { name:'Bündnerschiefer',    lon:9.45, lat:46.72, farbe:'#a9b6c4' },
+  { name:'Verrucano (Glarus)', lon:9.05, lat:46.95, farbe:'#d78f7a' },
+  { name:'Tödi-Granit',        lon:8.93, lat:46.82, farbe:'#e6dca8' },
+  { name:'Silvretta-Kristallin',lon:9.95, lat:46.88, farbe:'#9fd0b8' },
+];
+function partikelSetzen(){
+  PART = []; FIND = [];
+  let sx0 = 987; const rnd = () => { sx0 ^= sx0 << 13; sx0 ^= sx0 >>> 17; sx0 ^= sx0 << 5; return ((sx0>>>0)/4294967296); };
+  FQUELLEN.forEach((q, qi) => {
+    const [bx, by] = localOfLonLat(q.lon, q.lat);
+    for (let k = 0; k < 30; k++){
+      const [c, r] = cellAtLocal(bx + (rnd()-0.5)*14, by + (rnd()-0.5)*14);
+      if (c < 0 || r < 0 || c >= COLS || r >= ROWS) continue;
+      PART.push({ c, r, q: qi, los: false });
+    }
+  });
+}
+
+/* Ein Zeitschritt. Schreibt H/VOR und (wenn RUN.aufzeichnen) das Erbe. */
+function schritt(j, dt){
+  const ela = (elaFix ?? elaOf(j)) + P.elaOff;
+  zielDicke(ela);
+  const minD = P.minD, halb = Math.max(1, minD * 0.5);
+  const vorStep = R.vFront * dt / (G.hexKm * 1000);
+  const wachs = R.vWachs * dt, beta = P.beta / 100, ablMax = P.ablMax, ablMin = R.ablMin;
+  /* ---- 1. Dicke anpassen ---- */
+  for (let i = 0; i < N; i++){
+    const h = H[i], ziel = HZ[i];
+    if (ziel > h){
+      if (h < halb){
+        /* Feld praktisch eisfrei: die Front muss erst herkommen. */
+        const c = i % COLS, r = (i - c) / COLS, dirs = dirsOf(r);
+        let anschluss = false;
+        for (let d = 0; d < 6; d++){
+          const nc = c + dirs[d][1], nr = r + dirs[d][0];
+          if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS) continue;
+          const jj = nr * COLS + nc;
+          if (H[jj] >= minD && ELEV[jj] + H[jj] > ELEV[i]){ anschluss = true; break; }
+        }
+        if (!anschluss){
+          /* Kein Anschluss — aber im Nährgebiet entsteht Eis auch ohne Zufluss:
+             dort bleibt Schnee liegen. Nur bekommt so ein Feld ein eigenes
+             FIRNFELD, nicht die Dicke des Eisstroms, der es später überfahren
+             wird. (Ohne diese Schranke nukleierte jeder Hügel über der
+             Schneegrenze sofort mit der regionalen Gleichgewichtsdicke, die
+             Front war überflüssig und das Fronttempo ohne Wirkung — gemessen:
+             vFront 40 und 5 m/a gaben im Hochglazial dieselbe Eisfläche.) */
+          if (ELEV[i] >= ela){
+            const firn = Math.max(15, Math.min(P.t0, (ELEV[i] - ela) * 0.35));
+            H[i] = Math.max(h, Math.min(ziel, firn, h + wachs));
+            VOR[i] = 0;
+          } else VOR[i] = 0;
+          continue;
+        }
+        VOR[i] += vorStep;
+        if (VOR[i] < 1) continue;
+      }
+      H[i] = Math.min(ziel, h + wachs);
+    } else if (ziel < h){
+      const surf = ELEV[i] + h;
+      const abl = surf < ela ? Math.min(ablMax, Math.max(ablMin, beta * (ela - surf))) : ablMin;
+      H[i] = Math.max(ziel, h - abl * dt);
+      VOR[i] = 0;
+    }
+  }
+  /* ---- 2. Erbe mitschreiben (und im selben Durchgang die Flächen zählen) ---- */
+  const schuerf = R.schuerf, dM = G.hexKm * 1000;
+  let zIst = 0, zGl = 0;
+  for (let i = 0; i < N; i++){
+    const h = H[i];
+    if (HZ[i] >= minD) zGl++;
+    if (h >= minD) zIst++;
+    const c = i % COLS, r = (i - c) / COLS, dirs = dirsOf(r);
+    if (h >= minD){
+      const surf = ELEV[i] + h;
+      let front = false, maxAb = 0;
+      for (let d = 0; d < 6; d++){
+        const nc = c + dirs[d][1], nr = r + dirs[d][0];
+        if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS){ front = true; continue; }
+        const jj = nr * COLS + nc;
+        if (H[jj] < minD && ELEV[jj] < surf - 30) front = true;
+        const dz = surf - (ELEV[jj] + H[jj]);
+        if (dz > maxAb) maxAb = dz;
+      }
+      /* Nur eine ZUNGE schiebt einen Wall auf: Front im Zehrgebiet (unter der
+         Schneegrenze) und genug Eis darüber. Ohne diese Bedingung zählt jeder
+         Firnrand um jeden Gipfel als Moräne — und das waren im ersten Versuch
+         10 208 Felder, ein Drittel der Karte. */
+      if (front && ELEV[i] < ela && h >= 60) VERWEIL[i] += dt;
+      /* Schürfung ∝ Eisdicke × Oberflächengefälle × Zeit — dick und steil
+         hobelt, dünn und flach nicht. Willkürliche Einheit, kein Meter. */
+      ABTRAG[i] += h * (maxAb / dM) * dt * schuerf;
+      if (RUN.aufzeichnen){ FREI[i] = j; if (!ERST[i]) ERST[i] = j; }
+    } else {
+      /* Vorfeld: eisfreies Feld, auf das die Front herabschaut — hier legen die
+         Schmelzwasser ihre Schotterflur ab. */
+      let vorfeld = false;
+      for (let d = 0; d < 6; d++){
+        const nc = c + dirs[d][1], nr = r + dirs[d][0];
+        if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS) continue;
+        const jj = nr * COLS + nc;
+        if (H[jj] >= minD && ELEV[jj] + H[jj] > ELEV[i] + 20){ vorfeld = true; break; }
+      }
+      if (vorfeld) SANDER[i] += dt;
+    }
+  }
+  M.schrittIst = zIst; M.schrittGl = zGl;
+  /* ---- 3. Findlinge wandern ---- */
+  if (RUN.aufzeichnen && PART.length){
+    const schritteJeZug = Math.max(1, Math.round(120 * dt / (G.hexKm * 1000)));
+    for (const p of PART){
+      const i = idx(p.c, p.r);
+      if (H[i] < minD){
+        /* Liegt da, wo das Eis ihn fallen liess — aber nur VORLÄUFIG: kommt das
+           Eis wieder (und im Vorstoss überfährt die Front denselben Ort immer
+           wieder), nimmt es ihn erneut mit. Der Findling liegt erst da, wo er
+           am Ende des Laufs liegt. */
+        if (p.los && (!p.ruhe || p.ruhe.c !== p.c || p.ruhe.r !== p.r))
+          p.ruhe = { c:p.c, r:p.r, j }; // Jahr der ANKUNFT, nicht des Verharrens
+        continue;
+      }
+      p.los = true;
+      for (let s2 = 0; s2 < schritteJeZug; s2++){
+        const c = p.c, r = p.r, dirs = dirsOf(r);
+        const surf = ELEV[idx(c,r)] + H[idx(c,r)];
+        let best = -1, bestS = surf;
+        for (let d = 0; d < 6; d++){
+          const nc = c + dirs[d][1], nr = r + dirs[d][0];
+          if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS) continue;
+          const jj = nr * COLS + nc;
+          const s3 = ELEV[jj] + H[jj];
+          if (s3 < bestS){ bestS = s3; best = jj; }
+        }
+        if (best < 0) break;
+        p.c = best % COLS; p.r = (best - p.c) / COLS;
+        if (H[best] < minD) break; // an der Front angekommen
+      }
+    }
+  }
+}
+
+/* Stützstelle sichern / laden — damit das Zurückspulen und das Ziehen an der
+   Zeitleiste nicht 30 000 Jahre neu rechnen müssen. */
+function keyframe(j){
+  const f = { j, H:new Uint16Array(N), VER:new Uint16Array(N),
+              ABT:new Float32Array(N), SAN:new Uint16Array(N), VOR:new Uint8Array(N) };
+  for (let i = 0; i < N; i++){
+    f.H[i] = Math.min(65535, H[i] | 0);
+    f.VER[i] = Math.min(65535, VERWEIL[i] / 10 | 0);
+    f.ABT[i] = ABTRAG[i];
+    f.SAN[i] = Math.min(65535, SANDER[i] / 10 | 0);
+    f.VOR[i] = Math.min(255, VOR[i] * 255 | 0);
+  }
+  RUN.frames.push(f);
+}
+function ladeKeyframe(zJahr){
+  let f = RUN.frames[0];
+  for (const g of RUN.frames){ if (g.j <= zJahr + 1e-6) f = g; else break; }
+  for (let i = 0; i < N; i++){
+    H[i] = f.H[i]; VERWEIL[i] = f.VER[i] * 10;
+    ABTRAG[i] = f.ABT[i]; SANDER[i] = f.SAN[i] * 10; VOR[i] = f.VOR[i] / 255;
+  }
+  simJahr = f.j;
+}
+
+/* Der ganze Lauf, in Häppchen, damit die Seite dabei atmet. */
+function laufStarten(fertig){
+  const t0 = performance.now();
+  RUN.frames = []; RUN.serie = []; RUN.fertig = false; RUN.aufzeichnen = true;
+  H.fill(0); VOR.fill(0); VERWEIL.fill(0); ABTRAG.fill(0); SANDER.fill(0);
+  FREI.fill(0); ERST.fill(0);
+  partikelSetzen();
+  /* Startzustand: bei 40 000 v. Chr. steht das Eis im Gleichgewicht — davor
+     lagen Jahrtausende mit ähnlicher Schneegrenze. */
+  zielDicke((elaFix ?? elaOf(J0)) + P.elaOff);
+  for (let i = 0; i < N; i++) H[i] = HZ[i];
+  simJahr = J0;
+  keyframe(J0);
+  let naechsteKey = J0 + R.keyEvery;
+  const box = el('lauf');
+  box.classList.add('an');
+  const bar = el('laufBar').firstElementChild;
+  const schritteTotal = Math.ceil((J1 - J0) / R.dt);
+  let n = 0;
+  const haeppchen = () => {
+    const tA = performance.now();
+    while (simJahr < J1 && performance.now() - tA < 60){
+      schritt(simJahr, R.dt);
+      simJahr += R.dt;
+      n++;
+      RUN.serie.push({ j:simJahr, ist:M.schrittIst, gl:M.schrittGl });
+      if (simJahr >= naechsteKey - 1e-6){
+        keyframe(simJahr);
+        while (naechsteKey <= simJahr + 1e-6) naechsteKey += R.keyEvery;
+      }
+    }
+    bar.style.width = `${Math.min(100, 100 * n / schritteTotal)}%`;
+    el('laufTxt').textContent = `${fmtJahr(simJahr)} · ${n}/${schritteTotal} Schritte · `
+      + `${M.sprossen} Gleichgewichte`;
+    if (simJahr < J1){ requestAnimationFrame(haeppchen); return; }
+    if (RUN.frames[RUN.frames.length-1].j < J1 - 1e-6) keyframe(simJahr);
+    RUN.aufzeichnen = false; RUN.fertig = true;
+    /* Findlinge: die letzte Ruhelage jedes Partikels ist die Fundstelle. */
+    FIND = PART.filter(p => p.ruhe).map(p => ({ ...p.ruhe, q:p.q }));
+    RUN.abtragMax = 1; RUN.verweilMax = 1; RUN.sanderMax = 1;
+    for (let i = 0; i < N; i++){
+      if (ABTRAG[i] > RUN.abtragMax) RUN.abtragMax = ABTRAG[i];
+      if (VERWEIL[i] > RUN.verweilMax) RUN.verweilMax = VERWEIL[i];
+      if (SANDER[i] > RUN.sanderMax) RUN.sanderMax = SANDER[i];
+    }
+    M.laufMs = performance.now() - t0;
+    box.classList.remove('an');
+    fuelleEndlage();
+    if (fertig) fertig();
+  };
+  requestAnimationFrame(haeppchen);
+}
+
+/* Zustand für ein Jahr herstellen. Vorwärts = weiterschreiten, rückwärts =
+   nächste Stützstelle laden und von dort neu schreiten. */
+function zustandBei(zJahr){
+  if (!R.traegheit){
+    /* Trägheit aus = v1: der Zustand IST das Gleichgewicht. Kein Ziel, kein
+       Nachhang — H und HZ sind dasselbe. */
+    gleichgewicht((elaFix ?? elaOf(zJahr)) + P.elaOff);
+    for (let i = 0; i < N; i++){ H[i] = EIS[i] ? Math.max(0, SURF[i] - ELEV[i]) : 0; HZ[i] = H[i]; }
+    simJahr = zJahr;
+    ableiten(zJahr); return;
+  }
+  if (!RUN.fertig) return;
+  if (zJahr < simJahr - 1e-6) ladeKeyframe(zJahr);
+  const t0 = performance.now();
+  while (simJahr + R.dt <= zJahr + 1e-6){ schritt(simJahr, R.dt); simJahr += R.dt; }
+  M.ms = performance.now() - t0;
+  zielDicke((elaFix ?? elaOf(simJahr)) + P.elaOff);
+  ableiten(zJahr);
+}
+
+/* Aus der Dicke die Anzeigegrössen ableiten: Oberfläche, Eis-Ja/Nein,
+   Kennzahlen. Die Zeichenroutinen lesen weiter SURF/EIS wie in v1. */
+function ableiten(zJahr){
+  const ela = (elaFix ?? elaOf(zJahr)) + P.elaOff;
+  const minD = P.minD;
+  let eis = 0, naehr = 0, maxD = 0, vol = 0, front = Infinity, nuna = 0, glEis = 0, tot = 0;
+  for (let i = 0; i < N; i++){
+    const h = H[i];
+    if (HZ[i] >= minD) glEis++;
+    if (h < minD){ EIS[i] = 0; SURF[i] = ELEV[i]; continue; }
+    EIS[i] = 1; SURF[i] = ELEV[i] + h;
+    eis++; vol += h * HEXA;
+    if (ELEV[i] >= ela) naehr++;
+    if (h > maxD) maxD = h;
+    if (SURF[i] < front) front = SURF[i];
+    if (EMAX[i] > SURF[i] + 120 && !(FLAGS[i] & F_GESCH)) nuna++;
+    if (HZ[i] < minD) tot++;
+  }
+  M.ela = ela; M.eis = eis; M.naehr = naehr; M.maxD = maxD;
+  M.volKm3 = vol / 1000; M.frontM = front; M.nuna = nuna;
+  M.glEis = glEis; M.totEis = tot;
+  M.nachhang = glEis ? (eis - glEis) / glEis : 0;
+  stauGueltig = false; flussGueltig = false;
+}
+
+/* ---------- Eisstauseen ----------
+   Wo das Eis die Entwässerung sperrt, staut sich Wasser. Priority-Flood von
+   den Abflüssen her: Wasser entkommt entweder über das Gelände zum Kartenrand
+   oder über die Eisoberfläche. Der niedrigste Weg gewinnt (Min-Heap über
+   negierte Schlüssel), der Rest steht als See. */
+let stauGueltig = false, stauN = 0, stauMax = 0;
+function stauseen(){
+  stauGueltig = true; stauN = 0; stauMax = 0;
+  NIVEAU.fill(-1); STAU.fill(0);
+  if (!AN.stausee) return;
+  heapN = 0;
+  for (let i = 0; i < N; i++){
+    const c = i % COLS, r = (i - c) / COLS;
+    if (EIS[i]){ NIVEAU[i] = SURF[i]; hPush(-SURF[i], i); continue; }
+    if (c === 0 || r === 0 || c === COLS-1 || r === ROWS-1){ NIVEAU[i] = ELEV[i]; hPush(-ELEV[i], i); }
+  }
+  while (heapN){
+    const i = hPop(), lvl = -lastKey;
+    if (lvl > NIVEAU[i] + 1e-6) continue;
+    const c = i % COLS, r = (i - c) / COLS, dirs = dirsOf(r);
+    for (let d = 0; d < 6; d++){
+      const nc = c + dirs[d][1], nr = r + dirs[d][0];
+      if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS) continue;
+      const j2 = nr * COLS + nc;
+      if (EIS[j2] || NIVEAU[j2] >= 0) continue;
+      const n2 = Math.max(lvl, ELEV[j2]);
+      NIVEAU[j2] = n2; hPush(-n2, j2);
+    }
+  }
+  for (let i = 0; i < N; i++){
+    if (EIS[i] || NIVEAU[i] < 0) continue;
+    const t = NIVEAU[i] - ELEV[i];
+    if (t < 5) continue;
+    STAU[i] = t; stauN++;
+    if (t > stauMax) stauMax = t;
+  }
+}
+
+/* ---------- Fliessbahnen des angezeigten Zustands ----------
+   v1 nahm den Elternbaum des Gleichgewichts-Dijkstra. Der angezeigte Zustand
+   ist jetzt aber ein anderer (das Eis hinkt nach), also wird der Baum aus der
+   tatsächlichen Eisoberfläche gebaut: Eltern = höchster Nachbar. */
+let flussGueltig = false;
+function fliessbahnen(){
+  flussGueltig = true;
+  FLUX.fill(0); FROM.fill(-1);
+  const liste = [];
+  for (let i = 0; i < N; i++) if (EIS[i]) liste.push(i);
+  liste.sort((a, b) => SURF[b] - SURF[a]);
+  for (const i of liste){
+    const c = i % COLS, r = (i - c) / COLS, dirs = dirsOf(r);
+    let best = -1, bestS = SURF[i];
+    for (let d = 0; d < 6; d++){
+      const nc = c + dirs[d][1], nr = r + dirs[d][0];
+      if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS) continue;
+      const j2 = nr * COLS + nc;
+      if (EIS[j2] && SURF[j2] > bestS){ bestS = SURF[j2]; best = j2; }
+    }
+    FROM[i] = best;
+  }
+  for (let k = liste.length - 1; k >= 0; k--){
+    const i = liste[k];
+    FLUX[i] += 1;
+    const p = FROM[i];
+    if (p >= 0 && EIS[p]) FLUX[p] += FLUX[i];
+  }
+}
+const istEis = (i) => EIS[i] === 1;
+const istMoraene = (i) => VERWEIL[i] >= R.morSchwelle;
+
+/* ---------- Farben ---------- */
+const FARBE = {
+  [K.flach]:  [46,58,43],
+  [K.huegel]: [60,68,50],
+  [K.berg]:   [74,71,64],
+  [K.hoch]:   [110,112,108],
+  [K.see]:    [32,72,98],
+  [K.fluss]:  [56,120,152],
+};
+const LEG = [
+  ['Flachland', 'rgb(46,58,43)'], ['Hügel', 'rgb(60,68,50)'], ['Bergland', 'rgb(74,71,64)'],
+  ['Hochgebirge', 'rgb(110,112,108)'], ['See/Fluss', 'rgb(40,90,120)'],
+  ['Eis (dünn → dick)', 'linear-gradient(90deg,#7ea8c4,#f2fbff)'], ['Nunatak', 'rgb(58,50,44)'],
+  ['Endmoräne', 'rgb(214,164,96)'], ['Schotterflur', 'rgb(168,156,116)'],
+  ['Eisstausee', 'rgb(86,182,206)'],
+];
+/* Eisfarbe nach Dicke × Relief: dünnes Eis nimmt die Schummerung des
+   Untergrunds an (der Fels scheint durch), dickes Eis wird flach und weiß.
+   Das ist der Unterschied zwischen einer Eiskappe und einem Talgletscher —
+   und es gibt der Karte unter dem Eis überhaupt erst wieder Form.
+   Farbtabelle: Dickenstufe × Firn × 5 Schummerstufen → 100 fertige Farben. */
+const EISSTUFEN = 10, SCHUMMSTUFEN = 5;
+/* Jede Farbe liegt DOPPELT bereit: als CSS-Zeichenkette für den Vektorpfad und
+   als gepackte RGBA-Ganzzahl für das Zellbild (Kap. „Zwei Betriebsarten“ im
+   Technik-Handbuch). Beides entsteht aus derselben Rechnung — sonst driften die
+   zwei Renderpfade auseinander, und das ist der einzige Fehler, den eine
+   zweite Betriebsart überhaupt einführen kann. */
+const packe = (r, g, b) => (255 << 24 | (b & 255) << 16 | (g & 255) << 8 | (r & 255)) >>> 0;
+const zahl = (v) => Math.round(Math.max(0, Math.min(255, v)));
+const eisTab = [], eisBit = [];
+for (let f = 0; f < 2; f++)
+  for (let b = 0; b < EISSTUFEN; b++)
+    for (let sh = 0; sh < SCHUMMSTUFEN; sh++){
+      const t = b / (EISSTUFEN - 1);
+      let r = 126 + 121*t, g = 168 + 82*t, bl = 196 + 59*t;
+      if (f){ r = r*0.94 + 20; g = g*0.96 + 12; bl = bl*0.99 + 3; }
+      const m = 1 + (sh - (SCHUMMSTUFEN-1)/2) * 0.075;
+      const R = zahl(r*m), G2 = zahl(g*m), B = zahl(bl*m);
+      eisTab.push(`rgb(${R},${G2},${B})`);
+      eisBit.push(packe(R, G2, B));
+    }
+const eisIndex = (d, firn, i) => {
+  const b = Math.max(0, Math.min(EISSTUFEN-1, Math.floor(d / 260)));
+  /* je dünner das Eis, desto stärker schlägt das Relief durch */
+  const durch = 1 - Math.min(1, d / 700);
+  const sh = Math.max(0, Math.min(SCHUMMSTUFEN-1,
+    Math.round((SCHUMMSTUFEN-1)/2 + SHADE[i] * durch * (SCHUMMSTUFEN-1)/2)));
+  return (firn * EISSTUFEN + b) * SCHUMMSTUFEN + sh;
+};
+
+/* ---------- Geländefarben als Tabelle ----------
+   Vorher entstand die Farbe je Zelle und je Bild neu, und der Batch-Schlüssel
+   war eine ZEICHENKETTE ('k2_7') in einer Map — 28 576 Zeichenketten und
+   Map-Zugriffe pro Bild, nur um Zellen gleicher Farbe zu bündeln. Jetzt ist der
+   Schlüssel die Tabellenzeile selbst: Klasse × 10 Schummerstufen + eine
+   ungeschummerte Zeile. Das ist derselbe Gedanke wie bei der Eisfarbe, nur eine
+   Ebene tiefer. */
+const GSTRIDE = 11; // 0..9 Schummerstufen, 10 = ungeschummert
+const geoCss = new Array(6 * GSTRIDE), geoBit = new Uint32Array(6 * GSTRIDE);
+for (const kl of [K.flach, K.huegel, K.berg, K.hoch, K.see, K.fluss]){
+  const base = FARBE[kl];
+  for (let b = 0; b <= 9; b++){
+    const f = 1 + (b - 4) * 0.085;
+    const R = zahl(base[0]*f), G2 = zahl(base[1]*f), B = zahl(base[2]*f);
+    geoCss[kl*GSTRIDE + b] = `rgb(${R},${G2},${B})`;
+    geoBit[kl*GSTRIDE + b] = packe(R, G2, B);
+  }
+  geoCss[kl*GSTRIDE + 10] = `rgb(${base[0]},${base[1]},${base[2]})`;
+  geoBit[kl*GSTRIDE + 10] = packe(base[0], base[1], base[2]);
+}
+/* Sichtbare Klasse: bei „Seen erst nach der Freigabe“ trägt die Zelle das
+   Gelände UNTER dem See, nicht den See. Eine Stelle für beide Renderpfade. */
+function klasseSicht(i){
+  const kl = KLASSE[i];
+  if ((!AN.wasser || AN.seenSpaet) && (kl === K.see || kl === K.fluss))
+    return ELEV[i] >= 2100 ? K.hoch : SLOPE[i] >= 0.30 ? K.berg : SLOPE[i] >= 0.10 ? K.huegel : K.flach;
+  return kl;
+}
+const geoIndex = (useKl, i) => useKl*GSTRIDE
+  + ((AN.schumm && useKl !== K.see && useKl !== K.fluss)
+      ? Math.round((SHADE[i] + 1) * 4.49) : 10);
+
+/* ---------- Erbe-Schichten: Stufe → Farbe ----------
+   Die Erbe-Schichten liegen halbdurchlässig übereinander. Im Vektorpfad macht
+   das die Canvas-Komposition (`rgba(...)`), im Zellbild rechnen wir es selbst:
+   je Stufe liegen Farbanteil × Alpha und (1 − Alpha) fertig bereit, damit die
+   Mischung im Zellbild eine Multiplikation und eine Addition ist. Ergebnis ist
+   dieselbe Farbe wie im Vektorpfad. */
+function schichtTab(rgb, alpha){
+  const css = [], mix = [];
+  for (let b = 0; b < alpha.length; b++){
+    const a = alpha[b];
+    css.push(`rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a.toFixed(2)})`);
+    mix.push([rgb[0]*a, rgb[1]*a, rgb[2]*a, 1 - a]);
+  }
+  return { css, mix };
+}
+const stufen = (n, a0, da) => Array.from({length:n}, (_, b) => a0 + da*b);
+const S_ABTRAG  = schichtTab([74,126,168],  stufen(5, 0.10, 0.10));
+const S_SANDER  = schichtTab([168,156,116], stufen(4, 0.16, 0.12));
+const S_STAUSEE = schichtTab([86,182,206],  stufen(3, 0.40, 0.16));
+const S_MORAENE = schichtTab([214,164,96],  stufen(4, 0.34, 0.16));
+/* Im Zellbild ist eine Zelle EIN Bildpunkt — eine Schraffur hat dort keinen
+   Platz. Die geschätzten Höhen bekommen deshalb einen warmen Hauch statt
+   Diagonalen. Gleiche Aussage, andere Auflösung. */
+const S_GESCH = schichtTab([232,169,111], [0.12]);
+/* Mischt eine gepackte Farbe mit einer Schichtstufe. */
+function mischeBit(v, m){
+  const r = (v & 255) * m[3] + m[0];
+  const g = (v >>> 8 & 255) * m[3] + m[1];
+  const b = (v >>> 16 & 255) * m[3] + m[2];
+  return (255 << 24 | (b + 0.5 | 0) << 16 | (g + 0.5 | 0) << 8 | (r + 0.5 | 0)) >>> 0;
+}
+
+/* ---------- Punkt-Sammler ----------
+   Bündelt Zellmittelpunkte nach Farbzeile, ohne pro Bild neue Arrays zu
+   erzeugen: die Puffer bleiben stehen, nur die Füllstände werden genullt. */
+function sammler(n){
+  const buf = new Array(n), len = new Int32Array(n);
+  return {
+    buf, len,
+    leeren(){ len.fill(0); },
+    add(k, x, y){
+      let a = buf[k];
+      if (!a) a = buf[k] = new Float32Array(512);
+      const l = len[k];
+      if (l + 2 > a.length){ const b2 = new Float32Array(a.length * 2); b2.set(a); a = buf[k] = b2; }
+      a[l] = x; a[l+1] = y; len[k] = l + 2;
+    },
+  };
+}
+
+/* ---------- Viewport ---------- */
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const karte = document.getElementById('karte');
+/* Auflösung der Karte. Auf einem HiDPI-Schirm vervierfacht dpr 2 die Pixel
+   BEIDER Zeichenflächen. Seit die Flächen als Zellbild kommen, ist das kein
+   Engpass mehr (ein Blit skaliert mit Pixeln, nicht mit Zellen) — mit `?dpr=1`
+   bleibt der Hebel aber messbar und für schwache Geräte greifbar. */
+const DPR_MAX = +(Q.get('dpr') ?? 2);
+let zoom = 1, ox = 0, oy = 0, dpr = Math.min(DPR_MAX, window.devicePixelRatio || 1);
+/* Betriebsart des Renderers: unter der Schwelle (Hexradius in Pixeln) wird die
+   Karte als Zellbild geblittet, darüber als Hexpfade gezeichnet. */
+let RASTER = Q.get('raster') ?? 'auto'; // 'auto' | 'bild' | 'hex' (zur Messung umschaltbar)
+const RASTER_AB = +(Q.get('rasterab') ?? 8);
+/* Sobald der Nutzer (oder ein ?lon/?lat) die Kamera gesetzt hat, darf ein
+   Resize sie nicht mehr auf die Gesamtansicht zurückwerfen. */
+let nutzerAnsicht = false;
+function fit(){
+  const w = karte.clientWidth, h = karte.clientHeight;
+  zoom = Math.min(w / WKM, h / HKM) * 0.98;
+  ox = -(w / zoom - WKM) / 2; oy = -(h / zoom - HKM) / 2;
+  basisGueltig = false;
+}
+function resize(){
+  const w = karte.clientWidth, h = karte.clientHeight;
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  basisGueltig = false;
+}
+const sx = (x) => (x - ox) * zoom * dpr, sy = (y) => (y - oy) * zoom * dpr;
+
+/* Sichtbarer Zellbereich */
+function sichtbar(){
+  const w = karte.clientWidth / zoom, h = karte.clientHeight / zoom;
+  const r0 = Math.max(0, Math.floor((oy + cy0) / (s*1.5)) - G.r0 - 1);
+  const r1 = Math.min(ROWS-1, Math.ceil((oy + h + cy0) / (s*1.5)) - G.r0 + 1);
+  const c0 = Math.max(0, Math.floor((ox + cx0) / (s*SQRT3)) - G.c0 - 2);
+  const c1 = Math.min(COLS-1, Math.ceil((ox + w + cx0) / (s*SQRT3)) - G.c0 + 2);
+  return [c0, c1, r0, r1];
+}
+
+/* ---------- Zeichnen ---------- */
+const CORN = Array.from({length:6}, (_, i) => {
+  const a = Math.PI/180 * (60*i - 30); return [Math.cos(a), Math.sin(a)];
+});
+function hexPfad(g, x, y, rad){
+  g.moveTo(x + rad*CORN[0][0], y + rad*CORN[0][1]);
+  for (let k = 1; k < 6; k++) g.lineTo(x + rad*CORN[k][0], y + rad*CORN[k][1]);
+  g.closePath();
+}
+/* Basis (Gelände) wird in ein eigenes Canvas gebacken — es ändert sich nur bei
+   Pan/Zoom oder Anzeigeschaltern, nicht mit dem Jahr. */
+const basis = document.createElement('canvas'), bctx = basis.getContext('2d');
+let basisGueltig = false, basisState = '';
+const SB = sammler(6 * GSTRIDE); // Gelände-Batches, Puffer bleiben stehen
+/* Schraffur als 45°-Kachel. Eine Diagonale von (0,0) nach (S,S) setzt sich
+   beim Wiederholen zu durchgehenden Linien fort. */
+let schrafKachel = null, schrafDpr = 0;
+function schraffurMuster(){
+  if (schrafKachel && schrafDpr === dpr) return schrafKachel;
+  const S = Math.max(6, Math.round(11 * dpr));
+  const t = document.createElement('canvas'); t.width = t.height = S;
+  const tg = t.getContext('2d');
+  tg.strokeStyle = 'rgba(232,169,111,.20)';
+  tg.lineWidth = Math.max(1, dpr);
+  tg.beginPath(); tg.moveTo(-1, -1); tg.lineTo(S + 1, S + 1); tg.stroke();
+  schrafDpr = dpr;
+  return (schrafKachel = bctx.createPattern(t, 'repeat'));
+}
+function zeichneBasis(){
+  if (basis.width !== cv.width || basis.height !== cv.height){ basis.width = cv.width; basis.height = cv.height; }
+  const g = bctx;
+  g.setTransform(1,0,0,1,0,0);
+  g.fillStyle = '#081114'; g.fillRect(0,0,basis.width,basis.height);
+  const rad = s * zoom * dpr * 1.02;
+  const [c0,c1,r0,r1] = sichtbar();
+  /* Seen liegen bei „erst nach der Freigabe“ NICHT in der Basis, sondern werden
+     pro Bild gezeichnet — sonst müsste die Basis mit jedem Jahr neu gebacken
+     werden, und genau das soll sie nicht. */
+  SB.leeren();
+  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++){
+    const i = idx(c, r);
+    SB.add(geoIndex(klasseSicht(i), i), centerX(c, r), centerY(r));
+  }
+  for (let k = 0; k < SB.len.length; k++){
+    const n = SB.len[k]; if (!n) continue;
+    const pts = SB.buf[k];
+    g.fillStyle = geoCss[k];
+    g.beginPath();
+    for (let m = 0; m < n; m += 2) hexPfad(g, sx(pts[m]), sy(pts[m+1]), rad);
+    g.fill();
+  }
+  /* geschätzte Höhen schraffieren.
+     Vorher: ein clip() über den Pfad ALLER geschätzten Zellen (bei voller
+     Übersicht 6 220 Hexe) und darüber ~200 Diagonalen. Der Browser muss dafür
+     eine Maske aus dem komplexen Pfad rastern — gemessen 345 ms, der teuerste
+     Einzeleffekt des ganzen Bildes. Jetzt ist die Schraffur eine Kachel als
+     Füllmuster: ein Pfad, eine Füllung, kein Clip. */
+  if (AN.gesch){
+    g.fillStyle = schraffurMuster();
+    g.beginPath();
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++){
+      const i = idx(c, r);
+      if (FLAGS[i] & F_GESCH) hexPfad(g, sx(centerX(c,r)), sy(centerY(r)), rad);
+    }
+    g.fill();
+  }
+  if (AN.gitter && rad > 3){
+    g.strokeStyle = 'rgba(255,255,255,.06)'; g.lineWidth = 1;
+    g.beginPath();
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) hexPfad(g, sx(centerX(c,r)), sy(centerY(r)), rad);
+    g.stroke();
+  }
+  basisGueltig = true;
+  basisState = zustandKey();
+}
+const zustandKey = () => [zoom, ox, oy, AN.schumm, AN.wasser, AN.gesch, AN.gitter,
+  AN.seenSpaet, cv.width].join('|');
+
+/* ---------- Zellbild: eine Zelle = ein Bildpunkt ----------
+
+   In der Gesamtansicht ist ein Hex 2.6 Pixel breit, und es sind alle 28 576
+   Zellen sichtbar. Jeder Zeichenpass baute daraus 28 576 Pfade à sechs Kanten —
+   gemessen 284 ms für das Eis allein, 894 ms für die Basis. Wir bezahlten
+   Vektorgeometrie für etwas, das ein Bildpunkt ist. (Gegenprobe, die gegen die
+   Intuition läuft: bündelt man alle Zellen in EINEN Pfad statt in 54, wird es
+   langsamer — 1 224 statt 549 ms. Das Primitiv ist falsch, nicht die
+   Batchgrösse.)
+
+   Also: die Karte als Bitmap in ZELLKOORDINATEN aufbauen und einmal skaliert
+   blitten. Der Trick für das odd-r-Versatzraster ist die doppelte Breite —
+   jede Zelle belegt ZWEI Bildpunkte, dann ist der Halbzellen-Versatz der
+   ungeraden Zeilen genau EIN Bildpunkt:
+
+       Zeile 0 (gerade):  [ 0  0 ][ 1  1 ][ 2  2 ] …
+       Zeile 1 (ungerade):    [ 0  0 ][ 1  1 ][ 2  2 ] …
+
+   Damit ist das ganze Raster ein Bild und ein einziges drawImage — nicht 188
+   Zeilenstreifen. Die Zellen erscheinen als Ziegel statt als Sechsecke; bei
+   2.6 px Radius sieht das niemand, und oberhalb von `RASTER_AB` px zeichnet
+   ohnehin der Vektorpfad.
+
+   Der Gewinn ist nicht nur der Faktor: das Zellbild ist KAMERAUNABHÄNGIG. Die
+   Gelände-Bitmap wird nur verworfen, wenn ein Anzeigeschalter kippt — nicht bei
+   jedem Mausrad-Tick wie die Basis in Bildschirmkoordinaten. Und es skaliert
+   mit BILDSCHIRMPIXELN statt mit Zellen: ein viermal feineres Raster kostet
+   beim Zeichnen nichts.                                                     */
+const ZW = 2 * COLS + 1, ZH = ROWS;
+const zellCv = document.createElement('canvas');
+zellCv.width = ZW; zellCv.height = ZH;
+const zellCtx = zellCv.getContext('2d');
+const zellImg = zellCtx.createImageData(ZW, ZH);
+const ZBILD = new Uint32Array(zellImg.data.buffer); // was geblittet wird
+const ZBASIS = new Uint32Array(ZW * ZH);            // Gelände, kameraunabhängig
+let zbasisGueltig = false, zbasisKey = '';
+const zbasisSchluessel = () => [AN.schumm, AN.wasser, AN.gesch, AN.seenSpaet].join('|');
+/* linker der zwei Bildpunkte einer Zelle */
+const zp = (c, r) => r * ZW + 2 * c + (r & 1);
+/* Kantenlänge des Zellbilds in km: eine Zellbreite sind zwei Bildpunkte. */
+const PITCHKM = s * SQRT3, ROWKM = s * 1.5;
+const ZX0 = centerX(0, 0) - PITCHKM / 2, ZY0 = centerY(0) - ROWKM / 2;
+
+/* Die ungenutzten Randpunkte (links in ungeraden, rechts in geraden Zeilen)
+   bekommen die Farbe ihres Nachbarn — sonst blitzt dort der leere Puffer. */
+function zellRaender(buf){
+  for (let r = 0; r < ROWS; r++){
+    const off = r * ZW;
+    if (r & 1) buf[off] = buf[off + 1];
+    else buf[off + ZW - 1] = buf[off + ZW - 2];
+  }
+}
+function zellBasisBauen(){
+  for (let r = 0; r < ROWS; r++){
+    const off = r * ZW, sh = r & 1;
+    for (let c = 0; c < COLS; c++){
+      const i = idx(c, r);
+      let v = geoBit[geoIndex(klasseSicht(i), i)];
+      if (AN.gesch && (FLAGS[i] & F_GESCH)) v = mischeBit(v, S_GESCH.mix[0]);
+      const p = off + 2*c + sh;
+      ZBASIS[p] = v; ZBASIS[p+1] = v;
+    }
+  }
+  zellRaender(ZBASIS);
+  zbasisGueltig = true; zbasisKey = zbasisSchluessel();
+}
+/* Ein Bild: Gelände kopieren, dann in EINEM Durchgang über die Zellen alle
+   Flächenschichten in derselben Reihenfolge wie im Vektorpfad einmischen.
+   Keine Allokation, kein Canvas-Aufruf pro Zelle. */
+function zellBildZeichnen(){
+  if (!zbasisGueltig || zbasisKey !== zbasisSchluessel()) zellBasisBauen();
+  ZBILD.set(ZBASIS);
+  const spaet = AN.wasser && AN.seenSpaet;
+  const abt = AN.abtrag || AN.erbe, abtMax = RUN.abtragMax || 1;
+  const sanMax = RUN.sanderMax || 1;
+  const morSchw = R.morSchwelle, morSpanne = Math.max(morSchw, (RUN.verweilMax || 1) - morSchw);
+  const eisAn = AN.eis && !AN.erbe;
+  const seeBit = geoBit[K.see*GSTRIDE + 10], flussBit = geoBit[K.fluss*GSTRIDE + 10];
+  let gezeichnet = 0;
+  for (let r = 0; r < ROWS; r++){
+    const off = r * ZW, hs = r & 1;
+    for (let c = 0; c < COLS; c++){
+      const i = idx(c, r), p = off + 2*c + hs;
+      const eis = EIS[i];
+      let v = ZBILD[p], mod = false;
+      if (spaet && !eis){
+        if (FLAGS[i] & F_SEE){ v = seeBit; mod = true; }
+        else if (FLAGS[i] & F_FLUSS){ v = flussBit; mod = true; }
+      }
+      if (abt){
+        const t = ABTRAG[i] / abtMax;
+        if (t >= 0.08){ v = mischeBit(v, S_ABTRAG.mix[Math.min(4, t*5|0)]); mod = true; }
+      }
+      if (AN.sander && !eis){
+        const t = SANDER[i] / sanMax;
+        if (t >= 0.12){ v = mischeBit(v, S_SANDER.mix[Math.min(3, t*4|0)]); mod = true; }
+      }
+      if (eisAn && eis){
+        v = eisBit[eisIndex(SURF[i] - ELEV[i], ELEV[i] >= M.ela ? 1 : 0, i)];
+        mod = true; gezeichnet++;
+      }
+      if (AN.stausee && STAU[i]){
+        v = mischeBit(v, S_STAUSEE.mix[Math.min(2, STAU[i] / 60 | 0)]); mod = true;
+      }
+      if (AN.moraene && !eis && VERWEIL[i] >= morSchw){
+        const t = Math.min(1, (VERWEIL[i] - morSchw) / morSpanne);
+        v = mischeBit(v, S_MORAENE.mix[Math.min(3, t*4|0)]); mod = true;
+      }
+      if (mod){ ZBILD[p] = v; ZBILD[p+1] = v; }
+    }
+  }
+  zellRaender(ZBILD);
+  zellCtx.putImageData(zellImg, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(zellCv, 0, 0, ZW, ZH,
+    sx(ZX0), sy(ZY0), ZW * (PITCHKM/2) * zoom * dpr, ZH * ROWKM * zoom * dpr);
+  return gezeichnet;
+}
+/* Betriebsart für das aktuelle Bild. */
+function bildModus(){
+  if (RASTER === 'bild') return true;
+  if (RASTER === 'hex') return false;
+  return s * zoom * dpr * 1.02 < RASTER_AB;
+}
+
+const stats = { zeichenMs:0, rechenMs:0, zellen:0, fps:0, modus:'' };
+const SE = sammler(200); // Eis-Batches im Vektorpfad, Puffer bleiben stehen
+function zeichne(){
+  const t0 = performance.now();
+  const bild = bildModus();
+  stats.modus = bild ? 'Zellbild' : 'Hexpfade';
+  ctx.setTransform(1,0,0,1,0,0);
+  const rad = s * zoom * dpr * 1.02;
+  const [c0,c1,r0,r1] = sichtbar();
+  let gezeichnet = 0;
+  /* Die Flächen kommen entweder als ein Blit (Zellbild) oder als Hexpfade.
+     Die LINIEN — Eisrand, Eisströme, Nunatakker, Findlinge, Landmarken — sind
+     in beiden Betriebsarten Vektor: sie sind gemessen billig (der Eisrand mit
+     5 954 Kanten kostet ~0 ms) und tragen die Lesbarkeit der Front. */
+  if (bild){
+    ctx.fillStyle = '#081114'; ctx.fillRect(0, 0, cv.width, cv.height);
+    if (AN.stausee && !stauGueltig) stauseen();
+    gezeichnet = zellBildZeichnen();
+  } else {
+    if (!basisGueltig || basisState !== zustandKey()) zeichneBasis();
+    ctx.drawImage(basis, 0, 0);
+  }
+  const hexe = (pts, fill) => {
+    if (!pts.length) return;
+    ctx.fillStyle = fill; ctx.beginPath();
+    for (let k = 0; k < pts.length; k += 2) hexPfad(ctx, sx(pts[k]), sy(pts[k+1]), rad);
+    ctx.fill();
+  };
+  /* ---- Gewässer, die schon frei sind ----
+     Solange das Eis im Becken liegt, gibt es keinen See. Beim Rückzug füllen
+     sich die Zungenbecken in der Reihenfolge, in der das Eis sie freigibt —
+     das ist die Entstehung der Alpenrandseen, nicht Kulisse. */
+  if (!bild && AN.wasser && AN.seenSpaet){
+    const seen = [], fluss = [];
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++){
+      const i = idx(c, r);
+      if (EIS[i]) continue;
+      if (FLAGS[i] & F_SEE) seen.push(centerX(c,r), centerY(r));
+      else if (FLAGS[i] & F_FLUSS) fluss.push(centerX(c,r), centerY(r));
+    }
+    hexe(seen, `rgb(${FARBE[K.see].join(',')})`);
+    hexe(fluss, `rgb(${FARBE[K.fluss].join(',')})`);
+  }
+
+  /* ---- Erbe: Schürfung ----
+     Wo viel Eis über viel Gefälle lief, wurde gehobelt: Trogtäler,
+     Zungenbecken. Bewusst nur als Karte — das DTM ist die Landschaft NACH der
+     Eiszeit, ein Zurückschreiben in die Höhen zählte die Schürfung doppelt. */
+  if (!bild && (AN.abtrag || AN.erbe)){
+    const stufen = 5, bat = Array.from({length:stufen}, () => []);
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++){
+      const i = idx(c, r);
+      const t = ABTRAG[i] / RUN.abtragMax;
+      if (t < 0.08) continue;
+      bat[Math.min(stufen-1, Math.floor(t * stufen))].push(centerX(c,r), centerY(r));
+    }
+    for (let b = 0; b < stufen; b++)
+      hexe(bat[b], `rgba(74,126,168,${(0.10 + 0.10 * b).toFixed(2)})`);
+  }
+
+  /* ---- Erbe: Schotterflur vor der Front ---- */
+  if (!bild && AN.sander){
+    const stufen = 4, bat = Array.from({length:stufen}, () => []);
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++){
+      const i = idx(c, r);
+      if (EIS[i]) continue;
+      const t = SANDER[i] / RUN.sanderMax;
+      if (t < 0.12) continue;
+      bat[Math.min(stufen-1, Math.floor(t * stufen))].push(centerX(c,r), centerY(r));
+    }
+    for (let b = 0; b < stufen; b++)
+      hexe(bat[b], `rgba(168,156,116,${(0.16 + 0.12 * b).toFixed(2)})`);
+  }
+
+  if (AN.eis && !AN.erbe){
+    /* Eis nach Dickenstufe gebatcht (≈20 fill()-Aufrufe pro Bild) */
+    if (!bild){
+      SE.leeren();
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++){
+        const i = idx(c, r);
+        if (!EIS[i]) continue;
+        const d = SURF[i] - ELEV[i];
+        SE.add(eisIndex(d, ELEV[i] >= M.ela ? 1 : 0, i), centerX(c, r), centerY(r));
+        gezeichnet++;
+      }
+      for (let b = 0; b < eisTab.length; b++){
+        const n = SE.len[b]; if (!n) continue;
+        const pts = SE.buf[b];
+        ctx.fillStyle = eisTab[b];
+        ctx.beginPath();
+        for (let k = 0; k < n; k += 2) hexPfad(ctx, sx(pts[k]), sy(pts[k+1]), rad);
+        ctx.fill();
+      }
+    }
+    /* Eisströme: helle Bahnen dort, wo viel Eis durchfliesst */
+    if (AN.stroeme){
+      if (!flussGueltig) fliessbahnen();
+      ctx.strokeStyle = 'rgba(120,190,240,.55)';
+      ctx.lineCap = 'round';
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++){
+        const i = idx(c, r);
+        if (!EIS[i]) continue;
+        const f = FLUX[i];
+        if (f < 60) continue;
+        const p = FROM[i]; if (p < 0) continue;
+        const pc = p % COLS, pr = (p - pc) / COLS;
+        ctx.lineWidth = Math.min(6, 0.6 + Math.log10(f) * 1.5) * dpr * Math.min(1.6, rad / 6);
+        ctx.beginPath();
+        ctx.moveTo(sx(centerX(pc, pr)), sy(centerY(pr)));
+        ctx.lineTo(sx(centerX(c, r)), sy(centerY(r)));
+        ctx.stroke();
+      }
+    }
+    /* Nunatakker: Fels, der im Feld über die Eisoberfläche ragt */
+    if (AN.nuna && rad > 4.5){
+      ctx.fillStyle = 'rgba(52,44,38,.85)';
+      ctx.beginPath();
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++){
+        const i = idx(c, r);
+        if (!EIS[i]) continue;
+        if (EMAX[i] <= SURF[i] + 120) continue;
+        if (FLAGS[i] & F_GESCH) continue; // nur wo echte Höhen vorliegen
+        const x = sx(centerX(c,r)), y = sy(centerY(r)), a = rad * 0.42;
+        ctx.moveTo(x, y - a); ctx.lineTo(x + a*0.82, y + a*0.6); ctx.lineTo(x - a*0.82, y + a*0.6);
+        ctx.closePath();
+      }
+      ctx.fill();
+    }
+    /* Eisrand: Kanten zu eisfreien Nachbarn */
+    if (AN.rand){
+      ctx.strokeStyle = 'rgba(228,246,255,.85)';
+      ctx.lineWidth = Math.max(1, Math.min(2.5, rad * 0.16)) * dpr;
+      ctx.beginPath();
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++){
+        const i = idx(c, r);
+        if (!EIS[i]) continue;
+        const dirs = dirsOf(r);
+        const x = sx(centerX(c,r)), y = sy(centerY(r));
+        for (let d = 0; d < 6; d++){
+          const nc = c + dirs[d][1], nr = r + dirs[d][0];
+          const drin = nc >= 0 && nr >= 0 && nc < COLS && nr < ROWS;
+          if (drin && EIS[idx(nc,nr)]) continue;
+          /* Kante zwischen Zelle und Nachbar d — Ecken (d) und (d+1) des Hexes */
+          const e = KANTE[d];
+          ctx.moveTo(x + rad*CORN[e[0]][0], y + rad*CORN[e[0]][1]);
+          ctx.lineTo(x + rad*CORN[e[1]][0], y + rad*CORN[e[1]][1]);
+        }
+      }
+      ctx.stroke();
+    }
+  }
+
+  /* ---- Erbe: Eisstauseen ----
+     Wo die Front die Entwässerung sperrt, steht das Wasser. Diese Seen kommen
+     und gehen mit der Front — sie sind das kurzlebigste Erbe der Eiszeit. */
+  if (!bild && AN.stausee){
+    if (!stauGueltig) stauseen();
+    const stufen = 3, bat = Array.from({length:stufen}, () => []);
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++){
+      const i = idx(c, r);
+      if (!STAU[i]) continue;
+      bat[Math.min(stufen-1, Math.floor(STAU[i] / 60))].push(centerX(c,r), centerY(r));
+    }
+    for (let b = 0; b < stufen; b++)
+      hexe(bat[b], `rgba(86,182,206,${(0.40 + 0.16 * b).toFixed(2)})`);
+  }
+
+  /* ---- Erbe: Endmoränen ----
+     Wo die Front lange stand, schob sie einen Wall auf. Die Verweildauer ist
+     deshalb die Moräne — und sie zeichnet von selbst Wallkränze, weil die Front
+     bei Stillständen auf derselben Linie verharrt. Unter Eis unsichtbar. */
+  if (!bild && AN.moraene){
+    const stufen = 4, bat = Array.from({length:stufen}, () => []);
+    const schw = R.morSchwelle, spanne = Math.max(schw, RUN.verweilMax - schw);
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++){
+      const i = idx(c, r);
+      if (EIS[i] || VERWEIL[i] < schw) continue;
+      const t = Math.min(1, (VERWEIL[i] - schw) / spanne);
+      bat[Math.min(stufen-1, Math.floor(t * stufen))].push(centerX(c,r), centerY(r));
+    }
+    for (let b = 0; b < stufen; b++)
+      hexe(bat[b], `rgba(214,164,96,${(0.34 + 0.16 * b).toFixed(2)})`);
+  }
+
+  /* ---- Erbe: Findlinge ----
+     Jeder Punkt ist ein Fels, den das Eis von seiner Quelle hierher trug und
+     beim Zerfallen liegen liess. Nur die, die bis zum aktuellen Jahr schon
+     abgelegt sind. */
+  if (AN.findlinge && FIND.length){
+    for (const f of FIND){
+      if (f.j > jahr) continue;
+      const x = sx(centerX(f.c, f.r)), y = sy(centerY(f.r));
+      if (x < -10 || y < -10 || x > cv.width + 10 || y > cv.height + 10) continue;
+      ctx.beginPath(); ctx.arc(x, y, Math.max(2.2, rad * 0.34) * dpr, 0, 7);
+      ctx.fillStyle = FQUELLEN[f.q].farbe; ctx.fill();
+      ctx.lineWidth = 1 * dpr; ctx.strokeStyle = 'rgba(8,17,20,.9)'; ctx.stroke();
+    }
+  }
+
+  /* In der Erbe-Ansicht bleibt das restliche Eis als dünne Linie stehen —
+     sonst weiss man nicht, was noch verdeckt ist. */
+  if (AN.erbe){
+    ctx.strokeStyle = 'rgba(207,233,248,.5)';
+    ctx.lineWidth = 1.2 * dpr;
+    ctx.beginPath();
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++){
+      const i = idx(c, r);
+      if (!EIS[i]) continue;
+      const dirs = dirsOf(r), x = sx(centerX(c,r)), y = sy(centerY(r));
+      for (let d = 0; d < 6; d++){
+        const nc = c + dirs[d][1], nr = r + dirs[d][0];
+        const drin = nc >= 0 && nr >= 0 && nc < COLS && nr < ROWS;
+        if (drin && EIS[idx(nc,nr)]) continue;
+        const e = KANTE[d];
+        ctx.moveTo(x + rad*CORN[e[0]][0], y + rad*CORN[e[0]][1]);
+        ctx.lineTo(x + rad*CORN[e[1]][0], y + rad*CORN[e[1]][1]);
+      }
+    }
+    ctx.stroke();
+  }
+
+  /* Landmarken */
+  if (AN.labels) zeichneLandmarken();
+  if (inspZelle) markiereZelle(inspZelle, rad);
+
+  stats.zellen = gezeichnet;
+  stats.zeichenMs = performance.now() - t0;
+}
+/* Zuordnung Nachbarrichtung → Hex-Eckenpaar. Die Richtungen stehen in DIRS_*
+   in derselben geometrischen Folge (W, O, NW, NO, SW, SO) — deshalb reicht eine
+   Tabelle für beide Zeilenparitäten. Ecken via CORN: 0=-30° (rechts oben),
+   1=30° (rechts unten), 2=90° (unten), 3=150° (links unten), 4=210° (links
+   oben), 5=270° (oben); y zeigt im Canvas nach unten. */
+const KANTE = [[3,4],[0,1],[4,5],[5,0],[2,3],[1,2]];
+
+const LM = D.landmarken.map(l => {
+  const [x, y] = localOfLonLat(l.lon, l.lat);
+  const [c, r] = cellAtLocal(x, y);
+  return { ...l, x, y, c, r, i: (c>=0&&r>=0&&c<COLS&&r<ROWS) ? idx(c,r) : -1 };
+});
+function zeichneLandmarken(){
+  ctx.save();
+  ctx.font = `${11*dpr}px "Segoe UI",system-ui,sans-serif`;
+  ctx.textBaseline = 'middle';
+  for (const l of LM){
+    const x = sx(l.x), y = sy(l.y);
+    if (x < -60 || y < -20 || x > cv.width + 60 || y > cv.height + 20) continue;
+    const eis = l.i >= 0 && EIS[l.i] === 1;
+    const mor = l.art === 'moraene';
+    ctx.beginPath();
+    if (mor){ // Kalibriermarke: Dreieck
+      const a = 5*dpr;
+      ctx.moveTo(x, y-a); ctx.lineTo(x+a, y+a*0.8); ctx.lineTo(x-a, y+a*0.8); ctx.closePath();
+      ctx.fillStyle = '#e8a96f';
+    } else if (l.art === 'gipfel'){
+      const a = 4*dpr;
+      ctx.moveTo(x, y-a); ctx.lineTo(x+a, y+a*0.8); ctx.lineTo(x-a, y+a*0.8); ctx.closePath();
+      ctx.fillStyle = '#cfd8dc';
+    } else {
+      ctx.arc(x, y, 2.6*dpr, 0, 7);
+      ctx.fillStyle = eis ? '#9fd8f5' : '#e8f0f4';
+    }
+    ctx.fill();
+    ctx.lineWidth = 3*dpr; ctx.strokeStyle = 'rgba(6,14,18,.85)';
+    ctx.strokeText(l.name, x + 7*dpr, y);
+    ctx.fillStyle = mor ? '#f0c79a' : eis ? '#bfe6fb' : '#e8f0f4';
+    ctx.fillText(l.name, x + 7*dpr, y);
+  }
+  ctx.restore();
+}
+function markiereZelle(z, rad){
+  ctx.strokeStyle = '#8fd6c8'; ctx.lineWidth = 2*dpr;
+  ctx.beginPath(); hexPfad(ctx, sx(centerX(z[0], z[1])), sy(centerY(z[1])), Math.max(rad, 6*dpr)); ctx.stroke();
+}
+
+/* ---------- HUD / Panel ---------- */
+const el = (id) => document.getElementById(id);
+const fmtJahr = (j) => (j <= 0 ? `${Math.abs(Math.round(j)).toLocaleString('de-CH')} v. Chr.` : `${Math.round(j)} n. Chr.`);
+const fmtKm2 = (n) => `${Math.round(n).toLocaleString('de-CH')} km²`;
+function aktualisiereHud(){
+  const ph = phaseOf(jahr);
+  el('jahrGross').textContent = fmtJahr(jahr);
+  el('phaseGross').textContent = ph.name;
+  el('eisGross').textContent = `Schneegrenze ${Math.round(M.ela)} m · Eis ${fmtKm2(M.eis * M.hexA)}`;
+  el('elaKopf').textContent = `Schneegrenze ${Math.round(M.ela)} m`;
+  el('kFlaeche').textContent = fmtKm2(M.eis * M.hexA);
+  el('kNaehr').textContent = M.eis ? `${Math.round(100*M.naehr/M.eis)} %` : '—';
+  el('kDicke').textContent = `${Math.round(M.maxD).toLocaleString('de-CH')} m`;
+  el('kVol').textContent = `${Math.round(M.volKm3).toLocaleString('de-CH')} km³`;
+  el('kFront').textContent = Number.isFinite(M.frontM) ? `${Math.round(M.frontM)} m ü. M.` : '—';
+  el('kNuna').textContent = `${M.nuna}`;
+  el('kGl').textContent = fmtKm2(M.glEis * M.hexA);
+  const nh = M.nachhang;
+  el('kNach').textContent = !R.traegheit ? 'Trägheit aus'
+    : `${nh > 0 ? '+' : ''}${(nh*100).toFixed(0)} % ${nh > 0.02 ? '(Überhang)' : nh < -0.02 ? '(hinkt nach)' : ''}`;
+  el('kTot').textContent = R.traegheit ? fmtKm2(M.totEis * M.hexA) : '—';
+  for (const b of document.querySelectorAll('#phasen .phase'))
+    b.classList.toggle('an', +b.dataset.j0 === ph.j0);
+  /* Landmarken-Liste */
+  for (const row of document.querySelectorAll('#lmListe .lm')){
+    const l = LM[+row.dataset.k];
+    const d = l.i >= 0 && EIS[l.i] ? SURF[l.i] - ELEV[l.i] : -1;
+    row.classList.toggle('eis', d > 0);
+    row.querySelector('i').textContent = d > 0 ? `${Math.round(d)} m Eis` : '—';
+  }
+  if (el('stats').style.display !== 'none'){
+    el('stats').innerHTML = `Schritt ${M.ms.toFixed(1)} ms · Bild ${stats.zeichenMs.toFixed(1)} ms<br>`
+      + `${stats.fps.toFixed(0)} fps · ${stats.zellen} Eisfelder<br>`
+      + `Lauf ${(M.laufMs/1000).toFixed(2)} s · ${M.sprossen} Gleichgewichte · ${RUN.frames.length} Stützstellen<br>`
+      + `${COLS}×${ROWS} = ${N} Zellen · ${G.hexKm} km/Hex<br>Zoom ${(zoom).toFixed(2)} px/km`
+      + ` · Hex ${(s*zoom*dpr*1.02).toFixed(1)} px<br>${stats.modus} · dpr ${dpr}`;
+  }
+  if (inspZelle) fuelleInspektor(inspZelle);
+  /* Die Endlage-Kennzahlen laufen über alle Zellen — im Stillstand ist das
+     billig, während der Animation wäre es pro Bild verschenkt. */
+  if (!richtung) fuelleEndlage();
+  zeichneZeitleiste();
+}
+
+/* ---------- Zeitleiste (Canvas) ---------- */
+const zcv = el('zeitCv'), zctx = zcv.getContext('2d');
+function zeitResize(){
+  const w = zcv.clientWidth, h = zcv.clientHeight;
+  zcv.width = Math.round(w * dpr); zcv.height = Math.round(h * dpr);
+}
+const zx = (j) => ((j - J0) / (J1 - J0)) * zcv.width;
+const jVonX = (px) => J0 + (px / zcv.width) * (J1 - J0);
+function zeichneZeitleiste(){
+  const g = zctx, W = zcv.width, H = zcv.height;
+  g.clearRect(0,0,W,H);
+  /* Phasenbänder */
+  g.font = `${9.5*dpr}px "Segoe UI",system-ui,sans-serif`;
+  PHASEN.forEach((p, k) => {
+    const x0 = zx(p.j0), x1 = zx(p.j1);
+    g.fillStyle = k % 2 ? 'rgba(143,214,200,.055)' : 'rgba(143,214,200,.11)';
+    g.fillRect(x0, 0, x1 - x0, H);
+    g.fillStyle = 'rgba(220,232,238,.5)';
+    if (x1 - x0 > 30*dpr) g.fillText(p.kurz, x0 + 4*dpr, 11*dpr);
+  });
+  /* ELA-Kurve (y invertiert: tiefe Schneegrenze = viel Eis = oben) */
+  const eMin = 1100, eMax = 2600;
+  const ey = (m) => H - ((m - eMin) / (eMax - eMin)) * (H - 16*dpr) - 4*dpr;
+  g.beginPath();
+  for (let px = 0; px <= W; px += 2){
+    const m = elaOf(jVonX(px)) + P.elaOff;
+    if (px === 0) g.moveTo(px, ey(m)); else g.lineTo(px, ey(m));
+  }
+  g.strokeStyle = '#8fd6c8'; g.lineWidth = 1.6*dpr; g.stroke();
+  g.lineTo(W, H); g.lineTo(0, H); g.closePath();
+  g.fillStyle = 'rgba(143,214,200,.10)'; g.fill();
+  /* ---- Eisfläche: tatsächlich gegen Gleichgewicht ----
+     Der Abstand der beiden Kurven IST der Nachhang. In v1 lagen sie
+     zwangsläufig aufeinander, weil der Zustand das Gleichgewicht war. */
+  if (RUN.serie.length){
+    let maxF = 1;
+    for (const p of RUN.serie){ if (p.ist > maxF) maxF = p.ist; if (p.gl > maxF) maxF = p.gl; }
+    const fy = (v) => H - (v / maxF) * (H - 20*dpr) - 3*dpr;
+    const bahn = (feld, farbe, breite, strich) => {
+      g.save();
+      if (strich) g.setLineDash([3*dpr, 3*dpr]);
+      g.beginPath();
+      RUN.serie.forEach((p, k) => { const x = zx(p.j), y = fy(p[feld]);
+        if (k === 0) g.moveTo(x, y); else g.lineTo(x, y); });
+      g.strokeStyle = farbe; g.lineWidth = breite*dpr; g.stroke();
+      g.restore();
+    };
+    /* Die Fläche ZWISCHEN den Kurven ist der Nachhang — als Fläche liest man
+       ihn, als zwei Linien übersieht man ihn. */
+    g.beginPath();
+    RUN.serie.forEach((p, k) => { const x = zx(p.j), y = fy(p.ist);
+      if (k === 0) g.moveTo(x, y); else g.lineTo(x, y); });
+    for (let k = RUN.serie.length - 1; k >= 0; k--){
+      const p = RUN.serie[k]; g.lineTo(zx(p.j), fy(p.gl));
+    }
+    g.closePath();
+    g.fillStyle = 'rgba(232,169,111,.30)'; g.fill();
+    bahn('gl', 'rgba(232,169,111,.75)', 1.1, true);
+    bahn('ist', 'rgba(207,233,248,.95)', 1.6, false);
+    g.fillStyle = 'rgba(207,233,248,.8)';
+    const lbl = 'Eisfläche (—) gegen Gleichgewicht (- -)';
+    g.fillText(lbl, W - g.measureText(lbl).width - 5*dpr, H - 15*dpr);
+  }
+  /* Jahresmarken */
+  g.fillStyle = 'rgba(127,151,161,.9)';
+  for (let j = -40000; j <= -10000; j += 5000){
+    const x = zx(j);
+    g.fillRect(x, H - 5*dpr, 1*dpr, 5*dpr);
+    g.fillText(`${Math.abs(j/1000)}k`, x + 2*dpr, H - 6*dpr);
+  }
+  /* Achsenhinweis */
+  g.fillStyle = 'rgba(127,151,161,.75)';
+  g.fillText('Schneegrenze 2600 m', 4*dpr, H - 24*dpr);
+  g.fillText('1100 m', 4*dpr, H - 13*dpr);
+  /* Abspielkopf */
+  const x = zx(jahr);
+  g.fillStyle = '#eaf6ff'; g.fillRect(x - 0.5*dpr, 0, 1.6*dpr, H);
+  g.beginPath(); g.arc(x, ey(M.ela), 3.2*dpr, 0, 7); g.fill();
+}
+let zieheZeit = false;
+zcv.addEventListener('pointerdown', (e) => {
+  zieheZeit = true; zcv.setPointerCapture(e.pointerId); richtung = 0; setzeSteuerKnoepfe();
+  setJahr(jVonX((e.offsetX) * dpr));
+});
+zcv.addEventListener('pointermove', (e) => { if (zieheZeit) setJahr(jVonX(e.offsetX * dpr)); });
+zcv.addEventListener('pointerup', () => { zieheZeit = false; });
+
+/* ---------- Inspektor ---------- */
+function fuelleInspektor(z){
+  const [c, r] = z, i = idx(c, r);
+  const [lon, lat] = lonLatOfLocal(centerX(c,r), centerY(r));
+  const d = EIS[i] ? SURF[i] - ELEV[i] : 0;
+  const klNames = ['Flachland','Hügel','Bergland','Hochgebirge','See','Fluss'];
+  el('inspT').textContent = `Feld ${c},${r}`;
+  const zeilen = [
+    ['Gelände', klNames[KLASSE[i]] + (FLAGS[i] & F_GESCH ? ' (Höhe geschätzt)' : '')],
+    ['Höhe aus', (() => {
+      const q = quelleVon(i);
+      return q ? `${q.id} · ${q.auflM} m · ${q.crs}` : 'keiner Quelle — geschätzt';
+    })()],
+    ['Höhe', `${ELEV[i]} m ü. M.`],
+    ['Feld min/max', `${EMIN[i]} / ${EMAX[i]} m`],
+    ['Lage', `${lat.toFixed(3)}° N, ${lon.toFixed(3)}° O`],
+    ['Plättchen', d > 0 ? (ELEV[i] >= M.ela ? 'Eis (Firn/Nährgebiet)' : 'Eis (Zunge)') : klNames[KLASSE[i]]],
+    ['Eisdicke', d > 0 ? `${Math.round(d)} m` : '—'],
+    ['Eisoberfläche', d > 0 ? `${Math.round(SURF[i])} m ü. M.` : '—'],
+    ['Eisstrom', d > 0 ? `${Math.round(FLUX[i])} Felder speisen` : '—'],
+  ];
+  if (d > 0 && EMAX[i] > SURF[i] + 120) zeilen.push(['Nunatak', `Fels bis ${EMAX[i]} m ragt heraus`]);
+  zeilen.push(['Ziel (Gleichgewicht)', HZ[i] >= 1 ? `${Math.round(HZ[i])} m` : '—']);
+  if (d > 0 && HZ[i] < P.minD) zeilen.push(['Zustand', 'totes Eis (Gleichgewicht = 0)']);
+  if (STAU[i]) zeilen.push(['Eisstausee', `${Math.round(STAU[i])} m tief`]);
+  /* ---- Erbe dieses Feldes ---- */
+  const erbe = [
+    ['erstmals Eis', ERST[i] ? fmtJahr(ERST[i]) : '—'],
+    ['zuletzt Eis', FREI[i] ? fmtJahr(FREI[i]) : 'nie vereist'],
+    ['Front stand hier', VERWEIL[i] >= 25 ? `${Math.round(VERWEIL[i]).toLocaleString('de-CH')} Jahre` : '—'],
+    ['Schürfung', ABTRAG[i] > 0 ? `${Math.round(100*ABTRAG[i]/RUN.abtragMax)} von 100` : '—'],
+    ['Vorfeld (Schotter)', SANDER[i] >= 25 ? `${Math.round(SANDER[i]).toLocaleString('de-CH')} Jahre` : '—'],
+  ];
+  const findHier = FIND.filter(f => f.c === c && f.r === r);
+  if (findHier.length) erbe.push(['Findlinge',
+    findHier.map(f => `${FQUELLEN[f.q].name} (${fmtJahr(f.j)})`).join('<br>')]);
+  el('inspB').innerHTML = zeilen.map(([k,v]) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`).join('')
+    + `<div class="hint" style="margin:5px 0 2px;text-transform:uppercase;letter-spacing:.08em">Erbe</div>`
+    + erbe.map(([k,v]) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`).join('')
+    + (istMoraene(i) ? `<div class="hint" style="color:var(--warn)">Moränenfeld — die Front hielt hier lange.</div>` : '');
+  el('insp').style.display = 'block';
+}
+el('inspZu').onclick = () => { inspZelle = null; el('insp').style.display = 'none'; zeichne(); };
+
+/* ---------- Interaktion Karte ---------- */
+let zieht = false, zx0 = 0, zy0 = 0, ox0 = 0, oy0 = 0, bewegt = 0;
+cv.addEventListener('pointerdown', (e) => {
+  zieht = true; bewegt = 0; zx0 = e.clientX; zy0 = e.clientY; ox0 = ox; oy0 = oy;
+  cv.classList.add('zieht'); cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener('pointermove', (e) => {
+  if (!zieht) return;
+  const dx = e.clientX - zx0, dy = e.clientY - zy0;
+  bewegt = Math.max(bewegt, Math.abs(dx) + Math.abs(dy));
+  ox = ox0 - dx / zoom; oy = oy0 - dy / zoom;
+  nutzerAnsicht = true; basisGueltig = false; anfordern();
+});
+cv.addEventListener('pointerup', (e) => {
+  zieht = false; cv.classList.remove('zieht');
+  if (bewegt < 4){
+    const rect = cv.getBoundingClientRect();
+    const x = ox + (e.clientX - rect.left) / zoom, y = oy + (e.clientY - rect.top) / zoom;
+    const [c, r] = cellAtLocal(x, y);
+    if (c >= 0 && r >= 0 && c < COLS && r < ROWS){ inspZelle = [c, r]; fuelleInspektor(inspZelle); }
+    anfordern();
+  }
+});
+cv.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = cv.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) / zoom + ox, my = (e.clientY - rect.top) / zoom + oy;
+  const f = Math.exp(-e.deltaY * 0.0016);
+  zoom = Math.max(0.4, Math.min(60, zoom * f));
+  ox = mx - (e.clientX - rect.left) / zoom; oy = my - (e.clientY - rect.top) / zoom;
+  nutzerAnsicht = true;
+  basisGueltig = false; anfordern();
+}, { passive:false });
+function flieg(lon, lat, z){
+  const [x, y] = localOfLonLat(lon, lat);
+  if (z) zoom = z;
+  ox = x - karte.clientWidth / (2*zoom); oy = y - karte.clientHeight / (2*zoom);
+  nutzerAnsicht = true; basisGueltig = false; anfordern();
+}
+
+/* ---------- Panel-Aufbau ---------- */
+el('panelBtn').onclick = () => { el('app').classList.toggle('zu'); resize(); anfordern(); };
+el('fitBtn').onclick = () => { nutzerAnsicht = false; fit(); anfordern(); };
+if (Q.get('panel') === '0') el('app').classList.add('zu');
+if (Q.has('stats')) el('stats').style.display = 'block';
+
+el('phasen').innerHTML = PHASEN.map(p =>
+  `<button class="phase" data-j0="${p.j0}" title="${p.txt}">
+     <span class="j">${Math.abs(p.j0/1000)}k – ${Math.abs(p.j1/1000)}k v. Chr.</span>
+     <span class="n">${p.name}</span></button>`).join('');
+for (const b of document.querySelectorAll('#phasen .phase'))
+  b.onclick = () => { richtung = 0; setzeSteuerKnoepfe(); setJahr(+b.dataset.j0 + 200); };
+
+el('lmListe').innerHTML = LM.map((l, k) =>
+  `<div class="lm" data-k="${k}" title="${l.note}"><span>${l.name}</span><i>—</i></div>`).join('');
+for (const row of document.querySelectorAll('#lmListe .lm')){
+  const l = LM[+row.dataset.k];
+  row.onclick = () => flieg(l.lon, l.lat, Math.max(zoom, 6));
+}
+
+el('quellen').innerHTML = D.provenance.map(p => `
+  <div style="margin:0 0 6px">
+    <div style="font-size:11.5px">${p.file}</div>
+    <div class="hint" style="margin:1px 0 0">${p.quelle ?? ''}${p.lizenz ? ' · ' + p.lizenz : ''}</div>
+  </div>`).join('')
+  + `<div class="hint">Raster: ${COLS}×${ROWS} Hexfelder à ${G.hexKm} km · ${D.statistik.ausDtm.toLocaleString('de-CH')} Zellen
+      aus dem DTM, ${D.statistik.geschaetzt.toLocaleString('de-CH')} geschätzt (ausserhalb der Schweiz).
+      Gebacken ${D.generated.slice(0,10)} von <code>pipeline/fetch/bake-eiszeit.mjs</code>.</div>`;
+
+el('legende').innerHTML = LEG.map(([n, c]) =>
+  `<span><i style="background:${c}"></i>${n}</span>`).join('');
+
+/* Regler */
+const REGLER = [
+  ['sTau','wTau','tau', v => `${v} kPa`],
+  ['sG','wG','g0', v => `${v} m/km`],
+  ['sZehr','wZehr','zehr', v => `${v} m/km je 100 m`],
+  ['sKappe','wKappe','kappe', v => `${v} m`],
+  ['sT0','wT0','t0', v => `${v} m`],
+  ['sRand','wRand','rand', v => v === '0' || +v === 0 ? 'aus' : `${v} Felder`],
+  ['sRiegel','wRiegel','riegel', v => `${v} %`],
+  ['sMin','wMin','minD', v => `${v} m`],
+  ['sRau','wRau','rau', v => `± ${v} m`],
+  ['sBeta','wBeta','beta', v => `${v} m/a je 100 m`],
+  ['sAbl','wAbl','ablMax', v => `${v} m/a`],
+  ['sEla','wEla','elaOff', v => `${v > 0 ? '+' : ''}${v} m`],
+];
+/* Ein Modellregler ändert das Gleichgewicht — damit ist die ganze Leiter und
+   der ganze Lauf hinfällig. Deshalb wird beim Ziehen nur die Zahl
+   nachgeführt und der Lauf erst nach kurzer Ruhe neu gerechnet. */
+let laufTimer = 0;
+function laufSpaeter(){
+  clearTimeout(laufTimer);
+  laufTimer = setTimeout(() => neuLauf(), 260);
+}
+function neuLauf(){
+  leiterLeeren();
+  if (!R.traegheit){ neuRechnen(true); return; }
+  richtung = 0; setzeSteuerKnoepfe();
+  laufStarten(() => { zustandBei(jahr); zeichne(); aktualisiereHud(); });
+}
+for (const [sid, wid, key, fmt] of REGLER){
+  const inp = el(sid);
+  inp.value = P[key];
+  el(wid).textContent = fmt(P[key]);
+  inp.oninput = () => { P[key] = +inp.value; el(wid).textContent = fmt(P[key]); laufSpaeter(); };
+}
+/* Lauf-Regler (Trägheit): ändern nicht das Gleichgewicht, nur den Weg dorthin —
+   die Leiter bleibt gültig, nur der Lauf wird neu geschritten. */
+const RREGLER = [
+  ['sDt','wDt','dt', v => `${v} Jahre`],
+  ['sVFront','wVFront','vFront', v => `${v} m/a`],
+  ['sVWachs','wVWachs','vWachs', v => `${v} m/a`],
+  ['sAblMin','wAblMin','ablMin', v => `${v} m/a`],
+];
+for (const [sid, wid, key, fmt] of RREGLER){
+  const inp = el(sid);
+  inp.value = R[key];
+  el(wid).textContent = fmt(R[key]);
+  inp.oninput = () => {
+    R[key] = +inp.value;
+    el(wid).textContent = fmt(R[key]) + (key === 'dt' || key === 'vFront' ? ` (Front ${effFront()} m/a)` : '');
+    clearTimeout(laufTimer);
+    laufTimer = setTimeout(() => {
+      richtung = 0; setzeSteuerKnoepfe();
+      laufStarten(() => { zustandBei(jahr); zeichne(); aktualisiereHud(); });
+    }, 260);
+  };
+}
+/* Die Front kann pro Zeitschritt höchstens ein Feld weiterrücken — bei grossem
+   Zeitschritt begrenzt also der Schritt das Tempo, nicht der Regler. */
+const effFront = () => Math.min(R.vFront, Math.round(G.hexKm * 1000 / R.dt));
+el('wDt').textContent = `${R.dt} Jahre (Front ${effFront()} m/a)`;
+el('sMorSchwelle').value = R.morSchwelle;
+el('wMorSchwelle').textContent = `${R.morSchwelle} Jahre`;
+el('sMorSchwelle').oninput = () => {
+  R.morSchwelle = +el('sMorSchwelle').value;
+  el('wMorSchwelle').textContent = `${R.morSchwelle} Jahre`;
+  fuelleEndlage(); anfordern();
+};
+/* Schalter */
+const SCHALTER = [['cEis','eis'],['cRand','rand'],['cStroeme','stroeme'],['cNuna','nuna'],
+  ['cWasser','wasser'],['cSchumm','schumm'],['cGesch','gesch'],['cNurEcht','nurEcht'],
+  ['cLabels','labels'],['cGitter','gitter'],['cBilanz','bilanz'],
+  ['cErbe','erbe'],['cMoraene','moraene'],['cAbtrag','abtrag'],['cSander','sander'],
+  ['cFindlinge','findlinge'],['cStausee','stausee'],['cSeenSpaet','seenSpaet']];
+for (const [id, key] of SCHALTER){
+  const inp = el(id); inp.checked = AN[key];
+  inp.onchange = () => {
+    AN[key] = inp.checked; basisGueltig = false;
+    el('erbeLeg').classList.toggle('an', AN.erbe);
+    if (key === 'nurEcht' || key === 'bilanz') neuLauf();
+    else { if (key === 'stausee') stauGueltig = false; anfordern(); }
+  };
+}
+el('cTraeg').checked = R.traegheit;
+el('cTraeg').onchange = () => {
+  R.traegheit = el('cTraeg').checked;
+  if (R.traegheit) neuLauf(); else { neuRechnen(true); }
+};
+el('bLaufNeu').onclick = () => neuLauf();
+el('bEndlage').onclick = () => { richtung = 0; setzeSteuerKnoepfe(); setJahr(J1); };
+
+/* Findling-Legende */
+el('findListe').innerHTML = FQUELLEN.map((q, k) =>
+  `<div class="lm" data-q="${k}"><span><i style="display:inline-block;width:8px;height:8px;
+    border-radius:50%;background:${q.farbe};margin-right:5px"></i>${q.name}</span><i id="fq${k}">—</i></div>`).join('');
+
+/* Legende der Erbe-Ansicht */
+el('erbeLeg').innerHTML = [
+  ['rgba(214,164,96,.85)', 'Endmoräne (Verweildauer der Front)'],
+  ['rgba(168,156,116,.8)', 'Schotterflur vor der Front'],
+  ['rgba(74,126,168,.7)', 'Schürfung (Trog, Zungenbecken)'],
+  ['rgba(86,182,206,.8)', 'Eisstausee'],
+  ['#e8b0c8', 'Findling (Farbe = Herkunftsgestein)'],
+].map(([c, n]) => `<div><i style="background:${c}"></i>${n}</div>`).join('');
+el('erbeLeg').classList.toggle('an', AN.erbe);
+
+/* ---------- Endlage & Export ---------- */
+function fuelleEndlage(){
+  let mor = 0, san = 0, seen = 0, geschEis = 0;
+  for (let i = 0; i < N; i++){
+    if (VERWEIL[i] >= R.morSchwelle) mor++;
+    if (SANDER[i] >= RUN.sanderMax * 0.12) san++;
+    if ((FLAGS[i] & F_SEE) && H[i] < P.minD) seen++;
+    if (H[i] >= P.minD && (FLAGS[i] & F_GESCH)) geschEis++;
+  }
+  el('eJahr').textContent = fmtJahr(simJahr);
+  el('eEis').textContent = fmtKm2(M.eis * M.hexA);
+  el('eGesch').textContent = M.eis
+    ? `${fmtKm2(geschEis * M.hexA)} (${Math.round(100*geschEis/M.eis)} %)` : '—';
+  el('eMor').textContent = `${mor.toLocaleString('de-CH')} Felder`;
+  el('eSan').textContent = `${san.toLocaleString('de-CH')} Felder`;
+  el('eFind').textContent = `${FIND.filter(f => f.j <= simJahr).length}`;
+  el('eSeen').textContent = `${seen.toLocaleString('de-CH')} Felder`;
+  for (let k = 0; k < FQUELLEN.length; k++){
+    const n = FIND.filter(f => f.q === k && f.j <= jahr).length;
+    const zelle = el('fq' + k);
+    if (zelle) zelle.textContent = n ? `${n} abgelegt` : '—';
+  }
+}
+/* Startkarte: das Gelände der Endlage plus die Fundstellen-Kandidaten. Format
+   wie die Pipeline-Dateien (base64-Uint8), damit ein späterer Bake es direkt
+   lesen kann. */
+const GEL = ['flach','huegel','berg','hoch','see','fluss','eis','moraene','schotter','stausee'];
+function exportiere(){
+  const gel = new Uint8Array(N);
+  for (let i = 0; i < N; i++){
+    let g2;
+    if (H[i] >= P.minD) g2 = 6;
+    else if (STAU[i]) g2 = 9;
+    else if (FLAGS[i] & F_SEE) g2 = 4;
+    else if (FLAGS[i] & F_FLUSS) g2 = 5;
+    else if (VERWEIL[i] >= R.morSchwelle) g2 = 7;
+    else if (SANDER[i] >= RUN.sanderMax * 0.12) g2 = 8;
+    else g2 = KLASSE[i];
+    gel[i] = g2;
+  }
+  let bin = '';
+  for (let i = 0; i < N; i++) bin += String.fromCharCode(gel[i]);
+  const fund = [];
+  for (const f of FIND){
+    if (f.j > simJahr) continue;
+    const [lon, lat] = lonLatOfLocal(centerX(f.c, f.r), centerY(f.r));
+    fund.push({ art:'findling', gestein:FQUELLEN[f.q].name, c:f.c, r:f.r,
+      lon:+lon.toFixed(4), lat:+lat.toFixed(4), abgelegt:f.j });
+  }
+  /* Moränenwälle und freigegebene Seen als weitere Kandidaten — nur die
+     kräftigsten, sonst ist die Liste Rauschen. */
+  const walle = [];
+  for (let i = 0; i < N; i++) if (VERWEIL[i] >= R.morSchwelle * 2 && H[i] < P.minD) walle.push(i);
+  walle.sort((a, b) => VERWEIL[b] - VERWEIL[a]);
+  for (const i of walle.slice(0, 40)){
+    const c = i % COLS, r = (i - c) / COLS;
+    const [lon, lat] = lonLatOfLocal(centerX(c, r), centerY(r));
+    fund.push({ art:'moraene', c, r, lon:+lon.toFixed(4), lat:+lat.toFixed(4),
+      jahre:Math.round(VERWEIL[i]) });
+  }
+  const daten = {
+    version: 1,
+    quelle: 'prototype/drafts/eiszeit-labor-v2.html (Endlage des Laufs)',
+    jahr: Math.round(simJahr),
+    hinweis: 'Historisch inspiriert und stark vereinfacht — kein glaziologisches Modell. '
+      + 'Die Schürfung ist NICHT ins Gelände zurückgeschrieben (das DTM ist die Landschaft nach der Eiszeit).',
+    region: D.region, grid: D.grid,
+    gelaendeArten: GEL,
+    gelaende: btoa(bin),
+    parameter: { ...P, ...R },
+    fundstellen: fund,
+  };
+  const txt = JSON.stringify(daten);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], { type:'application/json' }));
+  a.download = `startkarte-${Math.abs(Math.round(simJahr))}vChr.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  el('bExport').textContent = `${(txt.length/1024).toFixed(0)} KB · ${fund.length} Kandidaten`;
+}
+el('bExport').onclick = exportiere;
+
+/* Plättchen-Vorschau: die Tile-Art „Eis“ in ihren Zuständen */
+{
+  const eisIdxProbe = (b, firn) => (firn * EISSTUFEN + b) * SCHUMMSTUFEN + ((SCHUMMSTUFEN-1)/2|0);
+  const proben = [
+    ['Eis dünn', (g,x,y,rad) => { g.fillStyle = eisTab[eisIdxProbe(1,0)]; hexFill(g,x,y,rad); }],
+    ['Eis mittel', (g,x,y,rad) => { g.fillStyle = eisTab[eisIdxProbe(4,0)]; hexFill(g,x,y,rad); }],
+    ['Eis dick', (g,x,y,rad) => { g.fillStyle = eisTab[eisIdxProbe(9,0)]; hexFill(g,x,y,rad); }],
+    ['Firn (Nährgebiet)', (g,x,y,rad) => { g.fillStyle = eisTab[eisIdxProbe(8,1)]; hexFill(g,x,y,rad); }],
+    ['Eisrand', (g,x,y,rad) => {
+      g.fillStyle = eisTab[eisIdxProbe(0,0)]; hexFill(g,x,y,rad);
+      g.strokeStyle = 'rgba(240,251,255,.95)'; g.lineWidth = 4;
+      g.beginPath();
+      g.moveTo(x + rad*CORN[4][0], y + rad*CORN[4][1]);
+      g.lineTo(x + rad*CORN[5][0], y + rad*CORN[5][1]);
+      g.lineTo(x + rad*CORN[0][0], y + rad*CORN[0][1]);
+      g.stroke();
+    }],
+    ['Nunatak', (g,x,y,rad) => {
+      g.fillStyle = eisTab[eisIdxProbe(6,0)]; hexFill(g,x,y,rad);
+      g.fillStyle = 'rgba(52,44,38,.9)';
+      const a = rad*0.42;
+      g.beginPath(); g.moveTo(x, y-a); g.lineTo(x+a*0.82, y+a*0.6); g.lineTo(x-a*0.82, y+a*0.6);
+      g.closePath(); g.fill();
+    }],
+    /* Was nach dem Eis bleibt — dieselbe Plättchen-Logik, aber es bleibt
+       liegen, wenn das Eis weg ist. */
+    ['Endmoräne', (g,x,y,rad) => {
+      g.fillStyle = `rgb(${FARBE[K.huegel].join(',')})`; hexFill(g,x,y,rad);
+      g.fillStyle = 'rgba(214,164,96,.5)'; hexFill(g,x,y,rad);
+    }],
+    ['Schotterflur', (g,x,y,rad) => {
+      g.fillStyle = `rgb(${FARBE[K.flach].join(',')})`; hexFill(g,x,y,rad);
+      g.fillStyle = 'rgba(168,156,116,.45)'; hexFill(g,x,y,rad);
+    }],
+    ['Findling', (g,x,y,rad) => {
+      g.fillStyle = `rgb(${FARBE[K.flach].join(',')})`; hexFill(g,x,y,rad);
+      g.beginPath(); g.arc(x, y, rad*0.22, 0, 7);
+      g.fillStyle = FQUELLEN[0].farbe; g.fill();
+      g.lineWidth = 2; g.strokeStyle = 'rgba(8,17,20,.9)'; g.stroke();
+    }],
+    ['Eisstausee', (g,x,y,rad) => {
+      g.fillStyle = `rgb(${FARBE[K.flach].join(',')})`; hexFill(g,x,y,rad);
+      g.fillStyle = 'rgba(86,182,206,.55)'; hexFill(g,x,y,rad);
+    }],
+  ];
+  function hexFill(g,x,y,rad){ g.beginPath(); hexPfad(g,x,y,rad); g.fill(); }
+  el('tiles').innerHTML = proben.map(([n]) =>
+    `<figure><canvas width="120" height="132"></canvas><figcaption>${n}</figcaption></figure>`).join('');
+  const cs = el('tiles').querySelectorAll('canvas');
+  proben.forEach(([, mal], k) => {
+    const g = cs[k].getContext('2d');
+    g.fillStyle = '#101d23'; g.fillRect(0,0,120,132);
+    mal(g, 60, 66, 56);
+  });
+}
+
+/* ---------- Steuerung & Animation ---------- */
+function setzeSteuerKnoepfe(){
+  el('bRueck').classList.toggle('an', richtung > 0);
+  el('bVor').classList.toggle('an', richtung < 0);
+  el('bLoop').classList.toggle('an', loop);
+}
+el('bAnf').onclick = () => { richtung = 0; setzeSteuerKnoepfe(); setJahr(J0); };
+el('bRueck').onclick = () => { richtung = 1; setzeSteuerKnoepfe(); anfordern(); };
+el('bVor').onclick = () => { richtung = -1; setzeSteuerKnoepfe(); anfordern(); };
+el('bStop').onclick = () => { richtung = 0; setzeSteuerKnoepfe(); };
+el('bLoop').onclick = () => { loop = !loop; setzeSteuerKnoepfe(); };
+el('tempo').value = String(tempo);
+el('tempo').onchange = () => { tempo = +el('tempo').value; };
+addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === ' '){ e.preventDefault(); richtung = richtung ? 0 : 1; setzeSteuerKnoepfe(); anfordern(); }
+  else if (e.key === 'ArrowRight'){ richtung = 0; setzeSteuerKnoepfe(); setJahr(jahr + (e.shiftKey ? 2000 : 250)); }
+  else if (e.key === 'ArrowLeft'){ richtung = 0; setzeSteuerKnoepfe(); setJahr(jahr - (e.shiftKey ? 2000 : 250)); }
+  else if (e.key === 'f'){ nutzerAnsicht = false; fit(); anfordern(); }
+});
+
+function setJahr(j){
+  jahr = Math.max(J0, Math.min(J1, j));
+  zustandBei(jahr);
+  anfordern();
+}
+let bildAngefordert = false;
+function neuRechnen(){ zustandBei(jahr); anfordern(); }
+function anfordern(){
+  if (bildAngefordert) return;
+  bildAngefordert = true;
+  requestAnimationFrame(bild);
+}
+let tLetzt = performance.now(), fpsAkku = 0, fpsN = 0;
+function bild(t){
+  bildAngefordert = false;
+  const dt = Math.min(0.25, (t - tLetzt) / 1000); tLetzt = t;
+  if (dt > 0){ fpsAkku += 1/dt; fpsN++; if (fpsN >= 10){ stats.fps = fpsAkku/fpsN; fpsAkku = 0; fpsN = 0; } }
+  if (richtung){
+    let j = jahr + richtung * tempo * dt;
+    if (j >= J1){ if (loop){ j = J1; richtung = -1; } else { j = J1; richtung = 0; } setzeSteuerKnoepfe(); }
+    if (j <= J0){ if (loop){ j = J0; richtung = 1; } else { j = J0; richtung = 0; } setzeSteuerKnoepfe(); }
+    jahr = j;
+    zustandBei(jahr);
+  }
+  zeichne();
+  aktualisiereHud();
+  if (richtung) anfordern();
+}
+
+/* ---------- Start ---------- */
+function start(){
+  resize(); zeitResize(); fit();
+  if (Q.has('lon') && Q.has('lat')) flieg(+Q.get('lon'), +Q.get('lat'), +(Q.get('z') ?? 8));
+  /* ?feld=c,r oder ?feld=lon,lat — Inspektor ohne Klick öffnen (für Screenshots) */
+  if (Q.has('feld')){
+    const t = Q.get('feld').split(',').map(Number);
+    let c = t[0], r = t[1];
+    if (Math.abs(t[0]) < 20 && Math.abs(t[1]) < 90){ // sieht nach lon/lat aus
+      const [x, y] = localOfLonLat(t[0], t[1]);
+      [c, r] = cellAtLocal(x, y);
+    }
+    if (c >= 0 && r >= 0 && c < COLS && r < ROWS) inspZelle = [c, r];
+  }
+  if (Q.has('endlage')) jahr = J1;
+  setzeSteuerKnoepfe();
+  /* Erst das Gelände zeigen, dann den Lauf rechnen — 30 000 Jahre brauchen
+     eine Sekunde, und eine schwarze Seite währenddessen wäre die schlechtere
+     Antwort als ein Fortschrittsbalken über der Karte. */
+  zeichne(); aktualisiereHud();
+  const danach = () => {
+    zustandBei(jahr); zeichne(); aktualisiereHud();
+    if (Q.has('bench')) bench();
+    if (richtung) anfordern();
+  };
+  if (R.traegheit) laufStarten(danach); else danach();
+}
+addEventListener('resize', () => {
+  dpr = Math.min(DPR_MAX, window.devicePixelRatio || 1);
+  resize(); zeitResize();
+  if (!nutzerAnsicht) fit();
+  anfordern();
+});
+function bench(){
+  const jahre = [-40000,-30000,-24000,-23000,-20000,-17000,-14000,-11000,-10000];
+  /* Vorwärts = weiterschreiten (der Normalfall beim Abspielen), Sprung =
+     Stützstelle laden + neu schreiten (der Normalfall beim Ziehen). */
+  let mSchritt = 0, mSprung = 0, mZ = 0, mStau = 0;
+  const t0 = performance.now();
+  gleichgewicht(1200);
+  const mGl = performance.now() - t0;
+  for (const j of jahre){
+    const tA = performance.now(); zustandBei(j); mSprung += performance.now() - tA;
+    const tB = performance.now(); zustandBei(j + 200); mSchritt += performance.now() - tB;
+    const tC = performance.now(); stauGueltig = false; stauseen(); mStau += performance.now() - tC;
+    const tD = performance.now(); basisGueltig = false; zeichne(); mZ += performance.now() - tD;
+  }
+  el('stats').style.display = 'block';
+  el('stats').innerHTML = `bench · Lauf ${(M.laufMs/1000).toFixed(2)} s (${M.sprossen} Gleichgewichte)`
+    + `<br>Gleichgewicht ${mGl.toFixed(1)} ms · Sprung Ø ${(mSprung/jahre.length).toFixed(1)} ms`
+    + `<br>200 Jahre weiter Ø ${(mSchritt/jahre.length).toFixed(1)} ms`
+    + `<br>Eisstausee Ø ${(mStau/jahre.length).toFixed(1)} ms · Bild Ø ${(mZ/jahre.length).toFixed(1)} ms`
+    + `<br>${N} Zellen · ${RUN.frames.length} Stützstellen · dt ${R.dt} a`;
+  zustandBei(jahr); zeichne();
+}
+start();
+</script>
+</body>
+</html>
