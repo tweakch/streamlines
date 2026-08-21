@@ -33,7 +33,7 @@ import {
  * Rücksprung. Die laufende Partie wird nach jeder Aktion gespeichert
  * (shell/storage.ts) — Verlassen und Wiederaufnehmen sind verlustfrei.
  *
- * Der frühere Recherche-Loop ("Shadows of Truth") liegt weiter unter
+ * Der frühere Recherche-Loop ("Streamlines") liegt weiter unter
  * src/game + src/components.
  */
 

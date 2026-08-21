@@ -1,4 +1,4 @@
-# Shadows of Truth / Stromlinien
+# Streamlines / Stromlinien
 
 A history game about the Alpenrhein valley, built prototype-first. German game text,
 English code.
@@ -102,7 +102,7 @@ npm run lint
   chosen region. In-game: ⬡ one-tap exit, ☰ Lager menu (slides from right),
   skippable night sequence.
 - `app/src/game/` + `app/src/components/` — the earlier evidence/research game
-  ("Shadows of Truth" research loop). Kept for reference; not wired into `App.tsx`.
+  ("Streamlines" research loop). Kept for reference; not wired into `App.tsx`.
 
 ## Conventions
 
