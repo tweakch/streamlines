@@ -58,15 +58,22 @@ use"), and the Chrome extension may be disconnected.
 
 ## Knowledge base: the Handbuch
 
-`prototype/drafts/stromlinien-handbuch.html` is the project's **knowledge base** —
-it records the rules *and* the design history (what was decided, what was rejected
-and why). It has two views: **Entwicklung** (default; everything) and **Publish**
-(`?mode=publish`; only cards with status `done`/Umgesetzt or `concept`/Konzept —
-what is decided or already in the app).
+The Handbuch is the project's **knowledge base** — it records the rules *and* the
+design history (what was decided, what was rejected and why). It has two views:
+**Entwicklung** (default; everything) and **Publish** (`?mode=publish`; only cards
+with status `done`/Umgesetzt or `concept`/Konzept — what is decided or already in
+the app).
 
-- Every card carries `data-s`: `done` (in the app) · `concept` (decided, not built) ·
-  `idea` · `rej` (rejected) · `open`. Publish mode derives from these — keep them
-  truthful.
+- **Written in markdown, rendered to HTML.** Sources: `prototype/handbuch/*.md`
+  (one chapter per file, cards as `## Titel {status}` — dialect in
+  `prototype/handbuch/README.md`). The viewable file
+  `prototype/drafts/stromlinien-handbuch.html` is **generated and committed** —
+  never edit it by hand. After editing markdown run `npm run compose:handbuch`
+  (in `app/`) to regenerate; `npm run check:handbuch` detects drift. Every card
+  gets an id — `?karte=<id>` deep-links to it opened.
+- Every card carries its status: `done` (in the app) · `concept` (decided, not
+  built) · `idea` · `rej` (rejected) · `open`. Publish mode derives from these —
+  keep them truthful.
 - When a design decision is made, or something is ported into the app, update the
   affected card's status/content in the Handbuch in the same change.
 - Rejected ideas keep their card (status `rej`) with the reasoning — history is

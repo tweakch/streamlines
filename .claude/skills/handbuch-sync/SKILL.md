@@ -5,12 +5,14 @@ description: Review the conversation history (and optionally past session transc
 
 # Handbuch-Sync — Wissensbasis mit dem Gesprächsverlauf abgleichen
 
-The Handbuch at `prototype/drafts/stromlinien-handbuch.html` is the project's
-**knowledge base**: rules *and* design history — what was decided, built,
-rejected (and why), and what is still open. This skill compares what actually
-happened in conversation with what the Handbuch records, then **suggests**
-changes. It never edits the document before the user has picked from the
-suggestions.
+The Handbuch is the project's **knowledge base**: rules *and* design history —
+what was decided, built, rejected (and why), and what is still open. It is
+**written in markdown** at `prototype/handbuch/NN-*.md` (one chapter per file);
+the viewable `prototype/drafts/stromlinien-handbuch.html` is **generated** from
+those sources and must never be edited by hand. This skill compares what
+actually happened in conversation with what the Handbuch records, then
+**suggests** changes. It never edits the document before the user has picked
+from the suggestions.
 
 ## Inputs
 
@@ -32,9 +34,10 @@ suggestions.
 
 ### 1. Read the Handbuch completely
 
-Read `prototype/drafts/stromlinien-handbuch.html` and build an inventory of
-every card: chapter (`k1`–`k10`), title, status (`data-s`), and the gist of
-its body. Note the "Stand <Monat Jahr>" in the hero kicker.
+Read the chapter sources `prototype/handbuch/NN-*.md` and build an inventory
+of every card: chapter (`k1`–`k10` from the frontmatter), title, status (the
+`{status}` on the `##` heading), and the gist of its body. Note the
+"Stand <Monat Jahr>" in the hero kicker (`prototype/handbuch/template.html`).
 
 ### 2. Harvest the history
 
@@ -86,40 +89,43 @@ End by asking which numbers to apply (all / a selection / none).
 
 ### 5. Apply what the user picks
 
-Edit `prototype/drafts/stromlinien-handbuch.html` following its conventions:
+Edit the markdown chapter files in `prototype/handbuch/` (dialect reference:
+`prototype/handbuch/README.md`), then regenerate the HTML.
 
-**Card template** (insert before the next `<!-- ============ ... -->` chapter
-marker of the following chapter):
+**Card template** (append within the right chapter file, or between existing
+cards where it belongs thematically):
 
-```html
-<div class="card" data-s="STATUS"><div class="chead"><h3>TITEL</h3><span class="badge b-BADGE">LABEL</span><span class="chev">▶</span></div><div class="cbody">
-<p>…</p>
-<div class="why"><b>Warum</b>…</div>
-</div></div>
+```markdown
+## TITEL {STATUS}
+
+Fliesstext des Rumpfs …
+
+::: why Warum
+Begründung der Entscheidung.
+:::
+
+Leiser Nachsatz, falls nötig. {.dim}
 ```
 
-**Status ↔ badge mapping** (keep `data-s` and badge class in sync):
-
-| `data-s` | badge class | label |
-| --- | --- | --- |
-| `done` | `b-done` | Umgesetzt |
-| `concept` | `b-concept` | Konzept |
-| `idea` | `b-idea` | Idee |
-| `rej` | `b-rej` | Verworfen (or Korrigiert) |
-| `open` | `b-open` | Offen |
+`STATUS` is one of `done · concept · idea · rej · open`; the badge label
+derives automatically (Umgesetzt/Konzept/Idee/Verworfen/Offen). A deviating
+label — e.g. „Korrigiert" — is written as `{rej badge="Korrigiert"}`.
 
 **Rules:**
 
 - All content in **German**, matching the existing tone.
-- **Never delete a card.** Superseded ideas become `rej` with a `.why`
+- **Never delete a card.** Superseded ideas become `rej` with a `::: why`
   explaining the decision — history is the document's purpose.
 - Statuses must stay truthful: `done` only for things running in the app,
   `concept` for decided-but-not-built. Publish mode (`?mode=publish`) derives
   from these.
-- TOC and chapter visibility are computed by the page's script — never edit
-  the TOC, chapter numbering, `<script>`, or `<style>` for a content change.
-- If content changed, update the hero kicker's "Stand <Monat Jahr>" to the
-  current month.
+- Never edit `prototype/drafts/stromlinien-handbuch.html` directly — it is
+  generated and any hand edit is lost on the next compose.
+- If content changed, update the hero kicker's "Stand <Monat Jahr>" in
+  `prototype/handbuch/template.html` to the current month.
+- After editing, regenerate and verify:
+  `npm run compose:handbuch` (in `app/`) — it prints the card count; then
+  `npm run check:handbuch` must report "aktuell".
 - Finish with a one-line summary per applied change, and remind the user the
   Handbuch renders at `prototype/drafts/stromlinien-handbuch.html` (serve the
   folder if `file://` is blocked).

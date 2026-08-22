@@ -7,101 +7,73 @@
  * "Seitenquelltext anzeigen" lesbar. Für ein öffentliches Deployment müssen
  * die Karten deshalb VOR dem Ausliefern aus dem Dokument verschwinden.
  *
+ * Seit dem Markdown-Umbau wird nicht mehr aus dem fertigen HTML
+ * herausgeschnitten, sondern direkt aus den Kapitel-Quellen komponiert
+ * (app/scripts/handbuch-lib.mjs über prototype/handbuch/*.md) — der
+ * div-zählende Regex-Stripper ist damit Geschichte.
+ *
  * Übernommen werden nur Karten mit data-s="done" (Umgesetzt) und
  * data-s="concept" (Konzept). Alles andere – idea, rej, open – fällt raus.
  *
  * Lokal testen:  npm run build:handbuch  (danach npm run preview)
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { compose } from './handbuch-lib.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const SRC = resolve(HERE, '../../prototype/drafts/stromlinien-handbuch.html')
 const OUT = resolve(HERE, '../dist/handbuch/index.html')
 
 /** Nur diese Status erscheinen in der veröffentlichten Fassung. */
 const PUBLISH_STATUSES = new Set(['done', 'concept'])
 
-/**
- * Findet das schließende </div> zum <div>, das bei `start` beginnt —
- * über Tiefenzählung, weil Karten innen weitere <div> enthalten (.why, .chead).
- */
-function findClosingDiv(html, start) {
-  const re = /<\/?div\b[^>]*>/g
-  re.lastIndex = start
-  let depth = 0
-  let m
-  while ((m = re.exec(html)) !== null) {
-    depth += m[0][1] === '/' ? -1 : 1
-    if (depth === 0) return re.lastIndex
-  }
-  throw new Error(`Unbalanciertes <div> ab Index ${start} — Handbuch-Struktur prüfen.`)
-}
-
-function stripNonPublishCards(html) {
-  const OPEN = '<div class="card'
-  let out = ''
-  let pos = 0
-  let kept = 0
-  const dropped = {}
-
-  for (;;) {
-    const start = html.indexOf(OPEN, pos)
-    if (start === -1) {
-      out += html.slice(pos)
-      break
-    }
-    const tag = html.slice(start, html.indexOf('>', start) + 1)
-    const status = tag.match(/data-s="([a-z]+)"/)?.[1] ?? null
-    const end = findClosingDiv(html, start)
-
-    out += html.slice(pos, start)
-    if (status && PUBLISH_STATUSES.has(status)) {
-      out += html.slice(start, end)
-      kept++
-    } else {
-      dropped[status ?? 'ohne-status'] = (dropped[status ?? 'ohne-status'] ?? 0) + 1
-    }
-    pos = end
-  }
-  return { html: out, kept, dropped }
-}
-
-const source = readFileSync(SRC, 'utf8')
-const { html: stripped, kept, dropped } = stripNonPublishCards(source)
+const { html: composed, kept, dropped } = compose({ statuses: PUBLISH_STATUSES })
 
 if (kept === 0) {
   throw new Error('Keine einzige Publish-Karte gefunden — Abbruch statt leerer Seite.')
 }
 
-let out = stripped
+let out = composed
 
 /* Publish-Ansicht erzwingen: Umschalter ausblenden … */
 out = out.replace(
   '</head>',
   '<style>.viewbtn{display:none!important;}</style>\n</head>',
 )
-/* … und nach dem Seiten-Skript fest auf publish stellen. Das Skript selbst
-   bleibt unangetastet (es referenziert IDs wie #count, die erhalten bleiben). */
+/* … und nach dem Seiten-Skript fest auf publish stellen. Der Ansichtswechsel
+   lebt seit dem Baukasten-Umbau (21. Aug 2026) in SOT.doc. */
 out = out.replace(
   /<\/script>\s*<\/body>/,
-  '</script>\n<script>setMode("publish",false);</script>\n</body>',
+  '</script>\n<script>SOT.doc.setMode("publish",false);</script>\n</body>',
 )
 out = out.replace(
   '<!DOCTYPE html>',
-  `<!DOCTYPE html>\n<!-- Erzeugt von app/scripts/build-handbuch.mjs — nicht bearbeiten.\n     Quelle: prototype/drafts/stromlinien-handbuch.html\n     Enthält nur Karten mit Status "Umgesetzt" und "Konzept". -->`,
+  `<!DOCTYPE html>\n<!-- Erzeugt von app/scripts/build-handbuch.mjs — nicht bearbeiten.\n     Quelle: prototype/handbuch/*.md (komponiert über handbuch-lib.mjs)\n     Enthält nur Karten mit Status "Umgesetzt" und "Konzept". -->`,
 )
 
 mkdirSync(dirname(OUT), { recursive: true })
-writeFileSync(OUT, out, 'utf8')
 
-const droppedTotal = Object.values(dropped).reduce((a, b) => a + b, 0)
-const droppedTxt =
-  Object.entries(dropped)
-    .map(([k, v]) => `${k}: ${v}`)
-    .join(', ') || 'keine'
+/* Das Handbuch verweist auf ../kit/ — in dist/ existiert das nicht.
+   inline.mjs (die eine Wahrheit fürs Einbetten, auch beim Archivieren)
+   ersetzt die Verweise durch ihren Inhalt. Die Zwischendatei liegt NEBEN
+   der Quelle, damit die relativen ../kit/-Pfade beim Einbetten dieselben
+   sind wie im Original. */
+const INLINE = resolve(HERE, '../../prototype/kit/inline.mjs')
+const TMP = resolve(HERE, '../../prototype/drafts/.build-handbuch.tmp.html')
+writeFileSync(TMP, out, 'utf8')
+try {
+  execFileSync(process.execPath, [INLINE, TMP, '--out', OUT], { stdio: 'pipe' })
+} finally {
+  rmSync(TMP, { force: true })
+}
+const inlined = readFileSync(OUT, 'utf8')
+if (/(href|src)="[^"]*kit\//.test(inlined)) {
+  throw new Error('dist/handbuch verweist noch auf kit/ — Einbetten fehlgeschlagen.')
+}
+
 console.log(
-  `handbuch: ${kept} Karten veröffentlicht, ${droppedTotal} zurückgehalten (${droppedTxt})\n` +
+  `handbuch: ${kept} Karten veröffentlicht, ${dropped} zurückgehalten\n` +
     `          → dist/handbuch/index.html · lokal testen: npm run preview, dann /handbuch/ (mit Schrägstrich)`,
 )
