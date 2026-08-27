@@ -1,4 +1,41 @@
+/* Blatt des älteren Recherche-Spiels ("Streamlines"), zur Referenz behalten
+   und derzeit von nichts importiert (siehe CLAUDE.md, Abschnitt App).
+
+   Es trägt seine eigene Palette: die Pergament-Tokens standen bis zur
+   Ausrichtung der App auf den Baukasten in index.css, wurden dort aber nur
+   von diesem Blatt und components/ benutzt. Sie liegen jetzt hier, damit das
+   globale Blatt ausschließlich dem Baukasten folgt und dieses Spiel im Fall
+   einer Wiederbelebung dennoch vollständig ist. Auf `.app` statt `:root`,
+   damit es die Baukasten-Tokens der lebenden Bildschirme nicht anfasst. */
 .app {
+  /* Feldkarte 1799: gealtertes Vermessungspapier, Tusche, Stempelfarben */
+  --paper: #e7dcc3;
+  --paper-deep: #dccfae;
+  --paper-card: #efe6d1;
+  --ink: #2a2519;
+  --ink-soft: #5f553f;
+  --line: rgba(42, 37, 25, 0.35);
+  --river: #46687a;
+  --forest: #75835e;
+  --stamp-red: #8c3b2e;
+  --stamp-blue: #35527a;
+  --ochre: #8a6d3b;
+
+  /* Vorberechnete Mischtöne (statt color-mix, für breitere Browser-Basis) */
+  --wald-fill: #a8ab8b;
+  --fluss-fill: #768b90;
+  --uebergang-fill: #a7aea6;
+  --reachable-hover: #ddc7b4;
+  --wald-glyph: #575d42;
+
+  --display: 'IM Fell English', 'Iowan Old Style', Georgia, serif;
+  --smallcaps: 'IM Fell English SC', 'Iowan Old Style', Georgia, serif;
+  --body: 'Alegreya Sans', 'Segoe UI', system-ui, sans-serif;
+
+  font: 17px/1.5 var(--body);
+  color: var(--ink);
+  background: var(--paper);
+
   max-width: 1180px;
   margin: 0 auto;
   padding: 24px 28px 40px;

@@ -1,106 +1,42 @@
+/* Globales Blatt der App.
+
+   Tokens, Reset, Typografie und Bedienelemente kommen aus dem Baukasten
+   (prototype/kit/sot.css), der in main.tsx davor geladen wird. Hier steht nur,
+   was der Baukasten nicht kennt und was für die ganze App gilt.
+
+   Die alte Pergament-Palette (--paper, --stamp-rot, IM Fell English) stand bis
+   zur Ausrichtung auf den Baukasten hier; sie gehört zum älteren
+   Recherche-Spiel und ist nach App.css gezogen, dem einzigen Blatt, das sie
+   benutzt. */
+
 :root {
-  /* Feldkarte 1799: gealtertes Vermessungspapier, Tusche, Stempelfarben */
-  --paper: #e7dcc3;
-  --paper-deep: #dccfae;
-  --paper-card: #efe6d1;
-  --ink: #2a2519;
-  --ink-soft: #5f553f;
-  --line: rgba(42, 37, 25, 0.35);
-  --river: #46687a;
-  --forest: #75835e;
-  --stamp-red: #8c3b2e;
-  --stamp-blue: #35527a;
-  --ochre: #8a6d3b;
-
-  /* Vorberechnete Mischtöne (statt color-mix, für breitere Browser-Basis) */
-  --wald-fill: #a8ab8b;
-  --fluss-fill: #768b90;
-  --uebergang-fill: #a7aea6;
-  --reachable-hover: #ddc7b4;
-  --wald-glyph: #575d42;
-
-  --display: 'IM Fell English', 'Iowan Old Style', Georgia, serif;
-  --smallcaps: 'IM Fell English SC', 'Iowan Old Style', Georgia, serif;
-  --body: 'Alegreya Sans', 'Segoe UI', system-ui, sans-serif;
-
-  font: 17px/1.5 var(--body);
-  color: var(--ink);
-  background: var(--paper);
   color-scheme: light;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
 
 body {
-  margin: 0;
-  background:
-    radial-gradient(ellipse at 20% 0%, rgba(255, 252, 240, 0.55), transparent 60%),
-    radial-gradient(ellipse at 90% 100%, rgba(120, 96, 52, 0.14), transparent 55%),
-    var(--paper);
   min-height: 100svh;
+
+  /* Grundschriftgrad der App. Der Baukasten setzt auch den nicht — jeder
+     Prototyp bemisst selbst. Er stand vorher als `font: 17px/1.5` auf :root;
+     ohne ihn fällt die Wurzel auf die Browservorgabe (16px) und alles, was
+     erbt oder in em rechnet, schrumpft um 6 %. Gemessen: der Titel rutschte
+     3 px, die Weltkarten-Leiste sichtbar mehr. */
+  font-size: 17px;
+
+  /* Der Baukasten setzt bewusst KEIN line-height auf body: von 21 Prototypen
+     tun es nur die vier Wissensdokumente, die übrigen 17 bemessen die Zeile
+     dort, wo Text steht (Begründung steht in kit/sot.css und in UMBAU.md).
+     Die App ist der andere Fall — ein Produkt mit Prosa-Bildschirmen (Regeln,
+     Über, Ereigniskarten), das vorher global auf 1.5 lief. Der Wert steht
+     deshalb hier und nicht im Baukasten: die App hat den Bedarf, die
+     Prototypen haben ihn nicht. */
+  line-height: 1.5;
 }
 
-h1,
-h2,
-h3 {
-  font-family: var(--display);
-  font-weight: 400;
-  color: var(--ink);
-  margin: 0;
-}
-
+/* Der Baukasten lässt `p` in Ruhe; app-weit ist nur der Vorgabe-Abstand
+   unerwünscht. */
 p {
   margin: 0;
-}
-
-button {
-  font: inherit;
-  font-family: var(--body);
-  color: var(--ink);
-  background: var(--paper-card);
-  border: 1px solid var(--ink-soft);
-  border-radius: 2px;
-  padding: 6px 14px;
-  cursor: pointer;
-}
-
-button:hover:not(:disabled) {
-  background: var(--paper);
-  border-color: var(--ink);
-}
-
-button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-button:focus-visible,
-input:focus-visible,
-[tabindex]:focus-visible {
-  outline: 2px solid var(--stamp-blue);
-  outline-offset: 2px;
-}
-
-button.primary {
-  font-family: var(--smallcaps);
-  font-size: 18px;
-  letter-spacing: 0.06em;
-  background: var(--ink);
-  color: var(--paper);
-  border-color: var(--ink);
-  padding: 8px 22px;
-}
-
-button.primary:hover:not(:disabled) {
-  background: var(--ink-soft);
-  color: var(--paper-card);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
 }
