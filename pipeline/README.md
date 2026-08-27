@@ -23,21 +23,43 @@ Konsumenten            ← heute: prototype/drafts/rhein-tiles-v4.html (Canvas-V
    ▲
    └─ serve.mjs: der Viewer kann die Pipeline auch selbst anstossen (Gebiet
       auf der Karte ziehen → neu rechnen), siehe „Pipeline aus dem Viewer"
+
+Nebenstrang statt Datei: statische Feldparameter
+   sources/*.json
+      │  node pipeline/bake-overlays.mjs   (dependency-frei, node:sqlite)
+      ▼
+   out/karte.sqlite + out/bericht.json   ← Kacheln als BLOB (Auslieferung),
+      │                                    Zellwerte mit Index (Abfrage),
+      │                                    Legenden, Herkunftsprotokoll
+      │  node pipeline/ingest/ingest.mjs   (npm: pg)
+      ▼
+   welten.natur (Postgres)   ← dieselbe Karte, dazu das Wissen der
+                               Naturengine (Quellen, Befunde, Bedingungen,
+                               Arten, Läufe), siehe ingest/README.md
 ```
 
 ## Ausführen
 
 ```
 # einmalig: Rohdaten + Deps für die Fetch-Stufe
-#   pipeline/data/dtm-switzerland-50m-v2-sonny.tif  ← bit.ly/dtm-switzerland-50m-v2
+#   pipeline/data/dtm-*-50m-*-sonny.tif   ← je Land, siehe sources/hoehen.manifest.json
 npm install --prefix pipeline/fetch
 
-node pipeline/fetch/normalize-dtm.mjs      # DTM → sources/sonny-dtm-ch50.grid.json
+node pipeline/fetch/normalize-dtm.mjs      # DTMs → sources/sonny-dtm-50.grid.json
+node pipeline/fetch/normalize-bathy.mjs    # Seegrund → sources/swissbathy3d.grid.json
+#   fehlende Seepakete holen: --laden · einzeln: --seen=thunersee,walensee
 node pipeline/fetch/fetch-osm-rhein.mjs    # Overpass → sources/osm-rhein-hauptlauf.geo.json
 node pipeline/fetch/fetch-osm-rivers.mjs   # Overpass → sources/osm-fluesse.geo.json
 node pipeline/fetch/fetch-osm-lakes.mjs    # Overpass → sources/osm-seen.geo.json
 node pipeline/bake.mjs                     # sources/ → prototype/drafts/rhein-tiles-v4.data.js
 node pipeline/verify-cell.mjs 1 209 304    # Stichprobe: Zelle + Basis-Verteilung prüfen
+
+node pipeline/bake-overlays.mjs            # sources/ → out/karte.sqlite + out/bericht.json
+#   nur Spielebene: --ebenen=1 · einzeln: --overlay=hoehe,steigung
+npm install --prefix pipeline/ingest       # einmalig: pg für die Ingest-Stufe
+node pipeline/ingest/ingest.mjs            # out/karte.sqlite → welten.natur (Postgres)
+#   im Normalfall über die Ressource „pipeline" im Aspire-Dashboard,
+#   siehe ingest/README.md — die Verbindung kommt nur aus dem Harness
 
 node pipeline/fetch/hoehen-quellen.mjs --pruefen   # welche DTMs liegen da, was decken sie?
 node --max-old-space-size=16384 pipeline/fetch/bake-eiszeit.mjs
@@ -237,8 +259,47 @@ Aktuelle Quellen (OSM-Anteile: ODbL, © OpenStreetMap contributors):
   (der Genfersee heisst dort **„Le Léman"**, nicht „Lac Léman" — unter dem
   falschen Namen fand die Abfrage nichts und der grösste See der Region fehlte
   stillschweigend, weil ein Fehlschlag nur übersprungen wird).
-- **`sonny-dtm-ch50.grid.json`** (`fetch/normalize-dtm.mjs`) —
-  echte Höhen, CC BY 4.0 Sonny.
+- **`sonny-dtm-50.grid.json`** (`fetch/normalize-dtm.mjs`) —
+  echte Höhen, CC BY 4.0 Sonny. **Mehrere Länder**, in der Vorrangfolge aus
+  `hoehen.manifest.json` zusammengelegt (die erste Quelle mit einem Wert
+  gewinnt); jede wird in ihrer eigenen UTM-Zone gelesen, die aus den GeoKeys
+  kommt — CH/DE/IT liegen in 32N, **AT in 33N**, FR/NL in 31N, und mit fest
+  verdrahteter Zone 32 landet jede österreichische Probe hunderte Kilometer
+  daneben und damit stillschweigend im NoData. Vorher las diese Stufe fest nur
+  die Schweiz. Das war nicht bloss eine Lücke am Rand: für ein Abflussmodell
+  wurde die **Landesgrenze zur Wasserscheide**. Der Alpenrhein konnte den
+  Bodensee nicht verlassen (dessen Nordufer lag jenseits der Zuschnittkante),
+  der Hochrhein liegt zur Hälfte auf deutschem Boden, und der Rhein bei Basel
+  führte im Modell 23 statt 1030 m³/s. Standardregion ist deshalb jetzt
+  `rheineinzug` (5,9–10,6 °O, 45,8–48,15 °N): Schweiz + Vorarlberg + Südbaden
+  + französischer Jura, 1786×1301 Punkte bei 200 m, 13 % NoData (Italien ist
+  nur für `eiszeit` registriert und bleibt draussen).
+- **`swissbathy3d.grid.json`** (`fetch/normalize-bathy.mjs`) — der **Seegrund**,
+  swissBATHY3D © swisstopo. Gegenstück zur Höhenquelle: die sagt, was über
+  Wasser liegt, diese, was darunter. Nötig, weil ein DTM ein *Gelände*modell
+  ist — über einem See führt es die Wasseroberfläche, nicht den Grund; der
+  Bodensee liest sich quer über seine ganze Breite als ebene 400-m-Fläche,
+  obwohl er 251 m tief ist. Ohne diese Quelle ist im Modell keine Seewanne
+  vorhanden, ein fallender Spiegel legt nichts frei, und jede Aussage über
+  Tiefe oder Uferverlagerung wäre erfunden. Abgetastet wird auf **genau das
+  Raster der Höhenquelle** (dieselbe Nordwestecke, dieselbe Rasterweite),
+  damit Gelände und Grund Zelle auf Zelle übereinanderliegen. 22 Seen
+  eingelesen, Register in `tiefen.manifest.json` (mit swisstopo-URL je See:
+  wer einen weiteren will, trägt den Schlüssel ein und ruft `--laden`).
+  **Prüfstein je See ist `spiegelM − tiefeM`** — so tief muss der gemessene
+  Grund reichen; 21 von 22 landen innerhalb von 4 m (Bodensee 144 m auf den
+  Meter, Genfersee 62 gegen 63, Thunersee 342 gegen 341). Der eine Ausreisser
+  ist richtig: Lago Maggiores tiefste Stelle liegt in Italien, wo swisstopo
+  aufhört. **Zwei Fallen beim Einlesen**, beide gemessen und nicht geraten:
+  (1) der NoData-Wert ist *nicht* überall `-9999` — Brienzersee und Rotsee
+  schreiben `-3.4028230607370965e+38` (kleinste float32-Zahl) und
+  unterscheiden sich dabei noch in der 15. Stelle voneinander; ein Parser
+  ohne Exponent liest daraus `-3.4` und hält es für Seegrund drei Meter unter
+  dem Meer (genau das passierte). Darum wird der Exponent gelesen *und* ein
+  Plausibilitätsriegel gesetzt (−500…5000 m), statt sich auf den Kopf zu
+  verlassen. (2) Der *höchste* Wert eines Pakets taugt nicht als Spiegelprobe
+  — die Kacheln führen am Rand Ufer und Flussstrecken oberhalb des Spiegels
+  mit; geprüft wird gegen den tiefsten.
 - **`handkuratiert.rhein.geo.json`** — was (noch) nicht aus echten Quellen
   kommt: Nordsee-Küste, Bergland-Polygone ausserhalb des DTM, kleine
   Zufluss-Stummel (Hinterrhein, IJssel, Neckar, Main, Mosel, Ruhr),
@@ -322,6 +383,19 @@ normalisierte Quelle. Der Bake leitet daraus pro Hexzelle der Ebene 2 (0.4 km) a
 Ebenen mit `region` liefern nur Kacheln innerhalb der Region; der Viewer schaltet
 auf sie nur, wenn die Blickmitte in der Region liegt (`regionKm` im Tileset).
 GeoTIFF-Rohdaten (40 MB+) kommen **nicht ins Repo** (`pipeline/data/`, gitignored).
+
+## Ingest in die Datenbank (`ingest/`)
+
+`bake-overlays.mjs` schreibt ein **Erzeugnis**: `out/karte.sqlite` wird bei
+jedem Lauf gelöscht und neu gebaut (`lib/store.mjs`). Die Naturengine braucht
+daneben einen Ort, der *nicht* weggeworfen wird — Quellen, Befunde,
+Bedingungen, Artparameter, Simulationsläufe. Beides steht in derselben
+Postgres-Datenbank (`welten`, Schema `natur`), aber in zwei getrennten
+Hälften, und **kein Fremdschlüssel zeigt vom Wissen auf das Erzeugnis**.
+
+Gestartet wird die Stufe über die Aspire-Ressource **`pipeline`** (steht
+absichtlich auf *Not started*: Stapelverarbeiter, kein Dienst). Details,
+Schalter und das Schema in **`ingest/README.md`** und `ingest/schema.sql`.
 
 ## Pipeline aus dem Viewer (`serve.mjs`)
 

@@ -1,0 +1,17 @@
+{
+  "name": "stromlinien-pipeline-ingest",
+  "private": true,
+  "type": "module",
+  "description": "Ingest-Stufe der Karten-Pipeline: liest das Erzeugnis pipeline/out/karte.sqlite und überträgt es in das Postgres-Schema `natur` der Datenbank `welten`, in dem daneben das Wissen der Naturengine liegt. Wie fetch/ darf diese Stufe npm-Dependencies haben; bake.mjs und bake-overlays.mjs bleiben dependency-frei.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node ingest.mjs",
+    "bake": "node ingest.mjs --bake",
+    "schema": "node ingest.mjs --nur-schema"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  }
+}

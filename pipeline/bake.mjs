@@ -48,6 +48,7 @@ const srcDir = join(ROOT, 'sources')
 const feats = []
 const provenance = [] // + bbox/bboxKm je Datei, fürs Quellenverzeichnis im Viewer (v3)
 const grids = [] // normalisierte Höhenquellen (kind "hoehen")
+const bett = []  // normalisierte Tiefenquellen (kind "tiefe") — der Seegrund
 
 /* Bbox (lon/lat) über beliebig verschachtelte GeoJSON-Koordinaten (Point/LineString/Polygon/...). */
 function bboxOfFeatures(features) {
@@ -74,12 +75,16 @@ const bboxKmOf = ([lonW, latS, lonE, latN]) => {
 for (const f of readdirSync(srcDir)) {
   if (f.endsWith('.grid.json')) {
     const g = JSON.parse(readFileSync(join(srcDir, f), 'utf8'))
-    if (g.kind !== 'hoehen') continue
+    if (g.kind !== 'hoehen' && g.kind !== 'tiefe') continue
     const m = g.meta
     const bbox = [m.lon0, m.lat0 - m.dLat * (m.rows - 1), m.lon0 + m.dLon * (m.cols - 1), m.lat0]
-    provenance.push({ file: f, kind: 'hoehen', ...(g.provenance ?? {}), bbox, bboxKm: bboxKmOf(bbox) })
+    provenance.push({ file: f, kind: g.kind, ...(g.provenance ?? {}), bbox, bboxKm: bboxKmOf(bbox) })
     const buf = Buffer.from(g.data, 'base64')
-    grids.push({ meta: g.meta, data: new Int16Array(buf.buffer, buf.byteOffset, buf.length / 2) })
+    const eintrag = { meta: g.meta, data: new Int16Array(buf.buffer, buf.byteOffset, buf.length / 2) }
+    /* Der Seegrund gehört NICHT zu den Höhenquellen: er darf die Höhenregion
+       nicht aufspannen und nicht ins Gelände einfliessen. Das Geländemodell
+       sagt, was oben liegt; diese Quelle, was darunter. */
+    ;(g.kind === 'tiefe' ? bett : grids).push(eintrag)
     continue
   }
   if (!f.endsWith('.geo.json')) continue
@@ -133,6 +138,25 @@ function elevAt(lon, lat) {
   }
   return null
 }
+/* Seegrund an einer Stelle. Nächster Nachbar statt bilinear: die Tiefenquelle
+   hat harte Ränder am Ufer, und eine Interpolation über den Rand hinweg
+   verwässert genau die Zellen, auf die es ankommt. */
+function bettAt(lon, lat) {
+  for (const g of bett) {
+    const m = g.meta
+    const c = Math.round((lon - m.lon0) / m.dLon), r = Math.round((m.lat0 - lat) / m.dLat)
+    if (c < 0 || r < 0 || c >= m.cols || r >= m.rows) continue
+    const v = g.data[r * m.cols + c]
+    if (v === m.nodata) continue
+    return v
+  }
+  return null
+}
+/* Seegrund → Byte: 5-m-Stufen mit Nullpunkt bei −200 m (Lago Maggiore liegt
+   mit −179 m unter dem Meer). 0 heisst „kein Grund bekannt". */
+const BETT_0 = -200, BETT_STUFE = 5
+const bettByte = (m) => Math.max(1, Math.min(255, Math.round((m - BETT_0) / BETT_STUFE)))
+
 /* Talboden: Blockminimum (~1.6 km), dann Min über 3×3 Blöcke (~5 km Umfeld). */
 const FLOOR_B = 8
 for (const g of grids) {
@@ -262,6 +286,7 @@ function buildBase() {
   const [cols, rows] = gridDims(s)
   const terr = new Uint8Array(cols * rows)
   const elev = new Uint8Array(cols * rows)
+  const bettA = new Uint8Array(cols * rows)
   const idx = (c, r) => r * cols + c
 
   const fillPoly = (ring, t) => {
@@ -289,6 +314,8 @@ function buildBase() {
       for (let c = rc.c0; c <= rc.c1; c++) {
         const [x, y] = centerKm(c, r, s)
         const lon = CFG.lon0 + x / CFG.kmx, lat = CFG.lat1 - y / CFG.kmy
+        const b0 = bettAt(lon, lat)
+        if (b0 != null) bettA[idx(c, r)] = bettByte(b0)
         const e0 = elevAt(lon, lat)
         if (e0 == null) continue
         elev[idx(c, r)] = Math.max(1, Math.min(255, Math.round(e0 / 25)))
@@ -306,7 +333,7 @@ function buildBase() {
       }
   }
   console.log(`Basisraster (${FINE.hexKm} km/Hex): ${cols}×${rows} Zellen in ${Date.now() - t0} ms`)
-  return { s, cols, rows, terr, elev }
+  return { s, cols, rows, terr, elev, bett: bettA }
 }
 const BASE = buildBase()
 
@@ -322,12 +349,14 @@ function bakeLevel(L) {
   const terr = new Uint8Array(cols * rows)
   const sec = new Uint8Array(cols * rows)
   const elev = new Uint8Array(cols * rows)
+  const bettA = new Uint8Array(cols * rows)
   const idx = (c, r) => r * cols + c
   const inB = (c, r) => c >= 0 && r >= 0 && c < cols && r < rows
 
   if (L === FINE) {
     terr.set(BASE.terr)
     elev.set(BASE.elev)
+    bettA.set(BASE.bett)
   } else {
     /* Aggregation: jede Basiszelle stimmt in ihrer Grobzelle ab.
        Mehrheit fürs Terrain, Mittel für die Höhe. */
@@ -335,6 +364,8 @@ function bakeLevel(L) {
     const counts = new Uint32Array(cols * rows * K)
     const eSum = new Float64Array(cols * rows)
     const eN = new Uint32Array(cols * rows)
+    const bSum = new Float64Array(cols * rows)
+    const bN = new Uint32Array(cols * rows)
     for (let r = 0; r < BASE.rows; r++)
       for (let c = 0; c < BASE.cols; c++) {
         const [x, y] = centerKm(c, r, BASE.s)
@@ -344,6 +375,8 @@ function bakeLevel(L) {
         counts[i * K + BASE.terr[r * BASE.cols + c]]++
         const e = BASE.elev[r * BASE.cols + c]
         if (e) { eSum[i] += e; eN[i]++ }
+        const b = BASE.bett[r * BASE.cols + c]
+        if (b) { bSum[i] += b; bN[i]++ }
       }
     const CAND = [TERR.flach, TERR.hang, TERR.berg, TERR.see, TERR.meer]
     for (let i = 0; i < cols * rows; i++) {
@@ -358,6 +391,7 @@ function bakeLevel(L) {
       if (tot && counts[i * K + TERR.see] >= tot * 0.25) best = TERR.see
       terr[i] = best
       if (eN[i]) elev[i] = Math.max(1, Math.min(255, Math.round(eSum[i] / eN[i])))
+      if (bN[i]) bettA[i] = Math.max(1, Math.min(255, Math.round(bSum[i] / bN[i])))
     }
   }
 
@@ -430,22 +464,26 @@ function bakeLevel(L) {
       if (region && (tx * TILE > region.c1 || (tx + 1) * TILE <= region.c0 ||
         ty * TILE > region.r1 || (ty + 1) * TILE <= region.r0)) { skipped++; continue }
       const t = new Uint8Array(TILE * TILE), sc = new Uint8Array(TILE * TILE), ev = new Uint8Array(TILE * TILE)
-      let any = false, anyElev = false
+      const bt = new Uint8Array(TILE * TILE)
+      let any = false, anyElev = false, anyBett = false
       for (let j = 0; j < TILE; j++)
         for (let i = 0; i < TILE; i++) {
           const c = tx * TILE + i, r = ty * TILE + j
           if (!inB(c, r)) continue
           const v = terr[idx(c, r)], w = sec[idx(c, r)], e = elev[idx(c, r)]
+          const b = bettA[idx(c, r)]
           if (v || w) any = true
           if (e) anyElev = true
-          t[j * TILE + i] = v; sc[j * TILE + i] = w; ev[j * TILE + i] = e
+          if (b) anyBett = true
+          t[j * TILE + i] = v; sc[j * TILE + i] = w; ev[j * TILE + i] = e; bt[j * TILE + i] = b
         }
-      if (!any && !anyElev) { skipped++; continue }
+      if (!any && !anyElev && !anyBett) { skipped++; continue }
       kept++
       tiles[tx + ',' + ty] = {
         t: Buffer.from(t).toString('base64'),
         s: Buffer.from(sc).toString('base64'),
         ...(anyElev ? { e: Buffer.from(ev).toString('base64') } : {}),
+        ...(anyBett ? { b: Buffer.from(bt).toString('base64') } : {}),
       }
     }
 

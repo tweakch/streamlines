@@ -10,24 +10,28 @@
  *      fetch/normalize-dtm.mjs und bake.mjs — mit streng geprüften
  *      Zahlenargumenten. Kein Shell-Aufruf, keine frei wählbaren Kommandos.
  *
- * Nur an 127.0.0.1 gebunden: reines Entwicklungswerkzeug, nichts davon ist
- * für ein offenes Netz gedacht.
+ * Standardmässig nur an 127.0.0.1 gebunden: reines Entwicklungswerkzeug,
+ * nichts davon ist für ein offenes Netz gedacht. --host weitet das bewusst
+ * aus — nötig, wenn das Aspire-Gateway (Container) hier hereinreichen muss.
  *
- * Aufruf:  node pipeline/serve.mjs [--port=8181]
+ * Aufruf:  node pipeline/serve.mjs [--port=8181] [--host=127.0.0.1]
  *          → http://127.0.0.1:8181/prototype/drafts/rhein-tiles-v4.html
+ *          Ohne --port gilt $PORT (setzt das Harness), sonst 8181.
  */
 import { spawn } from 'node:child_process'
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { dirname, extname, join, normalize, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { overlayApi } from './lib/api-overlays.mjs'
 
 const PIPELINE = dirname(fileURLToPath(import.meta.url))
 const REPO = join(PIPELINE, '..')
 const argv = Object.fromEntries(
   process.argv.slice(2).map((a) => a.match(/^--([a-zA-Z]+)=(.*)$/)).filter(Boolean).map((m) => [m[1], m[2]]),
 )
-const PORT = Number(argv.port) || 8181
+const PORT = Number(argv.port) || Number(process.env.PORT) || 8181
+const HOST = argv.host || '127.0.0.1'
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -39,13 +43,17 @@ const MIME = {
 const STUFEN = [
   { id: 'dtm', label: 'Höhendaten zuschneiden', script: join(PIPELINE, 'fetch', 'normalize-dtm.mjs'), regionArgs: true },
   { id: 'bake', label: 'Tileset backen', script: join(PIPELINE, 'bake.mjs'), regionArgs: false },
+  { id: 'overlays', label: 'Overlays backen', script: join(PIPELINE, 'bake-overlays.mjs'), regionArgs: false },
 ]
+
+/* Die Abfrageschicht über dem Kartenspeicher (out/karte.sqlite). */
+const overlays = overlayApi(join(PIPELINE, 'out', 'karte.sqlite'))
 
 let laeuft = false // ein Lauf zur Zeit — beide Stufen schreiben dieselben Dateien
 
 /* Region der aktuellen Höhenquelle (für die Anzeige „aktuell" im Viewer). */
 function aktuelleRegion() {
-  const f = join(PIPELINE, 'sources', 'sonny-dtm-ch50.grid.json')
+  const f = join(PIPELINE, 'sources', 'sonny-dtm-50.grid.json')
   if (!existsSync(f)) return null
   try {
     const m = JSON.parse(readFileSync(f, 'utf8')).meta
@@ -131,6 +139,11 @@ function statisch(pfad, res) {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://127.0.0.1')
 
+  /* Kartenspeicher-API: /api/karte, /api/kachel/…, /api/zelle, /api/abfrage.
+     Der Store wird beim ersten Zugriff geöffnet und bleibt offen — nach einem
+     Overlay-Bake muss der Server darum neu gestartet werden. */
+  if (req.method === 'GET' && overlays(url, req, res)) return
+
   if (url.pathname === '/api/region') {
     res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' })
     res.end(JSON.stringify({ region: aktuelleRegion() }))
@@ -178,9 +191,9 @@ const server = createServer(async (req, res) => {
   statisch(url.pathname === '/' ? '/prototype/drafts/rhein-tiles-v4.html' : url.pathname, res)
 })
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`Pipeline-Server läuft auf http://127.0.0.1:${PORT}`)
-  console.log(`Viewer:  http://127.0.0.1:${PORT}/prototype/drafts/rhein-tiles-v4.html`)
+server.listen(PORT, HOST, () => {
+  console.log(`Pipeline-Server läuft auf http://${HOST}:${PORT}`)
+  console.log(`Viewer:  http://${HOST}:${PORT}/prototype/drafts/rhein-tiles-v4.html`)
   const r = aktuelleRegion()
   if (r) console.log(`aktuelle Höhenregion: ${r.lonW.toFixed(2)}–${r.lonE.toFixed(2)}°O, ${r.latS.toFixed(2)}–${r.latN.toFixed(2)}°N (${r.cols}×${r.rows})`)
 })

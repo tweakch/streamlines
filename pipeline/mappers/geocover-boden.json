@@ -1,0 +1,37 @@
+{
+  "id": "geocover-boden",
+  "titel": "GeoCover Lockergestein → Spielklasse Boden",
+  "ziel": "overlay:boden",
+  "notiz": "Zusammensetzung des Lockergesteins. Diese Tabelle entscheidet mittelbar über `erhaltung` — was der Boden von einem vergrabenen Depot drei Epochen später noch hergibt. Torf ist deshalb eine eigene Klasse und nicht mit „lehmig\" zusammengelegt.",
+  "quelle": {
+    "katalog": "GeologyModelLookUp_V2_1",
+    "klasse": "Unconsolidated_Deposits_PLG_Composit",
+    "stand": "2020-12-08",
+    "url": "https://models.geo.admin.ch/Swisstopo/GeologyModelLookUp_V2_1.xml",
+    "lizenz": "swisstopo, freie Geodaten — Namensnennung",
+    "geometrie": "swissGEOCOVER2D (GeoPackage/INTERLIS, MN95) — noch nicht geladen"
+  },
+  "klassen": {
+    "torf": { "wert": 1, "name": "torfig", "erhaltung": "organisch", "gibt": ["torf"], "farbe": "#4a4230" },
+    "ton": { "wert": 2, "name": "tonig", "erhaltung": "gut", "gibt": ["ton"], "farbe": "#6f7360" },
+    "lehm": { "wert": 3, "name": "lehmig bis siltig", "erhaltung": "mittel", "gibt": ["lehm"], "farbe": "#8b7d63" },
+    "sand": { "wert": 4, "name": "sandig", "erhaltung": "gering", "gibt": ["sand"], "farbe": "#c2ae86" },
+    "kies": { "wert": 5, "name": "kiesig bis geröllreich", "erhaltung": "keine", "gibt": ["kies"], "farbe": "#a8a294" }
+  },
+  "eintraege": [
+    {
+      "code": "Runc308007",
+      "quelltext": "torfig",
+      "klasse": "torf",
+      "treue": "klassiert",
+      "notiz": "Der wertvollste Eintrag für die Kernmechanik: Feuchtboden erhält Organisches. Was hier vergraben wird, ist drei Epochen später noch da."
+    },
+    { "code": "Runc308001", "quelltext": "tonig", "klasse": "ton", "treue": "klassiert" },
+    { "code": "Runc308002", "quelltext": "lehmig", "klasse": "lehm", "treue": "klassiert" },
+    { "code": "Runc308003", "quelltext": "siltig", "klasse": "lehm", "treue": "klassiert", "notiz": "mit lehmig zusammengelegt — die Unterscheidung trägt im Spiel nichts" },
+    { "code": "Runc308004", "quelltext": "sandig", "klasse": "sand", "treue": "klassiert" },
+    { "code": "Runc308005", "quelltext": "kiesig", "klasse": "kies", "treue": "klassiert" },
+    { "code": "Runc308006", "quelltext": "geröllreich", "klasse": "kies", "treue": "klassiert" }
+  ],
+  "verworfen": []
+}

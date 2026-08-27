@@ -1,0 +1,45 @@
+{
+  "id": "geocover-fels",
+  "titel": "GeoCover Festgestein → Spielklasse Fels",
+  "ziel": "overlay:fels",
+  "notiz": "Hauptkomponente des Festgesteins. Die Spielklassen sind nach dem gewählt, was der Fels dem Menschen gibt — nicht nach Petrographie. Deshalb liegen Kalk und Dolomit zusammen (Karst, Höhlen) und Kieselgesteine eigenständig (Silex, das wichtigste Werkzeugmaterial vor dem Metall).",
+  "quelle": {
+    "katalog": "GeologyModelLookUp_V2_1",
+    "klasse": "Bedrock_PLG_Sedimentary_Rocks_Main_Com",
+    "stand": "2020-12-08",
+    "url": "https://models.geo.admin.ch/Swisstopo/GeologyModelLookUp_V2_1.xml",
+    "lizenz": "swisstopo, freie Geodaten — Namensnennung",
+    "geometrie": "swissGEOCOVER2D (GeoPackage/INTERLIS, MN95) — noch nicht geladen"
+  },
+  "klassen": {
+    "kiesel": { "wert": 1, "name": "Kieselgestein", "gibt": ["silex"], "farbe": "#8a7f6d" },
+    "kalk": { "wert": 2, "name": "Kalk und Dolomit", "gibt": ["hoehle", "kalk"], "farbe": "#b9b3a4" },
+    "ton": { "wert": 3, "name": "Ton- und Mergelstein", "gibt": ["ton"], "farbe": "#7c8577" },
+    "kristallin": { "wert": 4, "name": "Kristallin", "gibt": ["beilstein"], "farbe": "#6d6a78" },
+    "undiff": { "wert": 5, "name": "Sedimentgestein, undifferenziert", "gibt": [], "farbe": "#9a9384" }
+  },
+  "eintraege": [
+    {
+      "code": "Rbed311002",
+      "quelltext": "kieselige Gesteine (Quarzit, Quarz, Radiolarit, Kieselkalk, Quarzsandstein, Hornstein)",
+      "klasse": "kiesel",
+      "treue": "klassiert",
+      "notiz": "Der wichtigste Eintrag der ganzen Tabelle: Radiolarit und Kieselkalk sind die Silexquellen des Alpenrheintals. Die Unterscheidung der sechs Gesteine geht dabei verloren — bewusst."
+    },
+    { "code": "Rbed311005", "quelltext": "Kalkstein", "klasse": "kalk", "treue": "klassiert" },
+    { "code": "Rbed311006", "quelltext": "Dolomitstein", "klasse": "kalk", "treue": "klassiert", "notiz": "mit Kalk zusammengelegt — für das Spiel derselbe Karst" },
+    { "code": "Rbed311004", "quelltext": "Tonstein", "klasse": "ton", "treue": "klassiert" },
+    { "code": "Rbed311010", "quelltext": "Mergelstein", "klasse": "ton", "treue": "klassiert" },
+    { "code": "Rbed311007", "quelltext": "Kristallingestein undifferenziert", "klasse": "kristallin", "treue": "klassiert" },
+    { "code": "Rbed311008", "quelltext": "Vulkanit", "klasse": "kristallin", "treue": "klassiert" },
+    { "code": "Rbed311009", "quelltext": "Metamorphit", "klasse": "kristallin", "treue": "klassiert", "notiz": "Serpentinit und Amphibolit stecken hier drin — das Rohmaterial neolithischer Beilklingen. Sobald die Geometrie da ist, lohnt eine feinere Aufteilung." },
+    { "code": "Rbed311003", "quelltext": "Sedimentgestein undifferenziert", "klasse": "undiff", "treue": "klassiert" }
+  ],
+  "verworfen": [
+    {
+      "code": "Rbed311001",
+      "quelltext": "Gesteinsbruchstücke undifferenziert",
+      "grund": "keine Aussage über den anstehenden Fels — beschreibt Schutt, nicht Untergrund"
+    }
+  ]
+}

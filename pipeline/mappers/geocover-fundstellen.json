@@ -1,0 +1,47 @@
+{
+  "id": "geocover-fundstellen",
+  "titel": "GeoCover Archäologie → Fundstellenart",
+  "ziel": "overlay:fundstelle",
+  "notiz": "Achtung, ungeprüfte Annahme: das INTERLIS-Modell DEFINIERT diese Klassen, es beweist nicht, dass der GeoCover-Datenbestand sie in unserer Region füllt. GeoCover ist ein Geologie-, kein Archäologiedatensatz. Diese Tabelle steht bereit, bevor die Geometrie geprüft ist — wenn nichts kommt, meldet das Protokoll eine Eingabe von 0, und das ist die richtige Antwort.",
+  "quelle": {
+    "katalog": "GeologyModelLookUp_V2_1",
+    "klasse": "Archaeology_PT_Kind",
+    "stand": "2020-12-08",
+    "url": "https://models.geo.admin.ch/Swisstopo/GeologyModelLookUp_V2_1.xml",
+    "lizenz": "swisstopo, freie Geodaten — Namensnennung",
+    "geometrie": "swissGEOCOVER2D — Vorkommen in der Region NICHT geprüft"
+  },
+  "klassen": {
+    "siedlung": { "wert": 1, "name": "Siedlungsreste", "belegstatus": "belegt", "farbe": "#c07a4a" },
+    "hoehle": { "wert": 2, "name": "Höhlensiedlung", "belegstatus": "belegt", "plaettchen": "hoehle", "farbe": "#6b5a4a" },
+    "pfahl": { "wert": 3, "name": "Pfahlbau, Seerandsiedlung", "belegstatus": "belegt", "plaettchen": "pfahl", "farbe": "#7a9ab0" },
+    "grab": { "wert": 4, "name": "Gräber", "belegstatus": "belegt", "farbe": "#8a7f9b" },
+    "kult": { "wert": 5, "name": "Kultstein", "belegstatus": "belegt", "farbe": "#a89060" }
+  },
+  "eintraege": [
+    { "code": "Aarc101001", "quelltext": "archäologische Fundstelle, Anlage, Siedlungsreste", "klasse": "siedlung", "treue": "klassiert" },
+    {
+      "code": "Aarc101002",
+      "quelltext": "Höhlensiedlung",
+      "klasse": "hoehle",
+      "treue": "1:1",
+      "notiz": "Deckt sich eins zu eins mit TileKind `hoehle` — ein Plättchen des Spiels steht als Klasse im Bundeskatalog."
+    },
+    {
+      "code": "Aarc101003",
+      "quelltext": "Pfahlbauten, Seerandsiedlung",
+      "klasse": "pfahl",
+      "treue": "1:1",
+      "notiz": "Deckt sich eins zu eins mit TileKind `pfahl`. Bodensee- und Zürichseeufer sind UNESCO-Welterbe-Pfahlbaugebiet — hier trifft das Spiel die Wirklichkeit."
+    },
+    { "code": "Aarc101005", "quelltext": "Gräber, Gräberfeld", "klasse": "grab", "treue": "klassiert" },
+    { "code": "Aarc101006", "quelltext": "Flachgrab, Nekropole", "klasse": "grab", "treue": "klassiert" },
+    { "code": "Aarc101007", "quelltext": "Grabhügel, Dolmengrab", "klasse": "grab", "treue": "klassiert" },
+    { "code": "Aarc101008", "quelltext": "Kultstein", "klasse": "kult", "treue": "1:1" }
+  ],
+  "verworfen": [
+    { "code": "Aarc101004", "quelltext": "Burgstelle, Burghügel", "grund": "Mittelalter — ausserhalb der Epochen I–III, kommt mit Modul 4 zurück" },
+    { "code": "Aarc101009", "quelltext": "Kalkofen", "grund": "historisch, nicht prähistorisch — gehört zu Exploitation, nicht zu Fundstellen" },
+    { "code": "Aarc101010", "quelltext": "Felsenkeller", "grund": "neuzeitlich" }
+  ]
+}
