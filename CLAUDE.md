@@ -23,6 +23,18 @@ ported "statically" into the app.
   `../kit/sot.css` + `../kit/sot.js` (plus `sot-hex.*` / `sot-doc.*` as needed);
   own CSS comes last and wins. A primitive moves into the kit only after it
   looked the same in two or more prototypes — the kit follows the prototypes.
+- `prototype/lib/` — staging area *before* the kit: pure logic (no DOM) that got
+  typed more than once, pinned with a `node:test` unit test. One folder per slug
+  with `<slug>.js` + `<slug>.test.js` + `<slug>.md`. Run the tests with
+  `node --test "C:/dev/tweakch/shadows-of-truth/prototype/lib/**/*.test.js"`
+  (quote the glob; a directory argument does not work). `/lib-extract` (project
+  skill in `.claude/skills/lib-extract/`) finds the candidates, writes the test
+  first, then extracts — **it does not remove the duplication.** That takes two
+  further steps: promote `lib/` → `kit/` by hand, then rewire the call sites per
+  `kit/UMBAU.md`. Drafts never link `lib/` (`inline.mjs` would not embed it, so
+  archiving would break); they adopt from the kit. The stage of each entry
+  (`herausgezogen` / `befördert` / `umgebaut (n/m)` / `erledigt`) is tracked in
+  `prototype/lib/README.md`.
 - `prototype/drafts/` — active experiments, editable.
 - `prototype/ab/` — A/B comparisons (variants + `NOTES.md` with the decision).
 - `prototype/archive/` — immutable history: superseded, rejected, or ported files.
@@ -119,6 +131,13 @@ npm run lint
   keep all three identical.
 - All player-facing text is German; use the historical terms from the prototypes
   (Plättchen, Furt, Fundstelle, Anker-Ereignis, Sesshaftigkeit …).
+- **Terminology — one thing, one word** (canonical glossary: Handbuch `?karte=glossar`):
+  **Plättchen/tile** = hex piece from the hand, placed and stays (1:1.155) ·
+  **Feld/cell** = fixed hex position of the world · **Karte/card** = rectangular
+  5:7, immediate effect (Effektkarte, Vorrat-Karte, Nachtkarte) · **Brett/board** =
+  the playable grid · **Weltkarte/world map** = the valley overview. "hex" is a
+  shape, never an object; "plate" and "Kachel" never mean a game piece; bare
+  "Karte" never means the map.
 - Game data (tiles, events, Fundstellen) is data-driven — extend the data tables,
   don't special-case logic.
 - Historical events/finds are "historisch inspiriert und vereinfacht" — keep that
@@ -130,3 +149,14 @@ npm run lint
 - Never hardcode a colour in a prototype — use the tokens from `kit/sot.css`, or
   day/night/werkbank breaks. Text **on** an accent surface uses `--on-ember` /
   `--on-river`, not `#fff`: the werkbank accent is light.
+- **Icons are SVG. Always.** No character ever stands for a game thing — not
+  `✦`/`➤` for the two people, not `▲ ● ◇` for the Vorkommen, and never an
+  emoji. Use `SOT.icon(name)` / `SOT.iconEl(name, class)` from
+  `kit/sot-icons.js` (`SOT.iconSVG(name, x, y, size)` inside an SVG map); in CSS
+  use the SVG as a `mask` with `background-color`, never `content:'◆'`. A glyph
+  inherits the font's metrics and baseline, falls back per device (`▨`/`⋔` are
+  missing on iOS entirely), ignores `stroke`, and cannot be redrawn together
+  with the rest. House style and the reasoning are in `prototype/kit/README.md`
+  (*Der Zeichensatz*); `node prototype/kit/icons-audit.mjs` finds violations and
+  names the replacement. Adding a drawing means: house style, entry in
+  `SOT.iconGruppen`, and a check at 16 px in `kit-demo.html`.
