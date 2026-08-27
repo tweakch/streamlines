@@ -27,6 +27,78 @@ SOT.doc = (function () {
 
   var mode = 'dev', filter = 'all', key = 'sot-doc-mode';
 
+  /* ------------------------------------------------------------ Abbildungen ---
+     Eine Abbildung im Dokument ist KEIN Schnappschuss, sondern das Ding selbst,
+     aus dem Baukasten gerendert — eine Spielkarte im Handbuch ist dieselbe
+     SOT.karte(), die im Spiel auf dem Tisch liegt, und kann darum nicht
+     veralten. Das Dokument liefert nur den Namen:
+
+       <div class="figur" data-figur="karte-zonen">…Bildunterschrift…</div>
+
+     Die Zeichnungen selbst stehen in sot-figuren.js und melden sich hier an:
+
+       SOT.doc.figur('karte-zonen', function (buehne) { buehne.appendChild(…); });
+
+     Fehlt eine Figur, sagt die Karte das sichtbar (.fehlt), statt still ein
+     leeres Kästchen zu zeigen — ein vergessener Name soll auffallen.
+     -------------------------------------------------------------------------- */
+  var FIGUREN = {};
+  function figur(name, fn) { FIGUREN[name] = fn; return api; }
+
+  function figuren(root) {
+    (root || document).querySelectorAll('.figur[data-figur]').forEach(function (fig) {
+      if (fig.dataset.gebaut) return;
+      var name = fig.dataset.figur;
+      /* Die Bildunterschrift steht als Inhalt im Dokument; die Bühne kommt
+         davor, damit die Reihenfolge Bild → Unterschrift stimmt. */
+      var cap = fig.firstElementChild && fig.firstElementChild.matches('.fcap')
+        ? fig.firstElementChild : null;
+      var buehne = el('div.fbuehne');
+      fig.insertBefore(buehne, fig.firstChild);
+      fig.dataset.gebaut = '1';
+      if (!FIGUREN[name]) {
+        fig.classList.add('fehlt');
+        buehne.textContent = 'Abbildung „' + name + '" nicht angemeldet';
+        return;
+      }
+      try {
+        FIGUREN[name](buehne, fig);
+      } catch (e) {
+        fig.classList.add('fehlt');
+        buehne.textContent = 'Abbildung „' + name + '" fehlgeschlagen: ' + e.message;
+      }
+      if (cap) fig.appendChild(cap);
+    });
+  }
+
+  /* Zeichen im Fliesstext: <span class="ic" data-ic="furt">Furten</span>.
+     Das Dokument trägt nur den Namen, das SVG kommt aus sot-icons.js — ein
+     Schriftzeichen käme hier nie in Frage (fremde Metrik, fehlt auf iOS). */
+  function inlineIcons(root) {
+    if (!SOT.icon) return;
+    (root || document).querySelectorAll('.ic[data-ic]').forEach(function (s) {
+      if (s.dataset.gebaut) return;
+      s.dataset.gebaut = '1';
+      s.insertAdjacentHTML('afterbegin', SOT.icon(s.dataset.ic));
+    });
+  }
+
+  /* Die Herleitung (.mehr) bekommt ihren Knopf — nur in Publish sichtbar,
+     in der Entwicklung steht ohnehin alles offen (sot-doc.css). */
+  function mehr(root) {
+    (root || document).querySelectorAll('.mehr').forEach(function (box) {
+      if (box.dataset.gebaut) return;
+      box.dataset.gebaut = '1';
+      var btn = el('button.mehrbtn', { type: 'button', text: 'Wie es dazu kam' });
+      btn.addEventListener('click', function () {
+        var auf = box.classList.toggle('auf');
+        btn.classList.toggle('auf', auf);
+        btn.textContent = auf ? 'Weniger' : 'Wie es dazu kam';
+      });
+      box.parentNode.insertBefore(btn, box.nextSibling);
+    });
+  }
+
   function init(opts) {
     opts = opts || {};
     if (opts.key) key = opts.key;
@@ -43,6 +115,11 @@ SOT.doc = (function () {
       if (!head.querySelector('.chev')) head.appendChild(el('span.chev', { text: '▶' }));
       head.addEventListener('click', function () { card.classList.toggle('openc'); });
     });
+
+    // Zeichen einsetzen, Abbildungen bauen, Herleitungen zuklappbar machen.
+    inlineIcons();
+    figuren();
+    mehr();
 
     // Filterleiste bauen, falls das Dokument nur den leeren Behälter mitbringt.
     var bar = $('.filters');
@@ -61,12 +138,21 @@ SOT.doc = (function () {
     // Ansichtswechsel und Tag/Nacht.
     var vb = $('.viewbtn');
     if (vb) vb.addEventListener('click', function () { setMode(mode === 'publish' ? 'dev' : 'publish', true); });
+    /* Tag/Nacht-Knopf: Icon aus sot-icons.js plus das Wort. Ohne die Datei
+       bleibt das Wort allein stehen — kein Ersatz-Schriftzeichen. */
+    function modeLabel(isNight) {
+      var w = isNight ? 'TAG' : 'NACHT';
+      return SOT.icon ? '<span class="ibtn">' + SOT.icon(isNight ? 'sonne' : 'mond') + '</span> ' + w : w;
+    }
     var mb = $('.modebtn');
     if (mb) mb.addEventListener('click', function () {
-      mb.textContent = SOT.night(undefined, true) ? '☀ TAG' : '☾ NACHT';
+      mb.innerHTML = modeLabel(SOT.night(undefined, true));
     });
     SOT.nightRestore();
-    if (mb) mb.textContent = document.body.classList.contains('night') ? '☀ TAG' : '☾ NACHT';
+    // ?night macht die Nacht per Link erreichbar (Werkstatt-Regel: jeder
+    // Zustand ohne Klick) — die alten Handbücher hatten nur den Knopf.
+    if (new URLSearchParams(location.search).has('night')) SOT.night(true);
+    if (mb) mb.innerHTML = modeLabel(document.body.classList.contains('night'));
 
     // ?mode gewinnt (teilbare Links), sonst die gemerkte Wahl, sonst Entwicklung.
     var q = new URLSearchParams(location.search).get('mode');
@@ -155,6 +241,7 @@ SOT.doc = (function () {
   }
 
   var api = { init: init, render: render, setMode: setMode, stats: stats,
+              figur: figur, figuren: figuren, mehr: mehr, inlineIcons: inlineIcons,
               STATES: STATES, LABEL: LABEL, PUBLISH: PUBLISH };
   return api;
 })();

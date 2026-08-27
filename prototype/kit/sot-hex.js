@@ -187,7 +187,8 @@ SOT.hex = (function () {
   }
   function cellAt(map, c, r) { return $(map).querySelector('.cell[data-c="' + c + '"][data-r="' + r + '"]'); }
 
-  /* Marke in einen Slot hängen: mark(cell,'krone', el('div.pers',{text:'✦'})) */
+  /* Marke in einen Slot hängen. Icons sind SVG, darum SOT.iconEl und kein
+     Schriftzeichen:  mark(cell, 'krone', SOT.iconEl('sammlerin', 'pers'))  */
   function mark(cell, slot, node) {
     var s = cell.querySelector('.slot.' + slot);
     if (!s) { s = el('div.slot.' + slot); cell.appendChild(s); }

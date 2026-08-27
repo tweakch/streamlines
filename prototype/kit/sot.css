@@ -36,6 +36,9 @@
      --on-ember / --on-river ist die Schrift AUF diesen Flächen. Ohne sie
      bricht jedes Register mit hellem Akzent (siehe body.werkbank). */
   --ember:#C96F2E; --emberglow:rgba(224,138,60,.18); --on-ember:#fff;
+  /* Der weissglühende Kern eines Lichts (Glut-Orb). Er ist in JEDEM Register
+     hell — darum eigenes Token und nicht --bone/--on-ember, die nachts kippen. */
+  --glutkern:#FFF3DE;
 
   /* Wertung */
   --good:#4E7D5B; --bad:#9C4A33; --warn:#B08A2E;
@@ -50,10 +53,14 @@
   --st-done:#4E7D5B; --st-concept:#3E6E8C; --st-idea:#B08A2E;
   --st-rej:#9C4A33; --st-open:#7A6A9C;
 
-  /* Schriftrollen */
-  --f-display:"Bricolage Grotesque",system-ui,sans-serif;
+  /* Schriftrollen — exakt die Ketten aus dem Bestand (45× Bricolage Grotesque
+     ohne system-ui, 202× Space Mono ohne ui-monospace, gemessen über alle
+     Drafts). Ein zusätzlicher Fallback klingt harmlos, ändert aber messbar
+     das Antialiasing, solange @import noch lädt (Handbuch-Umbau, 21. Aug
+     2026: 12 % Bildabweichung, obwohl die Geometrie exakt gleich war). */
+  --f-display:"Bricolage Grotesque",sans-serif;
   --f-body:"Instrument Sans",system-ui,sans-serif;
-  --f-mono:"Space Mono",ui-monospace,monospace;
+  --f-mono:"Space Mono",monospace;
 
   /* Radien */
   --r-sm:6px; --r-md:8px; --r-lg:12px; --r-pill:99px;
@@ -64,6 +71,7 @@ body.night{
   --ink:#E6E1D2; --ink2:#8B9690; --line:#2C3B44; --bone:#1B2731;
   --shadow:0 2px 14px rgba(0,0,0,.5);
   --ember:#E08A3C; --emberglow:rgba(224,138,60,.30); --on-ember:#1A1206;
+  --glutkern:#FFE2AE;
   --good:#7FB08B; --bad:#D07B5E; --warn:#D4B15E;
   --river:#2E5457; --riverdeep:#24444a; --lake:#2F5A5C; --on-river:#E6E1D2;
   --flach:#1E2C34; --ufer:#22333A; --hang:#182530; --wald:#2C4436;
@@ -80,32 +88,86 @@ body.werkbank{
   --ink:#DCE8EE; --ink2:#7F97A1; --line:#1D3138; --bone:#16232A;
   --shadow:0 2px 12px rgba(0,0,0,.55);
   --ember:#8FD6C8; --emberglow:rgba(143,214,200,.22); --on-ember:#08201C;
+  --glutkern:#E7FFF9;
   --good:#8FC98A; --bad:#D97B6C; --warn:#E8A96F; --on-river:#08201C;
   --f-display:var(--f-body);
 }
 
+/* ------------------------------------------------------------ Tageszeiten ---
+   DREI Tageslichter + die Nacht als eigenes Thema (Art-Direction-Handbuch,
+   Kap. 03). Die Tageslichter spannen den Farbkreis, damit sie nebeneinander
+   unterscheidbar sind (Morgen war zuerst Ember-orange — zu nah am Gold):
+     Morgen  „Morgenrot"      — Rosé, der Himmel vor der Sonne
+     Mittag  „Hohes Licht"    — Sonnengold, das klare Arbeitslicht
+     Abend   „Stilles Wasser" — kuehles Teal, der Fluss nimmt das Licht
+     Nacht   „Mondlicht"      — blaugraues Violett; die Nacht wechselt
+                                  ohnehin das ganze Register (body.night)
+   ZWEI Ebenen: die festen Toene (--z-*) traegt eine KARTE ihrer Tageszeit
+   fuer immer (Oberkante, Art-Zeile); den LAUFENDEN Ton (--zeit) setzt
+   SOT.zeit('...') via body[data-zeit] — Phasenknopf und Rundenmarke folgen
+   ihm automatisch. Ohne data-zeit aendert sich nirgends etwas. */
+body{
+  --z-morgen:#C34F63; --on-z-morgen:#fff;
+  --z-mittag:#C08A10; --on-z-mittag:#fff;
+  --z-abend:#22897C;  --on-z-abend:#fff;
+  --z-nacht:#5D6FB4;  --on-z-nacht:#fff;
+  --zeit:var(--ember); --on-zeit:var(--on-ember); --zeitglow:var(--emberglow);
+}
+body.night{
+  --z-morgen:#F07E90; --on-z-morgen:#2A0D13;
+  --z-mittag:#EDBE3F; --on-z-mittag:#261C04;
+  --z-abend:#4FC7B4;  --on-z-abend:#08211D;
+  --z-nacht:#96A8E8;  --on-z-nacht:#0E1326;
+}
+body[data-zeit="morgen"]{--zeit:var(--z-morgen);--on-zeit:var(--on-z-morgen);--zeitglow:color-mix(in srgb,var(--z-morgen) 26%,transparent);}
+body[data-zeit="mittag"]{--zeit:var(--z-mittag);--on-zeit:var(--on-z-mittag);--zeitglow:color-mix(in srgb,var(--z-mittag) 26%,transparent);}
+body[data-zeit="abend"]{--zeit:var(--z-abend);--on-zeit:var(--on-z-abend);--zeitglow:color-mix(in srgb,var(--z-abend) 26%,transparent);}
+body[data-zeit="nacht"]{--zeit:var(--z-nacht);--on-zeit:var(--on-z-nacht);--zeitglow:color-mix(in srgb,var(--z-nacht) 26%,transparent);}
+
+/* Feste Karten-Akzente: eine Morgen-Karte bleibt morgenfarben, egal wie
+   spaet es ist. Der Behaelter setzt nur das Token; WIE es getragen wird
+   (Oberkante, Schrift der Art-Zeile), entscheidet die Komponente. */
+.z-morgen{--zeit-akzent:var(--z-morgen);}
+.z-mittag{--zeit-akzent:var(--z-mittag);}
+.z-abend{--zeit-akzent:var(--z-abend);}
+.z-nacht{--zeit-akzent:var(--z-nacht);}
+.zeitrand{border-top:3px solid var(--zeit-akzent,var(--line));}
+
 /* ----------------------------------------------------------------- Reset ---*/
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;}
+/* KEIN line-height auf body. Gemessen am Bestand: von 21 Drafts setzen es
+   genau die vier Wissensdokumente (auf 1.6, das steht in sot-doc.css); die
+   17 Spiel- und Laborprototypen laufen auf `normal` und bemessen die Zeile
+   dort, wo Text steht. Ein Wert hier würde jeden von ihnen beim Umbau
+   umbrechen — 17 Dateien Bildunterschied für eine Bequemlichkeit. */
 body{
   background:var(--bg);color:var(--ink);
-  font-family:var(--f-body);line-height:1.55;
+  font-family:var(--f-body);
   transition:background 1.2s ease,color 1.2s ease;
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
 
 /* ------------------------------------------------------------ Typografie ---*/
-h1,h2,h3{font-family:var(--f-display);font-weight:800;line-height:1.15;margin:0;}
+/* Nur font-family, font-weight, margin sind über ≥2 Selektoren im Bestand
+   belegt (.hero h1 UND h2.chap wollen beide 800) — line-height NICHT: kein
+   Draft im Bestand setzt je eine gemeinsame Zeilenhöhe für Überschriften,
+   und ein Wert hier blockiert die Vererbung von body{line-height} (siehe
+   sot-doc.css .wrap-Kommentar zur selben Falle). Auch KEINE eigenen
+   h2{}/h3{}-Grössen: die gab es im Bestand nie, und h2{font-weight:700}
+   kollidierte mit dieser Regel bei gleicher Spezifität nur nach Quellreihen-
+   folge — ein Diagnosefund aus dem Handbuch-Umbau (21. Aug 2026), der JEDES
+   h2 im Baukasten auf 700 statt 800 zog. h1s Grösse bleibt als Vorgabe für
+   einen unklassierten Titel; jede reale Verwendung (.hero h1, h2.chap, …)
+   überschreibt Grösse ohnehin selbst. */
+h1,h2,h3{font-family:var(--f-display);font-weight:800;margin:0;}
 h1{font-size:clamp(26px,6vw,38px);}
-h2{font-size:19px;font-weight:700;}
-h3{font-size:15px;font-weight:700;}
 /* h4 ist im Baukasten kein Titel, sondern das Etikett über einer Fläche. */
 h4,.plabel{
   font-family:var(--f-mono);font-size:9.5px;font-weight:400;letter-spacing:.16em;
   text-transform:uppercase;color:var(--ink2);margin:0 0 8px;
 }
 h4.sp,.plabel.sp{margin-top:14px;}
-p{margin:0 0 10px;}
 .mono{font-family:var(--f-mono);}
 .dim{color:var(--ink2);}
 .small{font-size:11.5px;}
@@ -268,7 +330,168 @@ input[type=checkbox],input[type=radio]{accent-color:var(--ember);}
 .prog .fill{height:100%;width:0%;background:linear-gradient(90deg,var(--riverdeep),var(--river));
             transition:width .8s ease;}
 
-/* Zeitleiste: ein Feld je Runde, ◆ markiert den Anker. */
+/* ------------------------------------------------------------- Spielkarte ---
+   Effekt-, Hand- und Zugkarten: alles, was ausgespielt wird. Destilliert aus
+   erkundung-v6 (.effkarte/.hkarte) und tageszeit-akzente-v1 (.karte); die
+   Gestaltungsregeln stehen in notes/gedanken-zum-kartendesign.md — eine
+   Karte muss in zwei Sekunden drei Fragen beantworten: Wie heisst sie?
+   Wen trifft sie? Was aendert sie mechanisch?
+
+   KOPFBAND + FUENF ZONEN, Reihenfolge fest. Schrift, Farbe und Abstand darf
+   ein Prototyp aendern — die Reihenfolge nie:
+        .kband  Kopfband in der Akzentfarbe der Oberkante: Tageszeit · Art ·
+                Dauer, jedes als Zeichen + Etikett (.lbl). Wird die Karte
+                schmal, fallen die Etiketten weg und die Zeichen bleiben.
+     1  .knm    Name — der groesste Text der Karte, fest zwei Zeilen hoch
+     2  .kwers  Wer betroffen ist: die Personen-Marken (.kwer). Der Platz
+                steht auch leer an seiner Stelle — Marken sitzen immer am
+                selben Ort.
+     3  .kwert  Die mechanische Pointe: Zeichen + Zahl/Stichwort. Das
+                zweitstaerkste Element — nach dem Namen, vor allem anderen.
+     4  .kfx    Regeltext, 1–3 kurze Zeilen, gleiche Satzmuster ueber den
+                ganzen Satz. .ksperre sagt, warum gerade nicht spielbar.
+     5  .kkost  Preis (mono, unten angepinnt) · .kflav Stimmungszeile —
+                die kleinste Schrift, konkurriert nie mit der Mechanik.
+
+   DIE ART IST EIN WORTSCHATZ, kein Freitext: spielen (der Anstoss) ·
+   herstellen (das Zahnrad) · rundenbedingung (der Rundlauf) — je ein
+   Zeichen aus sot-icons.js (Gruppe Kartenkopf). Nur so kann das Etikett
+   wegfallen, ohne dass die Information faellt. Freitext bleibt erlaubt,
+   traegt dann aber kein Zeichen und kann nicht einklappen.
+
+   DAS MASS. Alle inneren Laengen haengen an EINEM Faktor: --km, das
+   „Kartenpixel" (1px in Mittel) — eine Zahl im calc() ist darum wirklich
+   ein Pixelmass der mittleren Groesse. Drei Groessen, das Layout bleibt
+   in allen drei identisch:
+     .klein    --km:0.8px    Handreihe, Telefon     Standardbreite 128
+     (Mittel)  --km:1px      Standard               Standardbreite 160
+     .gross    --km:1.25px   Inspektor, Detail      Standardbreite 200
+   Die Standardbreite (160 × --km) setzt die Karte selbst; ein Behaelter
+   darf sie ueberschreiben. .hoch haelt in jeder Groesse 5:7. Fest in
+   ECHTEN px bleibt nur der Aussenrahmen (1.5px): ein skalierter Strich
+   wird unscharf, und das gestrichelte Muster von .k-runde verwischte.
+   Zonenmasse bei Mittel:
+     Karte     Oberkante 3 · Radius 9 · Innenabstand 7/8/8 · Zonenabstand 3
+     K .kband  Schrift 7.5 Mono Versalien · Zeichen 9 · eine Zeile fest
+     1 .knm    Schrift 14 Display 800 · Zeilenhoehe 1.08 · Kopf FEST 2
+               Zeilen hoch (30.24) — „der Kopf hat immer dieselbe Hoehe"
+     2 .kwers  Marken: Zeichen 10, Marke 14 hoch
+     3 .kwert  Schrift 13 Display 800 · Zeichen 14 (Akzentfarbe)
+     4 .kfx    Schrift 9.5 · Zeilenhoehe 1.3 — .ksperre Schrift 9 (rot)
+     5 .kkost  Schrift 9 Mono, oben 5 angepinnt · .kflav Schrift 8 kursiv
+   ZONEN SIND SKELETT (Anatomie der Seite: leer heisst nicht weg): Band,
+   Marken, Wirkung, Regel, Preis und Stimmung halten ihren Platz auch leer —
+   min-Hoehen: Band 10 · Name 30.24 · Marken 14 · Wirkung 14 · Regel 12.4 ·
+   Preis 16.7 · Stimmung 10. Damit haengt die Kartenhoehe nur noch am
+   Zeilenbudget (Name max 2, Regel max 3 Zeilen), und ein Satz gemischter
+   Karten bleibt hoehengleich (Hoehencheck im Musterbogen).
+
+   DAS KOPFBAND KLAPPT MIT DER BREITE: die Karte ist ein Container
+   (container-type:inline-size, gemessen an der INHALTSbreite: Standard-
+   breite 160 = 141 Inhalt). Das Tageszeit-Wort zeigt erst ab 190 (das
+   Zeichen und die Akzentfarbe sagen es schon); unter 120 fallen alle
+   Etiketten und die Dauer —
+   die Zeichen bleiben. Sehr breit zeigt alles, Standard laesst die
+   Tageszeit als
+   Zeichen stehen, klein zeigt nur Zeichen. Das Band bricht nie um;
+   was dann noch nicht passt, meldet der Kartenpruefstand als Ueberlauf.
+
+   ZWEI ACHSEN, ohne Lesen sortierbar:
+     .z-morgen … .z-nacht   feste Tageszeit → Oberkante + Kopfband
+     .k-person              trifft bestimmte Person(en): voller Rahmen,
+                            .kwer-Marken in Zone 2
+     .k-runde               allgemeine Rundenbedingung: gestrichelter
+                            Rahmen, Kopfband entsaettigt — eine Umwelt-
+                            karte sieht nie aus wie eine Personenkarte.
+   Zustaende: :disabled · .ruht (andere Tageszeit) · .vorgemerkt · .gespielt
+   SOT.karte({...}) in sot.js baut Band und Zonen in genau dieser
+   Reihenfolge; der Musterbogen hat den Kartenpruefstand, der eine Karte in
+   allen drei Groessen rendert und die Masse prueft.
+   -------------------------------------------------------------------------- */
+.effektkarte{--km:1px;width:calc(160*var(--km));container-type:inline-size;
+  background:var(--bone);border:1.5px solid var(--line);border-radius:calc(9*var(--km));
+  border-top:calc(3*var(--km)) solid var(--zeit-akzent,var(--line));
+  padding:calc(7*var(--km)) calc(8*var(--km)) calc(8*var(--km));
+  text-align:left;font-family:var(--f-body);color:var(--ink);
+  display:flex;flex-direction:column;gap:calc(3*var(--km));min-width:0;
+  transition:border-color .15s,transform .15s,opacity .3s;}
+.effektkarte.klein{--km:0.8px;}
+.effektkarte.gross{--km:1.25px;}
+button.effektkarte{cursor:pointer;}
+button.effektkarte:hover:not(:disabled):not(.ruht){border-color:var(--zeit-akzent,var(--ember));transform:translateY(-2px);}
+/* Handkarten-Hochformat (5:7). */
+.effektkarte.hoch{aspect-ratio:5 / 7;}
+
+/* K · Kopfband — Tageszeit · Art · Dauer, in der Farbe der Oberkante.
+   Eine Zeile fest; die Etiketten (.lbl) klappen mit der Breite. */
+.effektkarte .kband{display:flex;align-items:center;gap:calc(4*var(--km));flex-wrap:nowrap;
+  overflow:hidden;line-height:1;min-height:calc(10*var(--km));
+  font-family:var(--f-mono);font-size:calc(7.5*var(--km));letter-spacing:.11em;text-transform:uppercase;
+  color:var(--zeit-akzent,var(--ember));}
+.effektkarte .kband>span{display:inline-flex;align-items:center;gap:calc(3*var(--km));flex:none;}
+.effektkarte .kband>span+span::before{content:'·';margin-right:calc(4*var(--km));}
+.effektkarte .kband svg{width:calc(9*var(--km));height:calc(9*var(--km));flex:none;}
+/* Das Tageszeit-Wort ist das entbehrlichste: Zeichen UND Akzentfarbe sagen
+   es schon. Es erscheint erst auf sehr breiten Karten. */
+.effektkarte .kband .kzeit .lbl{display:none;}
+@container (min-width:190px){.effektkarte .kband .kzeit .lbl{display:inline;}}
+@container (max-width:119px){
+  .effektkarte .kband .lbl{display:none;}
+  /* Ein Stueck ohne Zeichen (Dauer, Freitext-Art) verschwindet ganz —
+     sonst bliebe sein Trennpunkt als Waise stehen. */
+  .effektkarte .kband>span:not(:has(svg)){display:none;}
+}
+
+/* 1 · Name — der groesste Text der Karte, fest zwei Zeilen hoch. */
+.effektkarte .knm{font-family:var(--f-display);font-weight:800;font-size:calc(14*var(--km));line-height:1.08;min-height:calc(30.24*var(--km));color:var(--ink);}
+
+/* 2 · Wer — der Marken-Platz, auch leer an seiner Stelle. */
+.effektkarte .kwers{display:flex;flex-wrap:wrap;align-items:flex-start;gap:calc(3*var(--km));min-height:calc(14*var(--km));
+  font-family:var(--f-mono);font-size:calc(7.5*var(--km));letter-spacing:.06em;text-transform:uppercase;}
+.effektkarte .kwer{display:inline-flex;align-items:center;gap:calc(3*var(--km));height:calc(14*var(--km));line-height:1;
+  padding:calc(1*var(--km)) calc(6*var(--km)) calc(1*var(--km)) calc(3*var(--km));
+  border:1px solid var(--line);border-radius:var(--r-pill);background:var(--panel2);color:var(--ink);}
+.effektkarte .kwer svg{width:calc(10*var(--km));height:calc(10*var(--km));flex:none;}
+
+/* 3 · Wirkung — fett, mit Akzentzeichen; der Name bleibt groesser. */
+.effektkarte .kwert{display:flex;align-items:center;gap:calc(5*var(--km));margin:calc(1*var(--km)) 0;min-height:calc(14*var(--km));
+  font-family:var(--f-display);font-weight:800;font-size:calc(13*var(--km));line-height:1;
+  font-variant-numeric:tabular-nums;color:var(--ink);}
+.effektkarte .kwert svg{width:calc(14*var(--km));height:calc(14*var(--km));flex:none;color:var(--zeit-akzent,var(--ember));}
+
+/* 4 · Regeltext. */
+.effektkarte .kfx{font-size:calc(9.5*var(--km));color:var(--ink2);line-height:1.3;min-height:calc(12.4*var(--km));}
+.effektkarte .ksperre{font-size:calc(9*var(--km));color:var(--bad);line-height:1.25;}
+
+/* 5 · Fuss — Preis angepinnt, Stimmung zuunterst und am kleinsten. */
+.effektkarte .kkost{margin-top:auto;padding-top:calc(5*var(--km));font-family:var(--f-mono);font-size:calc(9*var(--km));line-height:1.3;min-height:calc(16.7*var(--km));color:var(--ink);}
+.effektkarte .kflav{font-size:calc(8*var(--km));font-style:italic;color:var(--ink2);opacity:.75;line-height:1.25;min-height:calc(10*var(--km));}
+
+/* Geltung: Rundenkarten am Rahmen erkennbar, nicht am Text. */
+.effektkarte.k-runde{border-style:dashed;border-top-style:solid;}
+.effektkarte.k-runde .kband{color:var(--ink2);}
+
+/* Zustaende. */
+.effektkarte:disabled{opacity:.42;cursor:default;}
+.effektkarte.ruht{opacity:.45;cursor:default;}
+.effektkarte.vorgemerkt{border-color:var(--zeit-akzent,var(--ember));
+  box-shadow:0 0 calc(9*var(--km)) color-mix(in srgb,var(--zeit-akzent,var(--ember)) 30%,transparent);}
+.effektkarte.gespielt{border-color:var(--zeit-akzent,var(--ember));background:var(--panel2);}
+.effektkarte.gespielt .kband{color:var(--good);}
+
+/* --------------------------------------------------------- Icons in CSS ---
+   Wo ein Zeichen aus CSS kommen muss (`::before`/`::after`), geht das ohne
+   Schriftzeichen: das SVG als Maske, die Farbe als `background-color`. Damit
+   nimmt es Tokens an wie jedes andere Element — `content:'◆'` konnte das nie,
+   es hing an der Schriftart und liess sich nicht umfärben.
+
+   Nur für die Handvoll Fälle, die wirklich CSS-seitig sind. Alles andere
+   kommt aus `sot-icons.js` (SOT.icon), wo es zu lesen und zu ändern ist. */
+:root{
+  --ic-beleg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpath d='M20 4 L34 20 L20 36 L6 20 Z' fill='black'/%3E%3C/svg%3E");
+}
+
+/* Zeitleiste: ein Feld je Runde, die Raute markiert den Anker. */
 .timeline{display:flex;gap:4px;margin:4px 0 12px;}
 .tl-seg{flex:1;height:22px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);
         position:relative;display:flex;align-items:center;justify-content:center;
@@ -278,8 +501,10 @@ input[type=checkbox],input[type=radio]{accent-color:var(--ember);}
 .tl-seg.done{background:var(--river);color:var(--on-river);border-color:transparent;}
 .tl-seg.now{outline:2px solid var(--ember);outline-offset:1px;color:var(--ink);font-weight:700;}
 .tl-seg.done.now{color:var(--on-river);}
-.tl-seg.anchor::after{content:'◆';position:absolute;top:-9px;left:50%;transform:translateX(-50%);
-                      font-size:8px;color:var(--ember);}
+.tl-seg.anchor::after{content:'';position:absolute;top:-9px;left:50%;transform:translateX(-50%);
+                      width:8px;height:8px;background-color:var(--ember);
+                      -webkit-mask:var(--ic-beleg) center/contain no-repeat;
+                              mask:var(--ic-beleg) center/contain no-repeat;}
 
 /* ------------------------------------------------------------ Wertezeilen ---
    .reihe — Etikett · Regler · Wert (Regie-Panels, Prüfstände)
@@ -401,14 +626,23 @@ table.t tr.hi td{background:var(--bone);}
 .ocard .choices button small{display:block;font-weight:400;color:var(--ink2);
                              font-family:var(--f-mono);font-size:9.5px;margin-top:2px;}
 
+/* Der Schatten hängt am OFFENEN Blatt, nicht am Blatt. Ein geschlossenes Blatt
+   steht knapp ausserhalb des Bildes — ein 30-px-Weichzeichner trägt seinen
+   Schatten von dort wieder herein und legt einen dunklen Streifen über die
+   Seitenkante (rechts über die volle Höhe, unten über die volle Breite). Am
+   Bildvergleich aufgefallen, als das erste Reglerbrett ein .sheet.right in
+   eine sonst unveränderte Seite setzte: 1.8 % Abweichung ohne ein einziges
+   sichtbares Bedienelement. */
 .sheet{position:fixed;left:0;right:0;bottom:0;background:var(--panel);
-       border-radius:16px 16px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.25);
-       transform:translateY(100%);transition:transform .32s cubic-bezier(.2,.9,.3,1);
+       border-radius:16px 16px 0 0;
+       transform:translateY(100%);
+       transition:transform .32s cubic-bezier(.2,.9,.3,1),box-shadow .32s;
        z-index:45;max-height:70dvh;display:flex;flex-direction:column;}
-.sheet.on{transform:translateY(0);}
+.sheet.on{transform:translateY(0);box-shadow:0 -8px 30px rgba(0,0,0,.25);}
 .sheet.right{left:auto;top:0;bottom:0;right:0;width:min(320px,86vw);max-height:none;
              border-radius:16px 0 0 16px;transform:translateX(100%);}
-.sheet.right.on{transform:translateX(0);}
+/* Von rechts fällt der Schatten nach links, nicht nach oben. */
+.sheet.right.on{transform:translateX(0);box-shadow:-8px 0 30px rgba(0,0,0,.25);}
 .sheet .handle{width:36px;height:4px;background:var(--line);border-radius:2px;
                margin:10px auto 4px;flex-shrink:0;}
 .sheet .shead{display:flex;align-items:center;justify-content:space-between;
@@ -421,6 +655,235 @@ table.t tr.hi td{background:var(--bone);}
      display:flex;align-items:center;justify-content:center;position:relative;}
 .fab .badge{position:absolute;top:-4px;right:-4px;background:var(--ember);color:var(--on-ember);
             border-radius:9px;font-size:9px;padding:1px 5px;}
+
+/* --------------------------------------------------------------- Glut-Orb ---
+   Ein Licht, das aus dem Nebel tritt, über einem Ziel zur Ruhe kommt und
+   „fass mich an" sagt. Es ist die Einladung ohne Worte: der Auftakt zeigt sie
+   auf dem ersten Feld, wo noch kein Bedienelement erklärt wäre.
+
+   Aufbau — SOT.orb() baut es, dieses CSS reicht:
+     .orbfeld            Schicht über dem Ziel, klickdurchlässig (position:absolute)
+       .orbschein        der ruhende Hof über dem Ziel
+       .orbbahn          wandert (JS setzt translate) — trägt Licht und Ball
+         i.orblicht      der goldene Scheinwerfer, der mitwandert
+         button.orb      der Ball — er allein nimmt Klicks (und Tastatur)
+           ::before      Kern
+           ::after       Hof, atmet
+           i.kranz       Tropfenkranz — sammelt sich, wenn jemand nahe kommt
+             i.tropf ×n  ein Tropfen je Platz auf dem Ring (--i trägt den Index)
+           i.ring ×2     der Ruf: zwei Ringe laufen nach außen
+           span.ruf      Beschriftung darunter
+
+   Zustände: .tritt (Auftritt läuft) → .schwebt (in Ruhe, wiegt sich) ·
+   .lockt (Ringe + Ruf) · .nah (Finger drauf, Kranz sichtbar) · .gefasst
+   (angefasst, verglüht). Die Richtung sitzt am Feld: .aus-S (Standard) ·
+   .aus-N · .aus-W · .aus-E.
+
+   Der Orb ist klein und sein Schein schwach: ein Licht IM Nebel leuchtet,
+   es strahlt nicht. Wer mehr Glut will, setzt --orbw höher — alles rechnet
+   daraus, auch der Kranz.
+   -------------------------------------------------------------------------- */
+.orbfeld{
+  position:absolute;inset:0;z-index:20;display:grid;place-items:center;
+  pointer-events:none;
+  --orbw:34px;               /* Durchmesser — alles andere rechnet daraus */
+  --einx:0px;--einy:190%;    /* woher der Auftritt kommt (Standard: Süden) */
+  /* Dunst und Ringfarbe sind bewusst schwächer als --ember/--emberglow. */
+  --orbdunst:color-mix(in srgb,var(--emberglow) 55%,transparent);
+  --orbring:color-mix(in srgb,var(--ember) 50%,transparent);
+  /* Gold: zwischen dem hellen Kern und der Glut. Aus Tokens gemischt, damit
+     es in Tag, Nacht und Werkbank mitwandert statt fest zu stehen. */
+  --orbgold:color-mix(in srgb,var(--glutkern) 62%,var(--ember));
+  --orblichtr:120px;          /* Radius des wandernden Scheinwerfers */
+}
+.orbfeld.aus-S{--einx:0px;--einy:190%;}
+.orbfeld.aus-N{--einx:0px;--einy:-190%;}
+.orbfeld.aus-W{--einx:-230%;--einy:70%;}
+.orbfeld.aus-E{--einx:230%;--einy:70%;}
+/* Aus der Mitte heraus versetzen, wenn der Orb über einem bestimmten Feld
+   und nicht über der Mitte der Schicht stehen soll (in px oder %). */
+.orbfeld{translate:var(--orbdx,0) var(--orbdy,0);}
+
+/* Der Schein ist der eigentliche Effekt: er beleuchtet, was darunter liegt. */
+.orbschein{
+  position:absolute;left:50%;top:50%;
+  width:calc(var(--orbw)*8);height:calc(var(--orbw)*8);
+  margin:calc(var(--orbw)*-4) 0 0 calc(var(--orbw)*-4);
+  border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,var(--orbdunst) 0 26%,transparent 64%);
+  opacity:0;transform:scale(.5);
+  transition:opacity 2s ease,transform 2s ease;
+}
+/* Der große Hof atmet NICHT mit: er ist achtmal so breit wie der Orb, und
+   sein Skalieren zeichnete je Bild eine entsprechend große Fläche neu. Das
+   Atmen übernimmt der kleine Hof am Ball (.orb.schwebt::after) — dasselbe
+   Bild, ein Bruchteil der Fläche. */
+.orbfeld.an .orbschein{opacity:.72;transform:scale(1);}
+
+/* Die Bahn wandert, der Ball hängt daran. Getrennte Elemente, weil der Ball
+   seine eigenen transform-Animationen hat (Auftritt, Wiegen, Fassen) — läge
+   die Wanderung auf derselben Eigenschaft, gewänne immer nur eine davon. */
+.orbbahn{position:relative;display:grid;place-items:center;translate:0 0;
+         /* Die Bahn wandert je Bild: als eigene Ebene wird das Licht als
+            Textur verschoben statt die Verlaufsscheibe neu zu zeichnen. */
+         will-change:translate;}
+
+/* Der Scheinwerfer wandert mit und ist das, was unterwegs etwas sichtbar
+   macht. Bewusst OHNE mix-blend-mode: .orbfeld ist durch z-index (und das
+   eigene translate) ein Stapelkontext, und Mischung wird daran isoliert —
+   der Modus hätte gegen die Karte darunter gar nicht gewirkt. Eine
+   durchsichtige goldene Verlaufsscheibe tut auf dunklem Grund dasselbe. */
+.orblicht{
+  position:absolute;left:50%;top:50%;pointer-events:none;
+  width:calc(var(--orblichtr)*2);height:calc(var(--orblichtr)*2);
+  margin:calc(var(--orblichtr)*-1) 0 0 calc(var(--orblichtr)*-1);
+  border-radius:50%;
+  background:radial-gradient(circle,
+    color-mix(in srgb,var(--orbgold) 42%,transparent) 0 5%,
+    color-mix(in srgb,var(--orbgold) 20%,transparent) 24%,
+    color-mix(in srgb,var(--orbgold) 7%,transparent) 46%,
+    transparent 70%);
+  opacity:0;transition:opacity 2.2s ease;
+}
+.orbfeld.an .orblicht{opacity:1;}
+.orbfeld.weg .orblicht{opacity:0;}
+
+button.orb{
+  position:relative;width:var(--orbw);height:var(--orbw);
+  background:none;border:0;padding:0;border-radius:50%;
+  display:grid;place-items:center;pointer-events:auto;cursor:pointer;
+  opacity:0;transition:none;
+}
+button.orb:hover:not(:disabled){border-color:transparent;}
+button.orb:focus-visible{outline:2px solid var(--orbring);outline-offset:8px;}
+.orb::before,.orb::after{content:'';position:absolute;border-radius:50%;pointer-events:none;}
+/* Kern: heiß in der Mitte, zur Kante hin Glut. */
+.orb::before{
+  inset:0;
+  background:radial-gradient(circle at 38% 32%,
+    var(--glutkern) 0 18%,var(--orbgold) 46%,var(--ember) 76%,var(--orbdunst) 92%,transparent 100%);
+  box-shadow:0 0 calc(var(--orbw)*.7) var(--orbdunst);
+}
+/* Hof: weicher und größer, atmet — davon lebt das „Schweben". */
+.orb::after{
+  inset:calc(var(--orbw)*-.7);
+  background:radial-gradient(circle,var(--orbdunst) 0 20%,transparent 60%);
+  opacity:.5;
+}
+.orb.schwebt::after{animation:sot-orb-atem 4.6s ease-in-out infinite;}
+
+/* Auftritt: aus dem Nebel her, unscharf und dunkel, dann scharf. */
+.orb.tritt{animation:sot-orb-ein var(--orbein,2600ms) cubic-bezier(.22,.7,.25,1) both;}
+.orb.schwebt{opacity:1;animation:sot-orb-wiegen 4.6s ease-in-out infinite;}
+@keyframes sot-orb-ein{
+  0%  {opacity:0;  transform:translate(var(--einx),var(--einy)) scale(.34);filter:blur(7px) saturate(.5);}
+  30% {opacity:.5;}
+  70% {opacity:1;  filter:blur(2px) saturate(1);}
+  100%{opacity:1;  transform:translate(0,0) scale(1);filter:blur(0) saturate(1);}
+}
+@keyframes sot-orb-wiegen{
+  0%,100%{transform:translateY(calc(var(--orbw)*-.09)) scale(1);}
+  50%    {transform:translateY(calc(var(--orbw)*.09)) scale(1.03);}
+}
+@keyframes sot-orb-atem{
+  0%,100%{opacity:.5;transform:scale(.94);}
+  50%    {opacity:.9;transform:scale(1.06);}
+}
+
+/* ---- Tropfenkranz ---------------------------------------------------------
+   Der Kranz dreht immer, sichtbar wird er erst, wenn jemand nahe kommt:
+   Zeiger darüber, Tastaturfokus, oder Finger darauf (.nah setzt SOT.orb()
+   auf pointerdown — auf einem Telefon gibt es kein Hover, und ohne das
+   bliebe der Effekt dort für immer unsichtbar).
+
+   Bauart: .tropf ist nur der Platz auf dem Ring (dreht und schiebt nach
+   außen), der Tropfen selbst ist sein ::before. Zwei Elemente, weil sonst
+   Auftritt (Übergang) und Quellen (Animation) um dieselbe transform-
+   Eigenschaft stritten — die Animation gewinnt immer und der Auftritt fiele aus.
+   Die Radien sind absichtlich ungleich (jeder dritte weiter, jeder vierte
+   näher): ein exakter Kreis liest sich als Zahnrad, ein ungleicher als
+   Flüssigkeit.
+   -------------------------------------------------------------------------- */
+.orb .kranz{
+  position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;
+  --kranzr:calc(var(--orbw)*.95);
+  /* Angehalten, solange niemand nahe ist: ein Kranz, der bei opacity:0 dreht,
+     kostet jedes Bild und zeigt nichts. */
+  animation:sot-orb-kreisen 18s linear infinite paused;
+}
+.orb:hover .kranz,.orb:focus-visible .kranz,.orb.nah .kranz{animation-play-state:running;}
+.orb .tropf{
+  position:absolute;left:0;top:0;
+  transform:rotate(calc(var(--i) * var(--kranzschritt,30deg))) translateY(calc(var(--kranzr) * -1));
+}
+.orb .tropf:nth-child(3n){--kranzr:calc(var(--orbw)*1.2);}
+.orb .tropf:nth-child(4n){--kranzr:calc(var(--orbw)*.78);}
+.orb .tropf::before{
+  content:'';position:absolute;left:0;top:0;
+  width:calc(var(--orbw)*.18);height:calc(var(--orbw)*.18);
+  margin:calc(var(--orbw)*-.09) 0 0 calc(var(--orbw)*-.09);
+  border-radius:50%;
+  /* Kein filter:blur() — jeder Tropfen wäre damit eine eigene Render-Oberfläche,
+     zwölf davon animiert halbierten die Bildrate. Der Verlauf läuft ohnehin
+     weich aus; das Weiche kommt aus der Farbe, nicht aus einem Filter.
+     Der Ember-Ring liegt weit außen: mit früherem Abfall sieht der Tropfen im
+     Tagregister hohl aus — der helle Kern verschwindet dort im hellen Grund. */
+  background:radial-gradient(circle,var(--glutkern) 0 22%,var(--orbgold) 52%,var(--ember) 78%,transparent 96%);
+  opacity:0;transform:scale(.12);
+  transition:opacity .45s ease,transform .6s cubic-bezier(.2,.9,.3,1.35);
+  transition-delay:calc(var(--i) * 34ms);
+}
+.orb:hover .tropf::before,
+.orb:focus-visible .tropf::before,
+.orb.nah .tropf::before{
+  opacity:.95;
+  animation:sot-orb-quellen 3.6s ease-in-out infinite;
+  animation-delay:calc(var(--i) * -300ms);
+}
+@keyframes sot-orb-kreisen{to{transform:rotate(360deg);}}
+@keyframes sot-orb-quellen{
+  0%,100%{transform:scale(.72);}
+  50%    {transform:scale(1.28);}
+}
+
+/* Der Ruf — „hier, fass mich an". Zwei Ringe, versetzt, und ein Wort. */
+.orb .ring{
+  position:absolute;left:50%;top:50%;width:var(--orbw);height:var(--orbw);
+  margin:calc(var(--orbw)*-.5) 0 0 calc(var(--orbw)*-.5);
+  border:1px solid var(--orbring);border-radius:50%;opacity:0;pointer-events:none;
+}
+.orb.lockt .ring{animation:sot-orb-ruf 2.8s ease-out infinite;}
+.orb.lockt .ring.r2{animation-delay:1.4s;}
+@keyframes sot-orb-ruf{
+  0%  {opacity:.65;transform:scale(.9);}
+  70% {opacity:0;  transform:scale(2.8);}
+  100%{opacity:0;  transform:scale(2.8);}
+}
+.orb .ruf{
+  position:absolute;top:calc(100% + calc(var(--orbw)*.7));left:50%;
+  transform:translateX(-50%);white-space:nowrap;
+  font-family:var(--f-mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ember);opacity:0;transition:opacity 1.2s ease;
+}
+.orb.lockt .ruf{opacity:1;animation:sot-orb-rufwort 2.8s ease-in-out infinite;}
+@keyframes sot-orb-rufwort{0%,100%{opacity:.45;}50%{opacity:1;}}
+
+/* Angefasst: der Orb fährt zusammen und verglüht — das Licht bleibt kurz. */
+.orb.gefasst{animation:sot-orb-fassen 620ms cubic-bezier(.3,.9,.2,1) forwards;}
+.orb.gefasst .ring,.orb.gefasst .ruf{animation:none;opacity:0;}
+@keyframes sot-orb-fassen{
+  0%  {opacity:1;transform:scale(1);}
+  35% {opacity:1;transform:scale(1.5);filter:brightness(1.4);}
+  100%{opacity:0;transform:scale(.2);}
+}
+.orbfeld.weg .orbschein{opacity:0;transform:scale(1.5);}
+
+/* Ohne Bewegung bleibt der Orb sichtbar und ruhig — der Reset oben schaltet
+   alle Animationen ab, darum muss die Ruhelage ohne sie stimmen. */
+@media (prefers-reduced-motion:reduce){
+  button.orb{opacity:1;}
+  .orb .ruf{opacity:1;}
+}
 
 /* ------------------------------------------------------------ Debugstrip ---
    SOT.debug() baut ihn aus den erklärten Query-Parametern. Er ist bewusst
@@ -435,5 +898,50 @@ table.t tr.hi td{background:var(--bone);}
             font-weight:400;}
 .debugstrip .on{background:var(--ember);color:var(--on-ember);}
 
-footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);
+/* --- Reglerbrett (SOT.regler) ------------------------------------------------
+   Ein .sheet.right, das sich aus der Parameter-Erklärung selbst baut. Eigene
+   Regeln nur dort, wo das Blatt als WERKZEUG auftritt statt als Spielfläche:
+   dichtere Zeilen, Mono-Beschriftung, ein stiller Griff am Rand. */
+.reglergriff{position:fixed;right:0;top:50%;transform:translateY(-50%) rotate(180deg);
+            writing-mode:vertical-rl;z-index:43;font-family:var(--f-mono);font-size:9px;
+            letter-spacing:.14em;text-transform:uppercase;padding:10px 5px;
+            border-radius:var(--r-sm) 0 0 var(--r-sm);background:var(--panel);
+            border:1px solid var(--line);border-right:none;color:var(--ink2);
+            box-shadow:none;cursor:pointer;}
+.reglergriff:hover{color:var(--ink);border-color:var(--ember);}
+.sheet.right.regler{width:min(300px,88vw);}
+.regler .sbody{display:flex;flex-direction:column;gap:13px;padding-top:4px;overflow-x:hidden;}
+.reglerzeile{min-width:0;}
+.reglerzeile label{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+/* Der Name darf schrumpfen, die Ablesung bleibt einzeilig und schneidet ab —
+   sonst schiebt ein langer Wert das Blatt auseinander. */
+.reglerzeile label>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+.reglerzeile label .wert{font-family:var(--f-mono);font-size:10px;color:var(--ember);
+            letter-spacing:0;text-transform:none;flex:0 1 auto;min-width:0;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.reglerzeile input,.reglerzeile select{max-width:100%;}
+.reglerzeile small.note{font-size:10.5px;line-height:1.35;color:var(--ink2);margin-top:1px;}
+.reglerzeile input[type=checkbox]{align-self:flex-start;width:16px;height:16px;}
+.reglerfuss{display:flex;gap:6px;margin-top:4px;padding-top:12px;
+            border-top:1px solid var(--line);}
+.reglerfuss button{flex:1;font-family:var(--f-mono);font-size:9.5px;padding:6px 4px;}
+/* .ibtn — ein Icon als Knopfinhalt (Tag/Nacht im Debugstrip, der Hexfeld-Ausgang im
+   Spiel). Bemisst das SVG, damit es nicht auf der Schriftgrundlinie hängt. */
+.ibtn{display:inline-flex;width:1.15em;height:1.15em;vertical-align:-.16em;}
+.ibtn svg{width:100%;height:100%;display:block;}
+button .ibtn{pointer-events:none;}
+
+/* 50px, nicht 40: drei von vier Kapitel-Dokumenten (Handbuch, Technik,
+   Art-Direction) setzen 50 — nur klimatile-stilguide (kein Kapitel-Dokument)
+   wollte 40, und daher kam der falsche Standard ursprünglich. */
+footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--line);
        font-size:11px;line-height:1.6;color:var(--ink2);}
+
+/* --------------------------------------------- Tageszeit: automatische Griffe ---
+   Sobald ein Prototyp SOT.zeit() ruft (body[data-zeit] existiert), nehmen
+   die phasen-bewussten Primitive den laufenden Ton. Bewusst am DATEIENDE:
+   Media-/Zustandsgriffe stehen NACH den Basisregeln, die sie uebersteuern
+   (Merksatz aus dem erkundung-v6-Umbau). */
+body[data-zeit] .primary{background:var(--zeit);border-color:var(--zeit);color:var(--on-zeit);}
+body[data-zeit] .primary:not(:disabled):hover{box-shadow:0 0 10px var(--zeitglow);}
+body[data-zeit] .tl-seg.now{outline-color:var(--zeit);}

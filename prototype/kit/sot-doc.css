@@ -21,6 +21,12 @@
 html{scroll-behavior:smooth;}
 body{line-height:1.6;}
 
+/* Alle vier Dokumente (Handbuch, Technik, Art-Direction,
+   Klimatile-Stilguide) tragen dieselbe Innenpolsterung — nur die
+   Spaltenbreite variiert (760/820/760/900px) und bleibt darum je
+   Datei eine eigene `.wrap{max-width:…}`-Zeile. */
+.wrap{padding:20px 16px 80px;}
+
 /* -------------------------------------------------------------------- Kopf ---*/
 header.hero{padding:26px 0 10px;}
 .hero .kicker,.kicker{font-family:var(--f-mono);font-size:11px;letter-spacing:.2em;
@@ -109,3 +115,51 @@ h2.sec{font-size:19px;margin:34px 0 4px;}
         display:inline-block;margin:10px 0;background:var(--panel2);color:var(--ink2);}
 .status.ok{background:var(--good);color:#fff;}
 .status.bad{background:var(--bad);color:#fff;}
+
+/* ------------------------------------------------------------ Schauseite ---
+   Leser-Rückmeldung Aug 2026: zu viel Text, keine Bilder. Eine Karte, die
+   einen Lead trägt, zeigt darum zuerst nur ihre SCHAUSEITE — Lead, Abbildung,
+   dann ein Knopf für die Herleitung. Der Lead sagt die Sache in zwei Sätzen,
+   die Abbildung zeigt das Ding selbst (aus dem Baukasten gerendert, siehe
+   sot-figuren.js — kein Schnappschuss, der veralten kann).
+
+   Karten ohne Lead rendern unverändert wie bisher; die Umstellung geht
+   darum Karte für Karte.
+   -------------------------------------------------------------------------- */
+.lead{font-size:15px;line-height:1.5;color:var(--ink);margin:0 0 12px;}
+.lead b{font-weight:700;}
+
+/* Abbildung: das gerenderte Ding auf ruhigem Grund, Bildunterschrift darunter. */
+.figur{margin:12px 0 14px;background:var(--panel2);border:1px solid var(--line);
+       border-radius:var(--r-md);padding:16px 14px 12px;}
+.figur .fbuehne{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;
+                justify-content:center;min-height:40px;}
+.figur .fcap{display:block;margin-top:12px;padding-top:9px;border-top:1px solid var(--line);
+             font-size:11.5px;line-height:1.45;color:var(--ink2);text-align:center;}
+.figur .fcap b{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.1em;
+               text-transform:uppercase;color:var(--ember);display:block;margin-bottom:3px;}
+/* Fehlt die Figur (Registry nicht geladen), sagt die Karte das, statt leer zu bleiben. */
+.figur.fehlt{border-style:dashed;} .figur.fehlt .fbuehne{font-family:var(--f-mono);
+             font-size:10.5px;color:var(--bad);}
+
+/* Zonen-Beschriftung neben einer Abbildung — nummeriert wie im Text. */
+.fzonen{list-style:none;margin:0;padding:0;font-size:12px;max-width:30ch;text-align:left;}
+.fzonen li{display:flex;gap:8px;margin-bottom:6px;line-height:1.35;color:var(--ink2);}
+.fzonen .nr{flex:none;font-family:var(--f-mono);font-size:10px;color:var(--ember);
+            width:16px;text-align:right;padding-top:1px;}
+.fzonen b{color:var(--ink);font-weight:700;}
+
+/* Die Herleitung: in Publish zugeklappt, in der Entwicklung immer offen. */
+.mehrbtn{display:none;}
+body.publish .mehrbtn{display:inline-flex;align-items:center;gap:6px;
+  font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  background:none;border:1px solid var(--line);border-radius:14px;padding:5px 12px;
+  color:var(--ink2);cursor:pointer;}
+body.publish .mehrbtn:hover{border-color:var(--ember);color:var(--ember);}
+body.publish .mehr{display:none;}
+body.publish .mehr.auf{display:block;}
+body.publish .mehr.auf+.mehrbtn,body.publish .mehrbtn.auf{border-color:var(--ember);color:var(--ember);}
+
+/* Zeichen im Fliesstext (:furt: → SVG + Wort) — nie ein Schriftzeichen. */
+.ic{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
+.ic svg{width:1.05em;height:1.05em;flex:none;color:var(--ember);vertical-align:-.15em;}

@@ -22,6 +22,9 @@
   --hexw:72px;
   --hexh:calc(var(--hexw)*1.1547);   /* 2/√3 — Spitz-oben */
   --hexgap:4px;
+  /* Marken (FURT, Ortsnamen, Zahlen) sind Brettbeschriftung, kein Fließtext —
+     beim Ziehen der Karte darf der Browser sie nicht markieren. */
+  user-select:none;-webkit-user-select:none;
 }
 .map.tight{--hexgap:0px;}
 @media (max-width:390px){.map{--hexgap:3px;}}
@@ -143,15 +146,32 @@ body.night .lay.wash-cold{background:rgba(220,232,240,.24);}
 .slot.zahl {bottom:19%;right:7%;font-size:1.05em;font-weight:700;color:var(--good);}
 .slot.zahl.neg{color:var(--bad);}
 
-/* Marken in den Slots */
-.pers{width:1.65em;height:1.65em;border-radius:50%;background:var(--ember);color:#14100a;
+/* -------------------------------------------------------- Marken in den Slots ---
+   Alle Marken tragen ein SVG aus `sot-icons.js`, kein Schriftzeichen:
+   `SOT.hex.mark(cell,'krone', SOT.iconEl('jaeger','pers'))`. Darum haben sie
+   alle `padding` und die SVG-Regel unten — ein Icon füllt seinen Behälter,
+   statt auf einer Schriftgrundlinie zu sitzen.
+   -------------------------------------------------------------------------- */
+.pers{width:1.65em;height:1.65em;border-radius:50%;background:var(--ember);color:var(--on-ember);
       font-family:var(--f-body);font-size:1em;font-weight:700;display:flex;
       align-items:center;justify-content:center;border:1.5px solid var(--bg);
-      box-shadow:0 1px 3px rgba(0,0,0,.3);}
+      box-shadow:0 1px 3px rgba(0,0,0,.3);padding:.2em;}
 .pers.more{background:var(--ink);color:var(--bg);font-size:.8em;}
 .evmark{width:1.75em;height:1.75em;border-radius:.45em;background:var(--panel);
         border:1.5px solid var(--bad);color:var(--bad);font-size:1em;position:relative;
-        display:flex;align-items:center;justify-content:center;}
+        display:flex;align-items:center;justify-content:center;padding:.18em;}
+/* Ein Icon in einer Marke füllt sie — Breite/Höhe 100 %, `display:block`
+   gegen die Zeilenbox, die sonst unten einen Streifen Luft lässt.
+   Bewusst NICHT `.slot svg`: ein Slot hat keine eigene Grösse (er ist
+   absolut positioniert und schrumpft auf den Inhalt), ein SVG mit 100 %
+   darin fällt auf 0 zusammen. Jedes Slot-Icon braucht einen bemessenen
+   Behälter — `.mk` ist der allgemeine dafür. */
+.pers svg,.evmark svg,.mk svg{width:100%;height:100%;display:block;}
+/* .mk — die schmucklose Slot-Marke: nur eine Grösse und die Farbe des Slots.
+   Für Zeichen ohne eigene Fläche (Spur, Fährte, Hinweis). */
+.mk{width:1.15em;height:1.15em;display:flex;align-items:center;justify-content:center;
+    color:inherit;flex:none;}
+.mk.gross{width:1.5em;height:1.5em;}
 .evmark .dur{position:absolute;bottom:-.45em;right:-.4em;background:var(--bad);color:var(--bone);
              font-size:.72em;line-height:1;padding:.1em .3em;border-radius:.5em;}
 .sdot{width:.55em;height:.55em;min-width:4px;min-height:4px;border-radius:50%;}
@@ -186,3 +206,43 @@ body.night .lay.wash-cold{background:rgba(220,232,240,.24);}
 .map[data-lod="s"] .slot.wange,
 .map[data-lod="s"] .lmk{display:none;}
 .map[data-lod="m"] .slot.ferse{display:none;}
+
+/* ------------------------------------------------------ Plättchen (Hand) ---
+   Das Plättchen der Hand ist ein SECHSECK — dieselbe Silhouette wie das Feld,
+   auf das es kommt. Damit sagt die Form, was das Ding tut: Sechseck = kommt
+   aufs Brett und bleibt, rechteckige Karte (5:7) = wirkt sofort, Knopf =
+   bloße Wahl. Das ist die Formensprache aus Handbuch Kap. 2, und das Glossar
+   (Kap. 1) nennt dafür ausdrücklich `.tcard`.
+
+   Herkunft: erkundung-v6. Gleiche Bauart wie .cell — ::before ist die Kante,
+   ::after die Fläche; ein `border` würde vom clip-path abgeschnitten. Der
+   Inhalt liegt in .tinner darüber. Das Bildzeichen heißt hier .tglyph und
+   nicht .glyph: .glyph ist die Marke IM FELD (halbe Feldbreite, --tileink),
+   das Plättchen braucht eigene Maße.
+
+   Breite kommt von --cardw am Behälter (.hand setzt es); der Vorgabewert
+   hält ein Plättchen auch ohne Behälter brauchbar.
+   -------------------------------------------------------------------------- */
+.hand{--cardw:92px;display:flex;gap:8px;align-items:flex-end;}
+@media (max-width:420px){.hand{--cardw:76px;gap:6px;}}
+
+.tcard{position:relative;flex:none;
+       width:var(--cardw,92px);aspect-ratio:1 / 1.1547;   /* 2/√3 — wie .cell */
+       background:none;border:0;padding:0;
+       user-select:none;-webkit-user-select:none;cursor:grab;touch-action:none;
+       --cedge:var(--line);--cfill:var(--bone);
+       transition:transform .16s ease,filter .16s ease;}
+.tcard::before,.tcard::after{content:'';position:absolute;
+       clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);}
+.tcard::before{inset:0;background:var(--cedge);transition:background .18s;}
+.tcard::after{inset:2px;background:var(--cfill);}
+.tcard .tinner{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;
+       align-items:center;justify-content:center;gap:1px;padding:0 11%;text-align:center;}
+.tcard .tglyph{width:34%;height:auto;aspect-ratio:1;color:var(--ink);}
+.tcard .tglyph svg{width:100%;height:100%;display:block;}
+.tcard .nm{font-size:9.5px;font-weight:700;line-height:1.1;margin-top:2px;}
+.tcard .fx{font-size:8px;color:var(--ink2);font-family:var(--f-mono);line-height:1.15;
+       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.tcard.sel{--cedge:var(--ember);transform:translateY(-9px);
+       filter:drop-shadow(0 7px 11px var(--emberglow));}
+.tcard.tot{opacity:.45;cursor:default;}

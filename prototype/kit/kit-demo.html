@@ -19,6 +19,78 @@
   .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
   @media (max-width:700px){.two{grid-template-columns:1fr;}}
   #demomap{max-width:340px;}
+  #orbziel{position:relative;min-height:210px;display:grid;place-items:center;
+           border-radius:var(--r-md);overflow:hidden;
+           background:radial-gradient(ellipse at 50% 46%,var(--panel2),var(--bone));}
+  #orbmap{--hexw:104px;}
+  /* Zeichensatz-Bogen: je Zeichen die drei Grössen und die Akzentprobe. */
+  .icogrp{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;
+          color:var(--ink2);margin:16px 0 7px;display:flex;align-items:center;gap:8px;}
+  .icogrp::after{content:"";flex:1;height:1px;background:var(--line);}
+  .icorow{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:7px;}
+  .icobox{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-sm);
+          padding:8px 6px;text-align:center;}
+  .icosizes{display:flex;align-items:flex-end;justify-content:center;gap:8px;height:50px;}
+  .icosizes>span{display:block;color:var(--ink);}
+  .icosizes>span svg{width:100%;height:100%;display:block;}
+  .ico48{width:44px;height:44px;} .ico24{width:24px;height:24px;} .ico16{width:16px;height:16px;}
+  .icoacc{display:flex;gap:5px;justify-content:center;margin:5px 0 4px;}
+  .icoacc span{width:21px;height:21px;border-radius:50%;background:var(--ember);
+               color:var(--on-ember);padding:3px;display:flex;}
+  .icoacc span.gut{background:var(--good);}
+  .icoacc span svg{width:100%;height:100%;display:block;}
+  .iconm{font-family:var(--f-mono);font-size:8.5px;color:var(--ink2);word-break:break-all;}
+  /* Spielkarten-Abschnitt: Reihen für Querformat und Handkarten. */
+  .kartenlayout{display:grid;grid-template-columns:minmax(0,1fr) 188px;gap:14px;align-items:start;}
+  .kartenreihe{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;}
+  .handreihe{display:flex;flex-wrap:wrap;gap:8px;}
+  .kartenlayout .effektkarte.hid{display:flex!important;visibility:hidden;pointer-events:none;}
+  .kartenfilter{position:sticky;top:12px;}
+  .kartenfilter h4{margin-bottom:10px;}
+  .kartenfilter .facette{border:0;border-top:1px solid var(--line);margin:10px 0 0;padding:10px 0 0;}
+  .kartenfilter .facette legend{font-family:var(--f-mono);font-size:8.5px;letter-spacing:.12em;
+                                text-transform:uppercase;color:var(--ink2);padding:0;margin-bottom:6px;}
+  .kartenfilter label{display:flex;align-items:center;gap:6px;font-size:11px;margin:5px 0;cursor:pointer;}
+  .kartenfilter input{margin:0;}
+  .kartenfilter .filterkopf{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .kartenfilter .filtercount{font-family:var(--f-mono);font-size:9px;color:var(--ink2);}
+  .kartenfilter .filterreset{width:100%;margin-top:10px;}
+  .hoehencheck{display:inline-flex;align-items:center;gap:4px;margin-left:7px;font-family:var(--f-mono);
+               font-size:8px;letter-spacing:.08em;font-weight:400;color:var(--bad);white-space:nowrap;}
+  .hoehencheck::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;}
+  .hoehencheck.ok{color:var(--good);}
+  @media (max-width:700px){
+    .kartenlayout{grid-template-columns:1fr;}
+    .kartenfilter{position:static;grid-row:1;}
+    .kartenfilter .facetgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
+  }
+  /* Das Mass: vermessene Karte + Grössenreihen + Kartenprüfstand. */
+  .masszwei{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:start;}
+  .zonenblick{padding-right:22px;}
+  .zonenblick .kband,.zonenblick .knm,.zonenblick .kwers,.zonenblick .kwert,.zonenblick .kfx,
+  .zonenblick .kkost,.zonenblick .kflav{position:relative;
+    outline:1px dashed color-mix(in srgb,var(--ink2) 45%,transparent);outline-offset:2px;}
+  .zonenblick [data-zone]::after{content:attr(data-zone);position:absolute;right:-24px;top:50%;
+    transform:translateY(-50%);width:13px;height:13px;border-radius:50%;
+    background:var(--ink2);color:var(--bg);font-family:var(--f-mono);font-size:8.5px;
+    font-weight:700;font-style:normal;display:flex;align-items:center;justify-content:center;}
+  .masstafel{font-size:10.5px;}
+  .masstafel td:first-child{white-space:nowrap;}
+  .groessenreihe{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;}
+  .gprobe{display:flex;flex-direction:column;gap:4px;flex:none;}
+  .gprobe .glabel{font-family:var(--f-mono);font-size:8px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--ink2);}
+  .pruefstand{display:grid;grid-template-columns:250px minmax(0,1fr);gap:16px;align-items:start;}
+  .pruefform{display:flex;flex-direction:column;gap:8px;}
+  .pruefform textarea{min-height:44px;}
+  .pfchecks{display:flex;flex-direction:column;gap:3px;margin-top:10px;align-items:flex-start;}
+  .pfchecks .hoehencheck{margin-left:0;font-size:8.5px;white-space:normal;}
+  .pfcode{margin-top:10px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:var(--r-sm);padding:8px 10px;font-family:var(--f-mono);font-size:9.5px;
+    line-height:1.5;color:var(--ink2);white-space:pre;overflow-x:auto;}
+  @media (max-width:700px){
+    .masszwei,.pruefstand{grid-template-columns:1fr;}
+  }
 </style>
 </head>
 <body>
@@ -150,6 +222,30 @@
   </div>
 </section>
 
+<!-- ============================================================ Regler === -->
+<section class="demo">
+  <h2 class="sec">Reglerbrett <code>SOT.regler()</code></h2>
+  <div class="pane">
+    <p class="note">Baut sich aus derselben <code>SOT.params()</code>-Erklärung, die schon
+      <code>?hilfe</code> und den Debugstrip speist — ein Prototyp beschreibt nichts zweimal.
+      Je Typ ein passendes Bedienelement: Flag → Haken, Enum → Auswahl,
+      Zahl <b>mit min und max</b> → Schieber, Zahl ohne Bereich → Zahlenfeld,
+      Liste/Text → Eingabefeld.</p>
+    <p class="note">Der Griff sitzt still am rechten Rand; <code>?regler</code> öffnet das Brett
+      gleich beim Laden (für Screenshots). Ohne <code>onChange</code> schreibt jede Änderung die
+      URL und <b>lädt neu</b> — das wirkt auch in Prototypen, die ihre Welt einmalig beim Start
+      bauen. Mit <code>onChange</code> bleibt die Seite stehen, die URL wird trotzdem
+      nachgeführt, damit der Stand teilbar bleibt.</p>
+    <div class="row">
+      <button onclick="demoRegler.toggle()">Brett öffnen</button>
+      <button onclick="location.href='?regler'">mit <code>?regler</code> laden</button>
+    </div>
+    <p class="note">Dieses Musterbogen-Brett läuft <b>live</b> (<code>onChange</code>) und schreibt
+      unten mit, was es meldet — ein Prototyp ohne eigenen Rückruf lädt stattdessen neu.</p>
+    <pre class="log" id="reglerLog">noch nichts geändert</pre>
+  </div>
+</section>
+
 <!-- ============================================================= Zahlen === -->
 <section class="demo">
   <h2 class="sec">Zahl &amp; Zustand</h2>
@@ -196,6 +292,153 @@
       <span class="pill wahrscheinlich">wahrscheinlich</span>
       <span class="pill rekonstruiert">rekonstruiert</span>
       <span class="pill erfunden">erfunden</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================================= Spielkarte === -->
+<section class="demo">
+  <h2 class="sec">Spielkarte <code>.effektkarte</code> / <code>SOT.karte()</code></h2>
+  <p class="secsub"><b>Kopfband + fünf Zonen in fester Reihenfolge</b> — Kopfband
+  (Tageszeit · Art · Dauer, in der Akzentfarbe der Oberkante) → Name → Wer →
+  Wirkung → Regel → Preis/Stimmung (Herleitung:
+  <code>notes/gedanken-zum-kartendesign.md</code>). Eine Karte beantwortet in zwei
+  Sekunden: Wie heisst sie? Wen trifft sie? Was ändert sie mechanisch? Die <b>Art
+  ist ein Wortschatz</b> — <code>spielen</code> · <code>herstellen</code> ·
+  <code>rundenbedingung</code>, je ein Zeichen aus dem Zeichensatz: wird die Karte
+  schmal, klappen die Etiketten ein und die Zeichen bleiben. Zwei Achsen, ohne
+  Lesen sortierbar: der <b>feste Tageszeit-Ton</b> (<code>.z-*</code>, Oberkante und
+  Kopfband) und die <b>Geltung</b> — <code>.k-person</code> (voller Rahmen,
+  Personen-Marken) gegen <code>.k-runde</code> (gestrichelter Rahmen, entsättigtes
+  Kopfband). <code>SOT.karte({…})</code> baut die Zonen und lässt sich nicht umstellen.</p>
+  <div class="kartenlayout">
+    <div class="pane">
+      <h4>Person gegen Runde — am Rahmen erkennbar, nicht am Text <span class="hoehencheck" data-check-row="demoKarten">Höhencheck</span></h4>
+      <div class="kartenreihe" id="demoKarten"></div>
+      <h4 class="sp">Zustände <code>.vorgemerkt</code> · <code>.gespielt</code> · <code>.ruht</code> · <code>:disabled</code> <span class="hoehencheck" data-check-row="demoKartenZust">Höhencheck</span></h4>
+      <div class="kartenreihe" id="demoKartenZust"></div>
+      <h4 class="sp">Hochformat <code>.hoch</code> — die Handkarte (5:7) <span class="hoehencheck" data-check-row="demoKartenHoch">Höhencheck</span></h4>
+      <div class="handreihe" id="demoKartenHoch"></div>
+    </div>
+    <aside class="pane kartenfilter" aria-label="Kartenfilter">
+      <div class="filterkopf"><h4>Facetten</h4><span class="filtercount" id="kartenFilterCount"></span></div>
+      <div class="facetgrid">
+        <fieldset class="facette">
+          <legend>Geltung</legend>
+          <label><input type="checkbox" data-kartenfilter="geltung" value="person"> Person</label>
+          <label><input type="checkbox" data-kartenfilter="geltung" value="runde"> Runde</label>
+        </fieldset>
+        <fieldset class="facette">
+          <legend>Tageszeit</legend>
+          <label><input type="checkbox" data-kartenfilter="zeit" value="morgen"> Morgen</label>
+          <label><input type="checkbox" data-kartenfilter="zeit" value="mittag"> Mittag</label>
+          <label><input type="checkbox" data-kartenfilter="zeit" value="abend"> Abend</label>
+        </fieldset>
+        <fieldset class="facette">
+          <legend>Zustand</legend>
+          <label><input type="checkbox" data-kartenfilter="zustand" value="vorgemerkt"> Vorgemerkt</label>
+          <label><input type="checkbox" data-kartenfilter="zustand" value="gespielt"> Gespielt</label>
+          <label><input type="checkbox" data-kartenfilter="zustand" value="ruht"> Ruht</label>
+          <label><input type="checkbox" data-kartenfilter="zustand" value="disabled"> Gesperrt</label>
+        </fieldset>
+        <fieldset class="facette">
+          <legend>Format</legend>
+          <label><input type="checkbox" data-kartenfilter="format" value="hoch"> Hoch</label>
+          <label><input type="checkbox" data-kartenfilter="format" value="quer"> Quer</label>
+        </fieldset>
+      </div>
+      <button class="ghost small filterreset" id="kartenFilterReset" type="button">Filter zurücksetzen</button>
+    </aside>
+  </div>
+
+  <div class="pane">
+    <h4>Das Mass <code>--km</code> — ein Faktor, drei Grössen</h4>
+    <p class="secsub">Alle inneren Längen der Karte hängen an <b>einem Faktor</b>:
+    <code>--km</code>, das „Kartenpixel" (1 px in Mittel — jede Zahl in der Tafel ist
+    darum ein echtes Pixelmass der mittleren Grösse). <code>.klein</code> = ×0.8,
+    <code>.gross</code> = ×1.25, das Layout bleibt in allen drei identisch; in
+    <code>SOT.karte()</code> heisst das <code>groesse:'s'|'l'</code>. Die Karte setzt
+    ihre <b>Standardbreite selbst</b> (160 × <code>--km</code> → 128 · 160 · 200; ein
+    Behälter darf überschreiben); <code>.hoch</code> hält in jeder Grösse 5:7. Fest in
+    echten px bleibt nur der <b>Aussenrahmen (1.5 px)</b> — ein skalierter Strich wird
+    unscharf, und das gestrichelte <code>.k-runde</code>-Muster verwischte. Das
+    <b>Kopfband klappt mit der Breite</b> (Containerabfrage): das Tageszeit-Wort
+    zeigt erst auf sehr breiten Karten (Zeichen und Akzentfarbe sagen es schon),
+    klein zeigt nur
+    noch Zeichen — die Information fällt nie, nur ihr Wort. Das Band
+    bricht nie um. Und weil Finger und Nachbarkarten die Ränder decken: keine
+    kritische Information an die Kante — Preis und Sperre stehen darum <i>über</i> dem
+    Fussstreifen, nie darunter.</p>
+    <div class="masszwei">
+      <div class="zonenblick" id="massKarte"></div>
+      <div>
+        <table class="t masstafel" id="massTafel"></table>
+        <p class="note"><b>Zeilenbudget.</b> Name max 2 Zeilen, Regel max 3 —
+        der Kartenprüfstand unten misst beides nach.</p>
+      </div>
+    </div>
+    <h4 class="sp">Dieselbe Karte, drei Grössen <code>.klein</code> · Mittel · <code>.gross</code></h4>
+    <div class="groessenreihe" id="demoGroessen"></div>
+  </div>
+
+  <div class="pane">
+    <h4>Kartenprüfstand — besteht der Entwurf alle drei Grössen?</h4>
+    <p class="secsub">Links die Karte beschreiben, rechts rendert sie in klein · Mittel ·
+    gross (Standardbreiten 128 · 160 · 200), darunter die Prüfungen: nichts läuft über,
+    das <b>Kopfband bleibt einzeilig</b>, Name ≤ 2 Zeilen, Regel ≤ 3 Zeilen, und die
+    Karte ist <b>höhengleich mit der Referenzkarte</b> (Mittel, 160 px) — damit Reihen
+    ruhig bleiben (Höhencheck oben). Der Stand steht als <code>?pruefkarte</code> in der
+    URL und ist damit teilbar; unten der fertige <code>SOT.karte({…})</code>-Aufruf zum
+    Kopieren.</p>
+    <div class="pruefstand">
+      <form class="pruefform" id="pfForm">
+        <div class="field"><label>Name · Zone 1</label><input type="text" id="pf_name"></div>
+        <div class="field"><label>Dauer (Kopfband, kurz)</label><input type="text" id="pf_dauer"></div>
+        <div class="frow">
+          <div class="field"><label>Tageszeit</label>
+            <select id="pf_zeit">
+              <option value="">— keine —</option>
+              <option value="morgen">Morgen</option>
+              <option value="mittag">Mittag</option>
+              <option value="abend">Abend</option>
+              <option value="nacht">Nacht</option>
+            </select></div>
+          <div class="field"><label>Art (Wortschatz)</label>
+            <select id="pf_art">
+              <option value="">— keine —</option>
+              <option value="spielen">Spielen</option>
+              <option value="herstellen">Herstellen</option>
+              <option value="rundenbedingung">Rundenbedingung</option>
+            </select></div>
+        </div>
+        <div class="field"><label>Geltung · Zone 2</label>
+          <div class="row" style="gap:12px">
+            <label class="chk"><input type="radio" name="pf_geltung" value="person" checked> Person</label>
+            <label class="chk"><input type="radio" name="pf_geltung" value="runde"> Runde</label>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="field"><label>Wer · Zeichen</label><input type="text" id="pf_werIcon" list="pfIcons"></div>
+          <div class="field"><label>Wer · Name</label><input type="text" id="pf_werName"></div>
+        </div>
+        <div class="frow">
+          <div class="field"><label>Wirkung · Zeichen</label><input type="text" id="pf_wertIcon" list="pfIcons"></div>
+          <div class="field"><label>Wirkung · Zone 3</label><input type="text" id="pf_wertText"></div>
+        </div>
+        <div class="field"><label>Regel · Zone 4 (max 3 Zeilen)</label><textarea id="pf_regel"></textarea></div>
+        <div class="frow">
+          <div class="field"><label>Sperre</label><input type="text" id="pf_sperre"></div>
+          <div class="field"><label>Preis · Zone 5</label><input type="text" id="pf_kost"></div>
+        </div>
+        <div class="field"><label>Stimmung</label><input type="text" id="pf_flav"></div>
+        <label class="chk"><input type="checkbox" id="pf_hoch"> Hochformat 5:7 (Handkarte)</label>
+        <datalist id="pfIcons"></datalist>
+      </form>
+      <div>
+        <div class="groessenreihe" id="pfKarten"></div>
+        <div class="pfchecks" id="pfChecks"></div>
+        <pre class="pfcode" id="pfCode"></pre>
+      </div>
     </div>
   </div>
 </section>
@@ -256,6 +499,22 @@
   </div>
 </section>
 
+<!-- ======================================================== Zeichensatz === -->
+<section class="demo">
+  <h2 class="sec">Zeichensatz <code>sot-icons.js</code></h2>
+  <p class="secsub"><b>Icons sind SVG. Immer.</b> Kein Schriftzeichen steht für ein
+  Spielding — ein Glyph erbt Laufweite und Grundlinie der Schrift, fällt je Gerät
+  auf eine andere Datei zurück (<code>▨</code> und <code>⋔</code> fehlen auf iOS
+  ganz), nimmt <code>stroke</code> nicht an und lässt sich nicht mit dem Rest in
+  einem Zug umzeichnen. <code>SOT.icon(name)</code> gibt die Zeichenkette,
+  <code>SOT.iconEl(name, klasse)</code> das fertige Element. Ein unbekannter Name
+  gibt eine sichtbare Fehlmarke und eine Konsolenmeldung — nie einen leeren String.</p>
+  <p class="secsub">Jede Zeile zeigt dasselbe Zeichen bei <b>48 · 24 · 16 px</b> und
+  auf Akzentfläche (der Fall <code>.pers</code> im Hexfeld). Wer ein neues Zeichen
+  ablegt, prüft es hier bei 16 px: mehr als vier Striche trägt ein Hex-Slot nicht.</p>
+  <div id="iconsheet"></div>
+</section>
+
 <!-- ========================================================== Hexraster === -->
 <section class="demo">
   <h2 class="sec">Hexraster <code>sot-hex.css</code> / <code>sot-hex.js</code></h2>
@@ -288,6 +547,79 @@
       <p class="note">Diese Tabelle muss mit
       <code>app/src/stromlinien/grid.ts</code> identisch bleiben.</p>
     </div>
+  </div>
+</section>
+
+<!-- =========================================================== Glut-Orb === -->
+<section class="demo" id="orbsek">
+  <h2 class="sec">Glut-Orb <code>sot.css</code> / <code>sot.js</code></h2>
+  <p class="secsub">Ein Licht tritt aus dem Nebel, kommt über einem Ziel zur Ruhe und
+  lockt — die Einladung ohne Worte, für die Stelle, an der noch kein Bedienelement
+  erklärt wäre. <code>SOT.orb(ziel, {…})</code> baut das Markup; das Ziel bekommt
+  <code>position:relative</code>, wenn es keins hat.
+  <b>Zeiger auf den Orb</b> (oder Finger darauf): der Tropfenkranz sammelt sich.
+  Das Licht <b>wandert</b> auf einer Bahn und meldet je Bild seine Mitte
+  (<code>aufLicht</code>) — daran kann ein Prototyp hängen, was das Licht
+  unterwegs berühren soll (im Auftakt: die Hexkanten fangen das Gold, der Nebel
+  weicht).</p>
+  <div class="two">
+    <div class="pane">
+      <div id="orbziel"><div class="map tight" id="orbmap"></div></div>
+      <div class="row" style="margin-top:10px">
+        <button class="small" id="bOrbS">aus dem Süden</button>
+        <button class="small" id="bOrbN">Norden</button>
+        <button class="small" id="bOrbW">Westen</button>
+        <button class="small" id="bOrbBahn">Bahn: kreis</button>
+        <button class="small" id="bOrbStumm">ohne Ruf</button>
+      </div>
+      <p class="note">Der Orb ist ein <code>button</code> — er nimmt Klick und
+      Tastatur, und nur er nimmt Zeiger; die Schicht darum ist durchlässig.</p>
+    </div>
+    <div class="pane">
+      <h4>Zustände</h4>
+      <table class="t">
+        <tr><th>Klasse</th><th>Was sie macht</th></tr>
+        <tr><td><code>.tritt</code></td><td>Auftritt läuft — aus <code>.aus-S|N|W|E</code> heran, unscharf und dunkel</td></tr>
+        <tr><td><code>.schwebt</code></td><td>Ruhelage: wiegt sich, der Hof atmet</td></tr>
+        <tr><td><code>.lockt</code></td><td>zwei Ringe laufen nach außen, das Wort erscheint</td></tr>
+        <tr><td><code>.nah</code></td><td>Finger darauf — wie <code>:hover</code>: der Tropfenkranz sammelt sich</td></tr>
+        <tr><td><code>.gefasst</code></td><td>angefasst: fährt zusammen und verglüht</td></tr>
+      </table>
+      <h4 class="sp">Bahn &amp; Licht</h4>
+      <div class="kv"><span>bahn</span><b>ruhe · kreis · acht</b></div>
+      <div class="kv"><span>bahnr / bahnzeit</span><b>Radius in px / Runde in ms</b></div>
+      <div class="kv"><span>licht</span><b>Radius des Scheinwerfers in px</b></div>
+      <div class="kv"><span>aufLicht(x,y,r)</span><b>je Bild, relativ zum Ziel</b></div>
+      <h4 class="sp">Handgriffe</h4>
+      <div class="kv"><span>await o.bereit</span><b>Auftritt vorbei, Orb lockt</b></div>
+      <div class="kv"><span>await o.klick</span><b>erstes Anfassen</b></div>
+      <div class="kv"><span>await o.weg()</span><b>verglühen lassen</b></div>
+      <div class="kv"><span>o.mitte()</span><b>Lichtmitte jetzt</b></div>
+      <p class="note"><b>Zeiten</b> laufen über <code>SOT.warte</code> und gehorchen
+      darum <code>SOT.tempo()</code>. <b>Farbe</b> kommt aus <code>--ember</code>,
+      <code>--emberglow</code> und <code>--glutkern</code> — der Kern hat ein eigenes
+      Token, weil er in jedem Register hell sein muss. <b>Größe</b> hängt allein an
+      <code>--orbw</code> (Standard 34&nbsp;px): Kranz, Hof und Schein rechnen daraus.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================== i18n === -->
+<section class="demo">
+  <h2 class="sec">Mehrsprachigkeit <code>sot-i18n.js</code></h2>
+  <p class="secsub">Der deutsche Text ist der Schlüssel (gettext-Stil): <code>SOT.t('Nahrung')</code>,
+  im Markup <code>&lt;span data-t&gt;Nahrung&lt;/span&gt;</code>. Fehlende Übersetzung zeigt den
+  deutschen Text. Debug: <code>?lang=en</code> · <code>?i18n</code> (Lücken/Waisen-Tafel).</p>
+  <div class="pane">
+    <div class="row" style="align-items:baseline">
+      <span class="badge b-done" data-t>Umgesetzt</span>
+      <span data-t>Der Stamm zieht weiter</span>
+      <span class="dim" id="i18nDyn"></span>
+      <span class="spacer"></span>
+      <span id="i18nBtn"></span>
+    </div>
+    <p class="note"><b data-t>Beleg</b><span class="dim"> — dieser Abschnitt ist selbst übersetzt:
+    der Umschalter rechts wechselt live, <code>?lang=en</code> lädt direkt englisch.</span></p>
   </div>
 </section>
 
@@ -334,6 +666,8 @@
 </div>
 
 <script src="sot.js"></script>
+<script src="sot-icons.js"></script>
+<script src="sot-i18n.js"></script>
 <script src="sot-hex.js"></script>
 <script src="sot-doc.js"></script>
 <script>
@@ -344,7 +678,8 @@ var P = SOT.params({
   lod:   { t:'enum', values:['auto','s','m','l'], def:'auto', help:'Detailstufe erzwingen' },
   slots: { t:'flag', help:'Slot-Raster über jedem Feld einblenden' },
   size:  { t:'int', def:0, min:0, max:200, help:'Feldbreite in px festnageln (0 = automatisch)' },
-  demo:  { t:'flag', help:'Toast beim Laden zeigen' }
+  demo:  { t:'flag', help:'Toast beim Laden zeigen' },
+  pruefkarte: { t:'str', help:'Kartenprüfstand: Karten-JSON vorbelegen (teilbarer Stand)' }
 });
 
 /* ---------- Tokens als Farbtafeln ---------- */
@@ -384,6 +719,327 @@ for (var i = 1; i <= 10; i++){
   tl.appendChild(el('div' + cls, { text: i }));
 }
 
+/* ---------- Spielkarte ---------- */
+var kr = $('#demoKarten');
+kr.appendChild(SOT.karte({
+  name: 'Späher vorausschicken', zeit: 'morgen', art: 'spielen', dauer: 'heute', geltung: 'person',
+  wer: [{ icon: 'jaeger', name: 'Jäger' }],
+  wert: { icon: 'spur', text: '+2 Sicht' },
+  regel: 'Der Jäger erhält +2 Sicht.',
+  kost: '−1 Nahrung', flav: 'Wer zuerst sieht, isst zuerst.',
+  onclick: function () { SOT.toast('Gespielt: Späher vorausschicken.'); }
+}));
+kr.appendChild(SOT.karte({
+  name: 'Frühnebel', zeit: 'morgen', art: 'rundenbedingung',
+  wert: { icon: 'stille', text: '−1 Witterung' },
+  regel: 'Alle Tiere: −1 Witterung.',
+  flav: 'Der Fluss atmet weiss.',
+  onclick: function () { SOT.toast('Rundenbedingung: Frühnebel.'); }
+}));
+kr.appendChild(SOT.karte({
+  name: 'Beeren einkochen', zeit: 'abend', art: 'herstellen', dauer: 'heute', geltung: 'person',
+  wer: [{ icon: 'sammlerin', name: 'Sammlerin' }],
+  wert: { icon: 'vorrat', text: '+1 Vorrat' },
+  regel: 'Die Sammlerin erhält +1 Vorrat.',
+  kost: '−2 Nahrung',
+  onclick: function () { SOT.toast('Hergestellt: Vorrat.'); }
+}));
+
+var kz = $('#demoKartenZust');
+function zustandskarte(zusatz, extra) {
+  var k = SOT.karte(Object.assign({
+    name: 'Steinbeil schärfen', zeit: 'abend', art: 'herstellen', geltung: 'person',
+    wer: [{ icon: 'jaeger', name: 'Jäger' }],
+    wert: { icon: 'flint', text: '+1 Angriff' },
+    regel: 'Der Jäger erhält +1 Angriff.',
+    kost: '−1 Material'
+  }, extra || {}));
+  if (zusatz) k.classList.add(zusatz);
+  kz.appendChild(k);
+}
+zustandskarte('vorgemerkt');
+zustandskarte('gespielt');
+zustandskarte('ruht');
+zustandskarte(null, { disabled: true });
+
+var kh = $('#demoKartenHoch');
+kh.appendChild(SOT.karte({
+  name: 'Rückenwind', zeit: 'morgen', art: 'spielen', dauer: 'heute', geltung: 'runde', groesse: 's', hoch: true,
+  wert: { icon: 'lauf', text: '+1 Weite' },
+  regel: 'Alle Personen ziehen +1 Feld.'
+}));
+kh.appendChild(SOT.karte({
+  name: 'Blutspur', zeit: 'mittag', art: 'spielen', dauer: 'heute', geltung: 'person', groesse: 's', hoch: true,
+  wer: [{ icon: 'hund', name: 'Hund' }],
+  wert: { icon: 'spur', text: '+2 Witterung' },
+  regel: 'Der Hund erhält +2 Witterung.',
+  flav: 'Die Nase weiss es zuerst.'
+}));
+
+var karten = Array.prototype.slice.call(document.querySelectorAll('#demoKarten .effektkarte, #demoKartenZust .effektkarte, #demoKartenHoch .effektkarte'));
+var kartenFilter = SOT.$$('input[data-kartenfilter]');
+var kartenFilterCount = $('#kartenFilterCount');
+function kartenFilterwerte(gruppe) {
+  return kartenFilter.filter(function(input){
+    return input.dataset.kartenfilter === gruppe && input.checked;
+  }).map(function(input){ return input.value; });
+}
+function kartePasst(karte) {
+  var gruppen = {
+    geltung: kartenFilterwerte('geltung'),
+    zeit: kartenFilterwerte('zeit'),
+    zustand: kartenFilterwerte('zustand'),
+    format: kartenFilterwerte('format')
+  };
+  var zustand = karte.disabled ? 'disabled' : (karte.classList.contains('vorgemerkt') ? 'vorgemerkt' :
+    karte.classList.contains('gespielt') ? 'gespielt' : karte.classList.contains('ruht') ? 'ruht' : 'normal');
+  var merkmale = {
+    geltung: karte.classList.contains('k-person') ? 'person' : 'runde',
+    zeit: ['morgen','mittag','abend','nacht'].find(function(zeit){ return karte.classList.contains('z-' + zeit); }),
+    zustand: zustand,
+    format: karte.classList.contains('hoch') ? 'hoch' : 'quer'
+  };
+  return Object.keys(gruppen).every(function(gruppe){
+    return !gruppen[gruppe].length || gruppen[gruppe].indexOf(merkmale[gruppe]) !== -1;
+  });
+}
+function filterKarten() {
+  var sichtbar = 0;
+  karten.forEach(function(karte){
+    var passt = kartePasst(karte);
+    karte.classList.toggle('hid', !passt);
+    if (passt) sichtbar++;
+  });
+  kartenFilterCount.textContent = sichtbar + ' / ' + karten.length;
+}
+kartenFilter.forEach(function(input){ input.addEventListener('change', filterKarten); });
+$('#kartenFilterReset').addEventListener('click', function(){
+  kartenFilter.forEach(function(input){ input.checked = false; });
+  filterKarten();
+});
+filterKarten();
+
+function pruefeKartenhoehen() {
+  document.querySelectorAll('[data-check-row]').forEach(function(check){
+    var reihe = $('#' + check.dataset.checkRow);
+    var quer = [], ueberlauf = 0, hochzahl = 0;
+    SOT.$$('.effektkarte', reihe).forEach(function(karte){
+      var probe = karte.cloneNode(true);
+      probe.classList.remove('hid');
+      probe.style.cssText = 'position:absolute;left:-10000px;top:0;width:' + karte.getBoundingClientRect().width + 'px;height:auto;min-height:0;aspect-ratio:auto;visibility:hidden;';
+      document.body.appendChild(probe);
+      var natur = probe.getBoundingClientRect().height;
+      probe.remove();
+      if (karte.classList.contains('hoch')) {
+        /* 5:7 ist fest — die Frage ist nicht Gleichstand, sondern: passt der Inhalt? */
+        hochzahl++;
+        if (natur > karte.getBoundingClientRect().height + 0.5) ueberlauf++;
+      } else {
+        quer.push(natur);
+      }
+    });
+    var gleich = quer.every(function(h){ return Math.abs(h - quer[0]) < 0.5; });
+    check.title = quer.map(function(h){ return Math.round(h*10)/10; }).join(' · ');
+    var ok = gleich && !ueberlauf && (quer.length + hochzahl > 0);
+    check.classList.toggle('ok', ok);
+    check.textContent = ok ? (quer.length ? 'gleich hoch' : 'passt ins 5:7')
+      : (ueberlauf ? ueberlauf + '× Überlauf' : 'unterschiedliche Höhen');
+  });
+}
+requestAnimationFrame(pruefeKartenhoehen);
+if (document.fonts) document.fonts.ready.then(pruefeKartenhoehen);
+window.addEventListener('resize', pruefeKartenhoehen);
+
+/* ---------- Das Mass: vermessene Karte, Masstafel, drei Grössen ---------- */
+var MASSKARTE = {
+  name: 'Späher vorausschicken', zeit: 'morgen', art: 'spielen', dauer: 'heute', geltung: 'person',
+  wer: [{ icon: 'jaeger', name: 'Jäger' }],
+  wert: { icon: 'spur', text: '+2 Sicht' },
+  regel: 'Der Jäger erhält +2 Sicht.',
+  kost: '−1 Nahrung', flav: 'Wer zuerst sieht, isst zuerst.'
+};
+/* [Etikett, groesse-Kürzel, Standardbreite quer] — die Breite setzt die
+   Karte jetzt selbst (160 × --km), hier nur fürs Etikett. */
+var GROESSEN = [['klein ×0.8', 's', 128], ['Mittel ×1', '', 160], ['gross ×1.25', 'l', 200]];
+
+(function () {
+  var k = SOT.karte(Object.assign({ tag: 'div', groesse: 'l' }, MASSKARTE));
+  var zonen = { kband: 'K', knm: '1', kwers: '2', kwert: '3', kfx: '4', kkost: '5', kflav: '5' };
+  Object.keys(zonen).forEach(function (cls) {
+    var z = k.querySelector('.' + cls);
+    if (z) z.dataset.zone = zonen[cls];
+  });
+  $('#massKarte').appendChild(k);
+})();
+
+(function () {
+  function mm(px) {
+    return [px * 0.8, px, px * 1.25].map(function (v) { return Math.round(v * 100) / 100; });
+  }
+  var zeilen = [
+    ['Karte', 'Standardbreite 160 (Behälter darf überschreiben) · Oberkante 3 · Radius 9 · Innen 7/8/8 · Zonenabstand 3 · Rahmen fest 1.5 px', null],
+    ['K · Kopfband <code>.kband</code>', 'Tageszeit · Art · Dauer in der Akzentfarbe — Mono Versalien, Zeichen 9, eine Zeile fest; Etiketten (<code>.lbl</code>) klappen stufig ein: Tageszeit-Wort erst ab 190 px Inhalt · klein nur Zeichen', mm(7.5)],
+    ['1 · Name <code>.knm</code>', 'Display 800 · Zeilenhöhe 1.08 · Kopf fest 2 Zeilen hoch (30.24)', mm(14)],
+    ['2 · Wer <code>.kwers</code>', 'Marken-Platz, auch leer da — Marke 14 hoch, Zeichen 10', mm(7.5)],
+    ['3 · Wirkung <code>.kwert</code>', 'Display 800 · Zeichen 14 in Akzentfarbe', mm(13)],
+    ['4 · Regel <code>.kfx</code>', 'Zeilenhöhe 1.3 · max 3 Zeilen — Sperre 9, rot', mm(9.5)],
+    ['5 · Preis <code>.kkost</code>', 'Mono, angepinnt (oben 5) — Stimmung 8, kursiv', mm(9)],
+    ['Zonen-Skelett', 'leer heisst nicht weg — min-Höhen: Band 10 · Name 30.24 · Wer 14 · Wirkung 14 · Regel 12.4 · Preis 16.7 · Stimmung 10', null],
+    ['Standardbreite quer', 'hoch folgt daraus über 5:7', ['128', '160', '200']]
+  ];
+  var h = '<tr><th>Zone</th><th>Regel (px in Mittel)</th><th class="n">klein</th><th class="n">Mittel</th><th class="n">gross</th></tr>';
+  zeilen.forEach(function (z) {
+    h += '<tr><td>' + z[0] + '</td><td class="dim">' + z[1] + '</td>'
+      + (z[2] ? '<td class="n">' + z[2][0] + '</td><td class="n">' + z[2][1] + '</td><td class="n">' + z[2][2] + '</td>'
+              : '<td class="n" colspan="3">×0.8 · ×1 · ×1.25</td>')
+      + '</tr>';
+  });
+  $('#massTafel').innerHTML = h;
+})();
+
+(function () {
+  var gg = $('#demoGroessen');
+  [false, true].forEach(function (hoch) {
+    GROESSEN.forEach(function (g) {
+      var probe = el('div.gprobe');
+      probe.appendChild(el('div.glabel', { text: g[0] + ' · ' + g[2] + ' px' + (hoch ? ' · hoch' : '') }));
+      var def = Object.assign({ tag: 'div' }, MASSKARTE, hoch ? { hoch: true } : {});
+      if (g[1]) def.groesse = g[1];
+      probe.appendChild(SOT.karte(def));
+      gg.appendChild(probe);
+    });
+  });
+})();
+
+/* ---------- Kartenprüfstand: entwerfen, in drei Grössen prüfen ---------- */
+SOT.iconGruppen.forEach(function (g) {
+  g[1].forEach(function (n) { $('#pfIcons').appendChild(el('option', { value: n })); });
+});
+
+function pfDef() {
+  function v(id) { return $(id).value.trim(); }
+  var def = { name: v('#pf_name') || 'Ohne Namen' };
+  if (v('#pf_zeit')) def.zeit = v('#pf_zeit');
+  if (v('#pf_art')) def.art = v('#pf_art');
+  if (v('#pf_dauer')) def.dauer = v('#pf_dauer');
+  def.geltung = document.querySelector('input[name=pf_geltung]:checked').value;
+  if (def.geltung === 'person' && (v('#pf_werIcon') || v('#pf_werName'))) {
+    def.wer = [{}];
+    if (v('#pf_werIcon')) def.wer[0].icon = v('#pf_werIcon');
+    if (v('#pf_werName')) def.wer[0].name = v('#pf_werName');
+  }
+  if (v('#pf_wertIcon') || v('#pf_wertText')) {
+    def.wert = {};
+    if (v('#pf_wertIcon')) def.wert.icon = v('#pf_wertIcon');
+    if (v('#pf_wertText')) def.wert.text = v('#pf_wertText');
+  }
+  if (v('#pf_regel')) def.regel = v('#pf_regel');
+  if (v('#pf_sperre')) def.sperre = v('#pf_sperre');
+  if (v('#pf_kost')) def.kost = v('#pf_kost');
+  if (v('#pf_flav')) def.flav = v('#pf_flav');
+  if ($('#pf_hoch').checked) def.hoch = true;
+  return def;
+}
+
+function pfFuelle(def) {
+  $('#pf_name').value = def.name || '';
+  $('#pf_zeit').value = def.zeit || '';
+  $('#pf_art').value = def.art || '';
+  $('#pf_dauer').value = def.dauer || '';
+  var g = def.geltung || (def.art === 'rundenbedingung' ? 'runde' : 'person');
+  document.querySelector('input[name=pf_geltung][value=' + g + ']').checked = true;
+  var w = (def.wer && def.wer[0]) || {};
+  $('#pf_werIcon').value = w.icon || '';
+  $('#pf_werName').value = w.name || '';
+  $('#pf_wertIcon').value = (def.wert && def.wert.icon) || '';
+  $('#pf_wertText').value = (def.wert && def.wert.text) || '';
+  $('#pf_regel').value = def.regel || '';
+  $('#pf_sperre').value = def.sperre || '';
+  $('#pf_kost').value = def.kost || '';
+  $('#pf_flav').value = def.flav || '';
+  $('#pf_hoch').checked = !!def.hoch;
+}
+
+function pfCodeText(def) {
+  function s(x) { return "'" + String(x).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"; }
+  var t = ['name: ' + s(def.name)];
+  ['zeit', 'art', 'dauer', 'geltung'].forEach(function (k) { if (def[k]) t.push(k + ': ' + s(def[k])); });
+  if (def.wer) t.push('wer: [{' + Object.keys(def.wer[0]).map(function (k) { return k + ': ' + s(def.wer[0][k]); }).join(', ') + '}]');
+  if (def.wert) t.push('wert: {' + Object.keys(def.wert).map(function (k) { return k + ': ' + s(def.wert[k]); }).join(', ') + '}');
+  ['regel', 'sperre', 'kost', 'flav'].forEach(function (k) { if (def[k]) t.push(k + ': ' + s(def[k])); });
+  if (def.hoch) t.push('hoch: true');
+  return 'SOT.karte({\n  ' + t.join(',\n  ') + '\n})';
+}
+
+/* Zeilen einer Zone aus gemessener Höhe (Zeilenhöhen: siehe Das Mass). */
+function pfZeilen(zone, zh) {
+  var fs = parseFloat(getComputedStyle(zone).fontSize);
+  return Math.round(zone.getBoundingClientRect().height / (fs * zh));
+}
+
+function pfPruefe() {
+  var def = pfDef();
+  var wrap = SOT.clear($('#pfKarten'));
+  var checks = SOT.clear($('#pfChecks'));
+  var proben = [];
+  GROESSEN.forEach(function (g) {
+    var probe = el('div.gprobe');
+    probe.appendChild(el('div.glabel', { text: g[0] + ' · ' + g[2] + ' px' }));
+    var kdef = Object.assign({ tag: 'div' }, def);
+    if (g[1]) kdef.groesse = g[1];
+    var k = SOT.karte(kdef);
+    probe.appendChild(k);
+    wrap.appendChild(probe);
+    proben.push([g[0], k]);
+  });
+  var befunde = [];
+  proben.forEach(function (p) {
+    var k = p[1], probleme = [];
+    if (k.scrollHeight > k.clientHeight + 1 || k.scrollWidth > k.clientWidth + 1) probleme.push('läuft über');
+    if (def.hoch && k.getBoundingClientRect().height > k.getBoundingClientRect().width * 1.4 + 1) probleme.push('sprengt 5:7');
+    var kband = k.querySelector('.kband');
+    if (kband && kband.scrollWidth > kband.clientWidth + 1) probleme.push('Kopfband läuft über');
+    var knm = k.querySelector('.knm');
+    var zn = knm ? pfZeilen(knm, 1.08) : 0;
+    if (zn > 2) probleme.push('Name ' + zn + ' Zeilen (max 2)');
+    var kfx = k.querySelector('.kfx');
+    var zr = kfx ? pfZeilen(kfx, 1.3) : 0;
+    if (zr > 3) probleme.push('Regel ' + zr + ' Zeilen (max 3)');
+    befunde.push([p[0], probleme]);
+  });
+  if (!def.hoch) {
+    /* Höhengleich mit der Referenzkarte — dieselbe Messweise wie der
+       Höhencheck oben: natürliche Höhe, abseits des Layouts. */
+    var ref = SOT.karte(Object.assign({ tag: 'div' }, MASSKARTE));
+    var neu = SOT.karte(Object.assign({ tag: 'div' }, def));
+    [ref, neu].forEach(function (x) {
+      x.style.cssText = 'position:absolute;left:-10000px;top:0;visibility:hidden;';
+      document.body.appendChild(x);
+    });
+    var dh = neu.getBoundingClientRect().height - ref.getBoundingClientRect().height;
+    ref.remove(); neu.remove();
+    befunde.push(['Referenzhöhe', Math.abs(dh) < 0.5 ? [] :
+      [(dh > 0 ? '+' : '') + Math.round(dh * 10) / 10 + ' px zur Referenzkarte (Mittel · 160 px)']]);
+  }
+  befunde.forEach(function (b) {
+    checks.appendChild(el('span.hoehencheck' + (b[1].length ? '' : '.ok'),
+      { text: b[0] + ' — ' + (b[1].length ? b[1].join(' · ') : 'ok') }));
+  });
+  $('#pfCode').textContent = pfCodeText(def);
+  P.set('pruefkarte', JSON.stringify(def));
+}
+
+$('#pfForm').addEventListener('input', pfPruefe);
+$('#pfForm').addEventListener('change', pfPruefe);
+$('#pfForm').addEventListener('submit', function (e) { e.preventDefault(); });
+(function () {
+  var start = MASSKARTE;
+  if (P.pruefkarte) { try { start = JSON.parse(P.pruefkarte); } catch (e) {} }
+  pfFuelle(start);
+  pfPruefe();
+  if (document.fonts) document.fonts.ready.then(pfPruefe);
+})();
+
 /* ---------- Rückmeldungen ---------- */
 $('#bToast').addEventListener('click', function(){ SOT.toast('Zwei Plättchen gingen verloren.'); });
 $('#bOverlay').addEventListener('click', function(){
@@ -406,6 +1062,33 @@ $('#bHelp').addEventListener('click', function(){ SOT.hilfe(P.spec); });
 /* Tag/Nacht verdrahtet SOT.doc.init() weiter unten — hier KEIN eigener
    Handler auf .modebtn, sonst schaltet ein Klick zweimal und damit nichts. */
 
+/* ---------- Glut-Orb ---------- */
+SOT.hex.grid('#orbmap', 1, 1, function(cell){
+  cell.classList.add('ufer');
+  cell.appendChild(el('div.glyph', {html:
+    '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">' +
+    '<path d="M3 20 C9 14 13 24 19 18 C23 14 27 18 29 15"/></svg>'}));
+});
+var orbAkt = null, orbBahnen = ['kreis','acht','ruhe'], orbBahn = 0;
+function orbDemo(aus, ruf){
+  if (orbAkt) orbAkt.weg();
+  orbAkt = SOT.orb('#orbziel', {
+    aus:aus, ruf:ruf, w:34, ein:1600, nachEin:400,
+    bahn:orbBahnen[orbBahn], bahnr:38, bahnzeit:9000, licht:120
+  });
+  orbAkt.klick.then(function(){ SOT.toast('Angefasst — Licht aus ' + aus + '.'); });
+}
+$('#bOrbS').addEventListener('click', function(){ orbDemo('S', 'antippen'); });
+$('#bOrbN').addEventListener('click', function(){ orbDemo('N', 'antippen'); });
+$('#bOrbW').addEventListener('click', function(){ orbDemo('W', 'antippen'); });
+$('#bOrbStumm').addEventListener('click', function(){ orbDemo('S', null); });
+$('#bOrbBahn').addEventListener('click', function(){
+  orbBahn = (orbBahn + 1) % orbBahnen.length;
+  this.textContent = 'Bahn: ' + orbBahnen[orbBahn];
+  orbDemo('S', 'antippen');
+});
+orbDemo('S', 'antippen');
+
 /* ---------- Hexraster ---------- */
 var COLS = 5, ROWS = 5;
 var TERRAIN = [
@@ -415,6 +1098,25 @@ var TERRAIN = [
   ['wald','flach','ufer','water','lake'],
   ['wald','wald','flach','ufer','water']
 ];
+/* ---- Zeichensatz-Bogen: aus SOT.iconGruppen, damit ein neu abgelegtes
+   Zeichen hier von selbst auftaucht (und keiner es vergisst). ---- */
+(function iconBogen(){
+  var h = '';
+  SOT.iconGruppen.forEach(function (grp) {
+    h += '<div class="icogrp">' + grp[0] + '</div><div class="icorow">';
+    grp[1].forEach(function (n) {
+      var s = SOT.icon(n);
+      h += '<div class="icobox"><div class="icosizes">'
+         + '<span class="ico48">' + s + '</span><span class="ico24">' + s + '</span>'
+         + '<span class="ico16">' + s + '</span></div>'
+         + '<div class="icoacc"><span>' + s + '</span><span class="gut">' + s + '</span></div>'
+         + '<div class="iconm">' + n + '</div></div>';
+    });
+    h += '</div>';
+  });
+  $('#iconsheet').innerHTML = h;
+})();
+
 var map = $('#demomap');
 SOT.hex.grid(map, COLS, ROWS, function(cell, c, r){
   var t = TERRAIN[r][c];
@@ -426,11 +1128,12 @@ SOT.hex.grid(map, COLS, ROWS, function(cell, c, r){
   if (c === 2 && r === 2) cell.classList.add('furt');
   if (c === 1 && r === 1){
     cell.classList.add('placed');
-    SOT.hex.mark(cell, 'krone', el('div.pers', { text:'✦' }));
-    SOT.hex.mark(cell, 'wange', el('div.evmark', { html:'❄<span class="dur">2</span>' }));
+    /* Marken tragen Icons, keine Schriftzeichen — SOT.iconEl(name, klasse). */
+    SOT.hex.mark(cell, 'krone', SOT.iconEl('sammlerin', 'pers'));
+    SOT.hex.mark(cell, 'wange', el('div.evmark', { html: SOT.icon('frost') + '<span class="dur">2</span>' }));
     SOT.hex.mark(cell, 'ferse', el('div.sdot.flora'));
     SOT.hex.mark(cell, 'ferse', el('div.sdot.fauna'));
-    SOT.hex.mark(cell, 'fuss',  el('span', { text:'◈' }));
+    SOT.hex.mark(cell, 'fuss',  SOT.iconEl('spur', 'mk'));
     SOT.hex.mark(cell, 'zahl',  el('span', { text:'3' }));
   }
   if (c === 3 && r === 3) cell.classList.add('valid');
@@ -496,8 +1199,36 @@ map.addEventListener('click', function(ev){
 /* ---------- Wissensdokument ---------- */
 SOT.doc.init({ key: 'sot-kitdemo-mode' });
 
+/* ---------- Mehrsprachigkeit ---------- */
+SOT.i18n.add('en', {
+  'Umgesetzt': 'Shipped',
+  'Der Stamm zieht weiter': 'The clan moves on',
+  'Beleg': 'Proof',
+  'Runde {n} von {max}': 'Round {n} of {max}',
+  '{n} Plättchen': '{n} tiles'
+});
+function i18nDyn(){
+  SOT.$('#i18nDyn').textContent =
+    SOT.t('Runde {n} von {max}', {n:3, max:10}) + ' · ' + SOT.tn(4, '{n} Plättchen', '{n} Plättchen');
+}
+i18nDyn();
+document.addEventListener('sot:lang', i18nDyn);
+SOT.i18n.button('#i18nBtn');
+
+/* ---------- Reglerbrett ---------- */
+/* Live-Fassung: der Musterbogen zeigt damit, dass ein Prototyp mit eigenem
+   Rückruf ohne Neuladen auskommt. Ohne onChange wäre es ein Neuladen. */
+var demoRegler = SOT.regler(P, {
+  onChange: function (name, wert) {
+    var log = $('#reglerLog');
+    log.textContent = (log.textContent === 'noch nichts geändert' ? '' : log.textContent + '\n')
+      + name + ' → ' + (Array.isArray(wert) ? wert.join(',') : String(wert));
+    if (name === 'slots') document.body.classList.toggle('slots', !!wert);
+  }
+});
+
 /* ---------- Debugstrip ---------- */
-SOT.debug(P);
+SOT.debug(P, { extra: [{ label: 'Regler', title: 'Parameterbrett öffnen', onclick: function () { demoRegler.toggle(); } }] });
 if (P.demo) SOT.toast('Musterbogen geladen — ?debug zeigt die Leiste.');
 </script>
 </body>
