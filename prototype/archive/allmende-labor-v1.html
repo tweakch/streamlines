@@ -1,0 +1,2990 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Allmende — der Bestand, der allen gehört</title>
+<!-- sot.css · eingebettet aus prototype/kit/ (unveränderliche Kopie) -->
+<style>
+/* ============================================================================
+   sot.css — STROMLINIEN Prototyp-Baukasten · Basis
+   Tokens · Reset · Typografie · Bedienelemente · Flächen · Rückmeldungen
+
+   Herkunft: destilliert aus stromlinien-epoche1, nacht-effekte-v1,
+   spielfeld-entlastung-v1, ereignis-labor-v1, gewaesser-labor-v1,
+   zoomstufen-labor-v1, kartenwachstum-v1, feld-labor-v1, map-editor-v3,
+   mechanik-labor-v1, profil-hub-v2 — die Klassennamen sind bewusst die
+   der Prototypen, damit der Baukasten sich nicht fremd anfühlt.
+
+   Reihenfolge im Kopf der Datei:
+     link rel=stylesheet  →  ../kit/sot.css
+     link rel=stylesheet  →  ../kit/sot-hex.css     (nur mit Hexraster)
+     dann der eigene style-Block des Prototyps
+   Prototyp-eigenes CSS kommt IMMER zuletzt und darf alles überschreiben.
+   (Die Tags stehen hier absichtlich ohne spitze Klammern: dieser Text wird
+   beim Archivieren in einen style-Block eingebettet, und ein schließendes
+   Tag im Kommentar würde ihn beenden — siehe kit/inline.mjs.)
+   ========================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+/* ---------------------------------------------------------------- Tokens ---
+   Tag ist der Standard. `body.night` schaltet auf Nacht (Tag/Nacht ist eine
+   Spielmechanik, kein Nutzer-Setting — darum body-Klasse und nicht
+   prefers-color-scheme). `body.werkbank` ist das dunkle Werkzeug-Register
+   für Viewer und Editoren, die nicht diegetisch sind.
+   -------------------------------------------------------------------------- */
+:root{
+  /* Flächen und Schrift */
+  --bg:#DCE3D8; --panel:#ECEFE6; --panel2:#E2E7DC;
+  --ink:#22302C; --ink2:#5A6B64; --line:#B8C2B4; --bone:#F2EDE0;
+  --shadow:0 2px 10px rgba(30,45,40,.12);
+
+  /* Akzent: die Glut am Lagerfeuer — trägt alles Aktive/Gewählte.
+     --on-ember / --on-river ist die Schrift AUF diesen Flächen. Ohne sie
+     bricht jedes Register mit hellem Akzent (siehe body.werkbank). */
+  --ember:#C96F2E; --emberglow:rgba(224,138,60,.18); --on-ember:#fff;
+  /* Der weissglühende Kern eines Lichts (Glut-Orb). Er ist in JEDEM Register
+     hell — darum eigenes Token und nicht --bone/--on-ember, die nachts kippen. */
+  --glutkern:#FFF3DE;
+
+  /* Wertung */
+  --good:#4E7D5B; --bad:#9C4A33; --warn:#B08A2E;
+
+  /* Gelände (auch ohne sot-hex.css nützlich: Legenden, Diagramme) */
+  --river:#7FB2AC; --riverdeep:#5E9793; --lake:#8FBDB6; --on-river:#12201E;
+  --flach:#D3DCCD; --ufer:#C6D4C6; --hang:#A9B4A4; --wald:#7C9A72;
+  --kies:#DCC9A0; --trocken:#AEB0A0; --brand:#6B5344; --rom:#8E4A3C;
+  --tile:#E4E9DE; --tileink:#7C8B84;
+
+  /* Belegstatus (Quellenlage) und Kartenstatus (Handbuch) */
+  --st-done:#4E7D5B; --st-concept:#3E6E8C; --st-idea:#B08A2E;
+  --st-rej:#9C4A33; --st-open:#7A6A9C;
+
+  /* Schriftrollen — exakt die Ketten aus dem Bestand (45× Bricolage Grotesque
+     ohne system-ui, 202× Space Mono ohne ui-monospace, gemessen über alle
+     Drafts). Ein zusätzlicher Fallback klingt harmlos, ändert aber messbar
+     das Antialiasing, solange @import noch lädt (Handbuch-Umbau, 21. Aug
+     2026: 12 % Bildabweichung, obwohl die Geometrie exakt gleich war). */
+  --f-display:"Bricolage Grotesque",sans-serif;
+  --f-body:"Instrument Sans",system-ui,sans-serif;
+  --f-mono:"Space Mono",monospace;
+
+  /* Radien */
+  --r-sm:6px; --r-md:8px; --r-lg:12px; --r-pill:99px;
+}
+
+body.night{
+  --bg:#0D151D; --panel:#141F28; --panel2:#101A22;
+  --ink:#E6E1D2; --ink2:#8B9690; --line:#2C3B44; --bone:#1B2731;
+  --shadow:0 2px 14px rgba(0,0,0,.5);
+  --ember:#E08A3C; --emberglow:rgba(224,138,60,.30); --on-ember:#1A1206;
+  --glutkern:#FFE2AE;
+  --good:#7FB08B; --bad:#D07B5E; --warn:#D4B15E;
+  --river:#2E5457; --riverdeep:#24444a; --lake:#2F5A5C; --on-river:#E6E1D2;
+  --flach:#1E2C34; --ufer:#22333A; --hang:#182530; --wald:#2C4436;
+  --kies:#453A22; --trocken:#2B302B; --brand:#3A2A22; --rom:#7A3A2E;
+  --tile:#18242D; --tileink:#5D6D70;
+  --st-done:#7FB08B; --st-concept:#7FA8C4; --st-idea:#D4B15E;
+  --st-rej:#D07B5E; --st-open:#A798C9;
+}
+
+/* Werkzeug-Register: Viewer, Editoren, Prüfstände. Kühl statt warm,
+   damit man ein Werkzeug nicht mit dem Spiel verwechselt. */
+body.werkbank{
+  --bg:#0B1418; --panel:#101D23; --panel2:#151F26;
+  --ink:#DCE8EE; --ink2:#7F97A1; --line:#1D3138; --bone:#16232A;
+  --shadow:0 2px 12px rgba(0,0,0,.55);
+  --ember:#8FD6C8; --emberglow:rgba(143,214,200,.22); --on-ember:#08201C;
+  --glutkern:#E7FFF9;
+  --good:#8FC98A; --bad:#D97B6C; --warn:#E8A96F; --on-river:#08201C;
+  --f-display:var(--f-body);
+}
+
+/* ------------------------------------------------------------ Tageszeiten ---
+   DREI Tageslichter + die Nacht als eigenes Thema (Art-Direction-Handbuch,
+   Kap. 03). Die Tageslichter spannen den Farbkreis, damit sie nebeneinander
+   unterscheidbar sind (Morgen war zuerst Ember-orange — zu nah am Gold):
+     Morgen  „Morgenrot"      — Rosé, der Himmel vor der Sonne
+     Mittag  „Hohes Licht"    — Sonnengold, das klare Arbeitslicht
+     Abend   „Stilles Wasser" — kuehles Teal, der Fluss nimmt das Licht
+     Nacht   „Mondlicht"      — blaugraues Violett; die Nacht wechselt
+                                  ohnehin das ganze Register (body.night)
+   ZWEI Ebenen: die festen Toene (--z-*) traegt eine KARTE ihrer Tageszeit
+   fuer immer (Oberkante, Art-Zeile); den LAUFENDEN Ton (--zeit) setzt
+   SOT.zeit('...') via body[data-zeit] — Phasenknopf und Rundenmarke folgen
+   ihm automatisch. Ohne data-zeit aendert sich nirgends etwas. */
+body{
+  --z-morgen:#C34F63; --on-z-morgen:#fff;
+  --z-mittag:#C08A10; --on-z-mittag:#fff;
+  --z-abend:#22897C;  --on-z-abend:#fff;
+  --z-nacht:#5D6FB4;  --on-z-nacht:#fff;
+  --zeit:var(--ember); --on-zeit:var(--on-ember); --zeitglow:var(--emberglow);
+}
+body.night{
+  --z-morgen:#F07E90; --on-z-morgen:#2A0D13;
+  --z-mittag:#EDBE3F; --on-z-mittag:#261C04;
+  --z-abend:#4FC7B4;  --on-z-abend:#08211D;
+  --z-nacht:#96A8E8;  --on-z-nacht:#0E1326;
+}
+body[data-zeit="morgen"]{--zeit:var(--z-morgen);--on-zeit:var(--on-z-morgen);--zeitglow:color-mix(in srgb,var(--z-morgen) 26%,transparent);}
+body[data-zeit="mittag"]{--zeit:var(--z-mittag);--on-zeit:var(--on-z-mittag);--zeitglow:color-mix(in srgb,var(--z-mittag) 26%,transparent);}
+body[data-zeit="abend"]{--zeit:var(--z-abend);--on-zeit:var(--on-z-abend);--zeitglow:color-mix(in srgb,var(--z-abend) 26%,transparent);}
+body[data-zeit="nacht"]{--zeit:var(--z-nacht);--on-zeit:var(--on-z-nacht);--zeitglow:color-mix(in srgb,var(--z-nacht) 26%,transparent);}
+
+/* Feste Karten-Akzente: eine Morgen-Karte bleibt morgenfarben, egal wie
+   spaet es ist. Der Behaelter setzt nur das Token; WIE es getragen wird
+   (Oberkante, Schrift der Art-Zeile), entscheidet die Komponente. */
+.z-morgen{--zeit-akzent:var(--z-morgen);}
+.z-mittag{--zeit-akzent:var(--z-mittag);}
+.z-abend{--zeit-akzent:var(--z-abend);}
+.z-nacht{--zeit-akzent:var(--z-nacht);}
+.zeitrand{border-top:3px solid var(--zeit-akzent,var(--line));}
+
+/* ----------------------------------------------------------------- Reset ---*/
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+/* KEIN line-height auf body. Gemessen am Bestand: von 21 Drafts setzen es
+   genau die vier Wissensdokumente (auf 1.6, das steht in sot-doc.css); die
+   17 Spiel- und Laborprototypen laufen auf `normal` und bemessen die Zeile
+   dort, wo Text steht. Ein Wert hier würde jeden von ihnen beim Umbau
+   umbrechen — 17 Dateien Bildunterschied für eine Bequemlichkeit. */
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:var(--f-body);
+  transition:background 1.2s ease,color 1.2s ease;
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
+
+/* ------------------------------------------------------------ Typografie ---*/
+/* Nur font-family, font-weight, margin sind über ≥2 Selektoren im Bestand
+   belegt (.hero h1 UND h2.chap wollen beide 800) — line-height NICHT: kein
+   Draft im Bestand setzt je eine gemeinsame Zeilenhöhe für Überschriften,
+   und ein Wert hier blockiert die Vererbung von body{line-height} (siehe
+   sot-doc.css .wrap-Kommentar zur selben Falle). Auch KEINE eigenen
+   h2{}/h3{}-Grössen: die gab es im Bestand nie, und h2{font-weight:700}
+   kollidierte mit dieser Regel bei gleicher Spezifität nur nach Quellreihen-
+   folge — ein Diagnosefund aus dem Handbuch-Umbau (21. Aug 2026), der JEDES
+   h2 im Baukasten auf 700 statt 800 zog. h1s Grösse bleibt als Vorgabe für
+   einen unklassierten Titel; jede reale Verwendung (.hero h1, h2.chap, …)
+   überschreibt Grösse ohnehin selbst. */
+h1,h2,h3{font-family:var(--f-display);font-weight:800;margin:0;}
+h1{font-size:clamp(26px,6vw,38px);}
+/* h4 ist im Baukasten kein Titel, sondern das Etikett über einer Fläche. */
+h4,.plabel{
+  font-family:var(--f-mono);font-size:9.5px;font-weight:400;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink2);margin:0 0 8px;
+}
+h4.sp,.plabel.sp{margin-top:14px;}
+.mono{font-family:var(--f-mono);}
+.dim{color:var(--ink2);}
+.small{font-size:11.5px;}
+.num{font-variant-numeric:tabular-nums;}
+.good{color:var(--good);} .bad{color:var(--bad);} .warn{color:var(--warn);}
+a{color:var(--ink);text-decoration:none;border-bottom:1px dotted var(--ink2);}
+code{font-family:var(--f-mono);font-size:11.5px;background:var(--panel2);padding:1px 5px;border-radius:4px;}
+pre{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-md);
+    padding:12px;font-family:var(--f-mono);font-size:10.5px;line-height:1.5;overflow-x:auto;}
+kbd{font-family:var(--f-mono);font-size:9.5px;border:1px solid var(--line);
+    border-radius:3px;padding:0 4px;background:var(--panel2);}
+mark{background:none;color:var(--ember);font-weight:700;}
+.hid{display:none!important;}
+
+/* ---------------------------------------------------------------- Gerüst ---
+   .wrap  — lesbare Spalte (Dokumente, einspaltige Prototypen)
+   .stage — Vollbild-Bühne für Spielbildschirme im Telefonformat
+   .layout— Seite + Hauptfläche für Werkzeuge
+   -------------------------------------------------------------------------- */
+.wrap{max-width:1000px;margin:0 auto;padding:12px 14px 40px;}
+.wrap.narrow{max-width:760px;}
+
+.stage{max-width:420px;margin:0 auto;min-height:100dvh;padding:8px 12px 20px;
+       display:flex;flex-direction:column;}
+
+.layout{display:grid;grid-template-columns:300px minmax(320px,1fr);gap:16px;align-items:start;}
+.layout.wide-side{grid-template-columns:404px minmax(320px,1fr);}
+@media (max-width:900px){.layout,.layout.wide-side{grid-template-columns:1fr;}}
+
+/* ------------------------------------------------------------------ Kopf ---*/
+header.appbar{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;
+              padding:6px 2px 10px;}
+header.appbar.ruled{border-bottom:1px solid var(--line);padding-bottom:12px;}
+.brand{font-family:var(--f-display);font-weight:800;font-size:15px;letter-spacing:.14em;line-height:1;}
+.brand small{display:block;font-family:var(--f-mono);font-weight:400;font-size:10px;
+             letter-spacing:.1em;color:var(--ink2);margin-top:3px;}
+/* Zähler rechts im Kopf: Jahr, Runde, Uhr — groß, mono, rechtsbündig. */
+.clock,.year{font-family:var(--f-mono);text-align:right;white-space:nowrap;}
+.clock b,.year b{font-size:22px;font-weight:700;display:block;line-height:1;}
+.clock span,.year span{font-size:10px;color:var(--ink2);letter-spacing:.1em;}
+.hright{margin-left:auto;display:flex;align-items:center;gap:8px;}
+
+/* Der Punkt: ein Zustand, der glüht wenn er lebt. */
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--ember);
+     margin-right:5px;vertical-align:1px;box-shadow:0 0 8px var(--emberglow);}
+.dot.idle{background:var(--line);box-shadow:none;}
+.dot.good{background:var(--good);box-shadow:none;}
+.dot.bad{background:var(--bad);box-shadow:none;}
+
+/* ------------------------------------------------------------- Bedienung ---*/
+button{
+  font-family:var(--f-body);font-size:12px;font-weight:600;color:var(--ink);
+  background:var(--panel);border:1px solid var(--line);border-radius:7px;
+  padding:7px 11px;cursor:pointer;transition:border-color .15s,background .15s,color .15s;
+}
+button:hover:not(:disabled){border-color:var(--ember);}
+button:disabled{opacity:.35;cursor:default;}
+/* .primary und .pri sind dasselbe — beide Namen laufen in den Prototypen um. */
+button.primary,button.pri{background:var(--ember);border-color:var(--ember);color:var(--on-ember);}
+button.on{border-color:var(--ember);color:var(--ember);}
+button.ghost{background:transparent;}
+button.danger{border-color:var(--bad);color:var(--bad);}
+button.small{font-size:10.5px;padding:5px 8px;}
+button.wide{width:100%;}
+/* Zweistufig: erst scharf machen, dann ausführen — für Löschen. */
+button.armed{background:var(--bad);border-color:var(--bad);color:#fff;}
+
+select,input[type=text],input[type=number],input[type=search],textarea{
+  font-family:var(--f-body);font-size:12px;color:var(--ink);background:var(--panel);
+  border:1px solid var(--line);border-radius:7px;padding:7px 8px;
+}
+select:focus,input:focus,textarea:focus{outline:none;border-color:var(--ember);}
+textarea{font-family:var(--f-mono);font-size:11.5px;resize:vertical;}
+input[type=range]{width:100%;accent-color:var(--ember);height:16px;}
+input[type=checkbox],input[type=radio]{accent-color:var(--ember);}
+
+/* Knopfleiste unter einer Fläche. .spacer schiebt den Rest nach rechts. */
+.ctrl{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;}
+.spacer{flex:1;}
+
+/* Segmentierte Wahl: genau eine Option ist aktiv. */
+.seg{display:flex;gap:3px;}
+.seg button{flex:1;}
+.seg button.on{background:var(--ember);border-color:var(--ember);color:var(--on-ember);}
+
+/* Reiter über einer .pane — die Fläche schließt oben nahtlos an. */
+.tabs{display:flex;gap:3px;}
+.tabs button{flex:1;border-radius:7px 7px 0 0;font-size:11.5px;padding:8px 4px;}
+.tabs button.on{background:var(--panel);border-bottom-color:var(--panel);color:var(--ember);}
+.tabs + .pane{border-radius:0 var(--r-md) var(--r-md) var(--r-md);}
+
+/* ---------------------------------------------------------------- Flächen ---*/
+.pane,.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-md);
+             padding:11px 12px;box-shadow:var(--shadow);}
+.box{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-md);padding:9px 11px;}
+
+/* Aufklappbare Gruppe in einer Seitenleiste. SOT.groups() verdrahtet sie. */
+.grp{border-top:1px solid var(--line);padding:8px 0 4px;}
+.grp:first-child{border-top:0;}
+.ghead{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;}
+.ghead .lbl{flex:1;font-family:var(--f-mono);font-size:9.5px;letter-spacing:.14em;
+            text-transform:uppercase;color:var(--ink2);}
+.ghead .cnt{font-family:var(--f-mono);font-size:10px;color:var(--ink2);}
+.ghead .chev{color:var(--ink2);font-size:10px;transition:transform .25s;}
+.grp.open .ghead .chev{transform:rotate(90deg);}
+.gbody{display:none;padding-top:8px;}
+.grp.open .gbody{display:block;}
+
+/* -------------------------------------------------------------- Merkmale ---
+   .chip  — anklickbare Marke (Werkzeugwahl, Filter)
+   .badge — Statusplakette, gefüllt, nicht anklickbar
+   .pill  — Umriss-Marke für Belegstatus/Kategorie
+   -------------------------------------------------------------------------- */
+.chips{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{font-family:var(--f-mono);font-size:10px;border:1px solid var(--line);
+      border-radius:var(--r-pill);padding:4px 10px;cursor:pointer;user-select:none;
+      background:var(--panel2);color:var(--ink2);display:inline-flex;align-items:center;gap:5px;}
+.chip.on{border-color:var(--ember);color:var(--ember);}
+.chip.on.good{border-color:var(--good);color:var(--good);}
+.chip.on.bad{border-color:var(--bad);color:var(--bad);}
+
+.badge{font-family:var(--f-mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;
+       padding:3px 8px;border-radius:10px;color:var(--bg);white-space:nowrap;flex-shrink:0;
+       background:var(--ink2);}
+.b-done{background:var(--st-done);} .b-concept{background:var(--st-concept);}
+.b-idea{background:var(--st-idea);} .b-rej{background:var(--st-rej);}
+.b-open{background:var(--st-open);}
+
+.pill{font-family:var(--f-mono);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;
+      border:1px solid var(--line);border-radius:var(--r-pill);padding:2px 6px;color:var(--ink2);}
+/* Belegstatus — die vier Stufen der Quellenlage, überall gleich gefärbt.
+   „wahrscheinlich" nimmt --st-concept und NICHT --river: die Nachtwerte der
+   Geländefarben sind Füllungen für Wasserfelder und als Schrift auf dunklem
+   Grund unlesbar (in den Prototypen stand dort --river/--riverdeep). */
+.pill.belegt{border-color:var(--good);color:var(--good);}
+.pill.wahrscheinlich{border-color:var(--st-concept);color:var(--st-concept);}
+.pill.rekonstruiert{border-color:var(--ember);color:var(--ember);}
+.pill.erfunden{border-color:var(--bad);color:var(--bad);}
+
+/* ------------------------------------------------------------------ Zahl ---
+   .res + .stat — Kennzahlkacheln in einer Reihe (Ressourcen, Bilanzen)
+   -------------------------------------------------------------------------- */
+.res{display:flex;gap:6px;}
+.stat{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-md);
+      padding:6px 4px;text-align:center;box-shadow:var(--shadow);transition:background 1.4s ease;}
+.stat b{font-family:var(--f-mono);font-size:17px;display:block;line-height:1.1;
+        font-variant-numeric:tabular-nums;}
+.stat span{font-size:9px;letter-spacing:.06em;color:var(--ink2);text-transform:uppercase;}
+.stat .delta{font-family:var(--f-mono);font-size:9.5px;color:var(--ink2);}
+.stat .delta.pos{color:var(--good);} .stat .delta.neg{color:var(--bad);}
+.stat.flash{animation:sot-flash .7s ease;}
+@keyframes sot-flash{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+
+/* Balken mit Etikett darüber. */
+.prog{margin:10px 0;}
+.prog .lbl{display:flex;justify-content:space-between;font-size:10.5px;letter-spacing:.08em;
+           text-transform:uppercase;color:var(--ink2);margin-bottom:4px;}
+.prog .bar{height:10px;border-radius:6px;background:var(--panel2);
+           border:1px solid var(--line);overflow:hidden;}
+.prog .fill{height:100%;width:0%;background:linear-gradient(90deg,var(--riverdeep),var(--river));
+            transition:width .8s ease;}
+
+/* ------------------------------------------------------------- Spielkarte ---
+   Effekt-, Hand- und Zugkarten: alles, was ausgespielt wird. Destilliert aus
+   erkundung-v6 (.effkarte/.hkarte) und tageszeit-akzente-v1 (.karte); die
+   Gestaltungsregeln stehen in notes/gedanken-zum-kartendesign.md — eine
+   Karte muss in zwei Sekunden drei Fragen beantworten: Wie heisst sie?
+   Wen trifft sie? Was aendert sie mechanisch?
+
+   KOPFBAND + FUENF ZONEN, Reihenfolge fest. Schrift, Farbe und Abstand darf
+   ein Prototyp aendern — die Reihenfolge nie:
+        .kband  Kopfband in der Akzentfarbe der Oberkante: Tageszeit · Art ·
+                Dauer, jedes als Zeichen + Etikett (.lbl). Wird die Karte
+                schmal, fallen die Etiketten weg und die Zeichen bleiben.
+     1  .knm    Name — der groesste Text der Karte, fest zwei Zeilen hoch
+     2  .kwers  Wer betroffen ist: die Personen-Marken (.kwer). Der Platz
+                steht auch leer an seiner Stelle — Marken sitzen immer am
+                selben Ort.
+     3  .kwert  Die mechanische Pointe: Zeichen + Zahl/Stichwort. Das
+                zweitstaerkste Element — nach dem Namen, vor allem anderen.
+     4  .kfx    Regeltext, 1–3 kurze Zeilen, gleiche Satzmuster ueber den
+                ganzen Satz. .ksperre sagt, warum gerade nicht spielbar.
+     5  .kkost  Preis (mono, unten angepinnt) · .kflav Stimmungszeile —
+                die kleinste Schrift, konkurriert nie mit der Mechanik.
+
+   DIE ART IST EIN WORTSCHATZ, kein Freitext: spielen (der Anstoss) ·
+   herstellen (das Zahnrad) · rundenbedingung (der Rundlauf) — je ein
+   Zeichen aus sot-icons.js (Gruppe Kartenkopf). Nur so kann das Etikett
+   wegfallen, ohne dass die Information faellt. Freitext bleibt erlaubt,
+   traegt dann aber kein Zeichen und kann nicht einklappen.
+
+   DAS MASS. Alle inneren Laengen haengen an EINEM Faktor: --km, das
+   „Kartenpixel" (1px in Mittel) — eine Zahl im calc() ist darum wirklich
+   ein Pixelmass der mittleren Groesse. Drei Groessen, das Layout bleibt
+   in allen drei identisch:
+     .klein    --km:0.8px    Handreihe, Telefon     Standardbreite 128
+     (Mittel)  --km:1px      Standard               Standardbreite 160
+     .gross    --km:1.25px   Inspektor, Detail      Standardbreite 200
+   Die Standardbreite (160 × --km) setzt die Karte selbst; ein Behaelter
+   darf sie ueberschreiben. .hoch haelt in jeder Groesse 5:7. Fest in
+   ECHTEN px bleibt nur der Aussenrahmen (1.5px): ein skalierter Strich
+   wird unscharf, und das gestrichelte Muster von .k-runde verwischte.
+   Zonenmasse bei Mittel:
+     Karte     Oberkante 3 · Radius 9 · Innenabstand 7/8/8 · Zonenabstand 3
+     K .kband  Schrift 7.5 Mono Versalien · Zeichen 9 · eine Zeile fest
+     1 .knm    Schrift 14 Display 800 · Zeilenhoehe 1.08 · Kopf FEST 2
+               Zeilen hoch (30.24) — „der Kopf hat immer dieselbe Hoehe"
+     2 .kwers  Marken: Zeichen 10, Marke 14 hoch
+     3 .kwert  Schrift 13 Display 800 · Zeichen 14 (Akzentfarbe)
+     4 .kfx    Schrift 9.5 · Zeilenhoehe 1.3 — .ksperre Schrift 9 (rot)
+     5 .kkost  Schrift 9 Mono, oben 5 angepinnt · .kflav Schrift 8 kursiv
+   ZONEN SIND SKELETT (Anatomie der Seite: leer heisst nicht weg): Band,
+   Marken, Wirkung, Regel, Preis und Stimmung halten ihren Platz auch leer —
+   min-Hoehen: Band 10 · Name 30.24 · Marken 14 · Wirkung 14 · Regel 12.4 ·
+   Preis 16.7 · Stimmung 10. Damit haengt die Kartenhoehe nur noch am
+   Zeilenbudget (Name max 2, Regel max 3 Zeilen), und ein Satz gemischter
+   Karten bleibt hoehengleich (Hoehencheck im Musterbogen).
+
+   DAS KOPFBAND KLAPPT MIT DER BREITE: die Karte ist ein Container
+   (container-type:inline-size, gemessen an der INHALTSbreite: Standard-
+   breite 160 = 141 Inhalt). Das Tageszeit-Wort zeigt erst ab 190 (das
+   Zeichen und die Akzentfarbe sagen es schon); unter 120 fallen alle
+   Etiketten und die Dauer —
+   die Zeichen bleiben. Sehr breit zeigt alles, Standard laesst die
+   Tageszeit als
+   Zeichen stehen, klein zeigt nur Zeichen. Das Band bricht nie um;
+   was dann noch nicht passt, meldet der Kartenpruefstand als Ueberlauf.
+
+   ZWEI ACHSEN, ohne Lesen sortierbar:
+     .z-morgen … .z-nacht   feste Tageszeit → Oberkante + Kopfband
+     .k-person              trifft bestimmte Person(en): voller Rahmen,
+                            .kwer-Marken in Zone 2
+     .k-runde               allgemeine Rundenbedingung: gestrichelter
+                            Rahmen, Kopfband entsaettigt — eine Umwelt-
+                            karte sieht nie aus wie eine Personenkarte.
+   Zustaende: :disabled · .ruht (andere Tageszeit) · .vorgemerkt · .gespielt
+   SOT.karte({...}) in sot.js baut Band und Zonen in genau dieser
+   Reihenfolge; der Musterbogen hat den Kartenpruefstand, der eine Karte in
+   allen drei Groessen rendert und die Masse prueft.
+   -------------------------------------------------------------------------- */
+.effektkarte{--km:1px;width:calc(160*var(--km));container-type:inline-size;
+  background:var(--bone);border:1.5px solid var(--line);border-radius:calc(9*var(--km));
+  border-top:calc(3*var(--km)) solid var(--zeit-akzent,var(--line));
+  padding:calc(7*var(--km)) calc(8*var(--km)) calc(8*var(--km));
+  text-align:left;font-family:var(--f-body);color:var(--ink);
+  display:flex;flex-direction:column;gap:calc(3*var(--km));min-width:0;
+  transition:border-color .15s,transform .15s,opacity .3s;}
+.effektkarte.klein{--km:0.8px;}
+.effektkarte.gross{--km:1.25px;}
+button.effektkarte{cursor:pointer;}
+button.effektkarte:hover:not(:disabled):not(.ruht){border-color:var(--zeit-akzent,var(--ember));transform:translateY(-2px);}
+/* Handkarten-Hochformat (5:7). */
+.effektkarte.hoch{aspect-ratio:5 / 7;}
+
+/* K · Kopfband — Tageszeit · Art · Dauer, in der Farbe der Oberkante.
+   Eine Zeile fest; die Etiketten (.lbl) klappen mit der Breite. */
+.effektkarte .kband{display:flex;align-items:center;gap:calc(4*var(--km));flex-wrap:nowrap;
+  overflow:hidden;line-height:1;min-height:calc(10*var(--km));
+  font-family:var(--f-mono);font-size:calc(7.5*var(--km));letter-spacing:.11em;text-transform:uppercase;
+  color:var(--zeit-akzent,var(--ember));}
+.effektkarte .kband>span{display:inline-flex;align-items:center;gap:calc(3*var(--km));flex:none;}
+.effektkarte .kband>span+span::before{content:'·';margin-right:calc(4*var(--km));}
+.effektkarte .kband svg{width:calc(9*var(--km));height:calc(9*var(--km));flex:none;}
+/* Das Tageszeit-Wort ist das entbehrlichste: Zeichen UND Akzentfarbe sagen
+   es schon. Es erscheint erst auf sehr breiten Karten. */
+.effektkarte .kband .kzeit .lbl{display:none;}
+@container (min-width:190px){.effektkarte .kband .kzeit .lbl{display:inline;}}
+@container (max-width:119px){
+  .effektkarte .kband .lbl{display:none;}
+  /* Ein Stueck ohne Zeichen (Dauer, Freitext-Art) verschwindet ganz —
+     sonst bliebe sein Trennpunkt als Waise stehen. */
+  .effektkarte .kband>span:not(:has(svg)){display:none;}
+}
+
+/* 1 · Name — der groesste Text der Karte, fest zwei Zeilen hoch. */
+.effektkarte .knm{font-family:var(--f-display);font-weight:800;font-size:calc(14*var(--km));line-height:1.08;min-height:calc(30.24*var(--km));color:var(--ink);}
+
+/* 2 · Wer — der Marken-Platz, auch leer an seiner Stelle. */
+.effektkarte .kwers{display:flex;flex-wrap:wrap;align-items:flex-start;gap:calc(3*var(--km));min-height:calc(14*var(--km));
+  font-family:var(--f-mono);font-size:calc(7.5*var(--km));letter-spacing:.06em;text-transform:uppercase;}
+.effektkarte .kwer{display:inline-flex;align-items:center;gap:calc(3*var(--km));height:calc(14*var(--km));line-height:1;
+  padding:calc(1*var(--km)) calc(6*var(--km)) calc(1*var(--km)) calc(3*var(--km));
+  border:1px solid var(--line);border-radius:var(--r-pill);background:var(--panel2);color:var(--ink);}
+.effektkarte .kwer svg{width:calc(10*var(--km));height:calc(10*var(--km));flex:none;}
+
+/* 3 · Wirkung — fett, mit Akzentzeichen; der Name bleibt groesser. */
+.effektkarte .kwert{display:flex;align-items:center;gap:calc(5*var(--km));margin:calc(1*var(--km)) 0;min-height:calc(14*var(--km));
+  font-family:var(--f-display);font-weight:800;font-size:calc(13*var(--km));line-height:1;
+  font-variant-numeric:tabular-nums;color:var(--ink);}
+.effektkarte .kwert svg{width:calc(14*var(--km));height:calc(14*var(--km));flex:none;color:var(--zeit-akzent,var(--ember));}
+
+/* 4 · Regeltext. */
+.effektkarte .kfx{font-size:calc(9.5*var(--km));color:var(--ink2);line-height:1.3;min-height:calc(12.4*var(--km));}
+.effektkarte .ksperre{font-size:calc(9*var(--km));color:var(--bad);line-height:1.25;}
+
+/* 5 · Fuss — Preis angepinnt, Stimmung zuunterst und am kleinsten. */
+.effektkarte .kkost{margin-top:auto;padding-top:calc(5*var(--km));font-family:var(--f-mono);font-size:calc(9*var(--km));line-height:1.3;min-height:calc(16.7*var(--km));color:var(--ink);}
+.effektkarte .kflav{font-size:calc(8*var(--km));font-style:italic;color:var(--ink2);opacity:.75;line-height:1.25;min-height:calc(10*var(--km));}
+
+/* Geltung: Rundenkarten am Rahmen erkennbar, nicht am Text. */
+.effektkarte.k-runde{border-style:dashed;border-top-style:solid;}
+.effektkarte.k-runde .kband{color:var(--ink2);}
+
+/* Zustaende. */
+.effektkarte:disabled{opacity:.42;cursor:default;}
+.effektkarte.ruht{opacity:.45;cursor:default;}
+.effektkarte.vorgemerkt{border-color:var(--zeit-akzent,var(--ember));
+  box-shadow:0 0 calc(9*var(--km)) color-mix(in srgb,var(--zeit-akzent,var(--ember)) 30%,transparent);}
+.effektkarte.gespielt{border-color:var(--zeit-akzent,var(--ember));background:var(--panel2);}
+.effektkarte.gespielt .kband{color:var(--good);}
+
+/* --------------------------------------------------------- Icons in CSS ---
+   Wo ein Zeichen aus CSS kommen muss (`::before`/`::after`), geht das ohne
+   Schriftzeichen: das SVG als Maske, die Farbe als `background-color`. Damit
+   nimmt es Tokens an wie jedes andere Element — `content:'◆'` konnte das nie,
+   es hing an der Schriftart und liess sich nicht umfärben.
+
+   Nur für die Handvoll Fälle, die wirklich CSS-seitig sind. Alles andere
+   kommt aus `sot-icons.js` (SOT.icon), wo es zu lesen und zu ändern ist. */
+:root{
+  --ic-beleg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpath d='M20 4 L34 20 L20 36 L6 20 Z' fill='black'/%3E%3C/svg%3E");
+}
+
+/* Zeitleiste: ein Feld je Runde, die Raute markiert den Anker. */
+.timeline{display:flex;gap:4px;margin:4px 0 12px;}
+.tl-seg{flex:1;height:22px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);
+        position:relative;display:flex;align-items:center;justify-content:center;
+        font-family:var(--f-mono);font-size:10px;color:var(--ink2);cursor:pointer;
+        transition:background 1.4s ease;}
+.tl-seg:hover{border-color:var(--ember);}
+.tl-seg.done{background:var(--river);color:var(--on-river);border-color:transparent;}
+.tl-seg.now{outline:2px solid var(--ember);outline-offset:1px;color:var(--ink);font-weight:700;}
+.tl-seg.done.now{color:var(--on-river);}
+.tl-seg.anchor::after{content:'';position:absolute;top:-9px;left:50%;transform:translateX(-50%);
+                      width:8px;height:8px;background-color:var(--ember);
+                      -webkit-mask:var(--ic-beleg) center/contain no-repeat;
+                              mask:var(--ic-beleg) center/contain no-repeat;}
+
+/* ------------------------------------------------------------ Wertezeilen ---
+   .reihe — Etikett · Regler · Wert (Regie-Panels, Prüfstände)
+   .kv    — Schlüssel links, Wert rechts (Inspektoren)
+   .chk   — Kästchen mit Text
+   .field — Etikett über Eingabe;  .frow — Felder nebeneinander
+   -------------------------------------------------------------------------- */
+.reihe{display:flex;align-items:center;gap:8px;margin:4px 0;}
+.reihe label{flex:none;width:96px;font-family:var(--f-mono);font-size:9.5px;
+             letter-spacing:.06em;color:var(--ink2);}
+.reihe input[type=range],.reihe select{flex:1;}
+.reihe .wert{font-family:var(--f-mono);font-size:11px;color:var(--ember);
+             min-width:52px;text-align:right;font-variant-numeric:tabular-nums;}
+
+.kv{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;padding:2px 0;}
+.kv span{color:var(--ink2);}
+.kv b{font-weight:600;font-variant-numeric:tabular-nums;}
+
+.chk{display:flex;align-items:center;gap:6px;font-size:11.5px;padding:2px 0;cursor:pointer;}
+
+.field{display:flex;flex-direction:column;gap:3px;}
+.field label{font-family:var(--f-mono);font-size:9px;letter-spacing:.1em;
+             text-transform:uppercase;color:var(--ink2);}
+.frow{display:flex;gap:8px;}
+.frow>*{flex:1;min-width:0;}
+
+/* --------------------------------------------------------------- Listen ----*/
+.itemlist{display:flex;flex-direction:column;gap:3px;}
+.itemrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--r-sm);
+         border:1px solid transparent;cursor:pointer;background:var(--panel2);font-size:12px;}
+.itemrow:hover{border-color:var(--line);}
+.itemrow.sel{border-color:var(--ember);background:var(--bone);}
+.itemrow.off{opacity:.45;}
+.itemrow b{flex:1;font-weight:600;}
+.itemrow small{color:var(--ink2);font-family:var(--f-mono);font-size:10px;}
+
+/* Baum mit Zählern (Ebenen, Quellen, Pipelines). */
+.tree,.tree ul{list-style:none;margin:0;padding:0;}
+.tree ul{padding-left:12px;}
+.tree .nd{display:flex;align-items:baseline;gap:6px;padding:4px 6px;border-radius:var(--r-sm);
+          cursor:pointer;font-size:12px;}
+.tree .nd:hover{background:var(--panel2);}
+.tree .nd.hit{background:var(--bone);color:var(--ember);}
+.tree .cnt{margin-left:auto;font-family:var(--f-mono);font-size:10px;color:var(--ink2);}
+
+/* Protokoll / Chronik: eine Zeile je Ereignis, Runde links. */
+.log{max-height:340px;overflow:auto;}
+.li{display:flex;gap:8px;font-size:11.5px;line-height:1.45;padding:5px 0;
+    border-bottom:1px solid var(--line);}
+.li:last-child{border-bottom:0;}
+.li .rn{flex:none;width:52px;font-family:var(--f-mono);font-size:9.5px;color:var(--ink2);padding-top:1px;}
+.li.good b{color:var(--good);} .li.bad b{color:var(--bad);} .li.dim{color:var(--ink2);}
+
+/* --------------------------------------------------------------- Tabellen ---*/
+table.t{width:100%;border-collapse:collapse;font-size:12px;}
+table.t th{text-align:left;font-family:var(--f-mono);font-size:9.5px;letter-spacing:.06em;
+           text-transform:uppercase;color:var(--ink2);padding:5px 8px;
+           border-bottom:1.5px solid var(--line);font-weight:400;}
+table.t td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top;}
+table.t td.n,table.t th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;}
+table.t tr.hi td{background:var(--bone);}
+
+/* --------------------------------------------------------------- Hinweise ---
+   .note — Fußnote unter einer Fläche
+   .hint — kurzer Bedienhinweis
+   .why  — „Warum": die Begründung einer Entscheidung (Glut-Kante)
+   .gap  — was fehlt / Warnung (Warn-Kante)
+   .quelle — Belegtext
+   -------------------------------------------------------------------------- */
+.note{font-size:11px;line-height:1.5;color:var(--ink2);margin-top:10px;}
+.note b{color:var(--ink);}
+.hint{font-family:var(--f-mono);font-size:10px;letter-spacing:.04em;color:var(--ink2);}
+.why{background:var(--panel2);border-left:3px solid var(--ember);border-radius:0 var(--r-md) var(--r-md) 0;
+     padding:9px 12px;font-size:12px;margin:10px 0;}
+.why b{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+       color:var(--ember);display:block;margin-bottom:3px;}
+.gap{background:var(--panel2);border-left:3px solid var(--warn);border-radius:0 var(--r-md) var(--r-md) 0;
+     padding:9px 12px;font-size:12px;margin:10px 0;}
+.gap b{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+       color:var(--warn);display:block;margin-bottom:3px;}
+.gap.none{border-left-color:var(--bad);} .gap.none b{color:var(--bad);}
+.gap.full{border-left-color:var(--good);} .gap.full b{color:var(--good);}
+.quelle{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-sm);
+        padding:7px 8px;font-size:11px;line-height:1.45;color:var(--ink2);}
+.quelle b{color:var(--ink);}
+.empty{color:var(--ink2);font-size:11.5px;font-style:italic;padding:8px 0;}
+
+/* Legende unter einer Karte. */
+.leg{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:9px;
+     font-family:var(--f-mono);font-size:9px;color:var(--ink2);}
+.leg i{display:inline-block;width:9px;height:9px;border-radius:2px;
+       margin-right:3px;vertical-align:-1px;}
+
+/* ---------------------------------------------------------- Rückmeldungen ---
+   Toast, Überlagerung, Karte darin, Blatt von unten (oder rechts).
+   SOT.toast() legt den Toast selbst an — dieses CSS reicht.
+   -------------------------------------------------------------------------- */
+.toast{position:fixed;top:max(14px,env(safe-area-inset-top));left:50%;
+       transform:translateX(-50%) translateY(-90px);
+       background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:24px;
+       font-size:12.5px;font-weight:600;z-index:60;max-width:88vw;text-align:center;
+       box-shadow:var(--shadow);transition:transform .4s cubic-bezier(.2,.9,.3,1.2);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+.overlay{position:fixed;inset:0;background:rgba(8,13,18,0);display:flex;
+         align-items:center;justify-content:center;padding:16px;z-index:50;
+         pointer-events:none;opacity:0;visibility:hidden;
+         transition:background 1.2s ease,opacity .8s ease,visibility 0s linear 1.2s;}
+.overlay.on{background:rgba(8,13,18,.88);pointer-events:auto;opacity:1;visibility:visible;
+            transition:background 1.2s ease,opacity .8s ease,visibility 0s;}
+.ocard{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);
+       border-radius:14px;padding:18px 18px 16px;box-shadow:var(--shadow);}
+.ocard .tag{font-family:var(--f-mono);font-size:9px;letter-spacing:.16em;
+            text-transform:uppercase;color:var(--ember);}
+.ocard h2{margin:6px 0 8px;}
+.ocard p{font-size:13px;color:var(--ink2);}
+.ocard .choices{display:flex;flex-direction:column;gap:6px;margin-top:12px;}
+.ocard .choices button{text-align:left;}
+.ocard .choices button small{display:block;font-weight:400;color:var(--ink2);
+                             font-family:var(--f-mono);font-size:9.5px;margin-top:2px;}
+
+/* Der Schatten hängt am OFFENEN Blatt, nicht am Blatt. Ein geschlossenes Blatt
+   steht knapp ausserhalb des Bildes — ein 30-px-Weichzeichner trägt seinen
+   Schatten von dort wieder herein und legt einen dunklen Streifen über die
+   Seitenkante (rechts über die volle Höhe, unten über die volle Breite). Am
+   Bildvergleich aufgefallen, als das erste Reglerbrett ein .sheet.right in
+   eine sonst unveränderte Seite setzte: 1.8 % Abweichung ohne ein einziges
+   sichtbares Bedienelement. */
+.sheet{position:fixed;left:0;right:0;bottom:0;background:var(--panel);
+       border-radius:16px 16px 0 0;
+       transform:translateY(100%);
+       transition:transform .32s cubic-bezier(.2,.9,.3,1),box-shadow .32s;
+       z-index:45;max-height:70dvh;display:flex;flex-direction:column;}
+.sheet.on{transform:translateY(0);box-shadow:0 -8px 30px rgba(0,0,0,.25);}
+.sheet.right{left:auto;top:0;bottom:0;right:0;width:min(320px,86vw);max-height:none;
+             border-radius:16px 0 0 16px;transform:translateX(100%);}
+/* Von rechts fällt der Schatten nach links, nicht nach oben. */
+.sheet.right.on{transform:translateX(0);box-shadow:-8px 0 30px rgba(0,0,0,.25);}
+.sheet .handle{width:36px;height:4px;background:var(--line);border-radius:2px;
+               margin:10px auto 4px;flex-shrink:0;}
+.sheet .shead{display:flex;align-items:center;justify-content:space-between;
+              padding:4px 16px 10px;flex-shrink:0;}
+.sheet .sbody{padding:0 16px 20px;overflow:auto;}
+
+/* Runde Knöpfe am Rand, mit Zähler. */
+.fabrow{position:fixed;right:12px;bottom:96px;display:flex;flex-direction:column;gap:8px;z-index:10;}
+.fab{width:46px;height:46px;border-radius:50%;padding:0;font-size:18px;
+     display:flex;align-items:center;justify-content:center;position:relative;}
+.fab .badge{position:absolute;top:-4px;right:-4px;background:var(--ember);color:var(--on-ember);
+            border-radius:9px;font-size:9px;padding:1px 5px;}
+
+/* --------------------------------------------------------------- Glut-Orb ---
+   Ein Licht, das aus dem Nebel tritt, über einem Ziel zur Ruhe kommt und
+   „fass mich an" sagt. Es ist die Einladung ohne Worte: der Auftakt zeigt sie
+   auf dem ersten Feld, wo noch kein Bedienelement erklärt wäre.
+
+   Aufbau — SOT.orb() baut es, dieses CSS reicht:
+     .orbfeld            Schicht über dem Ziel, klickdurchlässig (position:absolute)
+       .orbschein        der ruhende Hof über dem Ziel
+       .orbbahn          wandert (JS setzt translate) — trägt Licht und Ball
+         i.orblicht      der goldene Scheinwerfer, der mitwandert
+         button.orb      der Ball — er allein nimmt Klicks (und Tastatur)
+           ::before      Kern
+           ::after       Hof, atmet
+           i.kranz       Tropfenkranz — sammelt sich, wenn jemand nahe kommt
+             i.tropf ×n  ein Tropfen je Platz auf dem Ring (--i trägt den Index)
+           i.ring ×2     der Ruf: zwei Ringe laufen nach außen
+           span.ruf      Beschriftung darunter
+
+   Zustände: .tritt (Auftritt läuft) → .schwebt (in Ruhe, wiegt sich) ·
+   .lockt (Ringe + Ruf) · .nah (Finger drauf, Kranz sichtbar) · .gefasst
+   (angefasst, verglüht). Die Richtung sitzt am Feld: .aus-S (Standard) ·
+   .aus-N · .aus-W · .aus-E.
+
+   Der Orb ist klein und sein Schein schwach: ein Licht IM Nebel leuchtet,
+   es strahlt nicht. Wer mehr Glut will, setzt --orbw höher — alles rechnet
+   daraus, auch der Kranz.
+   -------------------------------------------------------------------------- */
+.orbfeld{
+  position:absolute;inset:0;z-index:20;display:grid;place-items:center;
+  pointer-events:none;
+  --orbw:34px;               /* Durchmesser — alles andere rechnet daraus */
+  --einx:0px;--einy:190%;    /* woher der Auftritt kommt (Standard: Süden) */
+  /* Dunst und Ringfarbe sind bewusst schwächer als --ember/--emberglow. */
+  --orbdunst:color-mix(in srgb,var(--emberglow) 55%,transparent);
+  --orbring:color-mix(in srgb,var(--ember) 50%,transparent);
+  /* Gold: zwischen dem hellen Kern und der Glut. Aus Tokens gemischt, damit
+     es in Tag, Nacht und Werkbank mitwandert statt fest zu stehen. */
+  --orbgold:color-mix(in srgb,var(--glutkern) 62%,var(--ember));
+  --orblichtr:120px;          /* Radius des wandernden Scheinwerfers */
+}
+.orbfeld.aus-S{--einx:0px;--einy:190%;}
+.orbfeld.aus-N{--einx:0px;--einy:-190%;}
+.orbfeld.aus-W{--einx:-230%;--einy:70%;}
+.orbfeld.aus-E{--einx:230%;--einy:70%;}
+/* Aus der Mitte heraus versetzen, wenn der Orb über einem bestimmten Feld
+   und nicht über der Mitte der Schicht stehen soll (in px oder %). */
+.orbfeld{translate:var(--orbdx,0) var(--orbdy,0);}
+
+/* Der Schein ist der eigentliche Effekt: er beleuchtet, was darunter liegt. */
+.orbschein{
+  position:absolute;left:50%;top:50%;
+  width:calc(var(--orbw)*8);height:calc(var(--orbw)*8);
+  margin:calc(var(--orbw)*-4) 0 0 calc(var(--orbw)*-4);
+  border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,var(--orbdunst) 0 26%,transparent 64%);
+  opacity:0;transform:scale(.5);
+  transition:opacity 2s ease,transform 2s ease;
+}
+/* Der große Hof atmet NICHT mit: er ist achtmal so breit wie der Orb, und
+   sein Skalieren zeichnete je Bild eine entsprechend große Fläche neu. Das
+   Atmen übernimmt der kleine Hof am Ball (.orb.schwebt::after) — dasselbe
+   Bild, ein Bruchteil der Fläche. */
+.orbfeld.an .orbschein{opacity:.72;transform:scale(1);}
+
+/* Die Bahn wandert, der Ball hängt daran. Getrennte Elemente, weil der Ball
+   seine eigenen transform-Animationen hat (Auftritt, Wiegen, Fassen) — läge
+   die Wanderung auf derselben Eigenschaft, gewänne immer nur eine davon. */
+.orbbahn{position:relative;display:grid;place-items:center;translate:0 0;
+         /* Die Bahn wandert je Bild: als eigene Ebene wird das Licht als
+            Textur verschoben statt die Verlaufsscheibe neu zu zeichnen. */
+         will-change:translate;}
+
+/* Der Scheinwerfer wandert mit und ist das, was unterwegs etwas sichtbar
+   macht. Bewusst OHNE mix-blend-mode: .orbfeld ist durch z-index (und das
+   eigene translate) ein Stapelkontext, und Mischung wird daran isoliert —
+   der Modus hätte gegen die Karte darunter gar nicht gewirkt. Eine
+   durchsichtige goldene Verlaufsscheibe tut auf dunklem Grund dasselbe. */
+.orblicht{
+  position:absolute;left:50%;top:50%;pointer-events:none;
+  width:calc(var(--orblichtr)*2);height:calc(var(--orblichtr)*2);
+  margin:calc(var(--orblichtr)*-1) 0 0 calc(var(--orblichtr)*-1);
+  border-radius:50%;
+  background:radial-gradient(circle,
+    color-mix(in srgb,var(--orbgold) 42%,transparent) 0 5%,
+    color-mix(in srgb,var(--orbgold) 20%,transparent) 24%,
+    color-mix(in srgb,var(--orbgold) 7%,transparent) 46%,
+    transparent 70%);
+  opacity:0;transition:opacity 2.2s ease;
+}
+.orbfeld.an .orblicht{opacity:1;}
+.orbfeld.weg .orblicht{opacity:0;}
+
+button.orb{
+  position:relative;width:var(--orbw);height:var(--orbw);
+  background:none;border:0;padding:0;border-radius:50%;
+  display:grid;place-items:center;pointer-events:auto;cursor:pointer;
+  opacity:0;transition:none;
+}
+button.orb:hover:not(:disabled){border-color:transparent;}
+button.orb:focus-visible{outline:2px solid var(--orbring);outline-offset:8px;}
+.orb::before,.orb::after{content:'';position:absolute;border-radius:50%;pointer-events:none;}
+/* Kern: heiß in der Mitte, zur Kante hin Glut. */
+.orb::before{
+  inset:0;
+  background:radial-gradient(circle at 38% 32%,
+    var(--glutkern) 0 18%,var(--orbgold) 46%,var(--ember) 76%,var(--orbdunst) 92%,transparent 100%);
+  box-shadow:0 0 calc(var(--orbw)*.7) var(--orbdunst);
+}
+/* Hof: weicher und größer, atmet — davon lebt das „Schweben". */
+.orb::after{
+  inset:calc(var(--orbw)*-.7);
+  background:radial-gradient(circle,var(--orbdunst) 0 20%,transparent 60%);
+  opacity:.5;
+}
+.orb.schwebt::after{animation:sot-orb-atem 4.6s ease-in-out infinite;}
+
+/* Auftritt: aus dem Nebel her, unscharf und dunkel, dann scharf. */
+.orb.tritt{animation:sot-orb-ein var(--orbein,2600ms) cubic-bezier(.22,.7,.25,1) both;}
+.orb.schwebt{opacity:1;animation:sot-orb-wiegen 4.6s ease-in-out infinite;}
+@keyframes sot-orb-ein{
+  0%  {opacity:0;  transform:translate(var(--einx),var(--einy)) scale(.34);filter:blur(7px) saturate(.5);}
+  30% {opacity:.5;}
+  70% {opacity:1;  filter:blur(2px) saturate(1);}
+  100%{opacity:1;  transform:translate(0,0) scale(1);filter:blur(0) saturate(1);}
+}
+@keyframes sot-orb-wiegen{
+  0%,100%{transform:translateY(calc(var(--orbw)*-.09)) scale(1);}
+  50%    {transform:translateY(calc(var(--orbw)*.09)) scale(1.03);}
+}
+@keyframes sot-orb-atem{
+  0%,100%{opacity:.5;transform:scale(.94);}
+  50%    {opacity:.9;transform:scale(1.06);}
+}
+
+/* ---- Tropfenkranz ---------------------------------------------------------
+   Der Kranz dreht immer, sichtbar wird er erst, wenn jemand nahe kommt:
+   Zeiger darüber, Tastaturfokus, oder Finger darauf (.nah setzt SOT.orb()
+   auf pointerdown — auf einem Telefon gibt es kein Hover, und ohne das
+   bliebe der Effekt dort für immer unsichtbar).
+
+   Bauart: .tropf ist nur der Platz auf dem Ring (dreht und schiebt nach
+   außen), der Tropfen selbst ist sein ::before. Zwei Elemente, weil sonst
+   Auftritt (Übergang) und Quellen (Animation) um dieselbe transform-
+   Eigenschaft stritten — die Animation gewinnt immer und der Auftritt fiele aus.
+   Die Radien sind absichtlich ungleich (jeder dritte weiter, jeder vierte
+   näher): ein exakter Kreis liest sich als Zahnrad, ein ungleicher als
+   Flüssigkeit.
+   -------------------------------------------------------------------------- */
+.orb .kranz{
+  position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;
+  --kranzr:calc(var(--orbw)*.95);
+  /* Angehalten, solange niemand nahe ist: ein Kranz, der bei opacity:0 dreht,
+     kostet jedes Bild und zeigt nichts. */
+  animation:sot-orb-kreisen 18s linear infinite paused;
+}
+.orb:hover .kranz,.orb:focus-visible .kranz,.orb.nah .kranz{animation-play-state:running;}
+.orb .tropf{
+  position:absolute;left:0;top:0;
+  transform:rotate(calc(var(--i) * var(--kranzschritt,30deg))) translateY(calc(var(--kranzr) * -1));
+}
+.orb .tropf:nth-child(3n){--kranzr:calc(var(--orbw)*1.2);}
+.orb .tropf:nth-child(4n){--kranzr:calc(var(--orbw)*.78);}
+.orb .tropf::before{
+  content:'';position:absolute;left:0;top:0;
+  width:calc(var(--orbw)*.18);height:calc(var(--orbw)*.18);
+  margin:calc(var(--orbw)*-.09) 0 0 calc(var(--orbw)*-.09);
+  border-radius:50%;
+  /* Kein filter:blur() — jeder Tropfen wäre damit eine eigene Render-Oberfläche,
+     zwölf davon animiert halbierten die Bildrate. Der Verlauf läuft ohnehin
+     weich aus; das Weiche kommt aus der Farbe, nicht aus einem Filter.
+     Der Ember-Ring liegt weit außen: mit früherem Abfall sieht der Tropfen im
+     Tagregister hohl aus — der helle Kern verschwindet dort im hellen Grund. */
+  background:radial-gradient(circle,var(--glutkern) 0 22%,var(--orbgold) 52%,var(--ember) 78%,transparent 96%);
+  opacity:0;transform:scale(.12);
+  transition:opacity .45s ease,transform .6s cubic-bezier(.2,.9,.3,1.35);
+  transition-delay:calc(var(--i) * 34ms);
+}
+.orb:hover .tropf::before,
+.orb:focus-visible .tropf::before,
+.orb.nah .tropf::before{
+  opacity:.95;
+  animation:sot-orb-quellen 3.6s ease-in-out infinite;
+  animation-delay:calc(var(--i) * -300ms);
+}
+@keyframes sot-orb-kreisen{to{transform:rotate(360deg);}}
+@keyframes sot-orb-quellen{
+  0%,100%{transform:scale(.72);}
+  50%    {transform:scale(1.28);}
+}
+
+/* Der Ruf — „hier, fass mich an". Zwei Ringe, versetzt, und ein Wort. */
+.orb .ring{
+  position:absolute;left:50%;top:50%;width:var(--orbw);height:var(--orbw);
+  margin:calc(var(--orbw)*-.5) 0 0 calc(var(--orbw)*-.5);
+  border:1px solid var(--orbring);border-radius:50%;opacity:0;pointer-events:none;
+}
+.orb.lockt .ring{animation:sot-orb-ruf 2.8s ease-out infinite;}
+.orb.lockt .ring.r2{animation-delay:1.4s;}
+@keyframes sot-orb-ruf{
+  0%  {opacity:.65;transform:scale(.9);}
+  70% {opacity:0;  transform:scale(2.8);}
+  100%{opacity:0;  transform:scale(2.8);}
+}
+.orb .ruf{
+  position:absolute;top:calc(100% + calc(var(--orbw)*.7));left:50%;
+  transform:translateX(-50%);white-space:nowrap;
+  font-family:var(--f-mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ember);opacity:0;transition:opacity 1.2s ease;
+}
+.orb.lockt .ruf{opacity:1;animation:sot-orb-rufwort 2.8s ease-in-out infinite;}
+@keyframes sot-orb-rufwort{0%,100%{opacity:.45;}50%{opacity:1;}}
+
+/* Angefasst: der Orb fährt zusammen und verglüht — das Licht bleibt kurz. */
+.orb.gefasst{animation:sot-orb-fassen 620ms cubic-bezier(.3,.9,.2,1) forwards;}
+.orb.gefasst .ring,.orb.gefasst .ruf{animation:none;opacity:0;}
+@keyframes sot-orb-fassen{
+  0%  {opacity:1;transform:scale(1);}
+  35% {opacity:1;transform:scale(1.5);filter:brightness(1.4);}
+  100%{opacity:0;transform:scale(.2);}
+}
+.orbfeld.weg .orbschein{opacity:0;transform:scale(1.5);}
+
+/* Ohne Bewegung bleibt der Orb sichtbar und ruhig — der Reset oben schaltet
+   alle Animationen ab, darum muss die Ruhelage ohne sie stimmen. */
+@media (prefers-reduced-motion:reduce){
+  button.orb{opacity:1;}
+  .orb .ruf{opacity:1;}
+}
+
+/* ------------------------------------------------------------ Debugstrip ---
+   SOT.debug() baut ihn aus den erklärten Query-Parametern. Er ist bewusst
+   nicht diegetisch: dunkel, mono, klein — man soll ihn nicht fürs Spiel halten.
+   -------------------------------------------------------------------------- */
+.debugstrip{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:90;
+            display:flex;flex-wrap:wrap;justify-content:center;gap:4px;max-width:94vw;
+            background:rgba(20,30,26,.86);padding:5px;border-radius:18px;}
+.debugstrip button,.debugstrip a{font-family:var(--f-mono);font-size:9px;padding:4px 8px;
+            border-radius:13px;background:var(--bone);border:1px solid transparent;
+            color:var(--ink);box-shadow:none;text-decoration:none;cursor:pointer;
+            font-weight:400;}
+.debugstrip .on{background:var(--ember);color:var(--on-ember);}
+
+/* --- Reglerbrett (SOT.regler) ------------------------------------------------
+   Ein .sheet.right, das sich aus der Parameter-Erklärung selbst baut. Eigene
+   Regeln nur dort, wo das Blatt als WERKZEUG auftritt statt als Spielfläche:
+   dichtere Zeilen, Mono-Beschriftung, ein stiller Griff am Rand. */
+.reglergriff{position:fixed;right:0;top:50%;transform:translateY(-50%) rotate(180deg);
+            writing-mode:vertical-rl;z-index:43;font-family:var(--f-mono);font-size:9px;
+            letter-spacing:.14em;text-transform:uppercase;padding:10px 5px;
+            border-radius:var(--r-sm) 0 0 var(--r-sm);background:var(--panel);
+            border:1px solid var(--line);border-right:none;color:var(--ink2);
+            box-shadow:none;cursor:pointer;}
+.reglergriff:hover{color:var(--ink);border-color:var(--ember);}
+.sheet.right.regler{width:min(300px,88vw);}
+.regler .sbody{display:flex;flex-direction:column;gap:13px;padding-top:4px;overflow-x:hidden;}
+.reglerzeile{min-width:0;}
+.reglerzeile label{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+/* Der Name darf schrumpfen, die Ablesung bleibt einzeilig und schneidet ab —
+   sonst schiebt ein langer Wert das Blatt auseinander. */
+.reglerzeile label>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+.reglerzeile label .wert{font-family:var(--f-mono);font-size:10px;color:var(--ember);
+            letter-spacing:0;text-transform:none;flex:0 1 auto;min-width:0;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.reglerzeile input,.reglerzeile select{max-width:100%;}
+.reglerzeile small.note{font-size:10.5px;line-height:1.35;color:var(--ink2);margin-top:1px;}
+.reglerzeile input[type=checkbox]{align-self:flex-start;width:16px;height:16px;}
+.reglerfuss{display:flex;gap:6px;margin-top:4px;padding-top:12px;
+            border-top:1px solid var(--line);}
+.reglerfuss button{flex:1;font-family:var(--f-mono);font-size:9.5px;padding:6px 4px;}
+/* .ibtn — ein Icon als Knopfinhalt (Tag/Nacht im Debugstrip, der Hexfeld-Ausgang im
+   Spiel). Bemisst das SVG, damit es nicht auf der Schriftgrundlinie hängt. */
+.ibtn{display:inline-flex;width:1.15em;height:1.15em;vertical-align:-.16em;}
+.ibtn svg{width:100%;height:100%;display:block;}
+button .ibtn{pointer-events:none;}
+
+/* 50px, nicht 40: drei von vier Kapitel-Dokumenten (Handbuch, Technik,
+   Art-Direction) setzen 50 — nur klimatile-stilguide (kein Kapitel-Dokument)
+   wollte 40, und daher kam der falsche Standard ursprünglich. */
+footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--line);
+       font-size:11px;line-height:1.6;color:var(--ink2);}
+
+/* --------------------------------------------- Tageszeit: automatische Griffe ---
+   Sobald ein Prototyp SOT.zeit() ruft (body[data-zeit] existiert), nehmen
+   die phasen-bewussten Primitive den laufenden Ton. Bewusst am DATEIENDE:
+   Media-/Zustandsgriffe stehen NACH den Basisregeln, die sie uebersteuern
+   (Merksatz aus dem erkundung-v6-Umbau). */
+body[data-zeit] .primary{background:var(--zeit);border-color:var(--zeit);color:var(--on-zeit);}
+body[data-zeit] .primary:not(:disabled):hover{box-shadow:0 0 10px var(--zeitglow);}
+body[data-zeit] .tl-seg.now{outline-color:var(--zeit);}
+</style>
+<style>
+  /* Nur was dieser Prototyp allein braucht. Kommt zuletzt, gewinnt darum.
+
+     Werkstatt-Prüfstand, kein Ort der Welt — darum das Werkbank-Register.
+     Was der Spieler später sähe: die Karte, seine Entnahme-Punkte, die
+     Mitnutzer am Ufer, und am Epochenende die Auswertung. Die „Rechnung"
+     rechts unten bliebe im Spiel unsichtbar. */
+
+  .wrap{max-width:1080px;}
+  .zwei{display:grid;gap:12px;grid-template-columns:1fr;}
+  @media(min-width:900px){ .zwei{grid-template-columns:1fr 360px;align-items:start;} }
+
+  /* --- Die Karte ---------------------------------------------------------- */
+  .karte{background:var(--panel2);border:1px solid var(--line);
+         border-radius:var(--r-md);overflow:hidden;position:relative;}
+  .karte svg{display:block;width:100%;height:auto;}
+  .karte polygon[data-feld]{cursor:pointer;}
+  @keyframes puls{0%,100%{opacity:.9;r:4.5}50%{opacity:.35;r:6}}
+  .karte circle.punkt{fill:var(--ember);animation:puls 1.6s infinite;pointer-events:none;}
+
+  /* --- Das Lager ---------------------------------------------------------- */
+  .lz{display:flex;align-items:center;gap:10px;padding:6px 0;
+      border-bottom:1px solid var(--line);font-size:12px;}
+  .lz:last-child{border-bottom:0;}
+  .lz > svg{flex:none;width:18px;height:18px;color:var(--ink);}
+  .lz .nm{flex:1;color:var(--ink2);}
+  .lz b{font-family:var(--f-mono);font-weight:400;color:var(--ink);}
+  /* Balkenreihe statt Zahl, wie die Stufen-Treppe in gefuege-v1. */
+  .balken{display:flex;gap:3px;flex:none;}
+  .balken i{width:7px;height:14px;border-radius:2px;background:var(--line);}
+  .balken i.an{background:var(--ember);}
+  .balken i.an.matt{background:var(--ink2);}
+  .lz.not b{color:var(--warn);}
+
+  /* --- Die Mitnutzer ------------------------------------------------------ */
+  .mit{display:flex;align-items:center;gap:10px;padding:6px 0;
+       border-bottom:1px solid var(--line);font-size:11.5px;}
+  .mit:last-child{border-bottom:0;}
+  .mit > svg{flex:none;width:18px;height:18px;color:var(--ink);}
+  .mit .nm b{display:block;font-size:12px;font-weight:600;}
+  .mit .nm span{color:var(--ink2);font-size:10.5px;}
+  .mit .tat{margin-left:auto;font-family:var(--f-mono);font-size:10px;
+            color:var(--ink2);text-align:right;white-space:nowrap;}
+  .mit.hart > svg{color:var(--bad);}
+
+  /* --- Die Rechnung (im Spiel unsichtbar) --------------------------------- */
+  .regel{display:grid;grid-template-columns:auto 1fr;gap:8px;padding:6px 0;
+         border-bottom:1px solid var(--line);font-size:11.5px;}
+  .regel:last-child{border-bottom:0;}
+  .regel .zug{font-family:var(--f-mono);font-size:10px;white-space:nowrap;color:var(--ink2);}
+  .regel .warum{color:var(--ink2);font-size:11px;line-height:1.45;}
+
+  /* --- Chronik & Auswertung ---------------------------------------------- */
+  .chz{font-size:11.5px;line-height:1.5;margin:6px 0;color:var(--ink2);}
+  .chz b{color:var(--ink);}
+  .ausw .kopf{font-family:var(--f-display);font-weight:800;letter-spacing:.08em;
+              font-size:15px;margin:0 0 2px;}
+  .ausw .urteil{font-size:12.5px;line-height:1.5;margin:8px 0;}
+  .ausw table{width:100%;border-collapse:collapse;font-size:11.5px;margin:8px 0;}
+  .ausw td{padding:4px 0;border-bottom:1px solid var(--line);color:var(--ink2);}
+  .ausw td:last-child{text-align:right;font-family:var(--f-mono);color:var(--ink);}
+  .ausw .diagramm svg{display:block;width:100%;height:auto;}
+  .kleinkurven{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px;}
+  .kleinkurven figure{margin:0;}
+  .kleinkurven figcaption{font-family:var(--f-mono);font-size:9px;color:var(--ink2);
+                          text-align:center;margin-top:2px;}
+
+  .epzeile{display:flex;align-items:center;gap:14px;}
+  .epzeile .ep{font-family:var(--f-display);font-weight:800;font-size:14px;letter-spacing:.1em;}
+  .epzeile .rd{font-family:var(--f-mono);font-size:10px;color:var(--ink2);}
+  h3{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.14em;
+     text-transform:uppercase;color:var(--ink2);font-weight:400;margin:0 0 6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="appbar ruled">
+    <div class="brand">ALLMENDE<small>Werkstatt-Prüfstand · der Bestand, der allen gehört</small></div>
+    <div class="epzeile">
+      <span class="ep" id="epLabel">EPOCHE I</span>
+      <span class="rd" id="rdLabel">Runde 1/8</span>
+    </div>
+  </header>
+
+  <div class="zwei">
+
+    <div>
+      <div class="pane ausw hid" id="ausw"></div>
+      <div class="karte" id="karte"></div>
+      <p class="hint" style="margin:8px 2px 0">Antippen nimmt eine Einheit. Reich trägt die
+        Entnahme; was dünn wird, erholt sich nur manchmal; was erschöpft ist, kommt in dieser
+        Epoche nicht wieder. Historisch inspiriert und vereinfacht.</p>
+
+      <div class="pane" style="margin-top:12px">
+        <h3>Chronik</h3>
+        <div id="chronik"><p class="hint">noch keine Runde vergangen</p></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="pane">
+        <h3>Das Lager</h3>
+        <div id="lager"></div>
+        <button class="primary wide" id="weiter" style="margin-top:10px">Runde weiter</button>
+        <button class="wide hid" id="ordnung" style="margin-top:8px">Allmendordnung beschliessen</button>
+        <p class="hint" id="hinweis" style="margin-top:8px"></p>
+      </div>
+
+      <div class="pane" style="margin-top:12px">
+        <h3>Am selben Wasser <span class="hint">(die Mitnutzer)</span></h3>
+        <div id="mitnutzer"></div>
+      </div>
+
+      <div class="pane" style="margin-top:12px">
+        <h3>Die Rechnung <span class="hint">(im Spiel unsichtbar)</span></h3>
+        <div id="rechnung"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- sot.js · eingebettet aus prototype/kit/ (unveränderliche Kopie) -->
+<script>
+/* ============================================================================
+   sot.js — STROMLINIEN Prototyp-Baukasten · Kern
+
+   Klassisches Script, kein Modul: ES-Module scheitern unter file:// an CORS,
+   und ein Prototyp muss per Doppelklick aufgehen.
+
+     script src        →  ../kit/sot.js
+
+   Alles hängt an window.SOT. Keine Abhängigkeiten, kein Build.
+   ========================================================================= */
+'use strict';
+window.SOT = (function () {
+
+  /* -------------------------------------------------------------- Auswahl ---*/
+  // $ nimmt beides: eine id ('map') oder einen Selektor ('.cell.sel').
+  function $(sel, root) {
+    if (typeof sel !== 'string') return sel;
+    root = root || document;
+    if (/^[\w-]+$/.test(sel)) {
+      var byId = (root.getElementById ? root : document).getElementById(sel);
+      if (byId) return byId;
+    }
+    return root.querySelector(sel);
+  }
+  function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+
+  /* Element bauen: el('div.cell.water', {title:'Chur'}, [kind, 'Text'])
+     Der erste Parameter trägt Tag, Klassen und optional #id — das kürzt
+     genau die Zeilen, die in jedem Prototyp dutzendweise vorkommen. */
+  function el(spec, attrs, kids) {
+    var m = String(spec).match(/^([a-zA-Z][\w-]*)?(#[\w-]+)?((?:\.[\w-]+)*)$/);
+    if (!m) throw new Error('SOT.el: Spec unlesbar: ' + spec);
+    var node = document.createElement(m[1] || 'div');
+    if (m[2]) node.id = m[2].slice(1);
+    if (m[3]) node.className = m[3].slice(1).split('.').join(' ');
+    if (attrs) for (var k in attrs) {
+      var v = attrs[k];
+      if (v === null || v === undefined || v === false) continue;
+      if (k === 'text') node.textContent = v;
+      else if (k === 'html') node.innerHTML = v;
+      else if (k === 'style' && typeof v === 'object') Object.assign(node.style, v);
+      else if (k === 'data' && typeof v === 'object') { for (var d in v) node.dataset[d] = v[d]; }
+      else if (k.slice(0, 2) === 'on' && typeof v === 'function') node.addEventListener(k.slice(2), v);
+      else node.setAttribute(k, v === true ? '' : v);
+    }
+    if (kids) [].concat(kids).forEach(function (c) {
+      if (c === null || c === undefined || c === false) return;
+      node.appendChild(typeof c === 'object' ? c : document.createTextNode(String(c)));
+    });
+    return node;
+  }
+  function clear(node) { node = $(node); while (node.firstChild) node.removeChild(node.firstChild); return node; }
+
+  /* ------------------------------------------------------- Query-Parameter ---
+     Regel der Werkstatt: jeder Prototyp muss seine inneren Zustände über
+     Query-Parameter erreichbar machen — ein Screenshot kann nicht klicken.
+     SOT.params() erklärt sie EINMAL und liefert dafür getippte Werte, einen
+     Debugstrip und eine Selbstauskunft (?hilfe).
+
+       var P = SOT.params({
+         epoche: {t:'int', def:1, max:5, help:'Epoche I–V'},
+         lod:    {t:'enum', values:['s','m','l'], help:'Detailstufe erzwingen'},
+         demo:   {t:'flag', help:'Beispielkarte laden'},
+         seed:   {t:'int', def:0}
+       });
+       if (P.demo) …            // Werte sind schon getippt
+       P.set('epoche', 3)       // schreibt die URL um, ohne neu zu laden
+     -------------------------------------------------------------------------- */
+  var _spec = {};
+  function params(spec) {
+    var q = new URLSearchParams(location.search);
+    var out = {};
+    _spec = spec || {};
+    Object.keys(_spec).forEach(function (name) {
+      var s = _spec[name] || {};
+      var raw = q.get(name);
+      var t = s.t || 'str';
+      var v;
+      if (t === 'flag') {
+        // ?demo, ?demo=1 → true;  ?demo=0 / ?demo=aus / ?demo=false → false
+        v = q.has(name) && !/^(0|aus|false|nein|off)$/i.test(raw || '');
+      } else if (raw === null) {
+        v = 'def' in s ? s.def : (t === 'int' || t === 'num' ? 0 : null);
+      } else if (t === 'int' || t === 'num') {
+        v = t === 'int' ? parseInt(raw, 10) : parseFloat(raw);
+        if (!isFinite(v)) v = 'def' in s ? s.def : 0;
+        if ('min' in s) v = Math.max(s.min, v);
+        if ('max' in s) v = Math.min(s.max, v);
+      } else if (t === 'enum') {
+        v = (s.values || []).indexOf(raw) >= 0 ? raw : ('def' in s ? s.def : (s.values || [])[0]);
+      } else if (t === 'list') {
+        v = raw.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+      } else {
+        v = raw;
+      }
+      out[name] = v;
+    });
+    // ?night und ?werkbank sind immer da, ohne dass ein Prototyp sie erklärt.
+    if (q.has('night')) document.body.classList.add('night');
+    if (q.has('werkbank')) document.body.classList.add('werkbank');
+    out.set = function (name, value) {
+      var u = new URL(location.href);
+      if (value === false || value === null || value === undefined) u.searchParams.delete(name);
+      else u.searchParams.set(name, value === true ? '1' : value);
+      history.replaceState(null, '', u);
+      out[name] = value;
+      return out;
+    };
+    out.link = function (patch) {
+      var u = new URL(location.href);
+      for (var k in patch) {
+        if (patch[k] === false || patch[k] === null) u.searchParams.delete(k);
+        else u.searchParams.set(k, patch[k] === true ? '1' : patch[k]);
+      }
+      return u.toString();
+    };
+    out.spec = _spec;
+    if (q.has('hilfe') || q.has('help')) setTimeout(function () { printHelp(_spec); }, 0);
+    return out;
+  }
+
+  // ?hilfe zeigt eine Tafel aller erklärten Parameter — der Prototyp
+  // dokumentiert sich damit selbst, und niemand muss den Quelltext lesen.
+  function printHelp(spec) {
+    var rows = Object.keys(spec).map(function (n) {
+      var s = spec[n] || {};
+      var kind = s.t === 'enum' ? (s.values || []).join(' | ') : (s.t || 'str');
+      return '<tr><td><code>?' + n + '</code></td><td class="dim">' + kind + '</td>' +
+             '<td class="n dim">' + ('def' in s ? String(s.def) : '') + '</td>' +
+             '<td>' + (s.help || '') + '</td></tr>';
+    }).join('');
+    /* Die Hilfetafel muss ÜBER allem liegen. `.overlay` steht auf z-index 50;
+       Prototypen mit einer Vollbildschicht darüber (stromlinien-epoche1: .full
+       auf 80, erkundung-v6 ebenso) verdecken sie sonst vollständig — ?hilfe
+       schien dort wirkungslos. Gefunden beim Umbau der Sonde Spiel/Bühne. */
+    var ov = el('div.overlay.on', { style: { zIndex: '2000' }, onclick: function () { ov.remove(); } }, [
+      el('div.ocard', { style: { maxWidth: '560px' } }, [
+        el('div.tag', { text: 'Debug · Query-Parameter' }),
+        el('h2', { text: document.title }),
+        el('table.t', { html: '<tr><th>Parameter</th><th>Typ</th><th class="n">Standard</th><th>Bedeutung</th></tr>' + rows }),
+        el('p.note', { text: 'Immer verfügbar: ?night · ?werkbank · ?debug · ?hilfe. Klick schließt.' })
+      ])
+    ]);
+    document.body.appendChild(ov);
+  }
+
+  /* ------------------------------------------------------------ Debugstrip ---
+     SOT.debug(P) baut aus den erklärten Parametern eine Leiste: Flags zum
+     Umschalten, Enums als Durchklick, Zahlen als ±. Erscheint nur mit ?debug
+     (oder debug:true), damit ein Screenshot sauber bleibt.
+     -------------------------------------------------------------------------- */
+  function debug(P, opts) {
+    opts = opts || {};
+    var q = new URLSearchParams(location.search);
+    if (!opts.always && !q.has('debug')) return null;
+    var strip = el('div.debugstrip');
+    var spec = (P && P.spec) || _spec;
+
+    Object.keys(spec).forEach(function (name) {
+      var s = spec[name] || {}, cur = P[name];
+      if (s.t === 'flag') {
+        strip.appendChild(el('button' + (cur ? '.on' : ''), {
+          text: name, title: s.help || '',
+          onclick: function () { location.href = P.link(defineFlag(name, !cur)); }
+        }));
+      } else if (s.t === 'enum') {
+        var vals = s.values || [], i = vals.indexOf(cur);
+        strip.appendChild(el('button.on', {
+          text: name + ':' + cur, title: s.help || '',
+          onclick: function () { var p = {}; p[name] = vals[(i + 1) % vals.length]; location.href = P.link(p); }
+        }));
+      } else if (s.t === 'int' || s.t === 'num') {
+        var step = s.step || 1;
+        strip.appendChild(el('button', {
+          text: '−', title: name, onclick: function () { var p = {}; p[name] = cur - step; location.href = P.link(p); }
+        }));
+        strip.appendChild(el('button.on', { text: name + ':' + cur, title: s.help || '' }));
+        strip.appendChild(el('button', {
+          text: '+', title: name, onclick: function () { var p = {}; p[name] = cur + step; location.href = P.link(p); }
+        }));
+      }
+    });
+    (opts.extra || []).forEach(function (b) {
+      strip.appendChild(el('button', { text: b.label, onclick: b.onclick, title: b.title || '' }));
+    });
+    /* Tag/Nacht: das Zeichen kommt aus sot-icons.js (Icons sind SVG, immer).
+       Fehlt die Datei, steht hier das WORT — nie ein Ersatz-Schriftzeichen,
+       sonst wäre die Regel schon im Baukasten selbst gebrochen. */
+    strip.appendChild(el('button', {
+      html: SOT.icon ? '<span class="ibtn">' + SOT.icon(document.body.classList.contains('night') ? 'sonne' : 'mond') + '</span>'
+                     : (document.body.classList.contains('night') ? 'Tag' : 'Nacht'),
+      title: 'Tag / Nacht',
+      onclick: function () { night(); }
+    }));
+    strip.appendChild(el('a', { text: '?', href: P.link({ hilfe: true }), title: 'Alle Parameter' }));
+    document.body.appendChild(strip);
+    return strip;
+    function defineFlag(n, v) { var p = {}; p[n] = v ? true : null; return p; }
+  }
+
+  /* ------------------------------------------------------------ Reglerbrett ---
+     Der Debugstrip kann Parameter nur ANTIPPEN: Flag umschalten, Enum
+     durchklicken, Zahl um einen Schritt. Wer einen Wert quer durch seinen
+     Bereich fahren will, klickt vierzigmal und lädt vierzigmal neu.
+
+     SOT.regler(P) baut aus DERSELBEN Erklärung ein Brett von rechts, mit
+     einem echten Bedienelement je Typ. Kein Prototyp muss etwas beschreiben,
+     was er nicht schon in SOT.params() beschrieben hat.
+
+       var P = SOT.params({ ela:{t:'int', def:2400, min:800, max:3200, step:50,
+                                  help:'Schneegrenze in m'} });
+       SOT.regler(P);                       // Griff rechts, ?regler öffnet
+       SOT.regler(P, { onChange: neu });    // live statt neu laden
+
+     Ohne onChange wird die URL geschrieben und die Seite NEU GELADEN — das
+     wirkt in jedem Prototyp, auch in dem, der seine Welt einmalig beim Start
+     baut. Mit onChange(name, wert, P) bleibt die Seite stehen und der
+     Prototyp entscheidet selbst, was er neu rechnet; die URL wird trotzdem
+     nachgeführt (P.set), damit der Stand teilbar und ein Screenshot
+     reproduzierbar bleibt.
+     -------------------------------------------------------------------------- */
+  function regler(P, opts) {
+    opts = opts || {};
+    var spec = (P && P.spec) || _spec;
+    var namen = Object.keys(spec).filter(function (n) { return !(spec[n] || {}).versteckt; });
+    if (!namen.length) return null;
+
+    var live = typeof opts.onChange === 'function';
+    var offen = new URLSearchParams(location.search).has('regler') || !!opts.offen;
+
+    var body = el('div.sbody');
+    var brett = el('div.sheet.right.regler', {}, [
+      el('div.shead', {}, [
+        el('b', { text: opts.titel || 'Parameter' }),
+        el('button.closesheet', { text: 'Schliessen', title: 'Esc' })
+      ]),
+      body
+    ]);
+
+    namen.forEach(function (name) { body.appendChild(zeile(name)); });
+
+    /* Fusszeile: der Stand IST die URL — darum hier teilen und zurücksetzen,
+       nicht irgendwo im Prototyp. */
+    body.appendChild(el('div.reglerfuss', {}, [
+      el('button', {
+        text: 'Zurücksetzen', title: 'Alle Parameter auf ihren Standard',
+        onclick: function () {
+          var u = new URL(location.href);
+          namen.forEach(function (n) { u.searchParams.delete(n); });
+          location.href = u.toString();
+        }
+      }),
+      el('button', {
+        text: 'Link kopieren', title: 'Diesen Stand teilen',
+        onclick: function (e) {
+          var b = e.currentTarget;
+          navigator.clipboard.writeText(location.href).then(function () {
+            b.textContent = 'kopiert';
+            setTimeout(function () { b.textContent = 'Link kopieren'; }, 1200);
+          });
+        }
+      })
+    ]));
+
+    document.body.appendChild(brett);
+    var s = sheet(brett);
+    if (offen) s.open();
+
+    /* Der Griff ist immer da, aber schmal und still — ein Screenshot ohne
+       ?regler zeigt nur eine Lasche am Rand. */
+    if (opts.griff !== false) {
+      document.body.appendChild(el('button.reglergriff', {
+        text: opts.griffText || 'Parameter', title: 'Parameter einstellen',
+        onclick: s.toggle
+      }));
+    }
+    return { sheet: s, open: s.open, close: s.close, toggle: s.toggle, node: brett };
+
+    /* --- eine Zeile je Parameter, das Element folgt dem Typ --------------- */
+    function zeile(name) {
+      var s2 = spec[name] || {}, cur = P[name], t = s2.t || 'str';
+      var reihe = el('div.field.reglerzeile');
+      var kopf = el('label', {}, [
+        el('span', { text: name }),
+        el('span.wert', { text: anzeige(cur, t) })
+      ]);
+      reihe.appendChild(kopf);
+      var lesen = kopf.querySelector('.wert');
+
+      if (t === 'flag') {
+        reihe.appendChild(el('input', {
+          type: 'checkbox', checked: cur ? true : null,
+          onchange: function (e) { setze(name, e.target.checked ? true : null, e.target.checked); }
+        }));
+      } else if (t === 'enum') {
+        var sel = el('select', {
+          onchange: function (e) { setze(name, e.target.value, e.target.value); }
+        });
+        (s2.values || []).forEach(function (v) {
+          sel.appendChild(el('option', { value: v, text: v, selected: v === cur ? true : null }));
+        });
+        reihe.appendChild(sel);
+      } else if ((t === 'int' || t === 'num') && 'min' in s2 && 'max' in s2) {
+        /* Der gute Fall: Bereich erklärt → Schieber. Das ist zugleich der
+           Anreiz, min/max in SOT.params() wirklich anzugeben. */
+        var schieber = el('input', {
+          type: 'range', min: s2.min, max: s2.max,
+          step: s2.step || (t === 'int' ? 1 : 'any'), value: cur,
+          oninput: function (e) { lesen.textContent = e.target.value; },
+          onchange: function (e) { var v = zahl(e.target.value, t); setze(name, v, v); }
+        });
+        reihe.appendChild(schieber);
+      } else if (t === 'int' || t === 'num') {
+        reihe.appendChild(el('input', {
+          type: 'number', value: cur, step: s2.step || (t === 'int' ? 1 : 'any'),
+          min: 'min' in s2 ? s2.min : null, max: 'max' in s2 ? s2.max : null,
+          onchange: function (e) { var v = zahl(e.target.value, t); setze(name, v, v); }
+        }));
+      } else if (t === 'list') {
+        reihe.appendChild(el('input', {
+          type: 'text', value: (cur || []).join(','), placeholder: 'a,b,c',
+          onchange: function (e) {
+            var roh = e.target.value.trim();
+            setze(name, roh || null, roh ? roh.split(',').map(function (x) { return x.trim(); }).filter(Boolean) : []);
+          }
+        }));
+      } else {
+        reihe.appendChild(el('input', {
+          type: 'text', value: cur == null ? '' : cur,
+          onchange: function (e) { var v = e.target.value; setze(name, v || null, v); }
+        }));
+      }
+
+      if (s2.help) reihe.appendChild(el('small.note', { text: s2.help }));
+      return reihe;
+    }
+
+    function zahl(roh, t) {
+      var v = t === 'int' ? parseInt(roh, 10) : parseFloat(roh);
+      return isFinite(v) ? v : 0;
+    }
+    /* Die Ableselampe ist EINE Zeile. Ein langer Wert (pruefkarte trägt ein
+       ganzes Karten-JSON) sprengte sonst die Zeile und das Blatt bekam einen
+       waagrechten Rollbalken — im Musterbogen gesehen, nicht vermutet. */
+    function anzeige(v, t) {
+      if (t === 'flag') return v ? 'an' : 'aus';
+      var s3 = Array.isArray(v) ? v.join(',') : (v === null || v === undefined ? '' : String(v));
+      if (s3 === '') return '—';           // auch die leere Liste, nicht nur null
+      return s3.length > 18 ? s3.slice(0, 17) + '…' : s3;
+    }
+
+    /* urlWert geht in die Adresse (null = Parameter entfernen),
+       echterWert ist der getippte Wert für den Prototyp. */
+    function setze(name, urlWert, echterWert) {
+      if (!live) { var p = {}; p[name] = urlWert; location.href = P.link(p); return; }
+      P.set(name, urlWert);
+      P[name] = echterWert;
+      var z = body.querySelectorAll('.reglerzeile')[namen.indexOf(name)];
+      if (z) z.querySelector('.wert').textContent = anzeige(echterWert, (spec[name] || {}).t || 'str');
+      opts.onChange(name, echterWert, P);
+    }
+  }
+
+  /* ------------------------------------------------------------- Tag/Nacht ---
+     Tag/Nacht ist eine Spielmechanik, darum eine body-Klasse und kein
+     prefers-color-scheme. `remember` legt die Wahl in localStorage ab —
+     nur für Werkzeuge und Dokumente sinnvoll, nicht für Spielbildschirme.
+     -------------------------------------------------------------------------- */
+  function night(on, remember) {
+    var b = document.body;
+    if (on === undefined) on = !b.classList.contains('night');
+    b.classList.toggle('night', !!on);
+    if (remember) store.set('sot-night', on ? '1' : '0');
+    return on;
+  }
+  function nightRestore() {
+    var v = store.get('sot-night');
+    if (v === '1') document.body.classList.add('night');
+  }
+
+  /* ---------------------------------------------------------- Tageszeit ---
+     Die vier Tageszeiten tragen eigene Grundtoene (sot.css: --z-morgen ..
+     --z-nacht). SOT.zeit('abend') setzt body[data-zeit] — ab da nehmen
+     phasen-bewusste Primitive (.primary, .tl-seg.now) automatisch den
+     laufenden Akzent --zeit. Wer SOT.zeit nie ruft, sieht keinerlei
+     Aenderung (kein data-zeit, kein Umgriff) — der Einbau ist additiv.
+     Innere Schluessel des Kernloops werden uebersetzt (daemmerung→morgen,
+     tag→mittag). SOT.zeit() ohne Argument liest, SOT.zeit(null) loescht.
+     -------------------------------------------------------------------------- */
+  var ZEITEN = ['morgen', 'mittag', 'abend', 'nacht'];
+  function zeit(name) {
+    var b = document.body;
+    if (name === undefined) return b.dataset.zeit || null;
+    if (name === null) { delete b.dataset.zeit; return null; }
+    name = ({ daemmerung: 'morgen', tag: 'mittag' })[name] || name;
+    if (ZEITEN.indexOf(name) < 0) throw new Error('SOT.zeit: unbekannte Tageszeit ' + name);
+    b.dataset.zeit = name;
+    return name;
+  }
+  zeit.ALLE = ZEITEN;
+
+  /* ---------------------------------------------------------------- Toast ---
+     Eine Fassung statt der drei, die in den Prototypen umlaufen. Legt ihr
+     Element selbst an, braucht also kein Markup.
+     -------------------------------------------------------------------------- */
+  var _toast = null;
+  function toast(msg, ms) {
+    if (!_toast) { _toast = el('div.toast'); document.body.appendChild(_toast); }
+    _toast.textContent = msg;
+    // Neustart der Transition erzwingen, sonst bleibt ein sichtbarer Toast stumm.
+    _toast.classList.add('show');
+    clearTimeout(_toast._h);
+    _toast._h = setTimeout(function () { _toast.classList.remove('show'); }, ms || 2200);
+    return _toast;
+  }
+
+  /* ------------------------------------------------- Überlagerung und Blatt ---*/
+  // Karte in der Überlagerung. choices: [{label, hint, onclick}]
+  function overlay(o) {
+    o = o || {};
+    var card = el('div.ocard');
+    if (o.tag) card.appendChild(el('div.tag', { text: o.tag }));
+    if (o.title) card.appendChild(el('h2', { text: o.title }));
+    if (o.text) card.appendChild(el('p', { text: o.text }));
+    if (o.body) card.appendChild(o.body);
+    var wrap = el('div.overlay', null, [card]);
+    function close() { wrap.classList.remove('on'); setTimeout(function () { wrap.remove(); }, 900); }
+    if (o.choices) {
+      var box = el('div.choices');
+      o.choices.forEach(function (c) {
+        box.appendChild(el('button' + (c.primary ? '.primary' : ''), {
+          onclick: function () { if (c.onclick) c.onclick(); if (c.keepOpen !== true) close(); }
+        }, [c.label, c.hint ? el('small', { text: c.hint }) : null]));
+      });
+      card.appendChild(box);
+    }
+    if (o.dismissable !== false) wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
+    document.body.appendChild(wrap);
+    requestAnimationFrame(function () { wrap.classList.add('on'); });
+    return { el: wrap, card: card, close: close };
+  }
+
+  // Blatt: verdrahtet ein vorhandenes .sheet mit Verdunkelung und Esc.
+  function sheet(node) {
+    node = $(node);
+    var dim = el('div.overlay', { style: { zIndex: 44 } });
+    document.body.appendChild(dim);
+    dim.addEventListener('click', close);
+    function open() { node.classList.add('on'); dim.classList.add('on'); }
+    function close() { node.classList.remove('on'); dim.classList.remove('on'); }
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+    $$('.closesheet', node).forEach(function (b) { b.addEventListener('click', close); });
+    return { open: open, close: close, toggle: function () { node.classList.contains('on') ? close() : open(); } };
+  }
+
+  /* -------------------------------------------------------------- Glut-Orb ---
+     Ein Licht tritt aus dem Nebel, wandert über einem Ziel und lockt. Das ist
+     die Einladung ohne Worte — sie steht dort, wo noch kein Bedienelement
+     erklärt wäre (der Auftakt auf dem ersten Feld).
+
+       var o = SOT.orb('#karte', {
+         aus:'S', ruf:'antippen', w:30,
+         bahn:'kreis', licht:130,
+         aufLicht: function (x, y, r) { … }   // je Bild: Mitte des Lichts
+       });
+       await o.klick;              // erfüllt beim ersten Anfassen
+       await o.weg();              // verglühen lassen
+
+     Optionen: aus (S|N|W|E) · ruf (Wort darunter, null = keins) · w
+     (Durchmesser, Zahl = px) · dx/dy (Versatz aus der Mitte, '12%' oder px) ·
+     ein (Auftritt in ms) · nachEin (Pause bis der Ruf beginnt) · tropfen
+     (Tropfen im Kranz, 0 = keiner) · bahn ('ruhe' | 'kreis' | 'acht') ·
+     bahnr (Radius der Bahn in px) · bahnzeit (eine Runde in ms) · licht
+     (Radius des Scheinwerfers in px, 0 = keiner) · aufLicht (Rückruf je Bild
+     mit der Mitte des Lichts, relativ zum Ziel) · label (aria-label) ·
+     onclick.
+
+     Zwei Zeitschienen, absichtlich getrennt: die **Dramaturgie** (ein,
+     nachEin) läuft über SOT.warte und gehorcht SOT.tempo() — sonst würde
+     ?tempo=schnell den Auftakt nicht beschleunigen. Die **Bahn** ist Atmosphäre
+     und läuft in ihrem eigenen Takt weiter; ein schnellerer Ablauf soll das
+     Licht nicht herumrasen lassen.
+
+     aufLicht ist der Grund, warum die Bahn in JS und nicht in CSS läuft: der
+     Prototyp muss wissen, wo das Licht steht, um darauf zu reagieren (Kanten
+     fangen es, Nebel weicht). Eine CSS-Animation weiß das nicht. Der Rückruf
+     kommt gedrosselt (~30 Hz) — das Auge sieht den Unterschied nicht, der
+     Stilbaum schon.
+     -------------------------------------------------------------------------- */
+  function orb(host, o) {
+    o = o || {};
+    host = $(host);
+    // Der Orb liegt absolut im Ziel. Ein statisch positionierter Behälter
+    // würde ihn an das nächste positionierte Elternteil hängen — der
+    // klassische „warum sitzt das Licht in der Ecke"-Fehler.
+    if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+
+    var einMs = o.ein === undefined ? 2600 : o.ein;
+    var px = function (v) { return typeof v === 'number' ? v + 'px' : v; };
+    var ruhig = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    var feld = el('div.orbfeld.aus-' + (o.aus || 'S'));
+    if (o.w) feld.style.setProperty('--orbw', px(o.w));
+    if (o.dx) feld.style.setProperty('--orbdx', px(o.dx));
+    if (o.dy) feld.style.setProperty('--orbdy', px(o.dy));
+
+    var lichtR = o.licht === undefined ? 0 : o.licht;
+    if (lichtR) feld.style.setProperty('--orblichtr', px(lichtR));
+
+    var ball = el('button.orb.tritt', {
+      type: 'button',
+      'aria-label': o.label || o.ruf || 'Das Licht berühren'
+    }, [
+      el('i.ring'), el('i.ring.r2'),
+      o.ruf === null ? null : el('span.ruf', { text: o.ruf || 'antippen' })
+    ]);
+
+    // Tropfenkranz. Der Index steckt als --i im Tropfen: daran hängen Winkel,
+    // Verzögerung des Auftritts und Phase des Quellens — ohne ihn wäre es ein
+    // Ring, der zappelt, statt einer Flüssigkeit, die sich sammelt.
+    var grob = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+    var n = o.tropfen === undefined ? (grob ? 8 : 12) : o.tropfen;
+    if (n > 0) {
+      var kranz = el('i.kranz');
+      kranz.style.setProperty('--kranzschritt', (360 / n).toFixed(2) + 'deg');
+      for (var k = 0; k < n; k++) {
+        var t = el('i.tropf');
+        t.style.setProperty('--i', k);
+        kranz.appendChild(t);
+      }
+      ball.insertBefore(kranz, ball.firstChild);
+    }
+    // Eigenschaftsnamen mit -- gehen nur über setProperty; ein Zuweisen an
+    // style würde still nichts tun. Der Auftritt teilt sich die Dauer mit
+    // der Wartezeit unten, darum dieselbe Zahl.
+    ball.style.setProperty('--orbein', Math.round(einMs * (tempoFaktor || 1)) + 'ms');
+
+    var bahnEl = el('div.orbbahn', null, [lichtR ? el('i.orblicht') : null, ball]);
+    feld.appendChild(el('div.orbschein'));
+    feld.appendChild(bahnEl);
+    host.appendChild(feld);
+    requestAnimationFrame(function () { feld.classList.add('an'); });
+
+    var gefasst = false, aufloesen;
+    var klick = new Promise(function (r) { aufloesen = r; });
+    // Auf einem Telefon gibt es kein Hover: der Kranz muss auch auf Druck
+    // erscheinen, sonst sieht ihn dort niemand.
+    ball.addEventListener('pointerdown', function () { ball.classList.add('nah'); });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) {
+      ball.addEventListener(ev, function () { ball.classList.remove('nah'); });
+    });
+    ball.addEventListener('click', function () {
+      if (gefasst) return;
+      gefasst = true;
+      ball.classList.remove('lockt');
+      ball.classList.add('gefasst');
+      if (o.onclick) o.onclick();
+      aufloesen(true);
+    });
+
+    /* ---- Bahn und Meldung der Lichtmitte ---------------------------------
+       Während des Auftritts wird gemessen — da trägt der Ball eine Animation,
+       die in keiner Formel steht. Danach wird gerechnet: Ruhemitte (einmal
+       gemessen) plus Bahnversatz. Das Wiegen bleibt dabei außen vor, es sind
+       ±9 % der Ballbreite gegen einen Lichtradius von über hundert Pixeln.
+
+       Warum überhaupt: die zwei Rechtecke je Bild erzwingen HEUTE kein Layout
+       (nachgemessen: LayoutCount 0 — translate und Custom Properties machen
+       Layout nicht schmutzig). Aber sie sind eine Falle: schreibt ein Prototyp
+       im selben Bild eine Breite, werden daraus zwei erzwungene Layouts je
+       Bild. Rechnen kann nicht kippen.
+
+       Gedrosselt auf ~30 Hz, und bei stehendem Licht hält die Schleife an:
+       eine Endlosschleife für ein Bild, das sich nicht ändert, ist reine
+       Batterie. Ein Resize weckt sie wieder.
+       -------------------------------------------------------------------- */
+    var art = ruhig ? 'ruhe' : (o.bahn || 'ruhe');
+    var bahnR = o.bahnr === undefined ? 40 : o.bahnr;
+    var bahnZeit = o.bahnzeit === undefined ? 9000 : o.bahnzeit;
+    var einEnde = ruhig ? 0 : Math.round(einMs * (tempoFaktor || 1));
+    var laeuft = true, dreht = false, t0 = null;
+    var basis = null, bxAkt = 0, byAkt = 0, neuMessen = true, letzteMeldung = -1e9;
+
+    function mitte() {
+      var hb = host.getBoundingClientRect(), bb = ball.getBoundingClientRect();
+      return { x: bb.left + bb.width / 2 - hb.left, y: bb.top + bb.height / 2 - hb.top };
+    }
+    // Ruhemitte: das Rechteck der Bahn trägt ihren eigenen Versatz schon mit,
+    // darum wird er wieder abgezogen.
+    function basisMessen() {
+      var hb = host.getBoundingClientRect(), bb = bahnEl.getBoundingClientRect();
+      basis = { x: bb.left + bb.width / 2 - hb.left - bxAkt,
+                y: bb.top + bb.height / 2 - hb.top - byAkt };
+      neuMessen = false;
+    }
+    function schritt(ts) {
+      if (!laeuft) { dreht = false; return; }
+      if (t0 === null) t0 = ts;
+      if (neuMessen) basisMessen();
+      if (art !== 'ruhe') {
+        var ph = ((ts - t0) % bahnZeit) / bahnZeit * Math.PI * 2, bx, by;
+        if (art === 'acht') { bx = Math.sin(ph) * bahnR; by = Math.sin(ph * 2) * bahnR * 0.34; }
+        // Die Ellipse ist flacher als breit: ein Licht über einer Fläche
+        // wandert in der Schräge, ein Kreis sähe aus wie ein Rad.
+        else { bx = Math.cos(ph) * bahnR; by = Math.sin(ph) * bahnR * 0.42; }
+        bahnEl.style.translate = bx.toFixed(2) + 'px ' + by.toFixed(2) + 'px';
+        bxAkt = bx; byAkt = by;
+      }
+      if (o.aufLicht && ts - letzteMeldung >= 32) {
+        letzteMeldung = ts;
+        var m = (ts - t0 < einEnde) ? mitte()
+                                    : { x: basis.x + bxAkt, y: basis.y + byAkt };
+        o.aufLicht(m.x, m.y, lichtR);
+      }
+      // Steht das Licht und ist der Auftritt vorbei, gibt es nichts mehr zu tun.
+      if (art === 'ruhe' && ts - t0 >= einEnde) { dreht = false; return; }
+      requestAnimationFrame(schritt);
+    }
+    function wecken() {
+      neuMessen = true;
+      if (laeuft && !dreht) { dreht = true; requestAnimationFrame(schritt); }
+    }
+    window.addEventListener('resize', wecken);
+    if (art !== 'ruhe' || o.aufLicht) { dreht = true; requestAnimationFrame(schritt); }
+
+    // Auftritt abwarten, dann in Ruhelage und locken.
+    var fertig = warte(einMs).then(function () {
+      ball.classList.remove('tritt');
+      ball.classList.add('schwebt');
+      return warte(o.nachEin === undefined ? 700 : o.nachEin);
+    }).then(function () { if (!gefasst) ball.classList.add('lockt'); });
+
+    function lockt() { ball.classList.add('lockt'); }
+    function weg() {
+      feld.classList.add('weg');
+      ball.classList.add('gefasst');
+      return warte(900).then(function () {
+        laeuft = false;
+        window.removeEventListener('resize', wecken);
+        feld.remove();
+      });
+    }
+    return {
+      el: feld, ball: ball, bahn: bahnEl,
+      klick: klick, bereit: fertig, lockt: lockt, weg: weg, mitte: mitte
+    };
+  }
+
+  /* ---------------------------------------------------------------- Reiter ---
+     tabs('.tabs', fn) — button[data-tab] schaltet .pane[data-tab] sichtbar.
+     Gibt select(name) zurück, damit ?tab=… ohne Klick ankommt.
+     -------------------------------------------------------------------------- */
+  function tabs(bar, onChange) {
+    bar = $(bar);
+    var btns = $$('button[data-tab]', bar);
+    function select(name) {
+      btns.forEach(function (b) { b.classList.toggle('on', b.dataset.tab === name); });
+      $$('[data-tab]').forEach(function (p) {
+        if (p.tagName === 'BUTTON') return;
+        p.classList.toggle('hid', p.dataset.tab !== name);
+      });
+      if (onChange) onChange(name);
+      return name;
+    }
+    btns.forEach(function (b) { b.addEventListener('click', function () { select(b.dataset.tab); }); });
+    if (btns.length) select((btns.filter(function (b) { return b.classList.contains('on'); })[0] || btns[0]).dataset.tab);
+    return { select: select };
+  }
+
+  /* Aufklappbare .grp-Gruppen in einer Seitenleiste verdrahten. */
+  function groups(root) {
+    $$('.grp', $(root) || document).forEach(function (g) {
+      var head = g.querySelector('.ghead');
+      if (!head || head._sot) return;
+      head._sot = 1;
+      if (!head.querySelector('.chev')) head.appendChild(el('span.chev', { text: '▶' }));
+      head.addEventListener('click', function () { g.classList.toggle('open'); });
+    });
+  }
+
+  /* --------------------------------------------------------------- Zufall ---
+     Seedbar, damit ?seed=… einen Lauf reproduzierbar macht — ohne das ist
+     ein Balancing-Befund nicht überprüfbar. mulberry32.
+     -------------------------------------------------------------------------- */
+  function rng(seed) {
+    var a = (seed || 1) >>> 0;
+    function next() {
+      a = (a + 0x6D2B79F5) >>> 0;
+      var t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    next.int = function (n) { return Math.floor(next() * n); };
+    next.pick = function (arr) { return arr[Math.floor(next() * arr.length)]; };
+    next.shuffle = function (arr) {
+      var a2 = arr.slice();
+      for (var i = a2.length - 1; i > 0; i--) { var j = Math.floor(next() * (i + 1)); var t = a2[i]; a2[i] = a2[j]; a2[j] = t; }
+      return a2;
+    };
+    // Gewichtete Wahl: [['ufer',3],['wald',1]]
+    next.weighted = function (pairs) {
+      var tot = 0, i;
+      for (i = 0; i < pairs.length; i++) tot += pairs[i][1];
+      var x = next() * tot;
+      for (i = 0; i < pairs.length; i++) { x -= pairs[i][1]; if (x <= 0) return pairs[i][0]; }
+      return pairs[pairs.length - 1][0];
+    };
+    return next;
+  }
+
+  /* ------------------------------------------------------------ Formatieren ---*/
+  // Jahreszahlen mit Leerzeichen als Tausendertrenner: 11 700 statt 11'700.
+  // Schweizer Apostroph und deutscher Punkt lesen sich in einer Jahreszahl
+  // beide falsch, darum überall dieselbe schmale Lücke.
+  function jahr(y) { return Math.round(y).toLocaleString('de-CH').replace(/[’'.,  ]/g, ' '); }
+  function num(n, digits) {
+    return (typeof digits === 'number' ? Number(n).toFixed(digits) : String(Math.round(n)))
+      .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+  function vz(n, digits) { return (n > 0 ? '+' : n < 0 ? '−' : '±') + num(Math.abs(n), digits); }
+
+  /* ------------------------------------------------------------ Speicher ---
+     localStorage ist unter file:// je Ordner geteilt und wirft in manchen
+     Zuständen — darum immer gekapselt und immer mit Rückfallwert.
+     -------------------------------------------------------------------------- */
+  var store = {
+    get: function (k, def) { try { var v = localStorage.getItem(k); return v === null ? def : v; } catch (e) { return def; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+    json: function (k, def) { try { return JSON.parse(localStorage.getItem(k)) || def; } catch (e) { return def; } },
+    setJson: function (k, v) { return store.set(k, JSON.stringify(v)); },
+    del: function (k) { try { localStorage.removeItem(k); } catch (e) {} }
+  };
+
+  /* ------------------------------------------------------------ Spielkarte ---
+     Baut eine .effektkarte (sot.css): Kopfband + fuenf Zonen in FESTER
+     Reihenfolge — Kopfband (Tageszeit · Art · Dauer) → Name → Wer →
+     Wirkung → Regel → Preis/Stimmung. Die Ordnung ist Absicht
+     (notes/gedanken-zum-kartendesign.md): wer eine Karte baut, fuellt Zonen,
+     statt je Karte ein Layout zu erfinden — darum gibt es hier keinen Weg,
+     sie umzustellen.
+
+       SOT.karte({
+         name:   'Spaeher vorausschicken',        // Pflicht — Zone 1
+         zeit:   'morgen',                        // fester Ton (.z-*), Kopfband
+         art:    'spielen',                       // Wortschatz: 'spielen' |
+                                                  // 'herstellen' | 'rundenbedingung'
+                                                  // (je ein Zeichen; Freitext geht,
+                                                  // traegt aber kein Zeichen)
+         dauer:  'heute',                         // Wirkdauer, kurz — Kopfband
+         geltung:'person',                        // 'person' (Standard) | 'runde';
+                                                  // art 'rundenbedingung' setzt
+                                                  // 'runde' von selbst
+         wer:    [{icon:'jaeger', name:'Jaeger'}],// Marken — wen es trifft (Zone 2)
+         wert:   {icon:'spur', text:'+2 Sicht'},  // Zone 3 — die Pointe
+         regel:  'Der Jaeger erhaelt +2 Sicht.',  // Zone 4, max 3 Zeilen
+         sperre: 'braucht eine wache Person',     // warum gerade nicht spielbar
+         kost:   '−1 Nahrung',                    // Zone 5
+         flav:   'Wer zuerst sieht, isst zuerst.',
+         hoch:   true,                            // 5:7-Hochformat (Handkarte)
+         groesse:'s',                             // 's' klein · 'l' gross (ohne: Mittel)
+         tag:    'div',                           // Standard: button
+         onclick: fn, disabled: true
+       })
+
+     Zeichen kommen aus sot-icons.js, wenn es geladen ist; ohne bleibt die
+     Stelle leer. Ein unbekannter Name zeigt die Fehlmarke des Zeichensatzes.
+     Die Zonen sind SKELETT: Band, Wer, Wirkung, Regel, Preis und Stimmung
+     stehen auch leer an ihrem Platz (leer heisst nicht weg) — Reihen bleiben
+     so hoehengleich, egal welche Zonen eine Karte fuellt. Die Etiketten im
+     Kopfband tragen .lbl und klappen bei schmalen Karten von selbst ein
+     (Containerabfrage in sot.css) — die Zeichen bleiben.
+     ------------------------------------------------------------------------- */
+  var ZEIT_ZEICHEN = { morgen: 'morgen', mittag: 'sonne', abend: 'abend', nacht: 'mond' };
+  var ART_ZEICHEN = { spielen: 'spielen', herstellen: 'herstellen', rundenbedingung: 'runde' };
+  function karte(def) {
+    if (!def || !def.name) throw new Error('SOT.karte: name fehlt — Zone 1 ist Pflicht.');
+    function zeichen(name) {
+      return (name && window.SOT && window.SOT.icon) ? window.SOT.icon(name) : '';
+    }
+    var geltung = def.geltung || (def.art === 'rundenbedingung' ? 'runde' : 'person');
+    var spec = (def.tag || 'button') + '.effektkarte.'
+      + (geltung === 'runde' ? 'k-runde' : 'k-person')
+      + (def.zeit ? '.z-' + def.zeit : '') + (def.hoch ? '.hoch' : '')
+      + (def.groesse === 's' ? '.klein' : def.groesse === 'l' ? '.gross' : '');
+    var node = el(spec, {
+      type: def.tag ? null : 'button',
+      disabled: def.disabled || null,
+      onclick: def.onclick || null
+    });
+    /* Ein Stueck des Kopfbands: Zeichen + Etikett (.lbl — klappt ein). */
+    function band(cls, icon, label) {
+      var s = el('span.' + cls, { html: zeichen(icon) });
+      if (label) s.appendChild(el('span.lbl', { text: label }));
+      return s;
+    }
+    /* K · Kopfband — Skelett: steht auch leer an seinem Platz. */
+    var kopf = el('span.kband');
+    if (def.zeit) kopf.appendChild(band('kzeit', ZEIT_ZEICHEN[def.zeit] || def.zeit, def.zeit));
+    if (def.art) kopf.appendChild(band('kart', ART_ZEICHEN[def.art] || null, def.art));
+    if (def.dauer) kopf.appendChild(band('kdauer', null, def.dauer));
+    node.appendChild(kopf);
+    /* 1 · Name — fester Kopf, zwei Zeilen hoch. */
+    node.appendChild(el('span.knm', { text: def.name }));
+    /* 2 · Wer — der Marken-Platz, auch leer da. */
+    var wers = el('span.kwers');
+    [].concat(def.wer || []).forEach(function (w) {
+      var m = el('span.kwer', { html: zeichen(w.icon) });
+      if (w.name) m.appendChild(document.createTextNode(w.name));
+      wers.appendChild(m);
+    });
+    node.appendChild(wers);
+    /* 3 · Wirkung — Skelett. */
+    var wert = el('span.kwert', { html: def.wert && def.wert.icon ? zeichen(def.wert.icon) : '' });
+    if (def.wert && def.wert.text) wert.appendChild(document.createTextNode(def.wert.text));
+    node.appendChild(wert);
+    /* 4 · Regel — Skelett; die Sperre ist Ausnahme, kein Platzhalter. */
+    node.appendChild(el('span.kfx', { text: def.regel || '' }));
+    if (def.sperre) node.appendChild(el('span.ksperre', { text: def.sperre }));
+    /* 5 · Fuss — Skelett. */
+    node.appendChild(el('span.kkost', { text: def.kost || '' }));
+    node.appendChild(el('span.kflav', { text: def.flav || '' }));
+    return node;
+  }
+
+  /* ---------------------------------------------------------------- Takt ---
+     Für Abläufe, die sich abspielen (Nachtsequenz, Drehbuch). tempo skaliert
+     alles auf einmal, damit ?tempo=schnell wirklich alles beschleunigt.
+     -------------------------------------------------------------------------- */
+  var tempoFaktor = 1;
+  function tempo(name) {
+    tempoFaktor = name === 'schnell' ? 0.35 : name === 'langsam' ? 2 : 1;
+    return tempoFaktor;
+  }
+  function warte(ms) { return new Promise(function (r) { setTimeout(r, ms * tempoFaktor); }); }
+
+  return {
+    $: $, $$: $$, el: el, clear: clear,
+    params: params, debug: debug, hilfe: printHelp, regler: regler,
+    night: night, nightRestore: nightRestore, zeit: zeit,
+    toast: toast, overlay: overlay, sheet: sheet, orb: orb,
+    tabs: tabs, groups: groups, karte: karte,
+    rng: rng, jahr: jahr, num: num, vz: vz,
+    store: store, tempo: tempo, warte: warte
+  };
+})();
+</script>
+<!-- sot-icons.js · eingebettet aus prototype/kit/ (unveränderliche Kopie) -->
+<script>
+/* ============================================================================
+   sot-icons.js — STROMLINIEN Prototyp-Baukasten · Das Zeichensatz-Register
+
+   **Regel: Icons sind SVG. Immer.** Kein Schriftzeichen steht für ein Spielding.
+
+   Warum das eine Regel ist und keine Vorliebe: ein Glyph wie ✦ oder ▲ ist
+   Schrift, kein Bild. Er erbt die Laufweite und Grundlinie der Schriftart, er
+   fällt je Gerät auf eine andere Datei zurück (▨ und ⋔ fehlen auf iOS ganz),
+   er nimmt `stroke` nicht an, er zentriert sich nicht in einem Hex-Slot, und
+   er lässt sich nicht mit dem Rest des Bestands in einem Zug umzeichnen. Was
+   als „schnell mal ein Zeichen" beginnt, ist zwei Epochen später ein Icon-Set
+   aus zwei Materialien — und man sieht es.
+
+     script src        →  ../kit/sot.js
+     script src        →  ../kit/sot-icons.js
+
+   Hängt als SOT.icon / SOT.iconEl / SOT.icons an. Verlangt sot.js.
+
+   ---------------------------------------------------------------------------
+   HAUSSTIL — jedes neue Zeichen hält sich daran, sonst fällt es auf:
+
+     viewBox="0 0 40 40"        immer dasselbe Feld, damit Grössen mischbar sind
+     fill="none"                Fläche nur als bewusster Akzent (siehe unten)
+     stroke="currentColor"      die Farbe kommt vom Elternteil, nie aus dem Icon
+     stroke-width="2.4"         2.6/3 nur, wo eine Silhouette sonst zerfällt
+     stroke-linecap="round"     Linienenden rund, das ist die Handschrift
+
+   Fläche (`fill="currentColor"`) trägt genau eine Bedeutung: **das ist der
+   Punkt, um den es geht** — das Auge des Fisches, der Ocker im Napf, die
+   Bernsteinperle im Kies. Nie zur Zierde.
+
+   GRÖSSENSTUFEN — ein Zeichen, das im Hex-Slot bei ~16 px steht, darf nicht
+   mehr als vier Striche haben. Die Rollenbilder (sammlerin, jaeger) sind
+   darauf gezeichnet: dieselbe Datei trägt Almanach (76 px) und Slot (16 px).
+   Wer ein reicheres Zeichen braucht, prüft es bei 16 px, bevor er es hier
+   ablegt — `kit-demo.html?icons` zeigt jede Stufe nebeneinander.
+   ========================================================================= */
+'use strict';
+(function () {
+  var el = SOT.el;
+
+  /* Kopf und Fuss jeder Zeichnung — einmal, damit der Hausstil nicht 50-mal
+     abgeschrieben wird und beim Ändern 50-mal auseinanderläuft. */
+  function svg(inner, opt) {
+    opt = opt || {};
+    return '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="'
+      + (opt.w || 2.4) + '" stroke-linecap="round"'
+      + (opt.join ? ' stroke-linejoin="' + opt.join + '"' : '') + '>' + inner + '</svg>';
+  }
+  /* svg24 — Zeichnungen, die in einem 24er-Feld entstanden sind, ins Hausfeld
+     holen, OHNE sie neu zu zeichnen: die Pfade bleiben in 24er-Koordinaten und
+     werden um 40/24 skaliert. Die Strichstärke muss dabei gegengerechnet
+     werden (2.4 ÷ 1.6667 = 1.44), sonst skaliert der Strich mit und wird zu
+     fett. So sieht die Zeichnung gleich aus und der Hausstil bleibt einer.
+     Kein Dauerzustand — wer eine davon anfasst, rechnet sie auf 40 um. */
+  var S24 = (40 / 24);
+  function svg24(inner, opt) {
+    opt = opt || {};
+    return '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="'
+      + (2.4 / S24).toFixed(2) + '" stroke-linecap="round"'
+      + (opt.join ? ' stroke-linejoin="' + opt.join + '"' : '')
+      + '><g transform="scale(' + S24.toFixed(4) + ')">' + inner + '</g></svg>';
+  }
+
+  /* ==========================================================================
+     1. BAUTEN UND PLÄTTCHEN
+     Aus dem Bestand übernommen — diese neun standen in fünf Dateien
+     byte-gleich (geprüft), sie sind der Grund für dieses Register.
+     ========================================================================== */
+  var ICONS = {
+  fisch:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 20 Q16 10 27 16 Q33 19 34 20 Q33 21 27 24 Q16 30 6 20 Z"/><path d="M34 20 L39 14 M34 20 L39 26"/><circle cx="13" cy="18.5" r="1.4" fill="currentColor"/></svg>',
+  lager:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 26 L20 12 L32 26"/><path d="M20 12 V26"/><path d="M5 32 Q12 29 20 32 Q28 35 35 32"/></svg>',
+  wald:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M13 32 V22 M13 22 L7 24 M13 22 L19 24 M13 15 L8 18 M13 15 L18 18 M13 8 L13 15"/><path d="M28 32 V20 M28 20 L22 23 M28 20 L34 23 M28 12 L23 16 M28 12 L33 16"/></svg>',
+  terrasse:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 32 H35 M9 25 H31 M14 18 H26 M18 11 H22"/></svg>',
+  hoehle:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 32 Q6 12 20 12 Q34 12 34 32"/><path d="M14 32 Q14 20 20 20 Q26 20 26 32"/></svg>',
+  flint:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M20 6 L30 16 L26 34 L14 34 L10 16 Z"/><path d="M20 6 L18 20 L26 34 M18 20 L10 16"/></svg>',
+  pfahl:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 18 L20 8 L32 18 M11 18 H29 V24 H11 Z"/><path d="M13 24 V34 M20 24 V34 M27 24 V34"/><path d="M6 35 Q13 32 20 35 Q27 38 34 35"/></svg>',
+  holz:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="6" y="13" width="28" height="8" rx="4"/><rect x="6" y="24" width="28" height="8" rx="4"/><path d="M14 13 V21 M27 13 V21 M20 24 V32"/></svg>',
+
+  /* ==========================================================================
+     2. MENSCHEN — die Rollenbilder
+     Sie ersetzen ✦ und ➤. Entscheidung: EIN Bild je Mensch, in jeder Grösse
+     dasselbe — darum auf vier Striche gezeichnet, damit es im Hex-Slot
+     (~16 px) noch trägt. Herkunft: die Pfad-Signets aus `auftakt-v1`, auf
+     den Hausstil normalisiert (dort viewBox 32 und stroke 1.7).
+     ========================================================================== */
+  /* Der Speer, nicht der Bogen: der Bogen ist Ausrüstung (eigene Karte), der
+     Speer ist die Rolle. Zwei Striche — Schaft und Blatt. */
+  jaeger: svg('<path d="M8 34 L23 17"/><path d="M19 10 L32 6 L28 19 Z"/>', { join:'round' }),
+  /* Der Korb, nicht der Zweig: ein Zweig mit Beeren wäre von `beere` und
+     `hasel` (beide Flora, beide Kreise am Stiel) nicht zu unterscheiden — die
+     Rolle braucht ihr eigenes Ding. Der Korb ist ihr Gerät, und drei Striche
+     tragen bis 12 px. */
+  sammlerin: svg('<path d="M7 16 H33 L29 33 H11 Z"/><path d="M13 16 Q13 8 20 8 Q27 8 27 16"/><path d="M8 23 H32"/>', { join:'round' }),
+  /* Generische Menschmarke (war ☖ im Gewässer-Labor): wo nicht die Rolle
+     gemeint ist, sondern „hier steht jemand". */
+  mensch: svg('<circle cx="20" cy="11" r="5"/><path d="M20 16 V27"/><path d="M11 34 L20 27 L29 34"/><path d="M12 20 H28"/>'),
+
+  /* ==========================================================================
+     3. VORKOMMEN — was das Land birgt (waren ▲ ● ◇)
+     Sie sitzen in der `.wange` des Hexfeldes, also klein. Alle drei sind
+     bewusst KEINE Werkzeuge: das Werkzeug daraus ist `flint`.
+     ========================================================================== */
+  /* Silexader: die Knolle im Gestein — der Ort, nicht die Klinge.
+     Erste Fassung war ein Dreieck über zwei durchgehenden Bändern und las sich
+     bei 16 px wie `terrasse` (gestapelte Striche). Jetzt trägt die Knolle die
+     Silhouette und die Bänder sind nur Stummel links und rechts. */
+  silex: svg('<path d="M14 11 L26 13 L29 25 L18 31 L10 22 Z"/><path d="M3 16 H10 M29 21 H37"/>', { join:'round' }),
+  /* Ockergrube: der Napf, in dem das Pigment angerieben wird. Die Fläche ist
+     der Ocker selbst — der Punkt, um den es geht.
+     Flacher Bogen las sich wie der Rumpf des `einbaum`; jetzt ein geschlossenes,
+     tiefes Gefäss. */
+  ocker: svg('<path d="M8 18 Q8 32 20 32 Q32 32 32 18 Z"/><path d="M4 18 H36"/><circle cx="20" cy="10" r="4.5" fill="currentColor" stroke="none"/>', { join:'round' }),
+  /* Bergkristall: Prisma mit Facetten. Als einziges Vorkommen kantig — er ist
+     das einzige, das man ansieht statt benutzt. */
+  quarz: svg('<path d="M20 5 L28 12 V27 L20 35 L12 27 V12 Z"/><path d="M12 12 L20 18 L28 12 M20 18 V35"/>', { join:'round' }),
+
+  /* ==========================================================================
+     4. GEWÄSSER-MERKMALE (waren ▨ ≋ ⇊ ⋔ ╤ ┈ ▬ ○)
+     Orte, an denen ein Lauf sich anders verhält als seine Klasse. Alle acht
+     lesen sich gegen dieselbe waagrechte Wasserachse, damit sie als Reihe
+     erkennbar sind — und paarweise unterscheidbar: die Brücke hat einen
+     Bogen und keine Pfosten, der Steg Pfosten und keinen Bogen.
+     ========================================================================== */
+  /* Furt: Trittmarken quer über den Lauf — flach genug zum Hinübergehen. */
+  furt: svg('<path d="M5 20 H35"/><path d="M12 12 V28 M20 12 V28 M28 12 V28"/>'),
+  /* Stromschnelle: zwei Reihen Sparren — schnell, laut, gefährlich. */
+  stromschnelle: svg('<path d="M6 15 L13 22 L20 15 L27 22 L34 15"/><path d="M6 26 L13 33 L20 26 L27 33 L34 26"/>'),
+  /* Wasserfall: Stufe oben, Fall darunter, aufspritzendes Becken.
+     Wasserfall · Steg · Vorrat waren alle drei „Strich waagrecht plus drei
+     senkrecht" und damit klein nicht auseinanderzuhalten. Getrennt über je ein
+     eigenes Kennzeichen: der Fall endet in einer GEWELLTEN Wasserlinie, der
+     Steg trägt eine DOPPELTE Bohlenlinie, der Vorrat ist ein gebundenes Bündel. */
+  wasserfall: svg('<path d="M4 9 H19 V15"/><path d="M12 19 V30 M19 19 V32 M26 20 V29"/><path d="M6 36 Q13 32 20 36 Q27 40 34 36"/>'),
+  /* Klamm: die Wände sperren, nicht das Wasser. Der Faden in der Mitte hing
+     frei und las sich wie `rute`; jetzt spannt das Wasser zwischen den Flanken. */
+  klamm: svg('<path d="M9 4 L17 24 V35"/><path d="M31 4 L23 24 V35"/><path d="M16 31 Q20 34 24 31"/>'),
+  /* Brücke: Bogen über dem Wasser, gebaut — hebt jede Sperre auf. */
+  bruecke: svg('<path d="M4 19 H36"/><path d="M11 19 Q20 31 29 19"/><path d="M6 35 H34"/>'),
+  /* Steg: doppelte Bohlenlinie auf Pfosten im Wasser. Nur bis zum kleinen Fluss. */
+  steg: svg('<path d="M4 14 H36 M4 19 H36"/><path d="M11 19 V29 M20 19 V31 M29 19 V29"/><path d="M5 35 Q12 32 20 35 Q28 38 35 35"/>'),
+  /* Damm: die Sperre, hinter der sich das Wasser staut. */
+  damm: svg('<path d="M16 4 V36 M25 4 V36"/><path d="M4 14 H16 M4 22 H16 M4 30 H16"/>'),
+  /* Weiher/Stillwasser (war ○): Fläche mit einer Kräuselung — es fliesst nicht. */
+  weiher: svg('<ellipse cx="20" cy="22" rx="15" ry="10"/><path d="M12 22 Q20 27 28 22"/>'),
+
+  /* ==========================================================================
+     5. FLORA — das Revier der Sammlerin (aus dem Bestand)
+     ========================================================================== */
+  hasel:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="20" cy="25" r="8"/><path d="M13 20 Q20 14 27 20"/><path d="M20 14 Q24 6 32 7 Q30 14 22 15"/></svg>',
+  beere:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="14" cy="26" r="5.5"/><circle cx="26" cy="26" r="5.5"/><circle cx="20" cy="17" r="5.5"/><path d="M20 11 Q21 6 26 5"/></svg>',
+  rohr:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 36 V14"/><rect x="17" y="6" width="6" height="12" rx="3" fill="currentColor" stroke="none"/><path d="M14 36 Q13 24 8 18 M26 36 Q28 26 33 21"/></svg>',
+  birke:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M17 36 Q17 20 15 6 M23 36 Q23 22 26 8"/><path d="M15 12 H20 M22 18 H27 M14 24 H19 M22 29 H27"/></svg>',
+  ulme:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M10 34 Q4 20 12 8"/><path d="M11 32 L28 10"/><path d="M28 14 L28 10 L24 10"/></svg>',
+
+  /* ==========================================================================
+     6. FAUNA — das Revier des Jägers (aus dem Bestand)
+     ========================================================================== */
+  hirsch:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M14 34 V24 Q14 18 20 18 Q26 18 26 24 V34"/><path d="M16 18 L11 9 M11 9 L6 11 M11 9 L12 4 M24 18 L29 9 M29 9 L34 11 M29 9 L28 4"/></svg>',
+  schwein:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 24 Q8 15 18 15 H27 Q34 15 34 22 Q34 27 28 27 H13 Q8 27 8 24 Z"/><path d="M34 20 L38 18 M13 27 V32 M27 27 V32"/><path d="M18 15 L15 10"/></svg>',
+  steinbock:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M14 34 V25 Q14 19 20 19 Q26 19 26 25 V34"/><path d="M23 19 Q34 14 33 3 M23 19 Q30 15 30 7"/><path d="M17 19 L15 14"/></svg>',
+  biber:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 22 Q8 13 17 13 Q26 13 26 22 Q26 29 17 29 Q8 29 8 22 Z"/><path d="M26 22 Q37 20 37 26 Q37 31 26 27"/><circle cx="13" cy="19" r="1.3" fill="currentColor"/></svg>',
+  ente:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 26 Q10 32 20 32 Q30 32 32 25 Q26 27 22 24 Q26 22 26 17 Q26 12 21 12 Q16 12 16 17 Q16 22 12 25 Z"/><path d="M21 12 L26 14"/><path d="M4 30 Q10 34 20 34"/></svg>',
+  wolf:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 28 L14 20 L18 22 L26 14 L30 8 L32 14 L28 20 L30 28 M14 20 L12 28 M22 18 L23 28"/></svg>',
+  hund:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 30 L10 20 L18 20 L26 14 L28 8 L31 14 L28 20 L29 30 M13 20 L12 30 M22 18 L23 30"/><path d="M28 8 L25 6"/></svg>',
+
+  /* ==========================================================================
+     7. AUSRÜSTUNG UND VERWANDLUNG (≡ und 𝆲 waren hier Schriftzeichen —
+     𝆲 liegt ausserhalb der Basic Multilingual Plane und fiel auf jedem
+     zweiten Gerät auf ein Ersatzkästchen zurück. Genau der Fall, den die
+     Regel abstellt.)
+     ========================================================================== */
+  einbaum:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 22 Q20 28 36 22 Q32 30 20 30 Q8 30 4 22 Z"/><path d="M24 8 L18 24"/><path d="M4 34 Q13 31 20 34 Q27 37 36 34"/></svg>',
+  bogen:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 4 Q30 20 12 36"/><path d="M12 4 L12 36"/><path d="M12 20 H34 M34 20 L29 17 M34 20 L29 23"/></svg>',
+  rute:'<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M20 36 V18 M20 18 Q12 12 10 4 M20 18 Q28 12 30 4"/></svg>',
+  /* Schuhwerk: die Schleife, die sich selbst antreibt. Profil plus Boden. */
+  schuh: svg('<path d="M7 27 V16 Q7 13 10 13 H15 L19 19 H30 Q34 19 34 24 V27 Z"/><path d="M6 32 H35"/>', { join:'round' }),
+  /* Trockenfleisch: das gebundene Bündel, das eine Hungernacht fängt.
+     Als Streifen am Gestell war es von `steg` und `wasserfall` nicht zu
+     unterscheiden — die Schnur macht daraus ein Ding, das man weglegt. */
+  vorrat: svg('<path d="M7 15 H33 V31 H7 Z"/><path d="M20 15 V31"/><path d="M13 11 Q20 6 27 11"/>', { join:'round' }),
+
+  /* ==========================================================================
+     8. MARKEN UND ZUSTÄNDE
+     Die abstraktesten Zeichen — und die, die als Glyph am meisten gelitten
+     haben (◈ ◆ ⬡ ⚓ ❄ ✶ ♨ ◌ ☀ ☾).
+     ========================================================================== */
+  /* Spur (war ◈): eine Scherbe, die aus dem Boden schaut. NICHT ein Tierabdruck
+     — die Spur zeigt eine Fundstelle, nicht Wild; ein Huf hätte in die falsche
+     Richtung gelesen. */
+  spur: svg('<path d="M4 28 H36"/><path d="M14 28 L17 14 L26 17 L24 28"/>', { join:'round' }),
+  /* Belegtes Ereignis (war ◆): Raute mit gefülltem Kern — es geschieht, ob man
+     bereit ist oder nicht. Die Form bleibt die vertraute, jetzt gezeichnet. */
+  beleg: svg('<path d="M20 4 L34 20 L20 36 L6 20 Z"/><path d="M20 13 L27 20 L20 27 L13 20 Z" fill="currentColor" stroke="none"/>', { join:'round' }),
+  /* Hexfeld (war ⬡): spitz oben, wie das Spielfeld — der Ausgangsknopf. */
+  hexfeld: svg('<path d="M20 3 L34 11 V29 L20 37 L6 29 V11 Z"/>', { join:'round' }),
+  /* Anker-Ereignis (war ⚓). */
+  anker: svg('<path d="M20 11 V33"/><circle cx="20" cy="7" r="3.4"/><path d="M12 17 H28"/><path d="M8 24 Q8 33 20 33 Q32 33 32 24"/>'),
+  /* Frost (war ❄). */
+  frost: svg('<path d="M20 4 V36 M6 12 L34 28 M34 12 L6 28"/><path d="M20 11 L16 7 M20 11 L24 7 M20 29 L16 33 M20 29 L24 33"/>'),
+  /* Stille (war ✶): der klare Nachthimmel, in den die Ältesten lesen.
+     Erste Fassung war nur aus dünnen Strichen und verschwand bei 16 px — die
+     zwei gefüllten Sterne tragen jetzt die Marke, egal wie klein. */
+  stille: svg('<path d="M17 5 V21 M9 13 H25"/><circle cx="30" cy="23" r="2.4" fill="currentColor" stroke="none"/><circle cx="11" cy="30" r="2.8" fill="currentColor" stroke="none"/>'),
+  /* Fremde am Feuer (war ♨): die Flamme und zwei, die daran sitzen. Erscheint
+     nur in Kartengrösse (76 px) — im Slot wäre sie zu dicht. */
+  fremde: svg('<path d="M20 30 Q13 25 16 16 Q18 20 21 18 Q19 12 25 8 Q23 17 28 21 Q29 27 20 30 Z"/><circle cx="8" cy="27" r="3.2"/><circle cx="32" cy="27" r="3.2"/>'),
+  /* Ein Fund im Kies (war ◌): die Perle, die von weit her kam, unter Kieseln.
+     Die Fläche ist der Fund — der Punkt, um den es geht. */
+  fundkies: svg('<circle cx="20" cy="13" r="5" fill="currentColor" stroke="none"/><circle cx="10" cy="27" r="4"/><circle cx="21" cy="29" r="3.4"/><circle cx="31" cy="25" r="3.2"/>'),
+  /* ==========================================================================
+     9. DIE VIER RESSOURCEN
+     Nahrung · Schutz · Material · Kultur — der Kennzahlenkopf jedes
+     Prototyps. Herkunft `erkundung-v4`, dort im 24er-Feld gezeichnet; über
+     svg24 ins Hausfeld geholt, damit die Zeichnung dieselbe bleibt und der
+     Stil trotzdem einer ist.
+     ========================================================================== */
+  nahrung: svg24('<path d="M5 19 Q11 13 18 5"/><path d="M12.5 11.5 15 14"/><circle cx="8.5" cy="13.5" r="2.1"/><circle cx="16" cy="15" r="2.1"/><circle cx="13" cy="7" r="2.1"/>'),
+  schutz: svg24('<path d="M4 20V8l2.5-3L9 8v12M9 20V10l3-3 3 3v10M15 20V8l2.5-3L20 8v12"/><path d="M3 20h18"/>', { join:'round' }),
+  /* Gesundheit der Person (erkundung-v6, Personen-Wertekarte). */
+  herz: svg24('<path d="M12 19.6C7.2 15.5 4.2 12.3 4.2 9.1a3.9 3.9 0 0 1 7.8-.9A3.9 3.9 0 0 1 19.8 9.1c0 3.2-3 6.4-7.8 10.5Z"/>', { join:'round' }),
+  material: svg24('<path d="M4 18 20 7M4 13.5 20 11.5M4 7l16 11"/><path d="M10.5 9.5c-1 2.4-1 3.6 0 6M13.5 8.5c1 2.4 1 3.6 0 6"/>'),
+  kultur: svg24('<path d="M12 12.2a1.6 1.6 0 0 0 3.2 0 3.4 3.4 0 0 0-6.8 0 5.4 5.4 0 0 0 10.8 0 7.6 7.6 0 0 0-15.2 0 9.8 9.8 0 0 0 12.4 9.4"/>'),
+
+  /* ==========================================================================
+     10. WERKZEUGE — die Editor-Leisten der Prüfstände
+     Hier standen bisher **Emoji** (🔍 ⛰) neben Symbolzeichen (∿ ⌫ ▨ ○ ☖).
+     Emoji sind der schlimmste Fall der Regel: sie kommen farbig aus einer
+     Systemschrift, nehmen `currentColor` nicht an und sehen auf jedem
+     Betriebssystem anders aus — im Werkbank-Register leuchteten sie bunt
+     aus einer sonst kühlen Leiste heraus.
+     ========================================================================== */
+  lupe: svg('<circle cx="17" cy="17" r="10"/><path d="M24.5 24.5 L34 34"/>'),
+  /* Lauf: zwei Ufer, ein Bett — der Zeichenstift für ein Fliessgewässer.
+     Bewusst geschwungen statt gezackt, damit es nicht `stromschnelle` wird. */
+  lauf: svg('<path d="M4 23 Q12 11 20 17 Q28 23 36 11"/><path d="M4 32 Q12 20 20 26 Q28 32 36 20"/>'),
+  stempel: svg('<path d="M13 5 H27 L25 18 H15 Z"/><path d="M8 22 H32 V28 H8 Z"/><path d="M5 34 H35"/>', { join:'round' }),
+  berg: svg('<path d="M3 32 L14 11 L22 25 L27 18 L37 32 Z"/>', { join:'round' }),
+  loeschen: svg('<path d="M15 31 L6 22 L22 6 L33 17 Z"/><path d="M6 35 H34"/>', { join:'round' }),
+
+  /* ==========================================================================
+     11. DIE VIER TAGESZEITEN
+     Sie standen in `erkundung-v4` schon als SVG — aber in einem zweiten
+     Hausstil (viewBox 24, stroke 1.9). Genau die Sorte Bruch, die man erst
+     bemerkt, wenn zwei Zeichen nebeneinander liegen: hier auf 40/2.4
+     nachgezogen. `sonne` und `mond` sind gleichzeitig Mittag und Nacht und
+     die Registerumschaltung — ein Ding, ein Zeichen.
+     ========================================================================== */
+  morgen: svg('<path d="M4 30 H36"/><path d="M12 30 A8 8 0 0 1 28 30"/><path d="M20 18 V5 M14 11 L20 5 L26 11"/>'),
+  abend:  svg('<path d="M4 30 H36"/><path d="M12 30 A8 8 0 0 1 28 30"/><path d="M20 5 V18 M14 12 L20 18 L26 12"/>'),
+  /* Tag und Nacht (waren ☀ und ☾) — Mittag, Nacht und die Registerumschaltung. */
+  sonne: svg('<circle cx="20" cy="20" r="7"/><path d="M20 3 V8 M20 32 V37 M3 20 H8 M32 20 H37 M8 8 L11.5 11.5 M28.5 28.5 L32 32 M32 8 L28.5 11.5 M11.5 28.5 L8 32"/>'),
+  mond: svg('<path d="M26 5 A15 15 0 1 0 26 35 A12 12 0 1 1 26 5 Z"/>', { join:'round' }),
+
+  /* Kartenkopf — die Art einer Spielkarte (Kopfband). spielen: der Anstoss.
+     herstellen: das Zahnrad, die gefuellte Nabe unterscheidet es bei 9 px
+     von der Sonne daneben. runde: der Rundlauf einer Rundenbedingung. */
+  spielen: svg('<path d="M14 8 L31 20 L14 32 Z"/>', { join:'round' }),
+  herstellen: svg('<circle cx="20" cy="20" r="8.5"/><circle cx="20" cy="20" r="2.4" fill="currentColor" stroke="none"/><path d="M20 6 V11.5 M20 28.5 V34 M6 20 H11.5 M28.5 20 H34"/>'),
+  runde: svg('<path d="M33 20 a13 13 0 1 1 -4.2 -9.6"/><path d="M28.8 10.4 L35.5 9.2 M28.8 10.4 L30.5 4"/>')
+  };
+
+  /* Zweitnamen. `ufer` stand in drei Dateien und war byte-gleich mit `lager` —
+     dieselbe Zeichnung, zwei Namen (das Plättchen heisst inzwischen Uferlager).
+     Aliasse statt Kopien, damit es nicht wieder auseinanderläuft. */
+  var ALIAS = {
+    ufer:'lager', uferlager:'lager', holzplatz:'holz', hoehlenlager:'hoehle',
+    sammler:'sammlerin', wanderer:'mensch', schnell:'stromschnelle',
+    fall:'wasserfall', still:'weiher', see:'weiher', silexader:'silex',
+    bergkristall:'quarz', ockergrube:'ocker', werkzeug:'flint',
+    wildschwein:'schwein', rothirsch:'hirsch', forelle:'fisch',
+    stockente:'ente', wolfstier:'wolf', biberdamm:'damm'
+  };
+
+  /* Für den Musterbogen und die Prüfung: die Ordnung, in der die Zeichen
+     gehören. Wer eine neue Zeichnung ablegt, trägt sie hier ein — sonst
+     fehlt sie im Musterbogen und der nächste Prototyp erfährt nie davon. */
+  var GRUPPEN = [
+    ['Bauten & Plättchen', ['fisch','lager','wald','holz','terrasse','hoehle','flint','pfahl']],
+    ['Menschen',           ['sammlerin','jaeger','mensch']],
+    ['Vorkommen',          ['silex','ocker','quarz']],
+    ['Gewässer-Merkmale',  ['furt','stromschnelle','wasserfall','klamm','bruecke','steg','damm','weiher']],
+    ['Flora',              ['hasel','beere','rohr','birke','ulme']],
+    ['Fauna',              ['hirsch','schwein','steinbock','biber','ente','wolf','hund']],
+    ['Ausrüstung & Verwandlung', ['einbaum','bogen','rute','schuh','vorrat']],
+    ['Ressourcen',         ['nahrung','schutz','material','kultur']],
+    ['Werkzeuge',          ['lupe','lauf','stempel','berg','loeschen']],
+    ['Tageszeiten',        ['morgen','sonne','abend','mond']],
+    ['Kartenkopf',         ['spielen','herstellen','runde']],
+    ['Marken & Zustände',  ['spur','beleg','hexfeld','anker','frost','stille','fremde','fundkies']]
+  ];
+
+  /* --------------------------------------------------------------------------
+     icon(name) → SVG-Zeichenkette.
+
+     Ein unbekannter Name gibt eine sichtbare Fehlmarke zurück und meldet sich
+     auf der Konsole — nicht ''. Ein leerer String verschwindet lautlos im
+     Layout, und dann sucht man den Tippfehler bei der Bildbeschreibung.
+     -------------------------------------------------------------------------- */
+  function icon(name) {
+    if (!name) return '';
+    var k = ALIAS[name] || name;
+    if (ICONS[k]) return ICONS[k];
+    if (typeof console !== 'undefined' && console.warn)
+      console.warn('[sot-icons] kein Zeichen für "' + name + '" — ' +
+        'vorhanden: ' + Object.keys(ICONS).sort().join(', '));
+    return svg('<path d="M20 4 L34 20 L20 36 L6 20 Z"/><path d="M20 13 V23 M20 27 V29"/>');
+  }
+  /* iconEl(name, 'tglyph') → <div class="tglyph"><svg …>. Der Behälter trägt
+     die Grösse, das SVG füllt ihn (width/height 100 % kommt aus sot.css). */
+  function iconEl(name, cls) {
+    return el('div' + (cls ? '.' + String(cls).split(/\s+/).join('.') : ''), { html: icon(name) });
+  }
+  function hasIcon(name) { return !!ICONS[ALIAS[name] || name]; }
+
+  /* --------------------------------------------------------------------------
+     iconSVG(name, x, y, size) — dasselbe Zeichen INNERHALB einer SVG-Karte,
+     zentriert auf (x,y) in Weltkoordinaten.
+
+     Für Karten, die als ein grosses SVG gezeichnet werden (`gewaesser-labor`,
+     und alles jenseits von ~2000 Feldern, wo das CSS-Hexraster zu langsam
+     wird). Ein verschachteltes <svg> ist gültiges SVG und behält seinen
+     eigenen viewBox — dadurch bleibt die Zeichnung dieselbe Datei wie im
+     HTML-Fall, statt ein zweites Mal als <path> abgeschrieben zu werden.
+     `currentColor` wirkt weiter, die Farbe kommt also vom Elternknoten.
+     -------------------------------------------------------------------------- */
+  function iconSVG(name, x, y, size) {
+    var s = icon(name), h = size / 2;
+    /* Den Kopf durch einen mit Position und Grösse ersetzen. */
+    return s.replace('<svg viewBox="0 0 40 40"',
+      '<svg x="' + (x - h) + '" y="' + (y - h) + '" width="' + size + '" height="' + size +
+      '" viewBox="0 0 40 40" overflow="visible"');
+  }
+
+  SOT.icon = icon;
+  SOT.iconEl = iconEl;
+  SOT.iconSVG = iconSVG;
+  SOT.hasIcon = hasIcon;
+  SOT.icons = ICONS;
+  SOT.iconAlias = ALIAS;
+  SOT.iconGruppen = GRUPPEN;
+})();
+</script>
+<!-- sot-hex.js · eingebettet aus prototype/kit/ (unveränderliche Kopie) -->
+<script>
+/* ============================================================================
+   sot-hex.js — STROMLINIEN Prototyp-Baukasten · Hexgeometrie
+
+   Spitz-oben-Sechsecke, odd-r-Offset (ungerade Zeilen nach rechts versetzt).
+   Diese Tabelle MUSS mit app/src/stromlinien/grid.ts identisch bleiben —
+   ein Prototyp, der anders nachbart, beweist nichts über das Spiel.
+
+     script src        →  ../kit/sot.js
+     script src        →  ../kit/sot-hex.js
+
+   Hängt als SOT.hex an. Verlangt sot.js.
+   ========================================================================= */
+'use strict';
+SOT.hex = (function () {
+  var $ = SOT.$, el = SOT.el;
+
+  /* --------------------------------------------------------------- Nachbarn ---
+     odd-r: Zeilen mit ungeradem r sind eine halbe Feldbreite nach rechts
+     versetzt, darum unterscheiden sich die Spaltenversätze je Zeilenparität.
+     Reihenfolge überall gleich: E · SE · SW · W · NW · NE.
+     -------------------------------------------------------------------------- */
+  var DIRS = ['E', 'SE', 'SW', 'W', 'NW', 'NE'];
+  var OFF = {
+    even: [[+1, 0], [0, +1], [-1, +1], [-1, 0], [-1, -1], [0, -1]],
+    odd:  [[+1, 0], [+1, +1], [0, +1], [-1, 0], [0, -1], [+1, -1]]
+  };
+  var OPPOSITE = { E: 'W', W: 'E', NE: 'SW', SW: 'NE', NW: 'SE', SE: 'NW' };
+
+  // neighbors(c,r) → [{c,r,dir}], ungefiltert (auch außerhalb der Karte).
+  function neighbors(c, r) {
+    var t = OFF[(r & 1) ? 'odd' : 'even'];
+    return t.map(function (d, i) { return { c: c + d[0], r: r + d[1], dir: DIRS[i] }; });
+  }
+  // Nur Nachbarn innerhalb cols×rows.
+  function neighborsIn(c, r, cols, rows) {
+    return neighbors(c, r).filter(function (n) { return n.c >= 0 && n.r >= 0 && n.c < cols && n.r < rows; });
+  }
+  function neighbor(c, r, dir) {
+    var i = DIRS.indexOf(dir);
+    if (i < 0) return null;
+    var d = OFF[(r & 1) ? 'odd' : 'even'][i];
+    return { c: c + d[0], r: r + d[1] };
+  }
+  function opposite(dir) { return OPPOSITE[dir]; }
+
+  /* --------------------------------------------------------- Kubisch & Distanz ---
+     Ringe, Entfernungen und Interpolation gehen nur in Kubuskoordinaten
+     zuverlässig — Offsetkoordinaten rechnen sich an der Zeilenparität tot.
+     -------------------------------------------------------------------------- */
+  function toCube(c, r) {
+    var x = c - ((r - (r & 1)) / 2);
+    var z = r;
+    return { x: x, y: -x - z, z: z };
+  }
+  function fromCube(cu) {
+    return { c: cu.x + ((cu.z - (cu.z & 1)) / 2), r: cu.z };
+  }
+  function dist(a, b) {
+    var p = toCube(a.c, a.r), q = toCube(b.c, b.r);
+    return Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y), Math.abs(p.z - q.z));
+  }
+  // Alle Felder mit genau Entfernung n (Ring) bzw. bis n (Scheibe).
+  function ring(c, r, n) {
+    if (n === 0) return [{ c: c, r: r }];
+    var out = [], cur = { c: c, r: r }, i, k;
+    for (i = 0; i < n; i++) cur = neighbor(cur.c, cur.r, 'SW');
+    for (i = 0; i < 6; i++) {
+      var dir = ['E', 'NE', 'NW', 'W', 'SW', 'SE'][i];
+      for (k = 0; k < n; k++) { out.push({ c: cur.c, r: cur.r }); cur = neighbor(cur.c, cur.r, dir); }
+    }
+    return out;
+  }
+  function disc(c, r, n) {
+    var out = [];
+    for (var i = 0; i <= n; i++) out = out.concat(ring(c, r, i));
+    return out;
+  }
+
+  /* ----------------------------------------------------------- Pixelrechnung ---
+     Für SVG- und Canvas-Karten. w = Feldbreite (Ecke bis Ecke waagrecht),
+     h = w * 2/√3. Mitte eines Feldes:
+       x = (c + (r&1)*0.5) * (w+gap)
+       y = r * (h*0.75 + gap)
+     -------------------------------------------------------------------------- */
+  var RATIO = 2 / Math.sqrt(3);          /* 1.1547 — h/w beim Spitz-oben-Hex */
+  function height(w) { return w * RATIO; }
+  function center(c, r, w, gap) {
+    gap = gap || 0;
+    var h = height(w);
+    return { x: (c + (r & 1) * 0.5) * (w + gap) + w / 2, y: r * (h * 0.75 + gap) + h / 2 };
+  }
+  function gridSize(cols, rows, w, gap) {
+    gap = gap || 0;
+    var h = height(w);
+    return { w: (cols + 0.5) * (w + gap), h: rows * (h * 0.75 + gap) + h * 0.25 };
+  }
+  // Polygonpunkte um (cx,cy) — direkt in <polygon points="…"> einsetzbar.
+  function points(cx, cy, w) {
+    var h = height(w), x = cx - w / 2, y = cy - h / 2;
+    return [
+      [x + w * 0.5, y], [x + w, y + h * 0.25], [x + w, y + h * 0.75],
+      [x + w * 0.5, y + h], [x, y + h * 0.75], [x, y + h * 0.25]
+    ].map(function (p) { return p[0].toFixed(2) + ',' + p[1].toFixed(2); }).join(' ');
+  }
+  // Kantenmitte in Prozent der Feldbox — Grundlage der .link-Positionen.
+  var EDGE_MID = {
+    W: [0, 50], E: [100, 50], NW: [25, 12.5], NE: [75, 12.5], SW: [25, 87.5], SE: [75, 87.5]
+  };
+  // Pixel → Feld (Klick auf eine SVG/Canvas-Karte). Rundet über Kubus.
+  function at(px, py, w, gap) {
+    gap = gap || 0;
+    var h = height(w), rowH = h * 0.75 + gap;
+    var r = Math.round((py - h / 2) / rowH);
+    var c = Math.round((px - w / 2) / (w + gap) - (r & 1) * 0.5);
+    // Nachbarschaft prüfen, weil die Zeilenschätzung an den Spitzen daneben liegt.
+    var best = null, bd = Infinity;
+    for (var dr = -1; dr <= 1; dr++) for (var dc = -1; dc <= 1; dc++) {
+      var cc = c + dc, rr = r + dr, m = center(cc, rr, w, gap);
+      var d = (m.x - px) * (m.x - px) + (m.y - py) * (m.y - py);
+      if (d < bd) { bd = d; best = { c: cc, r: rr }; }
+    }
+    return best;
+  }
+
+  /* ----------------------------------------------------------------- Größe ---
+     autosize(map, cols) setzt --hexw so, dass cols Spalten (plus der halbe
+     Versatz der ungeraden Zeilen) in die Breite passen.
+
+     Der Fehler, den das hier abstellt: clientWidth ist 0, solange ein
+     Elternteil noch .hid trägt oder display:none ist. Die handgeschriebenen
+     Fassungen prüften `if(!w) return` und ließen die Felder still auf der
+     CSS-Vorgabe stehen. Ein ResizeObserver feuert stattdessen genau dann
+     wieder, wenn der Behälter sichtbar wird.
+
+     Setzt zusätzlich data-lod="s|m|l" (Schwellen aus feld-labor-v1:
+     <52 / 52–75 / ≥76 px), damit sot-hex.css die Slots dünnen kann.
+     -------------------------------------------------------------------------- */
+  function autosize(map, cols, opts) {
+    map = $(map);
+    opts = opts || {};
+    var min = opts.min || 18, max = opts.max || opts.maxHexw || 999;
+
+    function apply() {
+      var w = map.clientWidth;
+      if (!w) return false;
+      var cs = getComputedStyle(map);
+      var gap = parseFloat(cs.getPropertyValue('--hexgap')) || 0;
+      var hexw = Math.floor((w - (cols - 0.5) * gap) / (cols + 0.5));
+      hexw = Math.max(min, Math.min(max, hexw));
+      map.style.setProperty('--hexw', hexw + 'px');
+      map.dataset.lod = hexw < 52 ? 's' : hexw < 76 ? 'm' : 'l';
+      if (opts.onSize) opts.onSize(hexw, map.dataset.lod);
+      return true;
+    }
+
+    apply();
+    if (typeof ResizeObserver === 'function') {
+      var ro = new ResizeObserver(apply);
+      ro.observe(map);
+      return { apply: apply, stop: function () { ro.disconnect(); } };
+    }
+    window.addEventListener('resize', apply);
+    return { apply: apply, stop: function () { window.removeEventListener('resize', apply); } };
+  }
+
+  /* -------------------------------------------------------------- Rasterbau ---
+     grid(map, cols, rows, build) baut die .hexrow/.cell-Struktur und ruft
+     build(cell, c, r) für jedes Feld — der Prototyp füllt nur noch.
+     -------------------------------------------------------------------------- */
+  function grid(map, cols, rows, build) {
+    map = SOT.clear($(map));
+    for (var r = 0; r < rows; r++) {
+      var row = el('div.hexrow' + (r & 1 ? '.odd' : ''));
+      for (var c = 0; c < cols; c++) {
+        var cell = el('div.cell', { data: { c: c, r: r } });
+        if (build) build(cell, c, r);
+        row.appendChild(cell);
+      }
+      map.appendChild(row);
+    }
+    return map;
+  }
+  // Feld aus einem Klick heraus finden — .cell trägt data-c/data-r.
+  function cellOf(ev) {
+    var n = ev.target.closest ? ev.target.closest('.cell') : null;
+    return n ? { el: n, c: +n.dataset.c, r: +n.dataset.r } : null;
+  }
+  function cellAt(map, c, r) { return $(map).querySelector('.cell[data-c="' + c + '"][data-r="' + r + '"]'); }
+
+  /* Marke in einen Slot hängen. Icons sind SVG, darum SOT.iconEl und kein
+     Schriftzeichen:  mark(cell, 'krone', SOT.iconEl('sammlerin', 'pers'))  */
+  function mark(cell, slot, node) {
+    var s = cell.querySelector('.slot.' + slot);
+    if (!s) { s = el('div.slot.' + slot); cell.appendChild(s); }
+    s.appendChild(node);
+    return s;
+  }
+  /* Designer-Hilfe: Slot-Raster einblenden (?slots). */
+  function slotgrid(cell) {
+    var g = el('div.slotgrid');
+    ['kern', 'krone', 'wange', 'ferse', 'fuss', 'zahl'].forEach(function (n) {
+      g.appendChild(el('i.g-' + n, { text: n }));
+    });
+    cell.appendChild(g);
+    return g;
+  }
+
+  return {
+    DIRS: DIRS, OPPOSITE: OPPOSITE, RATIO: RATIO, EDGE_MID: EDGE_MID,
+    neighbors: neighbors, neighborsIn: neighborsIn, neighbor: neighbor, opposite: opposite,
+    toCube: toCube, fromCube: fromCube, dist: dist, ring: ring, disc: disc,
+    height: height, center: center, gridSize: gridSize, points: points, at: at,
+    autosize: autosize, grid: grid, cellOf: cellOf, cellAt: cellAt,
+    mark: mark, slotgrid: slotgrid
+  };
+})();
+</script>
+<script>
+/* ===========================================================================
+   Allmende — Prüfstand für den epochen-invarianten Kernloop.
+
+   Vorbild: das ökonomische Experiment «Fischteich» (iconomix m06, SNB):
+   viele nehmen aus einem Bestand, der sich aus dem Rest erneuert; die
+   Tragik entsteht aus dem Nebeneinander, die Einsicht in der Auswertung.
+
+   Vier Fragen werden hier geprüft:
+
+     1. Liest man „ich übernutze" von der KARTE allein — ohne Zähler?
+        (Bestand nur als Zeichendichte im Feld: reich · genutzt · dünn · aus.)
+     2. Tragen NPC-Mitnutzer das Dilemma auch solo? (Man sieht sie nehmen,
+        man kann sie nicht steuern — nur die Ordnung bindet sie.)
+     3. Trägt DERSELBE Loop alle Epochen, wenn nur die Datentabelle wechselt?
+        (Die Regeln der Natur bleiben gleich; Bedarf, Technik und Mitnutzer
+        wachsen — der Druck ist es, der sich ändert, nicht das Wasser.)
+     4. Taugt die Fischteich-Auswertung als Realitätsabgleich der Zeremonie?
+        (Kurve Bestand/Entnahme, Urteil, am Ende alle fünf Kurven nebeneinander
+        — die „immer tiefer verstrickt"-Kurve von P5, sichtbar gemacht.)
+
+   Regeln der Natur, in einem Satz erklärbar (und je Feld von der Karte
+   ablesbar): ein reiches Feld trägt die Entnahme; ein dünnes erholt sich
+   nur manchmal; ein erschöpftes nie. Narben wandern in die nächste Epoche.
+   ========================================================================= */
+
+var P = SOT.params({
+  epoche: { t:'int', def:1, min:1, max:5, help:'Startepoche I–V (frisch, ohne Narben)' },
+  runden: { t:'int', def:8, min:4, max:12, help:'Runden je Epoche' },
+  seed:   { t:'int', def:1, help:'Zufallssaat — macht einen Lauf wiederholbar' },
+  auto:   { t:'enum', def:'', values:['','gier','mass'],
+            help:'Bot spielt die Epoche: gier (nimmt das Maximum) · mass (nimmt nur vom Reichen)' },
+  spiel:  { t:'flag', help:'Spielregister statt Werkbank (zum Beurteilen des Tons)' }
+});
+if (!P.spiel) document.body.classList.add('werkbank');
+var rnd = SOT.rng(P.seed);
+
+/* ----------------------------------------------------------------- Epochen ---
+   Die Datentabelle IST die Epochen-These: der Loop bleibt, nur sie wechselt.
+   `staende` sind die drei Bestandsarten (je drei Felder, an FESTEN Orten —
+   dasselbe Tal, andere Augen), `beleg` die Belegstatus-Pflicht (P6).
+   `technik` = Entnahmen des Spielers je Runde, `bedarf` = was das Lager
+   am Rundenende isst. `mitnutzer` nehmen sichtbar, aber unsteuerbar. */
+var EPOCHEN = [
+  { n:1, nm:'Mesolithikum', technik:2, bedarf:1,
+    staende:[
+      { typ:'A', nm:'Fischgründe',   ico:'fisch',  beleg:'historisch inspiriert' },
+      { typ:'B', nm:'Haselbestände', ico:'hasel',  beleg:'belegt' },
+      { typ:'C', nm:'Wild der Höhe', ico:'hirsch', beleg:'historisch inspiriert' }],
+    mitnutzer:[] },
+  { n:2, nm:'Neolithikum', technik:2, bedarf:2,
+    staende:[
+      { typ:'A', nm:'Fischgründe',  ico:'fisch', beleg:'historisch inspiriert' },
+      { typ:'B', nm:'Uferweide',    ico:'birke', beleg:'historisch inspiriert' },
+      { typ:'C', nm:'Wald (Rodung)',ico:'wald',  beleg:'historisch inspiriert' }],
+    mitnutzer:[
+      { id:'dorf', nm:'Das Nachbardorf', ico:'mensch', art:'nachbar',
+        satz:'nimmt vom Reichen, meidet das Dünne' }] },
+  { n:3, nm:'Eisenzeit & Rom', technik:3, bedarf:2,
+    staende:[
+      { typ:'A', nm:'Fischgründe',      ico:'fisch', beleg:'historisch inspiriert' },
+      { typ:'B', nm:'Talweide',         ico:'birke', beleg:'historisch inspiriert' },
+      { typ:'C', nm:'Wald (Köhlerei)',  ico:'wald',  beleg:'historisch inspiriert' }],
+    mitnutzer:[
+      { id:'dorf',  nm:'Die Talschaft',  ico:'mensch',     art:'nachbar',
+        satz:'nimmt vom Reichen, meidet das Dünne' },
+      { id:'macht', nm:'Die ferne Macht',ico:'anker',      art:'macht', ziel:'C', menge:2,
+        satz:'holt Holzkohle fürs Eisen — zwei Lasten je Runde, ohne zu fragen' }] },
+  { n:4, nm:'Mittelalter', technik:3, bedarf:3,
+    staende:[
+      { typ:'A', nm:'Fischenz',     ico:'fisch', beleg:'belegt' },
+      { typ:'B', nm:'Allmendweide', ico:'birke', beleg:'belegt' },
+      { typ:'C', nm:'Hochwald',     ico:'wald',  beleg:'belegt' }],
+    ordnung:true,   /* die Allmendordnung ist hier beschliessbar — belegt */
+    mitnutzer:[
+      { id:'dorf1', nm:'Dorfgenossen',   ico:'mensch', art:'nachbar',
+        satz:'nimmt vom Reichen, meidet das Dünne' },
+      { id:'dorf2', nm:'Dorfgenossen',   ico:'mensch', art:'nachbar',
+        satz:'nimmt vom Reichen, meidet das Dünne' },
+      { id:'gier',  nm:'Der Übernutzer', ico:'fremde', art:'gier',
+        satz:'nimmt vom Vollsten, auch wenn es das Letzte ist' }] },
+  { n:5, nm:'Neuzeit & Moderne', technik:4, bedarf:3,
+    staende:[
+      { typ:'A', nm:'Fischbestand', ico:'fisch',    beleg:'historisch inspiriert' },
+      { typ:'B', nm:'Auen',         ico:'rohr',     beleg:'historisch inspiriert' },
+      { typ:'C', nm:'Kies & Grund', ico:'fundkies', beleg:'historisch inspiriert' }],
+    mitnutzer:[
+      { id:'gier', nm:'Der Markt',  ico:'fremde',     art:'gier',
+        satz:'nimmt vom Vollsten, auch wenn es das Letzte ist' },
+      { id:'ind1', nm:'Das Werk',   ico:'herstellen', art:'macht', ziel:'C', menge:2,
+        satz:'baggert denselben Grund — zwei Lasten je Runde, ohne zu fragen' },
+      { id:'ind2', nm:'Das Werk',   ico:'herstellen', art:'macht', ziel:'A', menge:2,
+        satz:'fischt dieselben Gründe — zwei Lasten je Runde, ohne zu fragen' }] }
+];
+
+/* ------------------------------------------------------------------- Karte ---
+   Fester Talausschnitt; neun Bestandsfelder an festen Orten. Der Ort bleibt
+   über alle Epochen derselbe — nur was er trägt, wird umgedeutet. */
+var COLS = 9, ROWS = 7, HW = 62, GAP = 2;
+var GRUND = [
+  'BBhffwfhB',
+  'BhffwwfhB',
+  'hffwwfffh',
+  'hfwwffffh',
+  'hffwwfffh',
+  'BhffwwffB',
+  'BBhfwwfhB'
+];
+/* typ A sitzt am Wasser, B im Talboden, C am Hangfuss. */
+var ORTE = [
+  { id:'a1', typ:'A', c:4, r:1 }, { id:'a2', typ:'A', c:3, r:3 }, { id:'a3', typ:'A', c:4, r:5 },
+  { id:'b1', typ:'B', c:2, r:2 }, { id:'b2', typ:'B', c:6, r:3 }, { id:'b3', typ:'B', c:2, r:4 },
+  { id:'c1', typ:'C', c:1, r:1 }, { id:'c2', typ:'C', c:7, r:1 }, { id:'c3', typ:'C', c:6, r:5 }
+];
+var VOLL = 3;   /* reich=3 · genutzt=2 · dünn=1 · erschöpft=0 */
+
+/* ---------------------------------------------------------------- Zustand --- */
+var S = {
+  ep: P.epoche, runde: 1,
+  felder: [],               /* {id,typ,c,r,stand} */
+  taps: 0, vorrat: 0, hunger: 0,
+  entIhr: 0, entMit: 0,
+  rIhr: 0, rMit: [],        /* Entnahme der laufenden Runde */
+  kurve: [], entKurve: [],
+  ordnung: false, vorbei: false,
+  chronik: [],
+  kurven: []                /* je Epoche: {ep,nm,kurve,entIhr,entMit,hunger,ende} */
+};
+function epoche(){ return EPOCHEN[S.ep - 1]; }
+function standVon(typ){
+  var st = epoche().staende;
+  for (var i = 0; i < st.length; i++) if (st[i].typ === typ) return st[i];
+  return st[0];
+}
+function gesamt(){
+  return S.felder.reduce(function(s, f){ return s + f.stand; }, 0);
+}
+function römisch(n){ return ['','I','II','III','IV','V'][n] || String(n); }
+
+/* Epoche beginnen. Narben wandern mit: was erschöpft endete, beginnt dünn —
+   die Jahrhunderte dazwischen heilen viel, aber nicht alles (P5). */
+function epocheStart(narben){
+  S.runde = 1; S.vorrat = 0; S.hunger = 0;
+  S.entIhr = 0; S.entMit = 0; S.kurve = []; S.entKurve = [];
+  S.ordnung = false; S.vorbei = false; S.chronik = []; S.rIhr = 0; S.rMit = [];
+  var vernarbt = [];
+  S.felder = ORTE.map(function(o){
+    var alt = narben && narben[o.id];
+    var stand = (alt === 0) ? 1 : VOLL;
+    if (alt === 0) vernarbt.push(standVon(o.typ).nm);
+    return { id:o.id, typ:o.typ, c:o.c, r:o.r, stand:stand };
+  });
+  S.taps = epoche().technik;
+  if (vernarbt.length)
+    S.chronik.push('Die Jahrhunderte haben vieles geheilt — aber <b>' +
+      vernarbt.join('</b> und <b>') + '</b> blieben mager. Narben wandern mit.');
+  if (S.ep === 5)
+    S.chronik.push('Die Ordnung von einst bindet <b>das Werk</b> nicht.');
+  S.kurve.push(gesamt());
+}
+
+/* ================================================================ Entnahme === */
+function tippe(id){
+  if (S.vorbei) return;
+  var f = null;
+  S.felder.forEach(function(x){ if (x.id === id) f = x; });
+  if (!f) return;
+  if (S.taps <= 0){ SOT.toast('Für heute ist genug getragen.'); return; }
+  if (f.stand <= 0){ SOT.toast('Da ist nichts mehr zu holen.'); return; }
+  if (S.ordnung && f.stand < 2){ SOT.toast('Die Ordnung gilt auch euch: vom Dünnen nimmt niemand.'); return; }
+  f.stand--; S.taps--; S.entIhr++; S.rIhr++;
+  zeichneAlles();
+}
+
+/* Mitnutzer nehmen NACH dem Spieler — sichtbar, unsteuerbar.
+   nachbar: nur vom Reichen (stand ≥ 2), das vollste zuerst.
+   gier:    vom Vollsten, auch wenn es das letzte Stück ist.
+   macht:   immer derselbe Bestandstyp, blind für den Zustand. */
+function mitnutzerZug(){
+  S.rMit = [];
+  epoche().mitnutzer.forEach(function(m){
+    var art = (S.ordnung && m.art === 'gier') ? 'nachbar' : m.art;
+    var wahl = null;
+    if (art === 'nachbar'){
+      S.felder.forEach(function(f){
+        if (f.stand >= 2 && (!wahl || f.stand > wahl.stand)) wahl = f;
+      });
+    } else if (art === 'gier'){
+      S.felder.forEach(function(f){
+        if (f.stand > 0 && (!wahl || f.stand > wahl.stand)) wahl = f;
+      });
+    } else if (art === 'macht'){
+      S.felder.forEach(function(f){
+        if (f.typ === m.ziel && f.stand > 0 && !wahl) wahl = f;
+      });
+    }
+    if (wahl){
+      var nimmt = Math.min(m.menge || 1, wahl.stand);
+      wahl.stand -= nimmt; S.entMit += nimmt;
+      S.rMit.push({ m:m, nahm:standVon(wahl.typ).nm, menge:nimmt });
+    } else {
+      S.rMit.push({ m:m, nahm:null, menge:0 });
+    }
+  });
+}
+
+/* ============================================================ Rundenschritt === */
+function rundeWeiter(){
+  if (S.vorbei) return;
+
+  mitnutzerZug();
+
+  /* Bedarf: erst der heutige Ertrag, dann der Vorrat. */
+  var b = epoche().bedarf, heute = S.rIhr;
+  S.vorrat += heute - b;
+  var hungrig = S.vorrat < 0;
+  if (hungrig){ S.hunger++; S.vorrat = 0; }
+
+  /* Erneuerung — die eine Regel, in jeder Epoche dieselbe:
+     reich/genutzt wächst nach, dünn nur manchmal, erschöpft nie. */
+  var erholt = 0;
+  S.felder.forEach(function(f){
+    if (f.stand >= VOLL || f.stand === 0) return;
+    if (f.stand >= 2){ f.stand++; erholt++; }
+    else if (rnd() < 0.5){ f.stand++; erholt++; }
+  });
+
+  var mitSumme = S.rMit.reduce(function(s, x){ return s + x.menge; }, 0);
+  S.chronik.unshift('<b>R' + S.runde + '</b> — ihr nahmt ' + S.rIhr +
+    (mitSumme ? ' · die anderen nahmen ' + mitSumme : '') +
+    ' · ' + erholt + ' Feld' + (erholt === 1 ? '' : 'er') + ' erholte' +
+    (erholt === 1 ? '' : 'n') + ' sich' +
+    (hungrig ? ' · <b>Hungerwinter</b>' : ''));
+
+  S.entKurve.push(S.rIhr + mitSumme);
+  S.kurve.push(gesamt());
+  S.rIhr = 0; S.runde++;
+
+  if (S.runde > P.runden){ epochenEnde(); return; }
+  S.taps = epoche().technik;
+  zeichneAlles();
+}
+
+/* Die Allmendordnung (nur Epoche IV, belegt): bindet ALLE an die
+   Nachbar-Regel — vom Dünnen nimmt niemand, auch ihr nicht. Ihr Preis ist
+   nicht Menge, sondern Freiheit: was dünn ist, ist für euch tabu. */
+function ordnungBeschliessen(){
+  if (S.ordnung || !epoche().ordnung) return;
+  S.ordnung = true;
+  S.chronik.unshift('Ihr habt die <b>Allmendordnung</b> beschlossen: vom Dünnen ' +
+    'nimmt niemand mehr — auch ihr nicht.');
+  zeichneAlles();
+}
+
+/* ============================================================== Auswertung === */
+function epochenEnde(){
+  S.vorbei = true;
+  S.kurven.push({ ep:S.ep, nm:epoche().nm, kurve:S.kurve.slice(),
+                  entIhr:S.entIhr, entMit:S.entMit, hunger:S.hunger,
+                  ende:gesamt() });
+  zeichneAlles();
+}
+
+function urteil(ende){
+  var q = ende / (ORTE.length * VOLL);
+  if (q >= 0.7) return 'Die Allmende trägt weiter. Wer nach euch kommt, findet, was ihr fandet.';
+  if (q >= 0.4) return 'Die Allmende ist gezeichnet. Es geht — aber es geht von der Substanz.';
+  return 'Wer nach euch kommt, findet leeres Land. Die Rechnung zahlt die nächste Schicht.';
+}
+
+/* Kurvenbild: eine Achse (Bestandseinheiten), Linie = Bestand,
+   dünne Balken = Entnahme je Runde. Identität über direkte Beschriftung
+   in Textfarbe, nie über Farbe allein. */
+function kurvenSVG(k, entk, b, h, nackt){
+  var max = ORTE.length * VOLL, n = k.length;
+  var padL = nackt ? 2 : 26, padB = nackt ? 2 : 14, padT = 6, padR = nackt ? 2 : 62;
+  var iw = b - padL - padR, ih = h - padT - padB;
+  function X(i){ return padL + (n <= 1 ? 0 : i / (n - 1) * iw); }
+  function Y(v){ return padT + (1 - v / max) * ih; }
+  var s = '<svg viewBox="0 0 ' + b + ' ' + h + '" role="img" ' +
+          'aria-label="Bestand und Entnahme über die Runden">';
+  if (!nackt){
+    [0, max / 3, 2 * max / 3, max].forEach(function(v){
+      s += '<line x1="' + padL + '" y1="' + Y(v) + '" x2="' + (b - padR) + '" y2="' + Y(v) +
+           '" stroke="var(--line)" stroke-width="1"/>' +
+           '<text x="' + (padL - 4) + '" y="' + (Y(v) + 3) + '" text-anchor="end" ' +
+           'font-size="8" fill="var(--ink2)" font-family="var(--f-mono)">' + Math.round(v) + '</text>';
+    });
+  }
+  /* Entnahme je Runde: dünner Balken, mittig zwischen Runde i und i+1. */
+  var step = iw / Math.max(1, n - 1), bw = Math.min(10, Math.max(3, step - 2));
+  entk.forEach(function(v, i){
+    if (v <= 0) return;
+    s += '<rect x="' + (X(i) + step / 2 - bw / 2) + '" y="' + Y(v) + '" width="' + bw +
+         '" height="' + (Y(0) - Y(v)) + '" rx="2" fill="var(--ink2)" opacity=".6">' +
+         '<title>Runde ' + (i + 1) + ': ' + v + ' entnommen</title></rect>';
+  });
+  var pts = k.map(function(v, i){ return X(i).toFixed(1) + ',' + Y(v).toFixed(1); }).join(' ');
+  s += '<polyline points="' + pts + '" fill="none" stroke="var(--ember)" ' +
+       'stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  if (!nackt){
+    var lx = X(n - 1) + 4;
+    s += '<text x="' + lx + '" y="' + (Y(k[n - 1]) + 3) + '" font-size="8.5" ' +
+         'fill="var(--ink)" font-family="var(--f-mono)">Bestand</text>';
+    var em = 0; entk.forEach(function(v){ em = Math.max(em, v); });
+    s += '<text x="' + lx + '" y="' + (Y(em) + 3) + '" font-size="8.5" ' +
+         'fill="var(--ink2)" font-family="var(--f-mono)">Entnahme</text>';
+  }
+  return s + '</svg>';
+}
+
+function zeichneAuswertung(){
+  var p = SOT.$('ausw');
+  if (!S.vorbei){ p.classList.add('hid'); return; }
+  p.classList.remove('hid');
+  var ende = gesamt(), max = ORTE.length * VOLL;
+  var h = '<p class="kopf">AUSWERTUNG — EPOCHE ' + römisch(S.ep) + ' · ' + epoche().nm + '</p>' +
+    '<div class="diagramm">' + kurvenSVG(S.kurve, S.entKurve, 560, 130) + '</div>' +
+    '<table><tr><td>Eure Entnahme</td><td>' + S.entIhr + '</td></tr>' +
+    '<tr><td>Entnahme der anderen</td><td>' + S.entMit + '</td></tr>' +
+    '<tr><td>Bestand am Ende</td><td>' + ende + ' / ' + max + '</td></tr>' +
+    '<tr><td>Hungerwinter</td><td>' + S.hunger + '</td></tr></table>' +
+    '<p class="urteil">' + urteil(ende) + '</p>';
+  if (S.ep < 5){
+    h += '<button class="primary wide" id="naechste">Weiter — ' +
+         EPOCHEN[S.ep].nm + '</button>';
+  } else {
+    h += '<p class="urteil"><b>Die Kampagne, in fünf Kurven.</b> Derselbe Loop, ' +
+         'dieselbe Natur — nur der Druck wuchs.</p><div class="kleinkurven">' +
+      S.kurven.map(function(K){
+        return '<figure>' + kurvenSVG(K.kurve, [], 90, 46, true) +
+               '<figcaption>' + römisch(K.ep) + '</figcaption></figure>';
+      }).join('') + '</div>';
+  }
+  p.innerHTML = h;
+  var nb = SOT.$('naechste');
+  if (nb) nb.onclick = function(){
+    var narben = {};
+    S.felder.forEach(function(f){ narben[f.id] = f.stand; });
+    S.ep++;
+    epocheStart(narben);
+    zeichneAlles();
+    if (P.auto) autoLauf();
+  };
+}
+
+/* ================================================================== Karte === */
+function fuellung(ch){
+  var T = { h:'--hang', f:'--flach', w:'--river', B:'--hang' };
+  if (ch === 'B') return 'color-mix(in srgb, var(--hang) 72%, var(--ink))';
+  return 'var(' + (T[ch] || '--flach') + ')';
+}
+function zeichneKarte(){
+  var gs = SOT.hex.gridSize(COLS, ROWS, HW, GAP);
+  var svg = '<svg viewBox="0 0 ' + gs.w.toFixed(0) + ' ' + gs.h.toFixed(0) + '" role="img" ' +
+            'aria-label="Talausschnitt mit neun Bestandsfeldern; die Zeichendichte je Feld ist der Bestand">';
+  for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++){
+    var m = SOT.hex.center(c, r, HW, GAP);
+    svg += '<polygon points="' + SOT.hex.points(m.x, m.y, HW) + '" fill="' +
+           fuellung(GRUND[r].charAt(c)) + '" stroke="var(--line)" stroke-width="1" stroke-opacity=".35"/>';
+  }
+  S.felder.forEach(function(f){
+    var m = SOT.hex.center(f.c, f.r, HW, GAP), st = standVon(f.typ);
+    /* Erschöpft: das Feld selbst verblasst — die Karte trägt die Nachricht. */
+    if (f.stand === 0)
+      svg += '<polygon points="' + SOT.hex.points(m.x, m.y, HW) +
+             '" fill="var(--trocken)" opacity=".8"/>';
+    svg += '<polygon points="' + SOT.hex.points(m.x, m.y, HW) +
+           '" fill="transparent" stroke="var(--line)" stroke-width="1.5" data-feld="' + f.id + '">' +
+           '<title>' + st.nm + ' — ' + ['erschöpft','dünn','genutzt','reich'][f.stand] + '</title></polygon>';
+    /* Zeichendichte = Bestand: 3 reich · 2 genutzt · 1 dünn · 0 aus. */
+    var lag = [[[0,0]], [[-9,4],[9,4]], [[0,-8],[-10,7],[10,7]]][f.stand - 1] || [];
+    lag.forEach(function(d){
+      svg += '<g opacity=".9" pointer-events="none">' +
+             SOT.iconSVG(st.ico, m.x + d[0], m.y + d[1], f.stand === 1 ? 15 : 14) + '</g>';
+    });
+    if (f.stand > 0 && S.taps > 0 && !S.vorbei)
+      svg += '<circle class="punkt" cx="' + (m.x + HW * 0.30) + '" cy="' +
+             (m.y - HW * 0.34) + '" r="5"/>';
+  });
+  svg += '</svg>';
+  var k = SOT.$('karte');
+  k.innerHTML = svg;
+  k.querySelectorAll('[data-feld]').forEach(function(el){
+    el.onclick = function(){ tippe(el.dataset.feld); };
+  });
+}
+
+/* ================================================================== Panes === */
+function balken(n, max, matt){
+  var h = '<div class="balken">';
+  for (var i = 0; i < max; i++)
+    h += '<i class="' + (i < n ? 'an' + (matt ? ' matt' : '') : '') + '"></i>';
+  return h + '</div>';
+}
+function zeichneLager(){
+  var e = epoche(), max = e.technik;
+  var h =
+    '<div class="lz">' + SOT.icon('lauf') +
+      '<span class="nm">Entnahme heute</span>' + balken(S.taps, max) + '</div>' +
+    '<div class="lz">' + SOT.icon('nahrung') +
+      '<span class="nm">Bedarf am Abend</span><b>' + e.bedarf + '</b></div>' +
+    '<div class="lz' + (S.vorrat === 0 ? ' not' : '') + '">' + SOT.icon('vorrat') +
+      '<span class="nm">Vorrat</span><b>' + S.vorrat + '</b></div>';
+  if (S.hunger)
+    h += '<div class="lz not">' + SOT.icon('frost') +
+         '<span class="nm">Hungerwinter</span><b>' + S.hunger + '</b></div>';
+  SOT.$('lager').innerHTML = h;
+}
+function zeichneMitnutzer(){
+  var e = epoche(), h = '';
+  if (!e.mitnutzer.length)
+    h = '<p class="hint">Niemand. Der Bestand wirkt unendlich — noch.</p>';
+  e.mitnutzer.forEach(function(m, i){
+    var tat = S.rMit[i];
+    var gebunden = S.ordnung && m.art === 'gier';
+    h += '<div class="mit' + (m.art === 'macht' ? ' hart' : '') + '">' +
+         SOT.icon(m.ico) +
+         '<div class="nm"><b>' + m.nm + '</b><span>' +
+         (gebunden ? 'an die Ordnung gebunden' : m.satz) + '</span></div>' +
+         '<div class="tat">' + (tat ? (tat.nahm ? 'nahm: ' + tat.nahm : 'fand nichts') : '—') +
+         '</div></div>';
+  });
+  SOT.$('mitnutzer').innerHTML = h;
+}
+function zeichneRechnung(){
+  var e = epoche();
+  var h =
+    '<div class="regel"><div class="zug">stand≥2 → +1</div>' +
+      '<div class="warum">Reiches und Genutztes wächst jede Runde nach.</div></div>' +
+    '<div class="regel"><div class="zug">stand=1 → +1 (50%)</div>' +
+      '<div class="warum">Dünnes erholt sich nur manchmal — der Würfel, nicht ihr.</div></div>' +
+    '<div class="regel"><div class="zug">stand=0 → nie</div>' +
+      '<div class="warum">Erschöpftes kommt in dieser Epoche nicht wieder; in die nächste geht es als Narbe (beginnt dünn).</div></div>' +
+    '<div class="regel"><div class="zug">Druck: ' + e.technik + '+' +
+      e.mitnutzer.reduce(function(s, m){ return s + (m.menge || 1); }, 0) +
+      ' / Bedarf ' + e.bedarf + '</div>' +
+      '<div class="warum">Was je Epoche wächst: Technik, Mitnutzer, Bedarf. Die Regel der Natur bleibt.</div></div>';
+  h += '<div class="regel"><div class="zug">Beleg</div><div class="warum">' +
+       e.staende.map(function(s){ return s.nm + ': ' + s.beleg; }).join(' · ') +
+       '. Historisch inspiriert und vereinfacht.</div></div>';
+  SOT.$('rechnung').innerHTML = h;
+}
+function zeichneChronik(){
+  SOT.$('chronik').innerHTML = S.chronik.length
+    ? S.chronik.map(function(z){ return '<p class="chz">' + z + '</p>'; }).join('')
+    : '<p class="hint">noch keine Runde vergangen</p>';
+}
+
+function zeichneAlles(){
+  SOT.$('epLabel').textContent = 'EPOCHE ' + römisch(S.ep) + ' · ' + epoche().nm;
+  SOT.$('rdLabel').textContent = S.vorbei
+    ? 'Epoche zu Ende' : 'Runde ' + S.runde + '/' + P.runden;
+  SOT.$('weiter').disabled = S.vorbei;
+  var ob = SOT.$('ordnung');
+  ob.classList.toggle('hid', !epoche().ordnung || S.ordnung || S.vorbei);
+  SOT.$('hinweis').textContent = S.vorbei
+    ? 'Die Auswertung steht über der Karte.'
+    : (S.taps > 0
+        ? S.taps + ' Entnahme' + (S.taps === 1 ? '' : 'n') + ' übrig — die Punkte zeigen, wo.'
+        : 'Nichts mehr zu entscheiden — nur die Runde kann weiter.');
+  zeichneKarte(); zeichneLager(); zeichneMitnutzer();
+  zeichneRechnung(); zeichneChronik(); zeichneAuswertung();
+}
+
+/* ==================================================================== Bot ===
+   ?auto=gier nimmt jede Runde das Maximum vom Vollsten (die Tragik),
+   ?auto=mass nur vom Reichen und nie mehr als den Bedarf (die Einsicht). */
+function botZug(){
+  while (S.taps > 0){
+    var wahl = null, schwelle = (P.auto === 'mass') ? VOLL : 1;
+    S.felder.forEach(function(f){
+      if (f.stand >= schwelle && (!wahl || f.stand > wahl.stand)) wahl = f;
+    });
+    if (!wahl) break;
+    if (P.auto === 'mass' && S.rIhr >= epoche().bedarf) break;
+    wahl.stand--; S.taps--; S.entIhr++; S.rIhr++;
+  }
+  rundeWeiter();
+}
+function autoLauf(){
+  if (S.vorbei) return;
+  botZug();
+  if (!S.vorbei) setTimeout(autoLauf, 150);
+}
+
+/* ================================================================== Start === */
+epocheStart(null);
+zeichneAlles();
+SOT.$('weiter').onclick = rundeWeiter;
+SOT.$('ordnung').onclick = ordnungBeschliessen;
+if (P.auto) autoLauf();
+
+SOT.debug(P);
+SOT.regler(P);
+</script>
+</body>
+</html>
