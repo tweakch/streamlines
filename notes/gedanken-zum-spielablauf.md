@@ -131,11 +131,16 @@ Spielfeld — das Brett ist die Bedienung.
 | Punkt | erscheint | gibt genau |
 | --- | --- | --- |
 | **Kartenpunkt** ○ | am Morgen, einer je Stapel | eine Karte (Mensch · Ausrüstung · Land) |
+| **Rüstpunkt** ☀ | in der Dämmerung, einmal | die Vorbereitung des Tages |
 | **Legepunkt** | wenn eine Karte auf der Hand liegt | die Wahl des Feldes |
 | **Schrittpunkt** | auf jeder eigenen Person | ein Ziel in Reichweite |
 | **Wirkungspunkt** ◆ | wo Ausrüstung oder Verbund etwas erlaubt | den Effekt („Zum Wasser >") |
 | **Ereignispunkt** ! | am Vorzeichen-Morgen | das Handlungsfenster (2 Antworten mit Preis) |
+| **Feuerpunkt** ▲ | am Abend, nach dem Erntebuch | die Verwandlung des Tagesertrags |
 | **Nachtpunkt** ☾ | wenn kein anderer Punkt mehr offen ist | die Aufdeckung |
+
+Rüstpunkt und Feuerpunkt kamen mit dem Abend dazu — begründet unter
+[Die Belohnungsschleife](#die-belohnungsschleife).
 
 **Der Nachtpunkt ist der Trick.** Heute endet der Tag, weil eine versteckte Bedingung
 erfüllt ist („mindestens ein Plättchen gelegt", `engine.ts: BEGIN_NIGHT`). Mit dem
@@ -168,8 +173,9 @@ nicht aus einer Zahl im Kopf des Spielers:
   kommt morgen wieder. Damit begrenzt sich Ausrüstung selbst, ohne Aktionspunkte-Buchhaltung
 - **Legepunkte, solange Karten auf der Hand liegen** — Handlimit ist die eigentliche Bremse
 
-Ein Tag in Epoche I sind damit ~5–7 Antippen. Das ist die richtige Grösse für einen
-Bus-Halt und lässt sich auf 15 Sekunden spielen, ohne oberflächlich zu sein.
+Ein Tag in Epoche I sind damit ~5–7 Antippen — mit Rüst- und Feuerpunkt 8–10. Das ist
+die richtige Grösse für einen Bus-Halt und lässt sich auf 15 Sekunden spielen, ohne
+oberflächlich zu sein.
 
 ### Drei Stapel, und je Epoche einer mehr
 
@@ -197,17 +203,239 @@ dokumentiert). Was sich mit den Punkten ändert, steht in der letzten Spalte.
 | Abschnitt | heute | mit Punkten |
 | --- | --- | --- |
 | **Morgen** | Karten nachziehen, Einkommen automatisch, Toast | Einkommen fliegt sichtbar aufs Konto; **Kartenpunkte und Ereignispunkte erscheinen**. Der Tagesbericht ist keine Meldung, sondern die Punkte selbst |
+| **Dämmerung** | *gibt es in `engine.ts` nicht* | **Rüstpunkt**: eine Vorbereitung, die den Tag prägt (Wegzehrung · Späher · Rasttag · nichts). Gebaut in `erkundung-v2` |
 | **Tag** | 1 Plättchen legen (Pflicht), Werkzeug, 2 Bewegungen | **Punkte abarbeiten in beliebiger Reihenfolge.** Nichts ist Pflicht ausser: irgendwann bleibt nur der Mond |
-| **Nacht** | Verdunkelung, eine Karte, Effekt, −1 Nahrung | **Nachtpunkt antippen** = die Aufdeckung bewusst auslösen. Ereignis-Einschlag ersetzt die Streu-Nacht, Ausbreitung begleitet sie |
+| **Abend** | *gibt es in `engine.ts` nicht* | Erntebuch läuft von selbst, dann **Feuerpunkt**: genau eine Verwandlung. Die Stelle, an der Tagesertrag bleibend wird — siehe [Die Belohnungsschleife](#die-belohnungsschleife) |
+| **Nacht** | Verdunkelung, eine Karte, Effekt, −1 Nahrung | **Nachtpunkt antippen** = die Aufdeckung bewusst auslösen. Ereignis-Einschlag ersetzt die Streu-Nacht, Ausbreitung begleitet sie. Die Karte **liest den Zustand des Lagers**, statt nur eine Schwelle zu prüfen |
 | **Rundenende** | Hunger, Sesshaftigkeit, Runde++ | unverändert — hier gibt es nichts zu entscheiden, also keinen Punkt |
+
+**Zwei der sechs Zeilen sind noch nicht in der App.** `engine.ts` kennt nur `day` und
+`night`; Dämmerung und Abend stehen als `erkundung-v2` im Prototyp und warten auf den
+Port.
 
 **Warum das Rundenende keinen Punkt bekommt:** dort wird nur gerechnet. Ein Punkt ohne
 Entscheidung ist ein Klick, den man dem Spieler wegnehmen muss — dieselbe Regel, aus der
-folgt, dass die erste Karte sich selbst legt.
+folgt, dass die erste Karte sich selbst legt. Der **Abend** ist davon nicht betroffen:
+sein Erntebuch rechnet zwar auch nur, aber danach steht eine echte Wahl, und die
+bekommt ihren Punkt.
 
 **Die Reihenfolge im Tag ist frei, und das ist eine Aussage.** Wer erst zieht, dann legt,
 dann geht, spielt anders als wer erst kundschaftet und dann entscheidet, was er legt. Es
 gibt keine Phasenordnung im Tag — die Ordnung ist die Nacht.
+
+## Die Belohnungsschleife
+
+Der importierte Satz, auf den es ankommt: **„Fähigkeit verdienen → grösseres Risiko
+eingehen → Risiko in bleibenden Fortschritt verwandeln → stärker aufwachen."** Vier
+Glieder, und die Kette läuft genau über Morgen · Tag · **Abend** · Nacht.
+
+**Das Wichtigste zuerst, und es ist kein Vorschlag, sondern ein Befund:
+`erkundung-v2` spielt diese Schleife bereits.** Der Prototyp trägt vier Tageszeiten
+statt zwei, und jede stellt eine eigene Frage — Dämmerung *was nimmst du mit*, Tag
+*wohin*, Abend *was machst du daraus*, Nacht *hält es*. Der Untertitel der Datei sagt
+es kürzer als jede Analyse: **„Gutes Laufen kauft besseres Laufen."** Was unten steht,
+ist deshalb keine Konstruktion aus dem Nichts, sondern die Prüfung eines gebauten
+Dings gegen ein fremdes Modell — und die Liste der drei Stellen, an denen das fremde
+Modell etwas weiss, das der Prototyp noch nicht tut.
+
+### Was schon steht
+
+| Glied | wie es in `erkundung-v2` gebaut ist |
+| --- | --- |
+| **Vorbereitung** (Dämmerung) | genau *eine* Wahl: Wegzehrung (−1 Nahrung → +1 Ausdauer heute) · Späher (−1 Nahrung → +1 Sichtweite heute) · Rasttag (+2 Nahrung, dafür geht niemand) · ohne Umstände aufbrechen |
+| **Risiko/Ertrag** (Tag) | Ausdauer-Schritte über echtes Gelände, Hang kostet 2 und nur der Jäger steigt. Oben: **Sicht 4 statt 2**, die Vorkommen ▲ ● ◇ (Silex, Ocker, Bergkristall) und der Blick aufs **Wild** — Jagd vom Hang gibt +2 Nahrung *und* die Fährte, im Tal +1 |
+| **Verwandlung** (Abend) | erst das **Erntebuch** Zeile für Zeile (wer stand wo, was bringt er ein), dann genau *eine* Verarbeitung: Werkzeug (−2 Material → +2 Schutz, dauerhaft) · **Schuhwerk** (−2 Material → +1 Ausdauer, für immer) · Trockenfleisch (−2 Nahrung → +1 Vorrat) · Schnitzwerk (−1/−1 → +1 Kultur) |
+| **Prüfung** (Nacht) | gewichtete Karte, die den Zustand abfragt: der Wolf bleibt draussen bei Schutz ≥ 4, der Frost kostet Material statt Nahrung bei Material ≥ 3. Immer −1 Nahrung |
+| **Aufwachen** | Sesshaftigkeit `+min(Nahrung, Schutz, Material)`, gedeckelt bei 3 — **die schwächste Ressource zählt**. Das Wild ist weitergezogen. Zwei Winter mit leeren Vorräten: *„Der Stamm zieht weiter."* |
+
+Damit ist auch die Tabelle unter [Der Spielablauf](#der-spielablauf) **zwei Phasen im
+Rückstand**: sie beschreibt `engine.ts`, und dort gibt es weder Dämmerung noch Abend —
+die App kennt nur `day` und `night`, das Morgen-Nachziehen hängt am Ende der Nacht.
+Der Abend ist dabei keine fünfte Phase zum Aufhübschen; er ist die Stelle, an der aus
+einem Tagesertrag ein Spiel wird.
+
+### Warum der Abend die wichtigste Phase ist
+
+Ohne Verwandlungsschritt ist ein guter Tag nur eine grössere Zahl auf einem Konto,
+das die Nacht ohnehin wieder abzieht. Der Abend ist der einzige Ort, an dem etwas
+*bleibt*: Schuhwerk ist für immer, Werkzeug ist dauerhaft, der Vorrat fängt genau
+eine Hungernacht. **Schuhwerk ist die Schleife, die sich selbst antreibt** — mehr
+Reichweite heute heisst mehr Ertrag morgen heisst wieder mehr Reichweite. Das ist
+dieselbe Zeile, die in der Reichweiten-Tabelle weiter oben schon als „wie sie wächst"
+steht; hier ist sie zum ersten Mal eine Handlung statt einer Notiz.
+
+**Genau eine Verarbeitung je Abend** ist dabei nicht Sparsamkeit, sondern die
+Punktregel: ein Punkt, eine Entscheidung. Vier Angebote, eines wird genommen, drei
+tun weh — das ist die härteste und beste Wahl des Tages, weil sie ohne Zufall
+auskommt.
+
+Und hier sitzt der eine Ratschlag aus dem Import, der eine echte Lücke trifft:
+**der Abend soll grosszügig wirken, wenn der Tag gut lief, und schmerzhaft, wenn
+nicht.** Mechanisch ist das schon wahr — nach einem mageren Tag stehen die
+Verarbeitungen grau da, mit ihrem `warum` daneben („braucht Silex — hol es am Hang").
+Aber es ist noch nicht *inszeniert*. Heute liest sich ein magerer Abend wie ein Fehler
+des Spielers; er sollte sich lesen wie eine Rechnung, die aufgeht oder nicht. Das ist
+Darstellung, nicht Regel — und deshalb billig zu haben.
+
+### Der Befund, der alles Weitere begründet
+
+Bevor die Lücken kommen, die Zahl, die sie zu Pflichtaufgaben macht. Die
+Handbuch-Karte **„Balancing-Loop & offene Zahlen"** (`open`) hält das Ergebnis des
+Monte-Carlo-Prüfstands `mechanik-labor-v1` fest: ein ordentlich spielender Bot
+**überlebt 99,9 % der Läufe und erreicht in 99,4 % die oberste Endstufe** (Median
+26 von 30). Die einzige reale Gefahr ist die grosse Kälte in Runde 5.
+
+In der Sprache dieses Abschnitts heisst das: **die Prüfung fehlt.** Es gibt eine
+Verwandlung (schwach), es gibt Ertrag (reichlich), aber es gibt nichts, was das
+Angesammelte je wieder in Frage stellt. Der Nachtkarten-Stapel sagt es unverblümt —
+drei der sechs Karten sind **unbedingt gut** (Stille, Gute Jagd, Fund im Kies), eine
+ist neutral-gut (Fremde am Feuer), und nur zwei können überhaupt wehtun, beide mit
+einer Schwelle, die man ab Runde 3 nicht mehr unterschreitet. Die Nacht ist heute im
+Mittel ein Geschenk mit einer Rechnung von −1 Nahrung.
+
+Alles, was jetzt folgt, dient demselben Zweck: **der Schleife ihr viertes Glied
+zurückgeben.** Ohne Prüfung ist „earn → risk → convert → wake up stronger" nur
+„earn → convert → wake up stronger", und das ist eine Tabellenkalkulation.
+
+### Die drei Lücken
+
+**1. Die Nacht liest den Zustand, aber sie wächst nicht mit.** Heute prüft jede
+Nachtkarte *nach unten*: reicht dein Schutz, reicht dein Material. Der Import dreht
+das um — *„let night dangers scale with how much the player has: more food attracts
+more predators, a bigger camp is a bigger target but also better defended."*
+
+Das ist keine fremde Idee, es ist der fehlende Faktor einer Formel, die im Handbuch
+schon steht: **„Furcht = Bedrohung × Deutungsrahmen"** (`concept`, nicht gebaut).
+Der Deutungsrahmen ist die Epochenachse. Die **Bedrohung** hat bisher keinen Treiber —
+und der Import liefert ihn: *Bedrohung wächst mit dem, was es zu holen gibt.* Damit
+wird aus jeder Ansammlung eine Entscheidung statt einer Sperrklinke:
+
+- Trockenfleisch im Lager hebt die Schwelle der Wolfsnacht mit — **wer viel
+  eingelagert hat, hat Besuch.** Vorrat hört auf, gratis zu sein.
+- Kultur zieht Menschen an: die Karte „Fremde am Feuer" (heute Gewicht 14, gibt einen
+  Extra-Zug) wird wahrscheinlicher, je mehr Zeichen man geschnitzt hat. Der
+  **Wanderer** aus `nacht-effekte-v1` ist genau dieses Ereignis in ausgebauter Form —
+  aufnehmen (+Kultur/+Material, Seuchenrisiko) oder abweisen (−Nahrung bei schwachem
+  Schutz).
+- Und die Umkehrung muss auch gelten, sonst ist es nur eine Strafe: ein grosses Lager
+  *besteht* mehr Nächte, es zieht nur mehr an. Netto darf Wachstum sich lohnen, aber
+  die Varianz steigt mit.
+
+In einem Satz: **die Nacht ist keine Prüfung, sie ist eine Waage.** Sie wiegt, was du
+hast, gegen das, was du dagegen gebaut hast — und beides wächst.
+
+**2. Die Risikoleiter hat keine oberste Sprosse.** Der Hang ist heute die riskante
+Wahl, aber sein Preis ist Ausdauer, nicht Gefahr: man kommt immer heim, der Abend
+findet immer im Lager statt. Damit ist „Risiko" bislang ein Synonym für „weiter
+laufen". Die fehlende Sprosse ist **draussen bleiben**: eine Person, die am Abend zu
+weit weg ist, kehrt nicht zurück — sie erntet doppelt (Fährte am Morgen, Vorkommen
+gesichert), aber die Nachtkarte trifft *sie* statt das Lager, und das Lager verliert
+ihren Schutzbeitrag. Eine Regel, und die Leiter ist vollständig: sicher am Feuer ·
+weit gelaufen und heimgekehrt · draussen geblieben. Sie kostet keine neue Ressource,
+nur die Frage „gehst du noch ein Feld weiter, oder drehst du um?" — und die stellt
+sich dann jeden einzelnen Tag um dieselbe Uhrzeit.
+
+**3. Es gibt keinen Boden.** Der Import ist hier ausdrücklich: *„give small permanent
+progress even on lean days so the player never feels completely stuck."* Heute kann
+ein Tag buchstäblich nichts geben — das Erntebuch schreibt „steht, wo nichts zu holen
+ist", Neuland zahlt erst ab 6 Feldern, und wenn eine Ressource auf null steht, ist
+auch die Sesshaftigkeit null (schwächstes Glied). Zwei solche Runden hintereinander
+sind das Spielende. Das ist streng — aber der Bot zeigt, dass die Strenge fast nie
+zuschlägt. Was bleibt, ist also nicht Todesangst, sondern **Leerlauf**: ein Tag, der
+nichts einbrachte, hinterlässt auch nichts, und trotzdem verliert man nicht. Das ist
+die schlechteste der drei möglichen Empfindungen. Ein solcher Tag braucht einen
+Boden, der nichts kostet.
+
+Der Boden ist **Wissen**, und er liegt schon da: begangenes Land bleibt bekannt, auch
+wenn der Tag nichts einbrachte. Der Nebel geht nie wieder zu. Nur wird das nirgends
+*gezählt*. Vorschlag, klein und ohne neue Ressource: das Erntebuch führt Neuland
+**immer** als erste Zeile, auch bei null Kultur — „6 Felder erkundet · noch 3 bis zum
+nächsten Zeichen". Ein Balken, der nie zurückgeht, an einem Abend, an dem sonst alles
+zurückgeht. Damit ist die Karte selbst der Fortschrittsbalken — was weiter oben unter
+[Wachstum ist eine Folge, kein Fahrplan](#wachstum-ist-eine-folge-kein-fahrplan)
+behauptet wird, aber bisher nur für gute Tage gilt.
+
+### Trophäen heissen hier Funde
+
+Die Prestigeschleife des Imports — Trophäen sammeln, im Lager ausstellen, damit
+Händler und Gefahren angelockt werden — hat in diesem Spiel eine Form, die kein
+anderes Spiel haben kann. Ein Jägerspiel hängt den Schädel an die Stange. **Stromlinien legt
+ihn in den Boden.**
+
+Was der Spieler zurücklässt, ist, was später gefunden wird: Schnitzwerk, Zeichen,
+Feuerstellen, die Silex-Abbaustelle. Die Trophäe wird nicht den Zeitgenossen gezeigt,
+sondern der **Archäologie** — und die schaut beim Realitätsabgleich der Zeremonie
+zurück (Balance %, Authentizität %, Fundstellen x/y). Das schliesst eine Schleife, die
+bisher zwei getrennte Dinge waren: Kultur ist eine Ressource *und* das, was am
+Epochenende über die Partie geurteilt wird. Der Spieler sammelt keine Punkte, er
+hinterlässt Belege.
+
+Und es koppelt sauber an Lücke 1: mehr Zeichen → mehr Fremde am Feuer → mehr Kultur
+und mehr Risiko. Damit tragen alle Nebenschleifen dieselbe Regel, und die ist der
+eigentliche Ertrag dieses ganzen Abschnitts:
+
+> **Die Nacht liest deinen Zustand.** Was du hast, entscheidet, wer kommt.
+
+### Wo der Import nicht passt: „stärker aufwachen"
+
+Ein Glied der importierten Kette muss gebrochen werden, und zwar bewusst.
+*„After a dozen days you are the one the forest has learned to respect — or fear."*
+Das ist die Kurve eines Überlebensspiels, und sie ist **innerhalb einer Epoche genau
+richtig**: zehn Runden lang soll es aufwärts gehen, sonst fühlt sich eine Sitzung nach
+nichts an.
+
+**Über die Epochen hinweg darf sie nicht gelten.** Dieses Notizbuch hat das an drei
+Stellen schon entschieden, ohne es zusammenzuziehen:
+
+- Sesshaftwerden **kostet Welt** (−73 % bekannte Fläche im gemessenen Modell) — Epoche
+  II ist ärmer an Karte als Epoche I, und der Verlust bleibt als Nebel sichtbar.
+- Die Wünschelrute **hört auf zu wirken**, wenn der Deutungsrahmen von `ANI` auf `RAT`
+  wechselt. Ausrüstung verliert ihre Wirkung durch Mentalitätswandel, nicht durch
+  Verschleiss.
+- Die Römerstrasse **senkt** die bekannte Fläche: sie verkürzt Wege, also sieht man
+  weniger Land.
+
+Also: **die Belohnungsschleife ist die Innenschleife, die Epochenkette ist die
+Aussenschleife, und sie zeigen nicht in dieselbe Richtung.** Am Modulübergang wird die
+Sperrklinke gelöst — nicht als Strafe, sondern weil die nächste Epoche andere Fragen
+stellt. Der Kampagnenbogen heisst nicht „immer stärker", sondern **„immer tiefer
+verstrickt"**: mehr Ertrag und weniger Welt, mehr Schutz und mehr, was Schutz braucht.
+
+Der Satz aus dem Import stimmt trotzdem — er stimmt nur zu gut. Am Ende der Kampagne
+ist der Mensch tatsächlich der, den das Tal fürchtet. Das ist dann kein Triumph mehr,
+das ist Modul 5, „Mensch als Naturkraft". Dieselbe Kurve, zehntausend Jahre später,
+und sie liest sich als Horror. **Genau deshalb darf die Schleife gebaut werden wie im
+Import beschrieben** — sie muss nur lange genug laufen, bis sie kippt.
+
+### Nachtrag: die Verwandlung ist ein Kreis (erkundung-v6)
+
+Der Abend-Verwandlungsschritt und die Morgen-Effektkarten sind in
+`erkundung-v6` zu **einem Kartensystem** zusammengefallen: **der Abend
+stellt her, was der Morgen spielt.** Trockenfleisch wird eine Vorrat-Karte
+in der Hand (gespielt: Wegzehrung; ungespielt: fängt eine Hungernacht),
+Schuhwerk und Werkzeug sind die Geburt des Ausrüstungsstapels, und die
+Hand ist die Traglast (Vorräte konkurrieren mit Plättchen um vier Plätze).
+Für die Belohnungsschleife heisst das: die Verwandlung produziert sichtbare
+Objekte statt Kontostände — der Lohn des Abends liegt am nächsten Morgen
+buchstäblich in der Hand. Details: `gedanken-zum-userinterface.md`,
+Nachtrag 6.
+
+### Was das für die Punkte heisst
+
+Zwei Zeilen kommen zur Punkt-Tabelle dazu, und beide erfüllen die Regel „ein Punkt nur,
+wo es etwas zu entscheiden gibt":
+
+| Punkt | erscheint | gibt genau |
+| --- | --- | --- |
+| **Rüstpunkt** ☀ | in der Dämmerung, einmal | die Vorbereitung (4 Angebote, eines wird genommen) |
+| **Feuerpunkt** ▲ | am Abend, nachdem das Erntebuch gelaufen ist | die Verwandlung (4 Angebote, eines wird genommen) |
+
+Das **Erntebuch bekommt keinen Punkt** — dort wird nur gerechnet, dieselbe Begründung
+wie beim Rundenende. Es läuft von selbst und liest sich Zeile für Zeile vor.
+
+Ein voller Tag ist damit: 1 Rüstpunkt · 5–7 Tagespunkte · 1 Feuerpunkt · 1 Nachtpunkt
+≈ **8–10 Antippen** mit vier klar getrennten Gefühlen dazwischen. Immer noch ein
+Bus-Halt, aber einer mit einem Bogen: Hoffnung → Anstrengung → Lohn → Probe.
 
 ## Der Epochenübergang
 
@@ -323,3 +551,20 @@ wirklich auf Dorf- und Stadtgrösse.
    Legen), damit Kundschaften nicht immer dominiert?
 6. **Wenn ein Ereignis die Karte vergrössert** — darf der Spieler das ablehnen? („Wir
    gehen nicht ins Ried.")
+7. **Skaliert die Nacht mit dem Besitz?** Die Regel „Vorrat zieht Besucher an" ist die
+   billigste Antwort auf 99,4 % Erfolgsquote. Aber: nur die Varianz erhöhen oder auch
+   den Erwartungswert senken? Zweiteres macht Wachstum netto schlecht — dann sammelt
+   niemand mehr, und das wäre die falsche Lehre.
+8. **Draussen übernachten** — die fehlende oberste Sprosse der Risikoleiter. Trifft die
+   Nachtkarte dann die Person *statt* des Lagers, oder beide? Und was heisst „verloren",
+   wenn heute niemand sterben kann?
+9. **Eine Verwandlung je Abend oder eine je Person?** Eine hält die Wahl scharf. Zwei
+   Personen, die den ganzen Tag getrennt gelaufen sind, bringen aber getrennte Erträge
+   heim — und es einer davon zu verwehren, ist schwer zu erzählen.
+10. **Zählt Kultur in `min()`?** Heute nicht (Sesshaftigkeit = `min(Nahrung, Schutz,
+   Material)`). Wenn Kultur die Trophäenschleife tragen soll, ist ihre Trennung vom
+   Fortschritt genau richtig — dann ist sie die *zweite* Achse, an der die Zeremonie
+   misst, und das gehört ausgesprochen.
+11. **Wo wird der Abend gebaut?** `erkundung-v2` hat ihn, `engine.ts` nicht. Portieren
+   oder erst die drei Lücken im Prototyp schliessen? Vorschlag: erst die Lücken —
+   ein Abend ohne skalierende Nacht portiert die halbe Idee.
