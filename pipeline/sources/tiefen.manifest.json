@@ -1,0 +1,40 @@
+{
+  "beschreibung": "Register der Tiefenquellen (swissBATHY3D, Seegrund). Gegenstück zu hoehen.manifest.json: dort steht, was ÜBER Wasser liegt, hier was DARUNTER. Das Höhenmodell ist ein Geländemodell — über einem See führt es die Wasseroberfläche, nicht den Grund (der Bodensee liest sich quer über seine ganze Breite als ebene 400-m-Fläche, obwohl er 250 m tief ist). Ohne diese Quellen ist eine Seewanne im Modell nicht vorhanden und jede Aussage über Tiefe, Volumen oder eine wandernde Uferlinie erfunden.",
+  "hinweis": "Die Dateien liegen NICHT im Repo (zu gross). Fehlende laden: node pipeline/fetch/normalize-bathy.mjs --laden. Ein einzelner See: --seen=thunersee,walensee. Alles unter dem swisstopo-Muster https://data.geo.admin.ch/ch.swisstopo.swissbathy3d/swissbathy3d_<see>/swissbathy3d_<see>_2056_5728.esriasciigrid.zip — wer einen weiteren See ergänzt, trägt hier nur den Schlüssel ein.",
+  "quelle": "swissBATHY3D © swisstopo",
+  "lizenz": "Freie Nutzung mit Quellenangabe — swisstopo (BGDI)",
+  "koordinaten": "CH1903+/LV95 (EPSG 2056) horizontal, LN02 (EPSG 5728) in der Höhe. Umrechnung nach WGS84 über die swisstopo-Näherungsformel (~1 m).",
+  "muster": "https://data.geo.admin.ch/ch.swisstopo.swissbathy3d/swissbathy3d_{see}/swissbathy3d_{see}_2056_5728.esriasciigrid.zip",
+  "felder": {
+    "see": "Schlüssel im swisstopo-Pfad — daraus entstehen URL und Dateiname",
+    "name": "Anzeigename",
+    "einzug": "rhein = liegt im Rheineinzugsgebiet, po = fliesst nach Süden ab (nur der Vollständigkeit halber geladen)",
+    "flaecheKm2": "Seefläche zur Plausibilisierung nach dem Einlesen",
+    "tiefeM": "grösste bekannte Tiefe",
+    "spiegelM": "Höhe des Wasserspiegels. spiegelM − tiefeM ist der PRÜFSTEIN: so tief muss der gemessene Grund reichen. Beim Bodensee 395 − 251 = 144 m — genau das kam beim ersten Lauf heraus."
+  },
+  "seen": [
+    { "see": "bodensee",             "name": "Bodensee",              "einzug": "rhein", "flaecheKm2": 536,  "tiefeM": 251, "spiegelM": 395 },
+    { "see": "zuerichsee",           "name": "Zürichsee",             "einzug": "rhein", "flaecheKm2": 88,   "tiefeM": 136, "spiegelM": 406 },
+    { "see": "walensee",             "name": "Walensee",              "einzug": "rhein", "flaecheKm2": 24,   "tiefeM": 145, "spiegelM": 419 },
+    { "see": "vierwaldstaettersee",  "name": "Vierwaldstättersee",    "einzug": "rhein", "flaecheKm2": 114,  "tiefeM": 214, "spiegelM": 434 },
+    { "see": "zugersee",             "name": "Zugersee",              "einzug": "rhein", "flaecheKm2": 38,   "tiefeM": 198, "spiegelM": 414 },
+    { "see": "aegerisee",            "name": "Ägerisee",              "einzug": "rhein", "flaecheKm2": 7,    "tiefeM": 82, "spiegelM": 724  },
+    { "see": "sempachersee",         "name": "Sempachersee",          "einzug": "rhein", "flaecheKm2": 14,   "tiefeM": 87, "spiegelM": 504  },
+    { "see": "baldeggersee",         "name": "Baldeggersee",          "einzug": "rhein", "flaecheKm2": 5,    "tiefeM": 66, "spiegelM": 463  },
+    { "see": "hallwilersee",         "name": "Hallwilersee",          "einzug": "rhein", "flaecheKm2": 10,   "tiefeM": 47, "spiegelM": 449  },
+    { "see": "rotsee",               "name": "Rotsee",                "einzug": "rhein", "flaecheKm2": 0.5,  "tiefeM": 16, "spiegelM": 419  },
+    { "see": "sarnersee",            "name": "Sarnersee",             "einzug": "rhein", "flaecheKm2": 7,    "tiefeM": 51, "spiegelM": 469  },
+    { "see": "lungernsee",           "name": "Lungernsee",            "einzug": "rhein", "flaecheKm2": 2,    "tiefeM": 68, "spiegelM": 689  },
+    { "see": "thunersee",            "name": "Thunersee",             "einzug": "rhein", "flaecheKm2": 48,   "tiefeM": 217, "spiegelM": 558 },
+    { "see": "brienzersee",          "name": "Brienzersee",           "einzug": "rhein", "flaecheKm2": 30,   "tiefeM": 260, "spiegelM": 564 },
+    { "see": "bielersee",            "name": "Bielersee",             "einzug": "rhein", "flaecheKm2": 39,   "tiefeM": 74, "spiegelM": 429  },
+    { "see": "murtensee",            "name": "Murtensee",             "einzug": "rhein", "flaecheKm2": 23,   "tiefeM": 46, "spiegelM": 429  },
+    { "see": "lacneuchatel",         "name": "Neuenburgersee",        "einzug": "rhein", "flaecheKm2": 218,  "tiefeM": 152, "spiegelM": 429 },
+    { "see": "lacdejoux",            "name": "Lac de Joux",           "einzug": "rhein", "flaecheKm2": 9,    "tiefeM": 34, "spiegelM": 1004  },
+    { "see": "lacleman",             "name": "Genfersee",             "einzug": "rhone", "flaecheKm2": 580,  "tiefeM": 309, "spiegelM": 372 },
+    { "see": "lagomaggiore",         "name": "Lago Maggiore",         "einzug": "po",    "flaecheKm2": 212,  "tiefeM": 372, "spiegelM": 193, "hinweis": "swissBATHY3D endet an der Landesgrenze: der tiefste Punkt (372 m) liegt in Italien. Gemessen werden nur die Schweizer 107 m unter dem Spiegel — die Abweichung zum Prüfstein ist hier richtig, nicht falsch." },
+    { "see": "silsersee",            "name": "Silsersee",             "einzug": "po",    "flaecheKm2": 4,    "tiefeM": 71, "spiegelM": 1797  },
+    { "see": "silvaplanersee",       "name": "Silvaplanersee",        "einzug": "po",    "flaecheKm2": 3,    "tiefeM": 77, "spiegelM": 1791  }
+  ]
+}
