@@ -9,6 +9,8 @@
 <title>STROMLINIEN · Handbuch &amp; Designdokument</title>
 <link rel="stylesheet" href="../kit/sot.css">
 <link rel="stylesheet" href="../kit/sot-doc.css">
+<!-- Für Brett-Abbildungen (::: figur furt) — das Hexraster des Spiels. -->
+<link rel="stylesheet" href="../kit/sot-hex.css">
 <style>
 /* Datei-eigen: nur was zwischen den vier Kapitel-Dokumenten variiert. */
 .wrap{max-width:760px;}
@@ -18,7 +20,9 @@
 </style>
 </head>
 <body>
-<button class="modebtn">☾ NACHT</button>
+<!-- Beschriftung setzt sot-doc.js (Icon + Wort) — hier steht nur das Wort,
+     damit der Quelltext kein Schriftzeichen als Icon trägt. -->
+<button class="modebtn">NACHT</button>
 <button class="viewbtn" id="viewbtn"></button>
 <div class="wrap">
 
@@ -52,6 +56,88 @@
 <p><b>Die Filterregel:</b> jede neue Regel, Karte oder Mechanik muss auf mindestens einen Pfeiler zeigen und ihren Pfeil in die Schleifenkarte eintragen können – sonst gehört sie nach Kap. 09/10. Dazu eine „das Spiel ist nicht…&quot;-Liste (kein Aufbauspiel um des Wachstums willen, kein Survival-Horror, keine Geschichtssimulation, kein Klassensystem, keine Zähler, noch kein Mehrspieler) und <b>Schichten für Ports nach <code>app/</code></b>: 1 Skelett (Vier-Phasen-Tag, Punkte) · 2 Fleisch (Sammlerin im Kernloop + Nacht-Waage, im selben Schritt) · 3 Nervensystem (drei Stapel, Ereignisse, Kartenwachstum) · 4 geparkt (Mehrspieler, Epochen II+). Die Werkstatt (<code>drafts/</code>) bleibt von den Schichten frei.</p>
 <div class="why"><b>Warum die Sammlerin der Prüfstein ist</b>Sie ist die nächste, die in den Karten-Kernloop kommt – und jeder Pfeiler verlangt etwas Konkretes von ihr: die zweite Personenkarte ist die <i>erste Karte, die fragt</i> (P1); ihr verlässlicher Ertrag macht die Nacht-Waage zur Pflicht, sonst ist sie ein Gewinnknopf (P4); ihre Wachstumsschiene Pfade→Träger→Boot formt später die Korridore der Karte (P3); ihr Erbe ist die Sesshaftigkeit, also der Verlust an Welt (P5). Zwei Risikoachsen teilen die Rollen: der Jäger riskiert Entfernung, die Sammlerin Besitz.</div>
 <p class="dim">Offen: ob die First Experience der Notizen (erste Karte = Jäger, legt sich selbst) mit der Auftakt-Wahl (Jäger <i>oder</i> Sammler als erste Entscheidung, Kap. 8) zusammengeführt wird – die Pfeiler verlangen nur, dass beide Einstiege rollenneutral funktionieren.</p>
+</div></div>
+
+<div class="card" data-s="concept" id="glossar"><div class="chead"><h3>Glossar: jedes Ding hat genau ein Wort</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>„Karte&quot; hiess bisher drei Dinge (Spielkarte, Landkarte, Handbuch-Karte), „tile&quot; mal das Plättchen, mal das Feld — und daneben geisterten Kachel, plate und hex als Objektnamen herum. Ab jetzt gilt: <b>ein Ding, ein deutsches Wort, ein englisches Wort.</b> Deutsch im Spieltext und in Gesprächen, Englisch im Code und in technischen Notizen. Die Silhouette (siehe „Formensprache&quot;, Kap. 2) sagt, <i>was</i> ein Ding ist; das Glossar sagt, <i>wie es heisst</i>.</p>
+<table>
+<tr>
+<th>Das Ding</th>
+<th>Deutsch</th>
+<th>English (Code)</th>
+<th>nie wieder</th>
+</tr>
+<tr>
+<td>Sechseckiges Teil in der Hand; wird gelegt und <b>bleibt</b> auf dem Brett (Uferlager, Höhle …). Silhouette 1 : 1,155 (2/√3), wie ein Feld</td>
+<td><b>Plättchen</b></td>
+<td><b>tile</b> (<code>PlacedTile</code>, <code>.tcard</code>)</td>
+<td><s>Karte</s> · <s>Kachel</s> · <s>plate</s></td>
+</tr>
+<tr>
+<td>Festes Sechseck-Feld der Welt; nimmt genau ein Plättchen auf; trägt Gelände, Fluss, Vorkommen</td>
+<td><b>Feld</b></td>
+<td><b>cell</b> (<code>Cell</code>, <code>.cell</code>)</td>
+<td><s>tile</s> · <s>Hex</s> als Name</td>
+</tr>
+<tr>
+<td>Rechteckiges Teil im Verhältnis 5 : 7; wirkt <b>sofort</b> und ist danach verbraucht (Wegzehrung, Späher, Rasttag, Vorrat — und die Nachtkarte)</td>
+<td><b>Karte</b> (Effektkarte · Vorrat-Karte · Nachtkarte)</td>
+<td><b>card</b> (<code>.effkarte</code>, <code>.hkarte</code>, <code>.ncard</code>)</td>
+<td><s>Plättchen</s> · <s>tile</s></td>
+</tr>
+<tr>
+<td>Alle Felder der gespielten Region zusammen; das, worauf gelegt wird</td>
+<td><b>Brett</b></td>
+<td><b>board</b> (CSS-Altlast: <code>.map</code>)</td>
+<td><s>Karte</s> · <s>map</s> im Spieltext</td>
+</tr>
+<tr>
+<td>Die Übersicht des ganzen Tals, Landquart–Konstanz, mit dem Nebel des Ungespielten</td>
+<td><b>Weltkarte</b></td>
+<td><b>world map</b> (<code>world.ts</code>)</td>
+<td>blankes <s>Karte</s></td>
+</tr>
+<tr>
+<td>Die Sechseckform selbst — reine Geometrie</td>
+<td><b>Sechseck</b> (Formwort)</td>
+<td><b>hex</b> (<code>hexNeighbors</code>)</td>
+<td>als Objektname („ein Hex legen&quot;)</td>
+</tr>
+<tr>
+<td>Werte-Anzeige in der Kopfleiste (Nahrung · Schutz · Material · Kultur) — UI, kein Spielmaterial</td>
+<td><b>Kachel</b></td>
+<td><b>stat panel</b></td>
+<td><s>tile</s></td>
+</tr>
+<tr>
+<td>Wissenskarte in diesem Handbuch</td>
+<td><b>Handbuch-Karte</b> (immer mit Vorsatz)</td>
+<td>doc card</td>
+<td>blankes <s>Karte</s></td>
+</tr>
+</table>
+<p>Die drei Regeln dahinter:</p>
+<ol>
+<li><b>„Karte&quot; ohne Zusatz ist immer die Spielkarte</b> (5 : 7, wirkt sofort). Die Landkarte heisst Weltkarte oder Brett, die Wissenskarte Handbuch-Karte.</li>
+<li><b>„tile&quot; gehört exklusiv dem Plättchen.</b> Die feste Position ist die <i>cell</i>, nie das tile — genau die Unterscheidung, die <code>grid.ts</code> schon macht (<code>Cell</code> vs. <code>PlacedTile</code>).</li>
+<li><b>„hex&quot; ist eine Form, kein Ding.</b> Plättchen und Felder <i>sind</i> sechseckig; ein „Hex&quot; legt man nicht.</li>
+</ol>
+<div class="why"><b>Warum die Form das Wort trägt</b>Die Formensprache (Kap. 2) hat entschieden: Sechseck = kommt aufs Brett und bleibt, Rechteck = wirkt sofort, Knopf = blosse Wahl. Wenn die Silhouette den Typ sagt, muss das Wort ihr folgen — eine „Sechseck-Karte&quot; wäre eine Lüge in beide Richtungen. Plättchen/Karte auf Deutsch und tile/card auf Englisch ziehen dieselbe Grenze wie die Silhouetten 1 : 1,155 und 5 : 7.</div>
+<p class="dim">CSS-Klassen im Bestand widersprechen dem Glossar teils (<code>.tcard</code> ist ein Plättchen, <code>.map</code> ist das Brett) — Altlasten, die bleiben dürfen; neue Namen folgen dem Glossar. Bestandstexte werden beim nächsten Anfassen angepasst, nicht in einer grossen Umschreibung.</p>
+</div></div>
+
+<div class="card" data-s="idea" id="die-zwei-stimmen-die-welt-spricht-innen-die-ausgrabung-ausse"><div class="chead"><h3>Die zwei Stimmen: die Welt spricht innen, die Ausgrabung aussen</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Das Spiel hat zwei Erzähler, und die Immersion hängt daran, dass sie sich <b>nie vermischen</b>. Die <b>Welt</b> spricht aus dem Inneren der Epoche: im Wir, in der Gegenwart, ohne Jahreszahl, ohne moderne Ortsnamen, ohne zu wissen, dass sie Geschichte ist („Das Wasser ist laut, seit der Schnee geht&quot;). Die <b>Ausgrabung</b> spricht von aussen: sie zählt Jahre, nennt Belege, weiss, wie es ausgegangen ist – und sie ist die einzige Stimme, die das darf.</p>
+<p>Die Trennung ist nicht nur räumlich (Pane hier, Karte dort), sondern <b>typografisch und formal</b>, damit ein Spieler sie in der ersten Minute lernt und danach nie mehr verwechselt: die Welt in der Spielschrift, die Ausgrabung in Mono, hinter einem linken Rand, <b>nie ohne ihre Marke</b> (Belegzeichen). Gebaut in <code>namen-v1</code>; die Regel „das Werkzeug ist kein Ort der Welt&quot; (Feld-Explorer, Kap. 8) ist derselbe Gedanke, bisher nur auf Interaktion angewandt, nicht auf Sprache.</p>
+<p>Damit löst sich auch der Widerspruch zu <b>P6 (Belegstatus ist Pflicht)</b>: der Hinweis „historisch inspiriert und vereinfacht&quot; verschwindet nicht, er <b>zieht um</b>. Er gehört der Ausgrabung – an den Fund, an das Anker-Ereignis, ins Handbuch –, nie in den täglichen Loop. Der Belegstatus ist damit nicht der Feind der Immersion, sondern ihre zweite Hälfte: eine Stimme, die <i>später</i> ist, macht die erste Stimme glaubhaft <i>jetzt</i>.</p>
+<div class="why"><b>Warum nicht einfach beides mischen</b>Ein Museumsführer, der mitten in der Szene erklärt, was man da gerade erlebt, nimmt dem Erlebnis die Gegenwart. Sobald „Alpenrhein&quot; oder „10 000 v. Chr.&quot; im Spielfeld steht, weiss der Spieler, wo er in einer Zeittafel sitzt – und sitzt damit nicht mehr im Tal. Die Zahl darf existieren; sie darf nur nicht die Welt sein.</div>
+<p class="dim">Konkrete Altlasten, die dagegen verstossen (Stand Aug 2026): Kopfzeile im Spiel <code>EPOCHE I · ALPENRHEIN</code>, <code>10 000 – 2 000 v. Chr.</code> (<code>StromlinienGame.tsx</code>), Klan-Begrüssung „Willkommen am Alpenrhein&quot; (<code>KlanScreen.tsx</code>), Titelschirm „Die Geschichte des Alpenrheintals&quot;. <code>erkundung-v4</code> hat den ersten Schritt schon getan („vor 12 000 Jahren&quot; statt „v. Chr.&quot;); <code>namen-v1</code> geht weiter und nimmt der Uhr im Spiel die Zahl ganz ab – sie sagt „das Jahr der Schnüre&quot; und darunter unveränderlich <code>HIER, JETZT</code>.</p>
+</div></div>
+
+<div class="card" data-s="idea" id="was-der-spieler-nicht-wissen-soll-die-kampagne-verraet-ihre"><div class="chead"><h3>Was der Spieler nicht wissen soll: die Kampagne verrät ihre Tiefe nicht</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Die Überraschung ist ein Designziel, nicht ein Nebeneffekt: der Spieler soll <b>nicht</b> am Anfang sehen, wie tief das Spiel reicht. Heute tut die Shell genau das – der Titelschirm nennt die <b>Rheinkorrektion</b> (das Ende von Modul V) als Werbetext, und der Epochen-Schirm listet alle fünf Module mit Jahreszahlen (<code>EpochsScreen.tsx</code>). Damit ist der Bogen „innen aufwärts, aussen tiefer verstrickt&quot; (<b>P5</b>) verraten, bevor er beginnt: wer weiss, dass am Ende ein kanalisierter Fluss steht, kann nicht mehr erschrecken, wenn er dorthin gespielt wird.</p>
+<p>Vorschlag: die Epochen sind <b>Nebel wie die Karte</b> (P3, der Nebel geht nie wieder zu, aber er geht auch nicht vorzeitig auf). Eine noch nicht erreichte Epoche hat keinen Namen, keine Jahreszahl und kein Thema – nur eine Linie. Erreicht heisst benannt. Dasselbe gilt für den Fortschritt: <b>kein „X % erkundet&quot;</b>, keine Übersichtskarte vor dem ersten Zug, kein Rand um die Welt (in <code>namen-v1</code> verliert sich die Karte in einer Vignette, statt in einem Rahmen zu enden) – „eine Welt, die grösser ist als das Verstehen&quot; ist eine Aussage über die <i>Bedienoberfläche</i>, nicht über die Fiktion.</p>
+<div class="gap"><b>Was das kostet</b>Zurückhaltung kollidiert mit Orientierung. Ein Spieler, der nicht weiss, dass fünf Epochen kommen, weiss auch nicht, wie lang das Spiel ist – und ein Spieler, der nicht weiss, wo er ist, kann sich verloren fühlen statt klein. Zu entscheiden: was die Shell <b>vor</b> dem ersten Zug zeigen darf (vermutlich: Klan, Fortsetzen, Regeln – aber keine Zeittafel), und ob es einen Ort gibt, an dem das Ganze <i>nach</i> dem Spielen sichtbar wird. Kandidat ist die Chronik: der Rückblick darf alles sagen, der Vorblick nichts.</div>
 </div></div>
 
 <div class="card" data-s="concept" id="erste-weltkarte-alpenrhein-landquart-bis-konstanz"><div class="chead"><h3>Erste Weltkarte: Alpenrhein, Landquart bis Konstanz</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
@@ -250,7 +336,8 @@
 </div></div>
 
 <div class="card" data-s="concept" id="vier-tageszeiten-jeder-takt-stellt-eine-andere-frage"><div class="chead"><h3>Vier Tageszeiten: jeder Takt stellt eine andere Frage</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
-<p>Aus dem Spieltest von <code>erkundung-v1</code>: der Zweitakt Tag/Nacht bündelt zu viel im „Tag&quot; und lässt den Ertrag unsichtbar. <b>Dämmerung</b> und <b>Abenddämmerung</b> kommen dazu — nicht als Zierrat, sondern weil jeder Takt <i>eine</i> Frage bekommt und Kosten und Lohn dadurch auseinandertreten. Gebaut in <code>erkundung-v2</code>.</p>
+<p>Aus dem Spieltest von <code>erkundung-v1</code>: der Zweitakt Tag/Nacht bündelt zu viel im „Tag&quot; und lässt den Ertrag unsichtbar. Zwei Takte kommen dazu — nicht als Zierrat, sondern weil jeder Takt <i>eine</i> Frage bekommt und Kosten und Lohn dadurch auseinandertreten. Gebaut in <code>erkundung-v2</code>.</p>
+<p>Die Takte heissen seit <code>erkundung-v4</code> <b>Morgen · Mittag · Abend · Nacht</b>. Vorher hiessen sie Dämmerung/Tag/Abend/Nacht — das mischte eine Tageszeit mit einem ganzen Tag, war nicht symmetrisch und liess sich nicht als Zeichenreihe zeichnen. Die <b>inneren Schlüssel</b> bleiben <code>daemmerung/tag/abend/nacht</code> (Zustand, Speicherung, Debug-Parameter); <code>?phase=</code> nimmt beide Schreibweisen.</p>
 <table>
 <tr>
 <th>Takt</th>
@@ -258,17 +345,17 @@
 <th>Was geschieht</th>
 </tr>
 <tr>
-<td><b>Morgendämmerung</b></td>
+<td><b>Morgen</b></td>
 <td>Was gibt das Land, was nimmst du mit?</td>
 <td>Plättchen liefern ihr Einkommen, die Hand füllt sich — dann höchstens <b>eine Effektkarte</b>: Wegzehrung (−1 Nahrung → +1 Ausdauer für alle, heute) · Späher (−1 Nahrung → +1 Sichtweite, heute) · Rasttag (+2 Nahrung, <i>Sperre:</i> niemand geht diese Runde). Keine zu spielen ist auch ein Zug — dann einfach aufbrechen (Knopf, keine Karte; siehe „Formensprache“)</td>
 </tr>
 <tr>
-<td><b>Tag</b></td>
+<td><b>Mittag</b></td>
 <td>Wohin gehen die Menschen?</td>
 <td>Bewegen über das Gelände (Ausdauer), entdecken, <b>ein Plättchen legen</b></td>
 </tr>
 <tr>
-<td><b>Abenddämmerung</b></td>
+<td><b>Abend</b></td>
 <td>Was hat der Weg eingebracht?</td>
 <td><b>Erntebuch</b>: jede Zeile mit Quelle (bewirtschaftetes Plättchen · Vorkommen · Jagdglück · Neuland) — dann <b>eine Verarbeitung</b>: Werkzeug (−2 Mat → +2 Schutz) · <b>Schuhwerk</b> (−2 Mat → +1 Ausdauer, dauerhaft) · Trockenfleisch (−2 Nahrung → 1 Vorrat, fängt eine Hungernacht) · Schnitzwerk (→ +1 Kultur)</td>
 </tr>
@@ -294,7 +381,7 @@
 <tr>
 <td><b>Sechseck</b></td>
 <td>kommt aufs Brett — dieselbe Silhouette wie das Feld, das es aufnimmt</td>
-<td>die Handkarten: Uferlager, Auenwald, Fischgrund, Höhle, Hochterrasse, Feuerstein, Pfahlbau</td>
+<td>die Plättchen der Hand: Uferlager, Auenwald, Fischgrund, Höhle, Hochterrasse, Feuerstein, Pfahlbau</td>
 </tr>
 <tr>
 <td><b>Rechteckige Karte</b></td>
@@ -309,8 +396,115 @@
 </table>
 <div class="why"><b>Warum „ohne Umstände aufbrechen“ keine Karte sein darf</b>Als vierte Option in der Reihe stand sie da wie eine Karte, die man spielt — und log damit über ihre Natur: sie kostet nichts, gibt nichts und ist beliebig oft „verfügbar“. Eine Karte, die nichts tut, entwertet die drei, die etwas tun. Als Knopf gelesen kippt die Frage von „welche der vier spiele ich?“ zu „lohnt eine Karte den Preis — oder gehe ich einfach los?“. Das ist dieselbe Entscheidung mit ehrlicherer Grammatik.</div>
 <div class="why"><b>Der Rasttag ist der Beweis, dass die Kartenform trägt</b>Er ist die einzige Vorbereitung mit einer <b>Sperre</b>: +2 Nahrung, aber niemand geht diese Runde (alle Ausdauer auf 0). Genau dafür braucht eine Karte einen eigenen Platz für die Kehrseite — auf der Karte steht die Sperre in Rot unter der Wirkung. Ein Knopf mit Untertitel hätte das nie sauber tragen können.</div>
-<p><b>Ziehen &amp; Ablegen</b> gehört zur Sechseckform: die Karte wandert als Schatten am Finger aufs Feld, nur gültige Felder nehmen sie an (grüner Rand). Umgesetzt über <b>Pointer Events</b>, nicht HTML5-Drag-and-Drop — das gibt es auf dem Telefon nicht, und dort wird gespielt. Unter 8 px Bewegung gilt der Zug als <b>Tipp</b>, damit der alte Weg (antippen, dann Feld) erhalten bleibt.</p>
-<p class="dim">Offen: ob die Effektkarten aus einem eigenen Stapel <i>gezogen</i> werden (dann wären sie knapp und die Dämmerung hätte echte Varianz) statt immer dieselben drei zu sein — das wäre der Anschluss an den „Kartenpunkt“ aus der Interaktionssprache-Karte. Ebenfalls offen: ob gelegte Plättchen sich wieder aufnehmen lassen (heute ist ein Zug endgültig).</p>
+<p><b>Ziehen &amp; Ablegen</b> gehört zur Sechseckform: das Plättchen wandert als Schatten am Finger aufs Feld, nur gültige Felder nehmen sie an (grüner Rand). Umgesetzt über <b>Pointer Events</b>, nicht HTML5-Drag-and-Drop — das gibt es auf dem Telefon nicht, und dort wird gespielt. Unter 8 px Bewegung gilt der Zug als <b>Tipp</b>, damit der alte Weg (antippen, dann Feld) erhalten bleibt.</p>
+<p class="dim">Beantwortet in <code>erkundung-v6</code>: die Effektkarten kommen aus keinem Stapel — <b>Knappheit kommt aus der Produktion</b> (die Werkbank des Abends stellt sie her, siehe „Ein Kartensystem&quot;). Weiterhin offen: ob gelegte Plättchen sich wieder aufnehmen lassen (heute ist ein Zug endgültig).</p>
+<p class="dim">Präzisiert im Spieltest: Späher und Rasttag waren kurz zu Knöpfen zurückgestuft („Entschlüsse, keine Objekte&quot;) — verworfen. <b>Alles mit Preis und Wirkung ist eine Karte</b>; Einheitlichkeit der Wahl schlägt Objekt-Reinheit. Den Typ trägt ein <b>Tageszeit-Akzent</b>: Morgen-Karten warm (ember) mit Sonnenaufgangs-Zeichen, Abend-/Werkbank-Karten kühl (riverdeep) mit Sonnenuntergangs-Zeichen — die Oberkante der Karte sagt, wann sie lebt.</p>
+<p class="dim"><b>Teilweise in der App</b> (Stand 23.08.2026): Die <b>Sechseckform des Plättchens</b> ist portiert — <code>.tcard</code> liegt jetzt als Baukasten-Primitive in <code>kit/sot-hex.css</code>, und <code>app/src/stromlinien/</code> benutzt sie. Vorher zeichnete die App abgerundete Rechtecke, also genau die Form, die für die sofort wirkende Karte reserviert ist: die Silhouette log über das, was das Ding tut — der Zustand von vor <code>erkundung-v2</code>, den diese Karte abgeschafft hat. Noch <b>nicht</b> in der App: die rechteckigen <b>Effektkarten</b> und der <b>Knopf</b> als dritte Form (die App kennt nur Plättchen), sowie <b>Ziehen &amp; Ablegen</b> — dort wird noch angetippt. Darum bleibt diese Karte auf <code>concept</code>, bis alle drei Formen stehen.</p>
+</div></div>
+
+<div class="card" data-s="concept" id="die-anatomie-der-spielkarte-fuenf-zonen-feste-reihenfolge"><div class="chead"><h3>Die Anatomie der Spielkarte: fünf Zonen, feste Reihenfolge</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p class="lead">Jede Spielkarte trägt dieselben fünf Zonen in derselben Reihenfolge: Kopfband, Name, Wer, Wirkung, Regeltext, Fuss. Wer eine Karte baut, <b>füllt Zonen</b> — er erfindet kein Layout. Nur so kann das Auge eine Karte <i>scannen</i>, statt sie zu lesen.</p>
+<div class="figur" data-figur="karte-zonen"><span class="fcap"><b>Eine Effektkarte, aus dem Baukasten</b>Dieselbe <code>SOT.karte()</code>, die im Spiel auf dem Tisch liegt — keine Abbildung davon.</span></div>
+<div class="mehr">
+<p>Die Formensprache sagt, <i>was</i> ein Ding ist — diese Karte sagt, wie die rechteckige Spielkarte <b>innen</b> aufgebaut ist. In den Baukasten übernommen (<code>.effektkarte</code> + <code>SOT.karte()</code> in <code>prototype/kit/</code>), destilliert aus <code>erkundung-v6</code> und <code>tageszeit-akzente-v1</code>; die vollständige Herleitung steht in <code>notes/gedanken-zum-kartendesign.md</code>. Der Massstab: eine Karte wird unter Zeitdruck am Rundenbeginn gespielt und muss in <b>zwei Sekunden drei Fragen</b> beantworten — Wie heisst sie? Wen trifft sie? Was ändert sie mechanisch?</p>
+<table>
+<tr>
+<th>Zone</th>
+<th>Inhalt</th>
+</tr>
+<tr>
+<td>K · Kopfband</td>
+<td>Tageszeit · Art · Dauer über dem Namen, in der Akzentfarbe der Oberkante — Kante und Band verschmelzen zur Rahmen-Identität</td>
+</tr>
+<tr>
+<td>1 · Name</td>
+<td>der grösste Text der Karte; der Kopf ist fest zwei Zeilen hoch</td>
+</tr>
+<tr>
+<td>2 · Wer</td>
+<td>die Personen-Marken (Zeichen + Name) — immer dieselbe Stelle, der Platz steht auch leer da</td>
+</tr>
+<tr>
+<td>3 · Wirkung</td>
+<td>die mechanische Pointe als Zeichen + Zahl („+2 Sicht&quot;) — das zweitstärkste Element nach dem Namen</td>
+</tr>
+<tr>
+<td>4 · Regeltext</td>
+<td>1–3 kurze Zeilen, gleiche Satzmuster über den ganzen Satz; darunter in Rot die Sperre</td>
+</tr>
+<tr>
+<td>5 · Fuss</td>
+<td>Preis (unten angepinnt) und Stimmungszeile — die kleinste Schrift, konkurriert nie mit der Mechanik</td>
+</tr>
+</table>
+<p>Die <b>Art ist ein Wortschatz</b>, kein Freitext: <i>spielen</i> (der Anstoss) · <i>herstellen</i> (das Zahnrad) · <i>rundenbedingung</i> (der Rundlauf), je ein Zeichen im Hausstil. Die <b>Dauer</b> („heute&quot;, „diese Runde&quot;) steht im Kopfband statt als Anhängsel im Regeltext. Wird die Karte schmal, <b>klappen die Etiketten ein und die Zeichen bleiben</b> — die Information fällt nie, nur ihr Wort. Dazu <b>zwei Achsen, ohne Lesen sortierbar</b>: der feste Tageszeit-Ton an Oberkante und Kopfband — und die <b>Geltung</b>: Karten für bestimmte Personen tragen einen vollen Rahmen und Personen-Marken, allgemeine Rundenbedingungen einen <b>gestrichelten Rahmen</b> mit entsättigtem Kopfband. Eine Umweltkarte sieht nie wie eine Personenkarte aus; das System soll nach 4–5 Karten gelernt sein.</p>
+<div class="figur" data-figur="karte-geltung"><span class="fcap"><b>Zwei Achsen, ohne Lesen sortierbar</b>Links Morgen, Mitte Abend — voller Rahmen, Personen-Marken. Rechts eine Rundenbedingung: <b>gestrichelter Rahmen</b>, entsättigtes Kopfband, kein Mensch. Der Ton der Oberkante sagt die Tageszeit.</span></div>
+<div class="why"><b>Warum die Reihenfolge nicht verhandelbar ist</b>Schrift, Farbe und Abstand darf ein Prototyp ändern — die Informationsfolge nie: erst wenn sie über den ganzen Satz identisch ist, kann das Auge eine Karte <i>scannen</i>, statt sie zu lesen. Darum baut <code>SOT.karte()</code> die Zonen selbst und bietet keinen Weg, sie umzustellen: wer eine Karte baut, füllt Zonen, statt je Karte ein Layout zu erfinden. Und wer mehr als eine Aufgabe auf eine Karte legen will, teilt sie — eine Karte, eine klare Aufgabe.</div>
+<p><b>Das Mass:</b> alle inneren Längen hängen an einem Faktor (dem „Kartenpixel&quot; <code>--km</code>), und der Baukasten rendert jede Karte in <b>drei Grössen</b> — klein ×0.8 (Handreihe, Telefon) · Mittel ×1 · gross ×1.25 (Inspektor, Detail). Die Karte setzt ihre <b>Standardbreite selbst</b>: 160 in Mittel, über den Faktor 128 · 160 · 200; das Hochformat hält in jeder Grösse 5:7. Die Zonen sind <b>Skelett</b> wie die Seite selbst („leer heisst nicht weg&quot;): der Kopf ist fest zwei Zeilen hoch, Kopfband und Marken-Platz stehen auch leer an ihrer Stelle. So hängt die Kartenhöhe nur noch am Zeilenbudget (Name max 2, Regel max 3 Zeilen), und ein Satz gemischter Karten bleibt höhengleich.</p>
+<p class="dim">Der Musterbogen prüft, statt zu behaupten: ein <b>Höhencheck</b> je Kartenreihe (bei Hochkarten: passt der Inhalt ins 5:7?) und der <b>Kartenprüfstand</b>, der einen Entwurf in allen drei Grössen rendert und Überlauf, einzeiliges Kopfband und Zeilenbudget misst, bevor die Karte in einen Prototyp wandert.</p>
+<p class="dim">Erste Fassung trug die Tageszeit-Zeile <i>unter</i> dem Namen und die Dauer im Regeltext; im Feedback wanderten Tageszeit, Art und Dauer als Kopfband über den Namen, die Art wurde zum Wortschatz. Das Wort der Tageszeit erscheint erst auf sehr breiten Karten — Zeichen und Akzentfarbe sagen es schon.</p>
+<p class="dim">Geschrieben für die Morgen-Effektkarten, gilt aber für <b>alles Spielbare</b> — auch Handkarten (Hochformat 5:7) und perspektivisch die Plättchen. Bestehende Karten in den Prototypen laufen unverändert weiter; der Migrationspfad (lokale Klassen → Baukasten-Zonen) steht im Kit-README unter <i>Die Spielkarte</i>.</p>
+</div>
+</div></div>
+
+<div class="card" data-s="concept" id="die-uhr-tageszeit-jahr-und-runden-als-ein-instrument"><div class="chead"><h3>Die Uhr: Tageszeit, Jahr und Runden als ein Instrument</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p class="lead">Ein Instrument statt drei Anzeigen: die Runden als Leiste <b>ohne Ziffern</b>, darunter die vier Tageszeiten als Zeichen — die laufende glüht. Das Jahr steht als „vor 12 000 Jahren&quot; im Kopf der Seite, nicht in der Uhr.</p>
+<div class="figur" data-figur="uhr"><span class="fcap"><b>Die Uhr in der Seitenspalte</b>Der Kopf trägt das Langsame (Marke, Jahr), die Uhr das Schnelle (Runde, <span class="ic" data-ic="morgen">Tageszeit</span>).</span></div>
+<div class="mehr">
+<p>Gebaut in <code>erkundung-v4</code>. Die Uhr steht zuoberst in der Seitenspalte (auf dem Telefon über dem Brett) und zeigt zwei Zeilen: die <b>Runden</b> als Zeitleiste <b>ohne Ziffern</b> (schmaler Fortschrittsbalken; die Ankermarke ◆ bleibt), darunter die <b>Tageszeiten</b> als vier Zeichen (Sonne auf · Sonne hoch · Sonne ab · Mond) — die laufende glüht, vergangene sind gedämpft; die Phase ist ablesbar, ohne ein Wort zu lesen.</p>
+<p>Das <b>Jahr</b> steht als <b>„vor 12 000 Jahren&quot;</b> (nicht „10 000 v. Chr.&quot;) im Kopf der Seite — eine erste Fassung trug es in der Uhr, im Spieltest sass es oben rechts besser: der Kopf trägt das Langsame (Marke, Jahr), die Uhr das Schnelle (Runde, Tageszeit).</p>
+<div class="why"><b>Warum „vor X Jahren&quot; statt „v. Chr.&quot;</b>Ein Mensch dieser Epoche zählt nicht rückwärts auf eine Jahreszahl zu, die es noch nicht gibt — „v. Chr.&quot; ist die Perspektive eines späteren Buchhalters. „Vor 12 000 Jahren&quot; misst vom Spieler aus und macht die Tiefe der Zeit fühlbar, statt sie zu benennen. Nebenbei wächst die Zahl über die Kampagne nicht, sie schrumpft: die Gegenwart kommt näher.</div>
+<p class="dim">Die Ziffern in der Zeitleiste sind ersatzlos gestrichen: sie sagten nichts, was der Balken nicht zeigt. Die <b>Marke ◆ bleibt</b>, weil sie etwas sagt, das der Balken nicht zeigt — dass dort ein belegtes Ereignis wartet.</p>
+</div>
+</div></div>
+
+<div class="card" data-s="concept" id="die-werte-vier-kacheln-mit-zeichen-und-platz-fuer-wirkung-be"><div class="chead"><h3>Die Werte: vier Kacheln mit Zeichen, und Platz für Wirkung, bevor es sie gibt</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Gebaut in <code>erkundung-v4</code>. Nahrung · Schutz · Material · Kultur stehen mit <b>eigenen Zeichen</b> (Beerenzweig · Palisade · Reisigbündel · Spirale — dieselbe Strichsprache wie die Plättchen-Glyphen) zusammen mit der Sesshaftigkeit in <b>einem Rahmen fester Höhe</b>. Jede Kachel ist von oben nach unten: Zeichen · Zahl · Name · <b>Marken-Zeile</b>.</p>
+<div class="why"><b>Warum die leere Marken-Zeile</b>Erscheinende Wirkung (Vorrat ×2, später Boni und Mali der Nacht-Waage) braucht ihren Platz, <b>bevor</b> es sie gibt — sonst dehnt der erste Effekt die Kachel und schiebt alles darunter. Die Zeile ist immer da, meist leer; ein Effekt erscheint in ihr, statt Raum zu fordern. Dieselbe Regel wie beim „zurücklegen&quot;-Knopf: unsichtbar statt weg, Platz statt Sprung.</div>
+<p class="dim">Das folgt der Anordnung „fester Block oben, Wachsendes darunter&quot;: Uhr, Werte und Menschen ändern nie ihre Höhe; Phasenfläche, Hand und Inspektor wachsen darunter.</p>
+</div></div>
+
+<div class="card" data-s="concept" id="die-anatomie-der-seite-skelett-statt-auftritt"><div class="chead"><h3>Die Anatomie der Seite: Skelett statt Auftritt</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Gebaut in <code>erkundung-v5</code>. Jede Pane der Seitenspalte ist <b>immer da</b> — leer heisst nicht weg, leer heisst Skelett (gepunktete Kontur, stiller Platzhalter): der Feld-Inspektor zeigt ohne Auswahl „kein Feld gewählt&quot;, die Hand hat <b>vier feste Plätze</b>, und eine gelegte Karte hinterlässt ihren Platz als Silhouette.</p>
+<div class="why"><b>Warum eine feste Anatomie</b>Erscheinende und verschwindende Flächen zwingen das Auge, die Seite bei jedem Zustandswechsel neu zu lesen. Mit fester Anatomie lernt der Spieler EINE Geografie — wo etwas steht, steht es immer; Zustände füllen die Plätze, sie bauen sie nicht um. Die leere Silhouette trägt ausserdem Information: man sieht, DASS gelegt wurde und wie viel Hand übrig ist, ohne zu zählen.</div>
+<p class="dim">Stufen derselben Regel, chronologisch: Platz für Marken auf der Kachel (Werte-Karte) → Knöpfe unsichtbar statt weg („zurücklegen&quot;) → ganze Panes als Skelett.</p>
+<p class="dim">Ab 1280 px teilt sich die Seite in zwei Spalten um das Brett: <b>links liest, rechts greift</b> — Uhr, Werte und Inspektor (nur lesen) links, Menschen, Karten, Wahlen und Commit (anfassen) rechts. Der Entscheider ist die Berührung. Ziel: die ganze Partie auf einem Bildschirm, ohne Scrollen; das Brett bekommt die Breite, die vorher Totraum war.</p>
+</div></div>
+
+<div class="card" data-s="concept" id="der-phasenknopf-ist-ein-commit-brett-welt-seite-plan"><div class="chead"><h3>Der Phasenknopf ist ein Commit: Brett = Welt, Seite = Plan</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Gebaut in <code>erkundung-v5</code>. <b>Plättchen legen und Menschen bewegen geschehen auf dem Brett und sind endgültig.</b> Alles, was in der Seitenspalte gewählt wird (Vorbereitung am Morgen, Verarbeitung am Abend), ist bis zum Druck auf den Phasenknopf eine <b>Vormerkung</b>: wieder antippen wählt ab, eine andere antippen wechselt. Erst der Knopf bucht — er heisst dann „Spielen &amp; aufbrechen&quot; bzw. „Verarbeiten &amp; Nacht anbrechen lassen&quot;.</p>
+<div class="why"><b>Warum Commit statt Sofort-Ausführung</b>Es beantwortet einen Teil der offenen Undo-Frage („Undo-Fenster = Tag&quot;) räumlich statt zeitlich: innerhalb der Seite ist Undo trivial, weil nichts gebucht ist; auf dem Brett gibt es keins. Die Grenze ist die Fläche, nicht die Zeit. Für die App heisst das: Brett-Actions gehen sofort in den Reducer (Autosave wie bisher), Seiten-Vormerkungen sind reiner UI-Zustand — erst der Phasen-Commit erzeugt die Engine-Action.</div>
+<p class="dim">Dazu die <b>Vorschau am Ziel</b>: Schweben über einer Karte (oder Vormerken) zeigt die Wirkung an den Konten, die sie trifft — „−1&quot; klein neben der Nahrung, „+1&quot; an der Ausdauer der Betroffenen. Das ist die UI-Hälfte der Punktregel „ein Punkt sagt seinen Preis, bevor man ihn antippt&quot;. Wirkungen stehen als Daten an den Karten (<code>fx:{res,pers}</code>), nicht im Anzeige-Code.</p>
+</div></div>
+
+<div class="card" data-s="concept" id="ein-kartensystem-der-abend-stellt-her-was-der-morgen-spielt"><div class="chead"><h3>Ein Kartensystem: der Abend stellt her, was der Morgen spielt</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
+<p>Gebaut in <code>erkundung-v6</code>. Morgen-Effektkarten und Abend-Verarbeitungen waren dieselbe Transaktion (Ressourcen → Wirkung) in zwei UI-Systemen; jetzt sind sie ein Kreis:</p>
+<table>
+<tr>
+<th>Takt</th>
+<th>Karten</th>
+</tr>
+<tr>
+<td><b>Morgen</b></td>
+<td>spielt Rechteckkarten aus der Hand (Vorrat) und wählt höchstens eine Morgen-Karte (Späher, Rasttag)</td>
+</tr>
+<tr>
+<td><b>Mittag</b></td>
+<td>spielt Sechsecke aufs Brett</td>
+</tr>
+<tr>
+<td><b>Abend</b></td>
+<td>die <b>Werkbank</b> stellt her, eine Sache je Abend: Trockenfleisch → <b>Vorrat-Karte in die Hand</b> · Schuhwerk → an die Person · Werkzeug → an den Schutz-Wert · Schnitzwerk → +1 Kultur</td>
+</tr>
+</table>
+<p>Die <b>Vorrat-Karte hat zwei Leben</b>: am Morgen gespielt gibt sie allen +1 Ausdauer (Wegzehrung); ungespielt fängt sie eine Hungernacht. Beides verbraucht sie. Freie Morgen-Effektkarten gibt es nicht mehr — wer Wegzehrung will, hat sie am Abend zuvor gemacht.</p>
+<div class="why"><b>Warum ein Kreis statt zweier Menüs</b>Die Belohnungsschleife wird greifbar: der Lohn des Abends liegt am nächsten Morgen buchstäblich in der Hand, statt als Kontostand zu verpuffen. Und die Hand wird zur <b>Traglast</b> — Vorräte konkurrieren mit Plättchen um vier Plätze (Trockenfleisch braucht einen freien Platz), womit „wie viel trägt man?&quot; eine Entscheidung der Hand ist, kein Inventar-Raster.</div>
+<p class="dim">Beide Formen teilen dieselben vier Handplätze; die Phase dämpft die gerade unspielbare Form. Wachlinie: eine Sache je Abend bleibt — die Werkbank darf keine Fabrik werden. Offen: Schnitzwerk will langfristig aufs Brett (ein Zeichen auf einem Feld → künftige Fundstelle).</p>
+</div></div>
+
+<div class="card" data-s="idea" id="personen-werte-ausdauer-gesundheit-angriff-verteidigung"><div class="chead"><h3>Personen-Werte: Ausdauer · Gesundheit · Angriff · Verteidigung</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Gebaut als Anzeige in <code>erkundung-v5</code>: der Personen-Knopf ist eine kleine Wertekarte mit vier Mini-Werten. Zwei sind geerdet: <b>Ausdauer</b> (basis + Schuhwerk + Bonus) und <b>Verteidigung</b> (die +2 des Jägers, die bisher unsichtbar im effektiven Schutz steckten). Zwei sind <b>Gerüst ohne Mechanik</b>: <b>Gesundheit</b> (Haken für die Risikoleiter — „draussen bleiben&quot;: die Nachtkarte trifft die Person) und <b>Angriff</b> (Haken für die Jagd, heute pauschales Jagdglück).</p>
+<div class="why"><b>Warum Anzeige vor Mechanik</b>Dieselbe Denkweise wie die Marken-Zeile der Werte-Kacheln: Platz schaffen, bevor etwas existiert — der erste Effekt darf das Layout nicht umbauen. Wachlinie aus den Kernpfeilern: kein Survival-Horror — Gesundheit misst Erschöpfung und Verletzung, nicht ein Leben, das auf null läuft; Scheitern heisst weiterhin „Der Stamm zieht weiter&quot;.</div>
 </div></div>
 
 <div class="card" data-s="concept" id="der-lohn-der-hoehe-warum-man-den-hang-hochsteigt"><div class="chead"><h3>Der Lohn der Höhe: warum man den Hang hochsteigt</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
@@ -420,6 +614,38 @@
 <p class="dim">Der Glut-Orb ist als Baukasten-Primitive gebaut (<code>SOT.orb()</code> in <code>prototype/kit/</code>, Musterbogen-Abschnitt „Glut-Orb“) — er soll auch anderswo einladen können, wo eine Stelle zum Antippen sonst unsichtbar bliebe.</p>
 </div></div>
 
+<div class="card" data-s="idea" id="die-taufe-der-spieler-benennt-die-geschichte-ueberschreibt"><div class="chead"><h3>Die Taufe: der Spieler benennt, die Geschichte überschreibt</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Der Spieler benennt seine Orte selbst – das Wasser, die Furt, den Lagerplatz – und die Kampagne nimmt ihm die Namen über die Epochen wieder ab. Das ist die spielbare Fassung von <b>P5</b> („innen aufwärts, aussen tiefer verstrickt&quot;): nicht eine Zahl, die fällt, sondern ein Wort, das verschwindet.</p>
+<p>Die Vorschläge bei der Taufe sind bewusst <b>Beschreibungen, keine Namen</b> („Das Laute&quot;, „Wo wir hinüber&quot;, „Beim Weid&quot;). Genau so entstehen echte Ortsnamen – und genau darin liegt die Pointe: <i>euer Wort beschreibt, was da ist; ein Name wird es erst für die, die später kommen.</i></p>
+<p><code>namen-v1</code> baut drei Verlustarten, je Ort eine – weil „der Name geht weg&quot; nur einmal überrascht, „der Name geht auf drei Weisen weg&quot; aber eine Sprache ist:</p>
+<table>
+<tr>
+<th>Ort</th>
+<th>Verlustart</th>
+<th>Verlauf</th>
+</tr>
+<tr>
+<td>Wasser</td>
+<td><b>ersetzt</b></td>
+<td><code>RHENVS</code> → <code>Rin</code> → <code>Rhein</code> → <code>km 65,3</code> – ein fremdes Wort verdrängt das eigene ganz</td>
+</tr>
+<tr>
+<td>Furt</td>
+<td><b>umgewidmet</b></td>
+<td><code>AD VADVM</code> → <code>Zollstatt</code> → <code>Zollbrugg</code> → <code>Rheinbrücke</code> – der Ort überlebt, aber er heisst nach seinem Nutzen für die, die gerade das Sagen haben; ab Epoche IV wird auch sein <b>Zeichen</b> eine Brücke</td>
+</tr>
+<tr>
+<td>Lagerplatz</td>
+<td><b>verschliffen</b></td>
+<td>„Beim Weid&quot; → <code>VICVS VEIDONA</code> → <code>Weidun</code> → <code>Weidenau</code> – das eigene Wort überlebt, unerkennbar</td>
+</tr>
+</table>
+<p>Auf der Karte ist der Verlust eine <b>Typografie-Treppe</b>: solange kein fremder Name da ist, trägt das eigene Wort die Beschriftung gross; sobald einer da ist, rutscht es in die zweite Zeile; dann wird es blass; dann ist die zweite Zeile leer. Nichts springt, nichts erscheint – die Beschriftung ist immer da und ändert nur ihren Rang (dieselbe Regel wie <i>Skelett statt Auftritt</i>).</p>
+<p>Die Pointe sitzt am Ende, und sie gehört der Ausgrabung: unter dem Brückenkopf liegt eine Feuerstelle, 12 000 Jahre alt, <i>„der Ortsname gilt als vorrömisch; seine <b>Wurzel ist unbekannt</b>&quot;</i> – und der Spieler ist die Wurzel. Die Chronik stellt danach sein Wort neben alles, was daraus wurde. Das ist der Moment, für den die ganze Kampagne gebaut ist, und er kostet mechanisch fast nichts: Namen sind Zeichenketten an Landmarken plus eine Umbenennungstabelle je Epoche.</p>
+<div class="why"><b>Warum der Spieler benennen muss und nicht das Spiel</b>Ein vom Spiel gesetzter Name kann verloren gehen, ohne dass es wehtut – er war nie seiner. Die Taufe kostet einen Moment und macht den Verlust vier Epochen später zu <b>seinem</b> Verlust. Es ist derselbe Handel wie beim Schuhwerk (verdient, darum wertvoll), nur auf Sprache statt auf Ausrüstung angewandt.</div>
+<div class="gap"><b>Offen</b>Wo sitzt die Taufe – im Auftakt (nach dem ersten Feld, „Kap. 8&quot;) oder an der ersten Rast? Wie viele Orte darf der Spieler benennen, bevor Benennen zur Buchhaltung wird (<b>P1</b>: keine Verwaltung)? Verschliffene Formen: aus Endungsregeln erzeugt (billig, manchmal komisch) oder handkuratierte Muster je Sprachstufe? Und was passiert im <b>Mehrspieler</b>, wenn zwei Spieler dasselbe Wasser verschieden nennen – erbt der flussabwärts den Namen von oben?</div>
+</div></div>
+
 <div class="card" data-s="done" id="vier-ressourcen-und-min-fortschritt"><div class="chead"><h3>Vier Ressourcen &amp; min()-Fortschritt</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
 <p>Nahrung, Schutz, Baumaterial, Kultur – pro Epoche unterschiedlich gewichtet. Fortschritt (&quot;Sesshaftigkeit&quot;) pro Runde = <code>min(schwächste Ressourcen)</code>, gekappt auf 0–3.</p>
 <div class="why"><b>Warum min() statt Summe</b>Erzwingt echte Balance: Wer nur Nahrung hortet und Schutz vernachlässigt, kommt nicht voran – und ist zugleich anfälliger für Nachtereignisse. Formel und Erlebnis hängen spürbar zusammen.</div>
@@ -446,7 +672,7 @@
 <li><b>Sammlerin ✦</b> – bewirtschaftet ihr Plättchen: +1 Ertrag auf Wald, Feuerstein, Fischgrund oder Lager</li>
 <li><b>Jäger ➤</b> – +2 Schutz, solange er im Tal steht (zählt in Nachtprüfungen, Fortschritt, Endwertung)</li>
 </ul>
-<p><b>Ausdauer statt Schritte</b> (<code>erkundung-v2</code>): Sammlerin 1, Jäger 2. Das Gelände kostet — Flachland und Furt 1, der Aufstieg auf einen Hang 2, Berg gar nicht. Damit ist der Jäger nicht „schneller&quot;, sondern <b>der einzige, der aus dem Stand hinaufkommt</b>, und die beiden Rollen teilen sich das Tal von selbst: sie den Talboden, er die Höhe. Dauerhaft wächst die Ausdauer nur über <b>Schuhwerk</b> (Abendverarbeitung, +1 für immer), heute zusätzlich über <b>Wegzehrung</b> in der Dämmerung.</p>
+<p><b>Ausdauer statt Schritte</b> (<code>erkundung-v2</code>, Wasser verfeinert in v3): Sammlerin 1, Jäger 2. Das Gelände kostet — Flachland 1, der Aufstieg auf einen Hang 2, Berg gar nicht; Wasser kostet beim <b>Queren</b> (Bach −1 · kleiner Fluss −2 · junger Rhein nur an der Furt −1). Damit ist der Jäger nicht „schneller&quot;, sondern <b>der einzige, der aus dem Stand hinaufkommt</b>, und die beiden Rollen teilen sich das Tal von selbst: sie den Talboden, er die Höhe. Dauerhaft wächst die Ausdauer nur über <b>Schuhwerk</b> (Abendverarbeitung, +1 für immer), heute zusätzlich über <b>Wegzehrung</b> in der Dämmerung.</p>
 <p class="dim">Offen: weitere Rollen in späteren Epochen (Händler, Mönch, Ingenieur?) und ob ein dritter Mensch die Aufteilung Tal/Höhe kaputt macht.</p>
 </div></div>
 
@@ -483,13 +709,18 @@
 <p class="dim">Löst direkt die oben offene Frage der „Menschen als bewegliche Elemente&quot;-Karte („Bewegungsreichweite skalieren, wenn das Tal wächst&quot;). Offen: ob der Spieler ein kartenvergrösserndes Ereignis ablehnen darf („Wir gehen nicht ins Ried&quot;). Bewusst ausgeklammert: Kartengrösse/Zoomstufe je Epoche selbst – das wird derzeit separat abgeklärt (Kap. 8, Zoomstufen-Labor).</p>
 <p><b>Prototypisiert in <code>erkundung-v1</code>, weitergeführt in <code>erkundung-v2</code>:</b> der Epoche-I-Kernloop auf einer 9×12-Karte mit Nebel — bekannt ist, was begangen wurde. Sammlerin ✦ 1 <b>Ausdauer</b> am Tag, Jäger ➤ 2; Flachland und Furt kosten 1 Schritt, der Hang 2 (nur der Jäger steigt), Berg sperrt Weg und Blick, der Fluss trägt sein Ufer im selben Feld und ist nur an Furten querbar. Sicht folgt dem Tal (Breitensuche statt Zirkel, aus <code>kartenwachstum-v1</code> übernommen und von km-Äquivalenten auf Ausdauer-Schritte vereinfacht), gebaut und gegangen wird nur auf bekanntem Land, und entdeckte Fundstellen zeigen eine <b>Spur ◈</b>, bevor sie gehoben sind — Erkundung hat einen sichtbaren Lohn.</p>
 <p>v2 zieht daraus die Folgerung, die v1 noch fehlte: <b>die Sichtweite kommt vom Gelände</b> (Hang 4, Talboden 2), und damit ist Erkundung nicht mehr eine Nebenwirkung des Laufens, sondern ihr eigener Zug — siehe „Der Lohn der Höhe&quot; oben in diesem Kapitel. Der Neuland-Ertrag ist dabei <b>gedeckelt</b> (ab 6 Feldern +1 Kultur, höchstens +2 je Abend): ein einziger Aufstieg mit Sicht 4 war sonst mehr wert als die halbe Runde.</p>
+<p>v3 tauscht das Wasser aus: die Geländebuchstaben „Fluss&quot; und „Furt&quot; entfallen, das Wasser läuft als <b>Band durchs Feld</b> und die Bewegung von <b>Ufer zu Ufer</b> (siehe die Karte „Das Wasser fließt durch das Feld&quot; unten). An der Oberfläche ändert sich für den Spieler fast nichts — die leuchtenden Zielfelder sehen aus wie vorher, nur endet die Reichweite am Wasser genau da, wo die Intuition es erwartet, und „ans andere Ufer&quot; ist im eigenen Feld ein eigener Zug.</p>
 <div class="why"><b>Der Spielbericht, der die Idee zum Konzept machte</b>Drei Höhlen auf der Hand, kein Hang in Reichweite, keine Möglichkeit, vom Wasser weg die Berge zu suchen: Auf der festen 5×8-Karte des Epoche-I-Prototyps sind Menschen an gelegte Plättchen gekettet, und unpassende Karten verstopfen die Hand. Bewegung über das Gelände selbst plus Nebel des Unbegangenen löst beides — als Sicherheitsventil darf zusätzlich einmal am Tag eine tote Handkarte zurück in den Beutel, und ist gar nichts baubar, lässt sich die Nacht trotzdem anbrechen.</div>
 </div></div>
 
 <div class="card" data-s="done" id="furten-flache-stellen-im-fluss"><div class="chead"><h3>Furten – flache Stellen im Fluss</h3><span class="badge b-done">Umgesetzt</span><span class="chev">▶</span></div><div class="cbody">
+<p class="lead">Wo der Lauf sich zur Schotterflur verzweigt, wird dasselbe Wasser flach: dort liegt die <span class="ic" data-ic="furt">Furt</span>. Menschen kommen hinüber, und Plättchen beider Ufer zählen für Verbund-Boni zusammen.</p>
+<div class="figur" data-figur="furt"><span class="fcap"><b>Eine Furt in der Schotterflur</b>Der Ausschnitt nutzt dieselbe Hexgeometrie wie das Spiel (spitz oben, odd-r) — was hier nachbart, nachbart auch auf dem Brett.</span></div>
+<div class="mehr">
 <p>Zwei markierte Flusszellen erlauben Menschen die Überquerung und verbinden Plättchen beider Ufer für Verbund-Boni.</p>
 <div class="why"><b>Historischer Bonus</b>Furten waren real Keimzellen späterer Siedlungen – in Epoche II können genau dort die römischen Brücken entstehen. Eine Mechanik, die zur Erzählbrücke zwischen Modulen wird.</div>
-<p class="dim">Gesetzt wird die Furt bisher von Hand. Im <code>gewaesser-labor-v1</code> entsteht sie stattdessen aus dem Lauf selbst – siehe die nächste Karte.</p>
+<p class="dim">Von Hand gesetzt wird die Furt nicht mehr: seit <code>erkundung-v3</code> <b>ergibt sie sich</b> aus dem Lauf — sie liegt in der verzweigten Strecke (Schotterflur), wo sich dasselbe Wasser auf die dreifache Breite verteilt und flach wird (siehe die nächste Karte). Verbünde wirken unverändert über sie hinweg.</p>
+</div>
 </div></div>
 
 <div class="card" data-s="concept" id="das-wasser-fliesst-durch-das-feld-das-ufer-wohnt-im-flussfel"><div class="chead"><h3>Das Wasser fließt <i>durch</i> das Feld – das Ufer wohnt im Flussfeld</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
@@ -499,14 +730,30 @@
 <p><b>Passierbarkeit läuft von Ufer zu Ufer.</b> k Wasserkanten ergeben k Strahlen zur Feldmitte und damit genau k <b>Landsektoren</b>; jeder ist ein eigener Knoten im Wegegraph. Ein Fluss ist dadurch eine <i>Linie quer über die Karte</i> statt einer Reihe gesperrter Felder – das Nachbarfeld kann unerreichbar sein, obwohl es anliegt. Eine Quelle hat nur einen Strahl und trennt nichts: um sie geht man herum. Kosten wahlweise aus der Klassentabelle (Bach −1 · kleiner Fluss −2 · grosser Fluss −3 · Strom ✕ · Furt −1 · Stromschnelle −5 bei 50 % · Wasserfall/Klamm ✕ · Brücke 0) oder aus der Hydraulik über <b>t·v</b> – letztere weiß, dass ein knietiefer Wildbach gefährlicher ist als ein hüfttiefer, träger Fluss.</p>
 <p><b>Merkmale kommen aus dem Gelände</b>, nicht aus dem Pinsel: Wasserfall ab 120 m/km, Stromschnelle ab 55, Klamm wo die Flanken 150 m über dem Bett stehen, Verzweigung/Schotterflur wo es flach und breit genug ist. Der Stempel überschreibt jederzeit.</p>
 <div class="why"><b>Die Furt ist ein Ort, keine Schwelle</b>Eine Furt rein absolut zu definieren (Wassertiefe × Geschwindigkeit unter einem Grenzwert) machte im Versuch <i>fast jedes Feld</i> zur Furt – rechnerisch richtig, spielerisch wertlos. Sie muss zusätzlich das flachste Feld ihrer Strecke sein. Ihre Lieblingsstelle ist dann die verzweigte Strecke, weil sich dort dasselbe Wasser auf die dreifache Breite verteilt – also genau dort, wo die historischen Furten des Alpenrheins tatsächlich lagen (Schaan, Tardis). Die Furt wird damit wieder das, was sie im Spiel sein soll: ein rarer Ort, für den man Umwege geht.</div>
-<p class="dim">Offen: Übernahme ins Feldmodell aus <code>feld-labor-v1</code> (das Band ist eine neue Schicht zwischen Grund und Kern), Verhältnis zu den Kanten-Verbünden (wirkt ein Verbund über das Band hinweg?), Boote/Fähren als eigener Bewegungsmodus, und ob die App zwei Sektoren je Flussfeld tragen soll oder eine vereinfachte Fassung genügt.</p>
-<p class="dim">Eine erste spielbare Vereinfachung läuft in <code>erkundung-v1</code>: das Flussfeld trägt sein Ufer (eigene Uferfelder entfallen), das Uferlager liegt auf Flachland am Wasser.</p>
+<p><b>Erstmals gespielt in <code>erkundung-v3</code>:</b> Band, gerechnete Klassen (b = 6·√Q über drei Läufe: der junge Rhein plus zwei Quellbäche), Ufer-Sektoren als Wegegraph-Knoten und die abgeleitete Furt laufen dort im Epoche-I-Kernloop — die Sektor-Bewegung kostet an der Oberfläche nichts an Verständlichkeit. Zwei Spielgewinne fielen dabei heraus: das <b>Uferlager darf ins Flussfeld</b> (das Ufer wohnt dort), und der <b>Fischgrund ist erstmals bewirtschaftbar</b>, weil man auf seinem Feld stehen kann. <code>auftakt-v1</code> und der Almanach sprechen dieselbe Band-Sprache; die Zeichnung (SVG je Feld) ist wortgleich in drei Drafts — Baukasten-Kandidat <code>sot-wasser</code>. Bewusste Vereinfachungen der Spielfassung: keine Höhen/Hydraulik (darum dort keine Fälle/Schnellen/Klammen), der junge Rhein ist in Epoche I ohne Boot eine Grenze (Labor: −3 mit Wagnis), das Wild ignoriert das Band.</p>
+<p class="dim">Offen: Übernahme ins Feldmodell aus <code>feld-labor-v1</code> (das Band ist eine neue Schicht zwischen Grund und Kern), Verhältnis zu den Kanten-Verbünden (wirkt ein Verbund über das Band hinweg?), Boote/Fähren als eigener Bewegungsmodus, und ob die App die Sektoren so übernimmt, wie <code>erkundung-v3</code> sie spielt.</p>
 </div></div>
 
 <div class="card" data-s="concept" id="berg-gelaende-das-grenzen-zieht"><div class="chead"><h3>Berg: Gelände, das Grenzen zieht</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
 <p>Der Alpenrhein ist ein Tal, <b>weil</b> Berge es begrenzen – das Raster kennt bisher nur Flachland, Ufer, Hang, Fluss und See. <b>Berg</b> kommt hinzu: nicht bebaubar, für Menschen nicht begehbar. Damit erhalten Karten Ränder, Talengen und echte Wegewahl statt eines offenen Felds. Später erschließt Berg eigene Plättchen (Steinbruch, Alp).</p>
 <div class="why"><b>Warum das Gestaltungsfreiheit gibt</b>Ein Gelände, das <i>nichts erlaubt</i>, ist gestalterisch stärker als eines, das etwas gibt: Erst Sperrflächen machen die freien Flächen zu einer Komposition. Kartografen können Talengen, Seitentäler und Sackgassen formen, ohne dass eine neue Regel dazukommt.</div>
 <p class="dim">Erstmals bespielt in <code>erkundung-v1</code>: Berg sperrt Weg <i>und</i> Sicht — er ist die Wand, die den Blick beendet.</p>
+</div></div>
+
+<div class="card" data-s="idea" id="das-gefuege-die-trophische-kette-als-verzoegerte-kante-mit-s"><div class="chead"><h3>Das Gefüge: die trophische Kette als verzögerte Kante mit Sperre</h3><span class="badge b-idea">Idee</span><span class="chev">▶</span></div><div class="cbody">
+<p>Der Yellowstone-Fall in einem Satz: als der Wolf ausgerottet war, kippte das Tal – und als er zurückkam, kam <b>nicht alles</b> zurück. Das ist mechanisch genau der Bogen, den <b>P5</b> verlangt („innen aufwärts, aussen tiefer verstrickt&quot;), nur in Ökologie statt in Kultur. Die Frage war, ob man das nachstellen kann, ohne ein Ökosystem zu simulieren – „keine Geschichtssimulation, keine Zähler-Buchhaltung&quot; verbietet das Modell, nicht den Effekt.</p>
+<p>Die Antwort aus <code>gefuege-v1</code>: <b>eine verzögerte Kante mit Sperre</b>, vier Regeln.</p>
+<ol>
+<li><b>Drei Stufen, keine Zahl.</b> Jede Art ist <code>reich · dünn · fort</code> – zwei Balken, kein Zähler. „2 von 3 Hirschen&quot; wäre die Buchhaltung, die P1 verbietet.</li>
+<li><b>Der Eingriff ist sichtbar, die Folge nicht.</b> Bejagen wirkt sofort und im Feld (P1: der Punkt sagt seinen Preis). Die Kettenwirkung wird <b>eine Epoche später</b> eingelöst und vorher <b>nirgends angekündigt</b> – sie ist keine Drohung, sie ist ein Befund.</li>
+<li><b>Der Rückweg ist länger und braucht einen Rest.</b> Verlust läuft in einer Epoche durch, Erholung braucht zwei – und die Erholungskante verlangt einen Restbestand. Was ganz fort ist, kommt von selbst nie zurück; nur die <b>Wiederansiedlung</b> (spät, teuer, Epoche IV+) setzt eine Art von <i>fort</i> auf <i>dünn</i> und schärft die Kante wieder.</li>
+<li><b>Die Sperre.</b> Ohne Biber schneidet sich der Bach ein, der Grundwasserspiegel fällt – und dann kommt der Auenwald auch mit Wolf und ohne Frassdruck nicht über „dünn&quot;. <b>Kein Undo-Knopf:</b> die Reihenfolge der Reparatur zählt, und der Wolf allein hebt keinen Grundwasserspiegel.</li>
+</ol>
+<p>Die gebaute Kette: Wolf fort → Herden bleiben im Talboden stehen → Ufergehölz wird abgefressen → kein Weidenholz → kein Biberdamm → Weiher fallen trocken → Fischgründe und Röhricht gehen, <b>und die Furt ist keine mehr</b> (der Fluss läuft schnell und tief). Der letzte Schritt ist der wichtigste, weil er das Gefüge an die Bedienung hängt: eine verschwundene Furt ändert, wo man überhaupt hinüberkommt – das Brett wird anders, nicht schlechter.</p>
+<div class="why"><b>Warum das kein Strafsystem ist</b>Ein Tal ohne Wolf ist nicht „kaputt&quot;, es ist ein <b>anderer Zustand</b> – in Yellowstone ein von Wapiti dominierter. Darum darf die Kaskade die Karte <i>verändern</i> und Möglichkeiten <i>verschliessen</i>, aber nicht Punkte abziehen: „kein Aufbauspiel um des Wachstums willen, kein Survival-Horror&quot;. Die Kaskade ist der ökologische Zwilling der Namensverlust-Kette (Kap. 1): dort verliert der Spieler sein Wort, hier seine Vorkommen – beides ohne Schuldspruch, beides erst im Rückblick lesbar.</div>
+<div class="why"><b>Warum das Startgefüge nicht „alles reich&quot; ist</b>Der Rothirsch startet auf <code>dünn</code>, weil ihn der Wolf dort hält. Startete er reich, frässe er die Weiden auch ohne jeden Eingriff weg – ein Modell, das von selbst kippt, kann nicht zeigen, was der <i>Spieler</i> angerichtet hat. Das Gleichgewicht muss stabil sein, damit die Störung eine Aussage ist.</div>
+<p><b>Belegstatus, und hier ist er unbequem.</b> Der <i>Mechanismus</i> – trophische Kaskade, Biber als Baumeister, Weidengehölz als Nadelöhr – ist <code>historisch inspiriert</code>/<code>belegt</code>. Die <i>populäre Yellowstone-Erzählung</i> („die Wölfe haben die Flüsse verändert&quot;) ist es <b>nicht</b>: der Wapiti-Rückgang hatte mehrere Ursachen (Jagd ausserhalb des Parks, Dürre, Bär und Puma, harte Winter), die Ufer-Erholung ist fleckig statt flächig, und die verhaltensgesteuerte Variante („ecology of fear&quot;) ist in der Fachliteratur bestritten. Das ist kein Grund, die Mechanik zu lassen – es ist der Musterfall für <b>P6</b>: die Kette darf gespielt werden, weil sie <i>geglaubt</i> wird, und der Belegstatus sagt, wie fest sie steht. Wo die Ausgrabung darüber spricht, spricht sie in Wahrscheinlichkeiten, nicht in Kausalketten.</p>
+<div class="gap"><b>Offen</b><b>Die Zeiteinheit des Verzugs.</b> Bei einer Epoche je Glied braucht die vierstellige Kette vier Epochen – ein Fehler aus Modul I kommt erst im Finale an, und das ist zu spät, um noch als Zusammenhang gelesen zu werden. Vermutlich gehören die frühen Glieder in <b>Runden</b> (innerhalb einer Epoche spürbar) und nur die späten in Epochen. Ausserdem offen: welche Arten überhaupt (sechs sind ein Prüfstand, nicht eine Entscheidung), ob die Sperre eine eigene Anzeige braucht oder nur im Fund auftaucht, und wie sich das Gefüge zum bestehenden Vorkommen-System auf den Plättchen verhält – eine Art ist heute eine Feld-Eigenschaft, keine Talgrösse.</div>
 </div></div>
 
 <div class="card" data-s="concept" id="die-karte-veraendert-sich-pro-epoche"><div class="chead"><h3>Die Karte verändert sich pro Epoche</h3><span class="badge b-concept">Konzept</span><span class="chev">▶</span></div><div class="cbody">
@@ -1245,7 +1492,12 @@
 </div>
 
 <script src="../kit/sot.js"></script>
+<script src="../kit/sot-icons.js"></script>
+<script src="../kit/sot-hex.js"></script>
 <script src="../kit/sot-doc.js"></script>
+<!-- Die Abbildungen: aus dem Baukasten gerendert, nicht abfotografiert —
+     eine Spielkarte im Handbuch IST dieselbe SOT.karte() wie im Spiel. -->
+<script src="../kit/sot-figuren.js"></script>
 <script>
 SOT.doc.init({ key: 'sl-handbuch-mode' });
 </script>

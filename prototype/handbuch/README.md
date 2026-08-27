@@ -64,7 +64,58 @@ GFM plus drei Hausformen:
 | leiser Nachsatz (`p.dim`) | `Text des Absatzes {.dim}` (markdown-it-attrs) |
 | Warum-Kasten | `::: why Titel` … Fliesstext … `:::` |
 | Was-fehlt-Kasten | `::: gap Titel` … Fliesstext … `:::` |
+| Lead (die Sache in zwei Sätzen) | `> Text` als **erster** Absatz der Karte |
+| Abbildung | `::: figur <name> Titel` … Bildunterschrift … `:::` |
+| Zeichen im Fliesstext | `:furt|Furten:` (Zeichen + Wort) · `:furt:` (nur Zeichen) |
 | alles, was GFM nicht kann | die HTML-Zeile einfach stehen lassen (`html:true`) |
+
+## Die Schauseite: Lead, Abbildung, dann erst die Herleitung
+
+Leser-Rückmeldung (Aug 2026): *zu viel Text, keine Bilder.* 52 Publish-Karten,
+13 285 Wörter, null Abbildungen — und ausgerechnet die Karten über Dinge, die
+man **sehen** müsste (die fünf Zonen einer Spielkarte, die Uhr, eine Furt),
+waren reine Textwände.
+
+Beginnt eine Karte mit einem **Zitat-Absatz**, gilt er als *Lead*. Lead und
+die unmittelbar folgenden `::: figur`-Zäune sind die **Schauseite**; alles
+danach ist die Herleitung und klappt in der Publish-Ansicht hinter den Knopf
+*„Wie es dazu kam"*. In der Entwicklungs-Ansicht steht wie bisher alles offen.
+
+```markdown
+## Die Anatomie der Spielkarte {concept}
+
+> Jede Spielkarte trägt dieselben fünf Zonen in derselben Reihenfolge …
+
+::: figur karte-zonen Eine Effektkarte, aus dem Baukasten
+Dieselbe `SOT.karte()`, die im Spiel auf dem Tisch liegt.
+:::
+
+Die Formensprache sagt … ← ab hier die Herleitung
+```
+
+**Karten ohne Lead rendern unverändert** — die Umstellung geht Karte für Karte
+und ist kein Bruch.
+
+## Abbildungen
+
+Eine Abbildung ist **kein Schnappschuss**. Ein Bild veraltet in dem Moment, in
+dem jemand `SOT.karte()` anfasst, und niemand merkt es. Stattdessen zeigt das
+Handbuch das Ding **selbst**: die Spielkarte in der Abbildung *ist* dieselbe
+`SOT.karte()`, die im Spiel auf dem Tisch liegt, die Furt nutzt dieselbe
+Hexgeometrie wie das Brett. Ändert sich das Primitiv, ändert sich die
+Abbildung mit — auseinanderlaufen können sie nicht.
+
+Das Markdown nennt nur den Namen; gezeichnet wird im Browser aus dem Baukasten.
+Die Zeichnungen stehen in **`prototype/kit/sot-figuren.js`** und melden sich mit
+`SOT.doc.figur('name', fn)` an. Ein Name ohne Eintrag bleibt nicht still leer,
+sondern zeigt sichtbar *„Abbildung … nicht angemeldet"*.
+
+Eine neue Abbildung braucht drei Dinge: den Eintrag in `sot-figuren.js`, den
+Namen im Markdown — und einen Blick auf 390 px, wo die Bühne umbricht.
+
+Dasselbe gilt für Zeichen im Fliesstext: `:furt|Furten:` schreibt nur den Namen
+ins Dokument, das SVG kommt beim Laden aus `sot-icons.js`. Nie ein
+Schriftzeichen — es erbt fremde Metrik und fehlt auf manchen Geräten ganz.
 
 Eigenheiten, die man wissen muss:
 

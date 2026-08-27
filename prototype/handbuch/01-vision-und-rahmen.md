@@ -22,6 +22,57 @@ Sie ist die nächste, die in den Karten-Kernloop kommt – und jeder Pfeiler ver
 
 Offen: ob die First Experience der Notizen (erste Karte = Jäger, legt sich selbst) mit der Auftakt-Wahl (Jäger *oder* Sammler als erste Entscheidung, Kap. 8) zusammengeführt wird – die Pfeiler verlangen nur, dass beide Einstiege rollenneutral funktionieren. {.dim}
 
+## Glossar: jedes Ding hat genau ein Wort {concept #glossar}
+
+„Karte" hiess bisher drei Dinge (Spielkarte, Landkarte, Handbuch-Karte), „tile" mal das Plättchen, mal das Feld — und daneben geisterten Kachel, plate und hex als Objektnamen herum. Ab jetzt gilt: **ein Ding, ein deutsches Wort, ein englisches Wort.** Deutsch im Spieltext und in Gesprächen, Englisch im Code und in technischen Notizen. Die Silhouette (siehe „Formensprache", Kap. 2) sagt, *was* ein Ding ist; das Glossar sagt, *wie es heisst*.
+
+| Das Ding | Deutsch | English (Code) | nie wieder |
+| --- | --- | --- | --- |
+| Sechseckiges Teil in der Hand; wird gelegt und **bleibt** auf dem Brett (Uferlager, Höhle …). Silhouette 1 : 1,155 (2/√3), wie ein Feld | **Plättchen** | **tile** (`PlacedTile`, `.tcard`) | ~~Karte~~ · ~~Kachel~~ · ~~plate~~ |
+| Festes Sechseck-Feld der Welt; nimmt genau ein Plättchen auf; trägt Gelände, Fluss, Vorkommen | **Feld** | **cell** (`Cell`, `.cell`) | ~~tile~~ · ~~Hex~~ als Name |
+| Rechteckiges Teil im Verhältnis 5 : 7; wirkt **sofort** und ist danach verbraucht (Wegzehrung, Späher, Rasttag, Vorrat — und die Nachtkarte) | **Karte** (Effektkarte · Vorrat-Karte · Nachtkarte) | **card** (`.effkarte`, `.hkarte`, `.ncard`) | ~~Plättchen~~ · ~~tile~~ |
+| Alle Felder der gespielten Region zusammen; das, worauf gelegt wird | **Brett** | **board** (CSS-Altlast: `.map`) | ~~Karte~~ · ~~map~~ im Spieltext |
+| Die Übersicht des ganzen Tals, Landquart–Konstanz, mit dem Nebel des Ungespielten | **Weltkarte** | **world map** (`world.ts`) | blankes ~~Karte~~ |
+| Die Sechseckform selbst — reine Geometrie | **Sechseck** (Formwort) | **hex** (`hexNeighbors`) | als Objektname („ein Hex legen") |
+| Werte-Anzeige in der Kopfleiste (Nahrung · Schutz · Material · Kultur) — UI, kein Spielmaterial | **Kachel** | **stat panel** | ~~tile~~ |
+| Wissenskarte in diesem Handbuch | **Handbuch-Karte** (immer mit Vorsatz) | doc card | blankes ~~Karte~~ |
+
+Die drei Regeln dahinter:
+
+1. **„Karte" ohne Zusatz ist immer die Spielkarte** (5 : 7, wirkt sofort). Die Landkarte heisst Weltkarte oder Brett, die Wissenskarte Handbuch-Karte.
+2. **„tile" gehört exklusiv dem Plättchen.** Die feste Position ist die *cell*, nie das tile — genau die Unterscheidung, die `grid.ts` schon macht (`Cell` vs. `PlacedTile`).
+3. **„hex" ist eine Form, kein Ding.** Plättchen und Felder *sind* sechseckig; ein „Hex" legt man nicht.
+
+::: why Warum die Form das Wort trägt
+Die Formensprache (Kap. 2) hat entschieden: Sechseck = kommt aufs Brett und bleibt, Rechteck = wirkt sofort, Knopf = blosse Wahl. Wenn die Silhouette den Typ sagt, muss das Wort ihr folgen — eine „Sechseck-Karte" wäre eine Lüge in beide Richtungen. Plättchen/Karte auf Deutsch und tile/card auf Englisch ziehen dieselbe Grenze wie die Silhouetten 1 : 1,155 und 5 : 7.
+:::
+
+CSS-Klassen im Bestand widersprechen dem Glossar teils (`.tcard` ist ein Plättchen, `.map` ist das Brett) — Altlasten, die bleiben dürfen; neue Namen folgen dem Glossar. Bestandstexte werden beim nächsten Anfassen angepasst, nicht in einer grossen Umschreibung. {.dim}
+
+## Die zwei Stimmen: die Welt spricht innen, die Ausgrabung aussen {idea}
+
+Das Spiel hat zwei Erzähler, und die Immersion hängt daran, dass sie sich **nie vermischen**. Die **Welt** spricht aus dem Inneren der Epoche: im Wir, in der Gegenwart, ohne Jahreszahl, ohne moderne Ortsnamen, ohne zu wissen, dass sie Geschichte ist („Das Wasser ist laut, seit der Schnee geht"). Die **Ausgrabung** spricht von aussen: sie zählt Jahre, nennt Belege, weiss, wie es ausgegangen ist – und sie ist die einzige Stimme, die das darf.
+
+Die Trennung ist nicht nur räumlich (Pane hier, Karte dort), sondern **typografisch und formal**, damit ein Spieler sie in der ersten Minute lernt und danach nie mehr verwechselt: die Welt in der Spielschrift, die Ausgrabung in Mono, hinter einem linken Rand, **nie ohne ihre Marke** (Belegzeichen). Gebaut in `namen-v1`; die Regel „das Werkzeug ist kein Ort der Welt" (Feld-Explorer, Kap. 8) ist derselbe Gedanke, bisher nur auf Interaktion angewandt, nicht auf Sprache.
+
+Damit löst sich auch der Widerspruch zu **P6 (Belegstatus ist Pflicht)**: der Hinweis „historisch inspiriert und vereinfacht" verschwindet nicht, er **zieht um**. Er gehört der Ausgrabung – an den Fund, an das Anker-Ereignis, ins Handbuch –, nie in den täglichen Loop. Der Belegstatus ist damit nicht der Feind der Immersion, sondern ihre zweite Hälfte: eine Stimme, die *später* ist, macht die erste Stimme glaubhaft *jetzt*.
+
+::: why Warum nicht einfach beides mischen
+Ein Museumsführer, der mitten in der Szene erklärt, was man da gerade erlebt, nimmt dem Erlebnis die Gegenwart. Sobald „Alpenrhein" oder „10 000 v. Chr." im Spielfeld steht, weiss der Spieler, wo er in einer Zeittafel sitzt – und sitzt damit nicht mehr im Tal. Die Zahl darf existieren; sie darf nur nicht die Welt sein.
+:::
+
+Konkrete Altlasten, die dagegen verstossen (Stand Aug 2026): Kopfzeile im Spiel `EPOCHE I · ALPENRHEIN`, `10 000 – 2 000 v. Chr.` (`StromlinienGame.tsx`), Klan-Begrüssung „Willkommen am Alpenrhein" (`KlanScreen.tsx`), Titelschirm „Die Geschichte des Alpenrheintals". `erkundung-v4` hat den ersten Schritt schon getan („vor 12 000 Jahren" statt „v. Chr."); `namen-v1` geht weiter und nimmt der Uhr im Spiel die Zahl ganz ab – sie sagt „das Jahr der Schnüre" und darunter unveränderlich `HIER, JETZT`. {.dim}
+
+## Was der Spieler nicht wissen soll: die Kampagne verrät ihre Tiefe nicht {idea}
+
+Die Überraschung ist ein Designziel, nicht ein Nebeneffekt: der Spieler soll **nicht** am Anfang sehen, wie tief das Spiel reicht. Heute tut die Shell genau das – der Titelschirm nennt die **Rheinkorrektion** (das Ende von Modul V) als Werbetext, und der Epochen-Schirm listet alle fünf Module mit Jahreszahlen (`EpochsScreen.tsx`). Damit ist der Bogen „innen aufwärts, aussen tiefer verstrickt" (**P5**) verraten, bevor er beginnt: wer weiss, dass am Ende ein kanalisierter Fluss steht, kann nicht mehr erschrecken, wenn er dorthin gespielt wird.
+
+Vorschlag: die Epochen sind **Nebel wie die Karte** (P3, der Nebel geht nie wieder zu, aber er geht auch nicht vorzeitig auf). Eine noch nicht erreichte Epoche hat keinen Namen, keine Jahreszahl und kein Thema – nur eine Linie. Erreicht heisst benannt. Dasselbe gilt für den Fortschritt: **kein „X % erkundet"**, keine Übersichtskarte vor dem ersten Zug, kein Rand um die Welt (in `namen-v1` verliert sich die Karte in einer Vignette, statt in einem Rahmen zu enden) – „eine Welt, die grösser ist als das Verstehen" ist eine Aussage über die *Bedienoberfläche*, nicht über die Fiktion.
+
+::: gap Was das kostet
+Zurückhaltung kollidiert mit Orientierung. Ein Spieler, der nicht weiss, dass fünf Epochen kommen, weiss auch nicht, wie lang das Spiel ist – und ein Spieler, der nicht weiss, wo er ist, kann sich verloren fühlen statt klein. Zu entscheiden: was die Shell **vor** dem ersten Zug zeigen darf (vermutlich: Klan, Fortsetzen, Regeln – aber keine Zeittafel), und ob es einen Ort gibt, an dem das Ganze *nach* dem Spielen sichtbar wird. Kandidat ist die Chronik: der Rückblick darf alles sagen, der Vorblick nichts.
+:::
+
 ## Erste Weltkarte: Alpenrhein, Landquart bis Konstanz {concept}
 
 Historisch enorm dichtes Gebiet: Pfahlbauten am Bodensee (UNESCO-Welterbe), römische Provinz Rätien, Kloster St. Gallen und Bistum Konstanz, Konfessionsgrenze der Reformation, im 19. Jh. die Rheinkorrektion – einer der größten Flussumbauten Europas.

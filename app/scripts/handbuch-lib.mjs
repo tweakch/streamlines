@@ -108,11 +108,40 @@ function shieldQuotesForAttrs(line) {
   return parts.join('`') + m[2]
 }
 
+/*
+ * Zeichen im Fliesstext:  :furt|Furten:  →  Zeichen + Wort
+ *                         :furt:         →  nur das Zeichen
+ * Der Komponist kennt die Zeichnungen nicht (die liegen in sot-icons.js und
+ * sind SVG, kein Schriftzeichen) — er schreibt nur den Namen ins Dokument,
+ * SOT.doc hängt beim Laden das SVG davor. Bewusst kein Unicode-Ersatz: ein
+ * Glyph erbt Schriftmetrik und Grundlinie und fehlt auf manchen Geräten ganz.
+ */
+const IC = /:([a-z][a-z0-9-]*)(?:\|([^:|]+))?:/g
+function icons(html) {
+  /* Nur im Textteil ersetzen, nie innerhalb eines Tags — sonst würde ein
+     style="color:red" im rohen HTML zu einem Zeichen umgedeutet. */
+  return html
+    .split(/(<[^>]*>)/)
+    .map((teil, i) =>
+      i % 2
+        ? teil
+        : teil.replace(IC, (all, name, wort) =>
+            `<span class="ic" data-ic="${name}">${wort ? wort.trim() : ''}</span>`))
+    .join('')
+}
+
 /**
- * Kartenrumpf rendern. ::: why/gap-Zäune werden hier behandelt (nicht per
- * markdown-it-container), weil ihr Inhalt INLINE gerendert werden muss:
+ * Kartenrumpf rendern. ::: why/gap/figur-Zäune werden hier behandelt (nicht
+ * per markdown-it-container), weil ihr Inhalt INLINE gerendert werden muss:
  * <div class="why"><b>Titel</b>Text</div> — ein <p> darin bekäme Absatzränder
  * aus .cbody p und verschöbe das Bild.
+ *
+ * ::: figur <name> [Titel der Bildunterschrift]
+ * Bildunterschrift …
+ * :::
+ * wird zu einem leeren Behälter mit dem Namen der Abbildung; gezeichnet wird
+ * sie erst im Browser aus dem Baukasten (sot-figuren.js), damit die Abbildung
+ * dasselbe Ding IST, das im Spiel läuft, und nicht ein Bild davon veraltet.
  */
 export function renderBody(src) {
   const lines = src.split('\n')
@@ -120,19 +149,62 @@ export function renderBody(src) {
   let buf = []
   const flush = () => {
     const chunk = buf.join('\n').trim()
-    if (chunk) out.push(md.render(chunk))
+    if (chunk) out.push(icons(md.render(chunk)))
     buf = []
   }
   for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^::: (why|gap)\s+(.+)$/)
+    const m = lines[i].match(/^::: (why|gap|figur)\s+(.+)$/)
     if (!m) { buf.push(shieldQuotesForAttrs(lines[i])); continue }
     flush()
     const inner = []
     for (i++; i < lines.length && lines[i].trim() !== ':::'; i++) inner.push(lines[i])
-    out.push(`<div class="${m[1]}"><b>${md.renderInline(m[2])}</b>${md.renderInline(inner.join('\n'))}</div>\n`)
+    const text = icons(md.renderInline(inner.join('\n')))
+    if (m[1] === 'figur') {
+      const fm = m[2].match(/^(\S+)(?:\s+(.*))?$/)
+      const titel = fm[2] ? `<b>${md.renderInline(fm[2])}</b>` : ''
+      out.push(`<div class="figur" data-figur="${fm[1]}"><span class="fcap">${titel}${text}</span></div>\n`)
+    } else {
+      out.push(`<div class="${m[1]}"><b>${icons(md.renderInline(m[2]))}</b>${text}</div>\n`)
+    }
   }
   flush()
   return out.join('')
+}
+
+/**
+ * Die Schauseite einer Karte abtrennen.
+ *
+ * Leser-Rückmeldung Aug 2026: zu viel Text, keine Bilder. Eine Karte, die mit
+ * einem Zitat-Absatz beginnt, behandelt ihn darum als LEAD — die Sache in
+ * zwei Sätzen. Lead und die unmittelbar folgenden Abbildungen sind die
+ * Schauseite; alles danach ist die Herleitung und klappt in der
+ * Publish-Ansicht hinter einen Knopf.
+ *
+ * Karten ohne Lead rendern unverändert wie bisher — die Umstellung geht
+ * darum Karte für Karte und nicht als Bruch.
+ *
+ * @returns {{lead: string, schau: string, rest: string} | null}
+ */
+export function splitSchauseite(src) {
+  const lines = src.split('\n')
+  let i = 0
+  while (i < lines.length && !lines[i].trim()) i++
+  if (i >= lines.length || !/^>\s?/.test(lines[i])) return null
+
+  const lead = []
+  for (; i < lines.length && /^>\s?/.test(lines[i]); i++) lead.push(lines[i].replace(/^>\s?/, ''))
+
+  const schau = []
+  for (;;) {
+    let j = i
+    while (j < lines.length && !lines[j].trim()) j++
+    if (j >= lines.length || !/^::: figur\s/.test(lines[j])) break
+    for (i = j; i < lines.length; i++) {
+      schau.push(lines[i])
+      if (i > j && lines[i].trim() === ':::') { i++; break }
+    }
+  }
+  return { lead: lead.join('\n').trim(), schau: schau.join('\n'), rest: lines.slice(i).join('\n').trim() }
 }
 
 export function renderCard(card, ids) {
@@ -140,12 +212,18 @@ export function renderCard(card, ids) {
   while (ids.has(id)) id += '-2'
   ids.add(id)
   const cls = 'card' + (card.openc ? ' openc' : '')
+  const s = splitSchauseite(card.body)
+  const body = s
+    ? `<p class="lead">${icons(md.renderInline(s.lead))}</p>\n` +
+      renderBody(s.schau) +
+      (s.rest ? `<div class="mehr">\n${renderBody(s.rest)}</div>\n` : '')
+    : renderBody(card.body)
   return (
     `<div class="${cls}" data-s="${card.status}" id="${id}">` +
     `<div class="chead"><h3>${md.renderInline(card.title)}</h3>` +
     `<span class="badge b-${card.status}">${card.badge}</span>` +
     `<span class="chev">▶</span></div><div class="cbody">\n` +
-    renderBody(card.body) +
+    body +
     `</div></div>\n`
   )
 }

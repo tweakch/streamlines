@@ -6,6 +6,8 @@
 <title>STROMLINIEN · Handbuch &amp; Designdokument</title>
 <link rel="stylesheet" href="../kit/sot.css">
 <link rel="stylesheet" href="../kit/sot-doc.css">
+<!-- Für Brett-Abbildungen (::: figur furt) — das Hexraster des Spiels. -->
+<link rel="stylesheet" href="../kit/sot-hex.css">
 <style>
 /* Datei-eigen: nur was zwischen den vier Kapitel-Dokumenten variiert. */
 .wrap{max-width:760px;}
@@ -15,7 +17,9 @@
 </style>
 </head>
 <body>
-<button class="modebtn">☾ NACHT</button>
+<!-- Beschriftung setzt sot-doc.js (Icon + Wort) — hier steht nur das Wort,
+     damit der Quelltext kein Schriftzeichen als Icon trägt. -->
+<button class="modebtn">NACHT</button>
 <button class="viewbtn" id="viewbtn"></button>
 <div class="wrap">
 
@@ -45,7 +49,12 @@
 </div>
 
 <script src="../kit/sot.js"></script>
+<script src="../kit/sot-icons.js"></script>
+<script src="../kit/sot-hex.js"></script>
 <script src="../kit/sot-doc.js"></script>
+<!-- Die Abbildungen: aus dem Baukasten gerendert, nicht abfotografiert —
+     eine Spielkarte im Handbuch IST dieselbe SOT.karte() wie im Spiel. -->
+<script src="../kit/sot-figuren.js"></script>
 <script>
 SOT.doc.init({ key: 'sl-handbuch-mode' });
 </script>
