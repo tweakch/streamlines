@@ -1,49 +1,26 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+/* Die Palette — Tag und Nacht — kommt aus dem Baukasten (kit/sot.css).
+   Nacht schaltet dort `body.night`; die Klasse setzt StromlinienGame.tsx auf
+   body, damit das ganze Register greift und nicht nur die Bildschirmwurzel.
 
+   Was hier bleibt, ist die Abweichung, und sie ist Absicht: `--tile` und
+   `--tileink` sind am gelegten Plättchen nachgezogen und kontrastreicher als
+   die Baukasten-Werte (dort #e4e9de / #7c8b84). Offene Frage an den
+   Baukasten — er sollte sie wahrscheinlich übernehmen, das ist aber eine
+   Änderung an allen Prototypen und gehört in einen eigenen Durchgang. */
 .sl {
-  --bg: #dce3d8;
-  --panel: #ecefe6;
-  --panel2: #e2e7dc;
-  --ink: #22302c;
-  --ink2: #5a6b64;
-  --river: #7fb2ac;
-  --riverdeep: #5e9793;
-  --lake: #8fbdb6;
-  --ember: #c96f2e;
-  --emberglow: rgba(224, 138, 60, 0);
-  --bone: #f2ede0;
-  --line: #b8c2b4;
-  --good: #4e7d5b;
-  --bad: #9c4a33;
   --tile: #cdd6c8;
   --tileink: #33443e;
-  --shadow: 0 2px 10px rgba(30, 45, 40, 0.12);
 
   background: var(--bg);
   color: var(--ink);
-  font-family: 'Instrument Sans', system-ui, sans-serif;
+  font-family: var(--f-body);
   transition: background 1.4s ease, color 1.4s ease;
   min-height: 100dvh;
   -webkit-tap-highlight-color: transparent;
 }
-.sl.night {
-  --bg: #0d151d;
-  --panel: #141f28;
-  --panel2: #101a22;
-  --ink: #e6e1d2;
-  --ink2: #8b9690;
-  --river: #2e5457;
-  --riverdeep: #24444a;
-  --lake: #2f5a5c;
-  --ember: #e08a3c;
-  --emberglow: rgba(224, 138, 60, 0.28);
-  --bone: #1b2731;
-  --line: #2c3b44;
-  --good: #7fb08b;
-  --bad: #d07b5e;
+body.night .sl {
   --tile: #1e2c34;
   --tileink: #c9d2c6;
-  --shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
 }
 .sl * {
   box-sizing: border-box;
@@ -63,14 +40,14 @@
   padding: 6px 2px 10px;
 }
 .sl .brand {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: var(--f-display);
   font-weight: 800;
   font-size: 15px;
   letter-spacing: 0.14em;
 }
 .sl .brand small {
   display: block;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-weight: 400;
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -78,7 +55,7 @@
   margin-top: 2px;
 }
 .sl .year {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   text-align: right;
 }
 .sl .year b {
@@ -162,13 +139,13 @@
   }
 }
 .sl .shellmenu h2 {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: var(--f-display);
   font-weight: 800;
   font-size: 18px;
   margin: 0;
 }
 .sl .shellmenu .msub {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 10px;
   letter-spacing: 0.12em;
   color: var(--ink2);
@@ -203,7 +180,7 @@
   font-size: 10.5px;
   color: var(--ink2);
   margin-top: 1px;
-  font-family: 'Instrument Sans', sans-serif;
+  font-family: var(--f-body);
   letter-spacing: 0;
 }
 .sl .menu-item.mdanger {
@@ -216,7 +193,7 @@
 .sl .mfoot {
   font-size: 10px;
   color: var(--ink2);
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   line-height: 1.5;
   padding: 8px 3px 0;
   border-top: 1px dashed var(--line);
@@ -242,7 +219,7 @@
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
 }
 .sl .confirmcard h3 {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: var(--f-display);
   font-weight: 800;
   font-size: 16px;
   margin: 0 0 6px;
@@ -279,7 +256,7 @@
   left: 0;
   right: 0;
   text-align: center;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 10.5px;
   letter-spacing: 0.08em;
   color: #5a6660;
@@ -309,7 +286,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 10px;
   color: var(--ink2);
   transition: background 1.4s ease;
@@ -336,32 +313,15 @@
 }
 
 /* ---------- resources ---------- */
+/* Die Ressourcenkachel ist `.stat` aus dem Baukasten — sie hiess hier `.chip`,
+   und das war die Kollision, die der Umbau aufgedeckt hat: im Baukasten ist
+   `.chip` eine anklickbare Marke mit `display:inline-flex`, die `b` und
+   `span` in eine Zeile legt. Die App hatte kein eigenes `display`, also hat
+   sie die fremde Bedeutung stillschweigend geerbt und die Zahl neben das
+   Etikett gerutscht. `.stat` deckt alles ab, was hier stand, und bringt
+   `tabular-nums` mit. Nur der Reihenabstand bleibt app-eigen. */
 .sl .res {
-  display: flex;
-  gap: 6px;
   margin-bottom: 12px;
-}
-.sl .chip {
-  flex: 1;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 6px 4px;
-  text-align: center;
-  box-shadow: var(--shadow);
-  transition: background 1.4s ease;
-}
-.sl .chip b {
-  font-family: 'Space Mono', monospace;
-  font-size: 17px;
-  display: block;
-  line-height: 1.1;
-}
-.sl .chip span {
-  font-size: 9.5px;
-  letter-spacing: 0.06em;
-  color: var(--ink2);
-  text-transform: uppercase;
 }
 
 /* ---------- progress ---------- */
@@ -507,7 +467,7 @@
 }
 .sl .riverlabel {
   position: absolute;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 8px;
   letter-spacing: 0.1em;
   color: rgba(255, 255, 255, 0.85);
@@ -527,7 +487,7 @@
   left: 0;
   right: 0;
   text-align: center;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 7px;
   letter-spacing: 0.14em;
   color: rgba(255, 255, 255, 0.9);
@@ -560,7 +520,7 @@
   --edge: var(--ink);
   filter: drop-shadow(0 0 6px rgba(30, 45, 40, 0.4));
 }
-.sl.night .cell.inspect {
+body.night .sl .cell.inspect {
   filter: drop-shadow(0 0 6px rgba(230, 225, 210, 0.3));
 }
 
@@ -580,12 +540,12 @@
   gap: 8px;
 }
 .sl .tileinfo .ti-head b {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: var(--f-display);
   font-size: 14px;
   font-weight: 800;
 }
 .sl .tileinfo .ti-loc {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 10px;
   color: var(--ink2);
   margin-left: auto;
@@ -613,7 +573,7 @@
   border-top: 1px dashed var(--line);
 }
 .sl .tileinfo .ti-lbl {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 9px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -710,7 +670,7 @@
 .sl .pbtn .ptxt span {
   font-size: 9px;
   color: var(--ink2);
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
 }
 
 /* ---------- hand ---------- */
@@ -725,52 +685,20 @@
   z-index: 30;
   padding-bottom: env(safe-area-inset-bottom);
 }
+/* Das Plättchen ist das Sechseck aus dem Baukasten (kit/sot-hex.css, .tcard) —
+   die Formensprache aus Handbuch Kap. 2: Sechseck = kommt aufs Brett und
+   bleibt. Vorher stand hier ein abgerundetes Rechteck, also genau die Form,
+   die für die sofort wirkende Karte (5:7) reserviert ist; die Silhouette log
+   über das, was das Ding tut.
+
+   Aus dem Baukasten kommen Silhouette, Kante, Fläche, .tinner, .tglyph, .nm,
+   .fx und der Auswahlzustand — samt `--cardw` und dessen Enge-Fall unter
+   420 px. Hier bleibt nur, wie die Reihe im Spielbildschirm sitzt. */
 .sl .hand {
   max-width: 480px;
   margin: 0 auto;
   padding: 8px 10px;
-  display: flex;
-  gap: 8px;
-  align-items: stretch;
-}
-.sl .tcard {
-  flex: 1;
-  background: var(--bone);
-  border: 1.5px solid var(--line);
-  border-radius: 9px;
-  padding: 6px 4px 5px;
-  text-align: center;
-  cursor: pointer;
-  transition: transform 0.15s, border-color 0.15s, background 1.4s ease;
-  user-select: none;
-}
-.sl .tcard.sel {
-  border-color: var(--ember);
-  transform: translateY(-6px);
-  box-shadow: 0 6px 14px var(--emberglow), var(--shadow);
-}
-.sl .tcard .glyph {
-  width: 34px;
-  height: 34px;
-  color: var(--ink);
-  margin: 0 auto;
-}
-.sl .tcard .glyph svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-.sl .tcard .nm {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  margin-top: 2px;
-  line-height: 1.15;
-}
-.sl .tcard .fx {
-  font-size: 9px;
-  color: var(--ink2);
-  font-family: 'Space Mono', monospace;
+  justify-content: center;
 }
 .sl .actionrow {
   max-width: 480px;
@@ -780,7 +708,7 @@
   padding: 0 10px 10px;
 }
 .sl button {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: var(--f-display);
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 0.04em;
@@ -800,7 +728,7 @@
   color: var(--bg);
   flex: 1;
 }
-.sl.night button.primary {
+body.night .sl button.primary {
   background: var(--ember);
   border-color: var(--ember);
   color: #14100a;
@@ -926,7 +854,7 @@
   }
 }
 .sl .nback .nback-lbl {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 11px;
   letter-spacing: 0.2em;
 }
@@ -942,7 +870,7 @@
   box-shadow: 0 0 34px rgba(224, 138, 60, 0.35);
 }
 .sl .nfront .tag {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 10px;
   letter-spacing: 0.16em;
   color: var(--ember);
@@ -950,7 +878,7 @@
   text-transform: uppercase;
 }
 .sl .nfront h2 {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: var(--f-display);
   font-size: 23px;
   font-weight: 800;
   margin: 0 0 12px;
@@ -976,7 +904,7 @@
 }
 .sl .nfront .result {
   margin-top: 14px;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 13px;
   font-weight: 700;
 }
@@ -1003,7 +931,7 @@
   left: 0;
   right: 0;
   text-align: center;
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: var(--f-display);
   font-weight: 700;
   font-size: 16px;
   letter-spacing: 0.18em;
@@ -1052,7 +980,7 @@
   margin: auto 0;
 }
 .sl .full h1 {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: var(--f-display);
   font-weight: 800;
   font-size: 34px;
   line-height: 1.02;
@@ -1060,7 +988,7 @@
   color: inherit;
 }
 .sl .full .sub {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 11px;
   letter-spacing: 0.18em;
   color: var(--ember);
@@ -1083,7 +1011,7 @@
   margin: 16px 0;
 }
 .sl .cnum {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 11px;
   letter-spacing: 0.2em;
   color: var(--ink2);
@@ -1098,7 +1026,7 @@
   border-radius: 10px;
   background: var(--panel);
   border: 1.5px solid var(--line);
-  font-family: 'Instrument Sans', sans-serif;
+  font-family: var(--f-body);
   font-weight: 600;
   font-size: 13.5px;
   color: var(--ink);
@@ -1109,7 +1037,7 @@
   font-size: 11.5px;
   color: var(--ink2);
   margin-top: 3px;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
 }
 .sl .choice:active {
   border-color: var(--ember);
@@ -1128,7 +1056,7 @@
   text-align: center;
 }
 .sl .score b {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 26px;
   display: block;
 }
@@ -1154,7 +1082,7 @@
   margin: 10px 0;
 }
 .sl .fundnote b {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 10px;
   letter-spacing: 0.12em;
   color: var(--ember);
@@ -1289,7 +1217,7 @@
   box-shadow: var(--shadow);
 }
 .sl .morgen .mtag {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 9px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -1345,7 +1273,7 @@
 }
 .sl button.antw .ako {
   display: block;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--f-mono);
   font-size: 9.5px;
   color: var(--ink2);
   margin-top: 2px;

@@ -136,6 +136,15 @@ export function StromlinienGame({
     return () => clearTimeout(t)
   }, [state.nightPending])
 
+  /* Nacht ist eine Klasse auf `body`, nicht auf der Bildschirmwurzel: so
+     schaltet der Baukasten (kit/sot.css) sein ganzes Nachtregister, und die
+     App muss die Palette nicht zweitmalig führen. Beim Verlassen wieder
+     abräumen — sonst bleibt die Shell dunkel. */
+  useEffect(() => {
+    document.body.classList.toggle('night', night)
+    return () => document.body.classList.remove('night')
+  }, [night])
+
   const moveTargets = useMemo(
     () =>
       selPerson
@@ -272,7 +281,7 @@ export function StromlinienGame({
 
   if (state.phase === 'gameover') {
     return (
-      <div className="sl night">
+      <div className="sl">
         <div className="full">
           <div className="full-inner">
             <div className="sub">
@@ -337,7 +346,7 @@ export function StromlinienGame({
   const schutz = effectiveSchutz(state)
 
   return (
-    <div className={`sl${night ? ' night' : ''}`}>
+    <div className="sl">
       <div className="sl-wrap">
         <div className="side">
         <header>
@@ -395,19 +404,19 @@ export function StromlinienGame({
         </div>
 
         <div className="res">
-          <div className="chip">
+          <div className="stat">
             <b>{state.n}</b>
             <span>Nahrung</span>
           </div>
-          <div className="chip">
+          <div className="stat">
             <b>{schutz}</b>
             <span>Schutz</span>
           </div>
-          <div className="chip">
+          <div className="stat">
             <b>{state.b}</b>
             <span>Material</span>
           </div>
-          <div className="chip">
+          <div className="stat">
             <b>{state.k}</b>
             <span>Kultur</span>
           </div>
@@ -580,9 +589,16 @@ export function StromlinienGame({
               className={`tcard${selIdx === i ? ' sel' : ''}`}
               onClick={() => selectHand(i)}
             >
-              <Glyph name={TILES[tk].glyph} />
-              <div className="nm">{TILES[tk].nm}</div>
-              <div className="fx">{TILES[tk].fx}</div>
+              {/* Aufbau des Baukasten-Plättchens: ::before/::after zeichnen
+                  Kante und Fläche der Sechseck-Silhouette, der Inhalt liegt
+                  in .tinner darüber. Das Bildzeichen heisst .tglyph, nicht
+                  .glyph — .glyph ist die Marke IM FELD und wird in halber
+                  Feldbreite bemessen. */}
+              <div className="tinner">
+                <Glyph name={TILES[tk].glyph} className="tglyph" />
+                <div className="nm">{TILES[tk].nm}</div>
+                <div className="fx">{TILES[tk].fx}</div>
+              </div>
             </div>
           ))}
         </div>

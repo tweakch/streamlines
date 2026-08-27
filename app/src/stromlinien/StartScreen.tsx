@@ -730,7 +730,10 @@ export function StartScreen({
                 >
                   <div className="av">{initials(p.name)}</div>
                   <b>{p.name}</b>
-                  {p.id === profile.id && <span className="dot">●</span>}
+                  {/* `.dot` ist im Baukasten eine gezeichnete Scheibe, kein
+                      Schriftzeichen — das ● stand hier nur, weil die App
+                      keine hatte. Zwei Regeln auf einmal erfüllt. */}
+                  {p.id === profile.id && <span className="dot" />}
                 </div>
               ))}
             </div>
