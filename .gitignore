@@ -1,6 +1,14 @@
 # Transient MCP / browser-tool artefacts
 .playwright-mcp/
 
-# Karten-Pipeline: Rohdaten-Downloads (GeoTIFFs etc.) und Fetch-Dependencies
+# Karten-Pipeline: Rohdaten-Downloads (GeoTIFFs etc.) und Stufen-Dependencies
 pipeline/data/
 pipeline/fetch/node_modules/
+pipeline/ingest/node_modules/
+
+# Karten-Pipeline: das Erzeugnis der Overlay-Stufe (karte.sqlite ~20 MB,
+# wird bei jedem Bake neu gebaut und von ingest/ nach Postgres übertragen)
+pipeline/out/
+
+# Baukasten-Umbau: eingefrorene Bezugsaufnahmen (kit/vergleich.mjs)
+prototype/.vergleich/
