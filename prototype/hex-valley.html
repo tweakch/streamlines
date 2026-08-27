@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hex Valley — 1230 BC</title>
+<style>
+  :root{
+    --paper:#ece0c8;
+    --panel:#f6efdd;
+    --panel-2:#efe4ca;
+    --line:#d8c9a8;
+    --ink:#3a2f21;
+    --ink-soft:#7b6a51;
+    --brown:#6b4a2b;
+    --good:#3f7a3f;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:ui-rounded,"Segoe UI",system-ui,-apple-system,Avenir,sans-serif;
+    font-size:15px;overflow:hidden;
+  }
+  .game{position:relative;width:100%;height:100vh;display:grid;
+        grid-template-columns:300px 1fr 300px;grid-template-rows:auto 1fr;gap:16px;padding:16px}
+
+  /* ---------- chrome ---------- */
+  .bar{grid-column:1/-1;display:flex;align-items:center;gap:14px}
+  .chip{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+        box-shadow:0 1px 0 rgba(0,0,0,.05);display:flex;align-items:center;gap:10px;padding:9px 14px}
+  .chip.year{padding-left:8px;font-weight:700;font-size:17px}
+  .res{gap:8px;padding:8px 16px 8px 12px}
+  .res .n{font-weight:700;font-size:17px;line-height:1.05}
+  .res .d{font-size:11px;font-weight:700;color:var(--good)}
+  .res .stack{display:flex;flex-direction:column;align-items:flex-start}
+  .spacer{flex:1}
+  .icon-btn{width:46px;height:44px;display:grid;place-items:center;padding:0}
+
+  /* ---------- panels ---------- */
+  .col{display:flex;flex-direction:column;gap:14px;min-height:0}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .panel h2{margin:0;padding:12px 16px;font-size:13px;letter-spacing:.09em;font-weight:800;
+            border-bottom:1px solid var(--line);text-transform:uppercase;color:#4a3d2c}
+  .card{display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid rgba(216,201,168,.7)}
+  .card:last-child{border-bottom:0}
+  .thumb{width:56px;height:56px;flex:none;border-radius:9px;background:var(--panel-2);
+         border:1px solid var(--line);display:grid;place-items:center}
+  .card .t{display:flex;align-items:center;gap:6px;font-weight:800;font-size:14px}
+  .card p{margin:5px 0 0;font-size:12.5px;line-height:1.35;color:#5c4d38}
+  .cost{margin-left:auto;display:flex;align-items:center;gap:3px;font-weight:800;font-size:13px}
+  .dropzone{margin:12px 14px 14px;border:2px dashed #cbb891;border-radius:11px;padding:14px 12px;
+            display:flex;gap:12px;align-items:center;color:#8a785c;font-size:12.5px;line-height:1.35}
+  .unit{display:flex;gap:12px;align-items:center;padding:12px 14px;border-bottom:1px solid rgba(216,201,168,.7)}
+  .unit:last-child{border-bottom:0}
+  .unit .nm{font-weight:800;font-size:14px}
+  .stats{display:flex;gap:16px;align-items:center;margin-top:3px;font-weight:700;font-size:13px}
+  .stats span{display:flex;gap:5px;align-items:center}
+  .doing{margin-top:3px;font-size:12.5px;color:var(--good);font-weight:600}
+  .locked{display:flex;gap:11px;align-items:center;padding:14px;color:#8a785c;font-size:13px;line-height:1.3}
+  .fx{display:flex;gap:11px;align-items:center;padding:12px 14px}
+  .fx .nm{font-weight:800;font-size:13.5px}
+  .fx .sub{font-size:12px;color:#5c4d38}
+  .turns{margin-left:auto;display:flex;gap:4px;align-items:center;font-weight:700;font-size:13px;color:#6b5c45}
+  .end{display:flex;gap:12px;margin-top:auto}
+  .end button{flex:1;border:0;border-radius:13px;background:#5b3f27;color:#f7eeda;padding:14px;
+              font:inherit;font-weight:800;cursor:pointer;text-align:left;padding-left:22px;
+              box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+  .end button b{display:block;font-size:20px;letter-spacing:.04em}
+  .end button i{font-style:normal;font-size:12.5px;opacity:.72;font-weight:600}
+  .deck{width:74px;border-radius:13px;background:var(--panel);border:1px solid var(--line);
+        display:flex;align-items:center;justify-content:center;gap:6px;font-weight:800}
+
+  /* ---------- board ---------- */
+  .board{grid-row:2;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0}
+  .board svg{width:100%;height:100%}
+
+  .cloud-cluster{animation:drift 17s ease-in-out infinite alternate}
+  @keyframes drift{from{transform:translateX(-9px)}to{transform:translateX(9px)}}
+  .drop{animation:fall 1.5s linear infinite;transform-box:fill-box;transform-origin:center}
+  @keyframes fall{
+    0%{transform:translateY(0);opacity:0}
+    12%{opacity:.9}
+    82%{opacity:.9}
+    100%{transform:translateY(230px);opacity:0}
+  }
+  .flame{animation:flick 1.1s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:50% 100%}
+  @keyframes flick{from{transform:scale(1,1)}to{transform:scale(.86,1.12)}}
+  .smoke{animation:rise 4.5s linear infinite}
+  @keyframes rise{0%{transform:translateY(0);opacity:0}25%{opacity:.5}100%{transform:translateY(-34px);opacity:0}}
+  .foam{animation:bob 1.6s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}
+  @keyframes bob{from{transform:scale(1)}to{transform:scale(1.12)}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+
+  @media (max-width:1180px){
+    .game{grid-template-columns:1fr;grid-template-rows:auto 1fr;overflow:auto;height:auto;min-height:100vh}
+    .col{display:none}
+    body{overflow:auto}
+  }
+</style>
+</head>
+<body>
+
+<div class="game">
+
+  <!-- ============ TOP BAR ============ -->
+  <div class="bar">
+    <div class="chip year">
+      <svg width="30" height="30" viewBox="0 0 24 24"><path d="M9 3h6v2l-1 1 3 5v8a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-8l3-5-1-1z" fill="#c89a63" stroke="#8a6238" stroke-width="1.2" stroke-linejoin="round"/><path d="M7 13h10" stroke="#8a6238" stroke-width="1.1"/></svg>
+      Year 1230 BC
+    </div>
+    <div class="chip res"><svg width="26" height="26" viewBox="0 0 24 24"><circle cx="9" cy="14" r="5.2" fill="#c8383c"/><circle cx="15" cy="15" r="4.6" fill="#a82b30"/><path d="M11 9c0-3 2-4 4-5" stroke="#4c7a35" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M12 8c2-2 4-2 5-1-1 2-3 2.4-5 1z" fill="#4c7a35"/></svg>
+      <div class="stack"><span class="n">12</span><span class="d">+2</span></div></div>
+    <div class="chip res"><svg width="26" height="26" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="8" rx="4" fill="#9a6b3f"/><ellipse cx="19" cy="12" rx="2.6" ry="4" fill="#c99a63"/><ellipse cx="19" cy="12" rx="1.2" ry="2" fill="#a4763f"/></svg>
+      <div class="stack"><span class="n">8</span><span class="d">+1</span></div></div>
+    <div class="chip res"><svg width="26" height="26" viewBox="0 0 24 24"><path d="M5 15l3-6 5-2 6 4-2 6H7z" fill="#b6babb" stroke="#8d9294" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 9l4 3 5-1" stroke="#8d9294" stroke-width="1.1" fill="none"/></svg>
+      <div class="stack"><span class="n">6</span><span class="d">+1</span></div></div>
+    <div class="chip res"><svg width="26" height="26" viewBox="0 0 24 24"><ellipse cx="12" cy="14" rx="8" ry="6" fill="#8a5c33"/><path d="M4 13c3-4 13-4 16 0" fill="#a9743f"/><path d="M8 11.5l1.6 2M12 11l.4 2.4M16 11.5l-1.6 2" stroke="#6d4526" stroke-width="1.1"/></svg>
+      <div class="stack"><span class="n">5</span><span class="d">+1</span></div></div>
+    <div class="chip"><svg width="24" height="24" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2" fill="#6b5c45"/><circle cx="16" cy="9" r="2.6" fill="#8d7d64"/><path d="M3.5 18c0-3.3 2.5-5 5.5-5s5.5 1.7 5.5 5z" fill="#6b5c45"/><path d="M14.5 18c0-2.6 1.6-4.2 3.6-4.2S21.5 15.4 21.5 18z" fill="#8d7d64"/></svg>
+      <b style="font-size:16px">7 / 10</b></div>
+    <div class="spacer"></div>
+    <div class="chip icon-btn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5b4a34" stroke-width="1.7" stroke-linejoin="round"><path d="M12 6c-2-1.6-4.5-2-7-2v13c2.5 0 5 .4 7 2 2-1.6 4.5-2 7-2V4c-2.5 0-5 .4-7 2z"/><path d="M12 6v13"/></svg></div>
+    <div class="chip icon-btn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5b4a34" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.4M12 18.6V21M3 12h2.4M18.6 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7"/></svg></div>
+    <div class="chip icon-btn"><svg width="24" height="24" viewBox="0 0 24 24" stroke="#5b4a34" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></div>
+  </div>
+
+  <!-- ============ LEFT COLUMN ============ -->
+  <div class="col">
+    <div class="panel">
+      <h2>Cards</h2>
+      <div class="card">
+        <div class="thumb"><svg width="40" height="40" viewBox="0 0 40 40"><ellipse cx="15" cy="17" rx="9" ry="7" fill="#f2f2f0"/><ellipse cx="25" cy="18" rx="8" ry="6" fill="#e3e3e0"/><ellipse cx="20" cy="14" rx="7" ry="6" fill="#fafaf8"/><path d="M13 27l-1.5 4M20 27l-1.5 4M27 27l-1.5 4" stroke="#5fa8db" stroke-width="2.4" stroke-linecap="round"/></svg></div>
+        <div>
+          <div class="t">Rain Bringer
+            <span class="cost"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 2c3 4 4.5 5.6 4.5 8A4.5 4.5 0 0 1 8 14.5 4.5 4.5 0 0 1 3.5 10C3.5 7.6 5 6 8 2z" fill="#4e9fd6"/></svg>2</span>
+          </div>
+          <p>Clouds produce +1 Water to all adjacent valley tiles.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="thumb"><svg width="40" height="40" viewBox="0 0 40 40"><rect x="18" y="14" width="3.4" height="20" rx="1.5" fill="#8a5c33" transform="rotate(28 20 24)"/><path d="M23 6l5 7-4 3-4-6z" fill="#c9ccc9" stroke="#8f9394" stroke-width="1.1" stroke-linejoin="round"/></svg></div>
+        <div>
+          <div class="t">Hunter's Instinct
+            <span class="cost"><svg width="16" height="16" viewBox="0 0 24 24"><circle cx="10" cy="15" r="5" fill="#c8383c"/><circle cx="15" cy="15" r="4" fill="#a82b30"/><path d="M12 9c1.6-2 3.4-2 4.6-1-1 2-3 2.4-4.6 1z" fill="#4c7a35"/></svg>1</span>
+          </div>
+          <p>Hunters gain +1 Food on successful hunts.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="thumb"><svg width="40" height="40" viewBox="0 0 40 40"><ellipse cx="20" cy="30" rx="13" ry="5" fill="#b6babb"/><ellipse cx="12" cy="29" rx="4.5" ry="3" fill="#cfd2d3"/><ellipse cx="28" cy="29" rx="4.5" ry="3" fill="#cfd2d3"/><path d="M20 8c4 5 6 7 6 11a6 6 0 0 1-12 0c0-2.4 1.6-4 3-6 .4 2 1.2 2.8 2 3 0-3 .4-5 1-8z" fill="#ef9a33"/><path d="M20 16c2 3 3 4 3 6a3 3 0 0 1-6 0c0-1.6 1.4-3 3-6z" fill="#f6d13f"/></svg></div>
+        <div>
+          <div class="t">Campfire
+            <span class="cost"><svg width="16" height="16" viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="7" rx="3.5" fill="#9a6b3f"/><ellipse cx="19" cy="12.5" rx="2.4" ry="3.5" fill="#c99a63"/></svg>1</span>
+          </div>
+          <p>+1 <svg width="14" height="14" viewBox="0 0 24 24" style="vertical-align:-2px"><circle cx="12" cy="12" r="9" fill="#8dc26f"/><circle cx="9" cy="10" r="1.4" fill="#3d5c30"/><circle cx="15" cy="10" r="1.4" fill="#3d5c30"/><path d="M8.5 14.5c2 2 5 2 7 0" stroke="#3d5c30" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg> Morale to all units adjacent to Camp.</p>
+        </div>
+      </div>
+      <div class="dropzone">
+        <svg width="30" height="30" viewBox="0 0 30 30" fill="none"><g stroke="#bda98a" stroke-width="1.6"><rect x="3" y="9" width="14" height="17" rx="2.5"/><path d="M8 6h13a2 2 0 0 1 2 2v14"/></g></svg>
+        Drag card here<br>to build your deck
+      </div>
+    </div>
+
+    <div class="end">
+      <button><b>END TURN</b><i>Turn 15</i></button>
+      <div class="deck">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="#4a3a26"><rect x="3" y="7" width="12" height="15" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v13" stroke="#4a3a26" stroke-width="1.8" fill="none"/></svg>5
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ BOARD ============ -->
+  <div class="board">
+    <svg viewBox="-110 -350 830 800" preserveAspectRatio="xMidYMid meet" aria-label="Isometric hex valley with a river and rain clouds">
+      <defs>
+        <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="14"/>
+        </filter>
+        <clipPath id="hexclip"><polygon points="-50,0 -25,-29 25,-29 50,0 25,29 -25,29"/></clipPath>
+
+        <!-- ---- base prisms ---- -->
+        <g id="p-grass">
+          <polygon points="-50,0 -25,29 -25,51 -50,22" fill="#5c9145"/>
+          <polygon points="-25,29 25,29 25,51 -25,51" fill="#4d7c3a"/>
+          <polygon points="25,29 50,0 50,22 25,51" fill="#6ba24f"/>
+          <polygon points="-50,22 -25,51 25,51 50,22 50,26 25,55 -25,55 -50,26" fill="#3f5c30" opacity=".55"/>
+          <polygon points="-50,0 -25,-29 25,-29 50,0 25,29 -25,29" fill="#86bd63"/>
+        </g>
+        <g id="p-grass2">
+          <polygon points="-50,0 -25,29 -25,51 -50,22" fill="#578a41"/>
+          <polygon points="-25,29 25,29 25,51 -25,51" fill="#497537"/>
+          <polygon points="25,29 50,0 50,22 25,51" fill="#659b4b"/>
+          <polygon points="-50,22 -25,51 25,51 50,22 50,26 25,55 -25,55 -50,26" fill="#3f5c30" opacity=".55"/>
+          <polygon points="-50,0 -25,-29 25,-29 50,0 25,29 -25,29" fill="#7eb65b"/>
+          <path d="M-30 -8 l4 -7 M-26 -8 l0 -8 M14 12 l4 -7 M18 12 l0 -8" stroke="#6ca34c" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </g>
+        <g id="p-sand">
+          <polygon points="-50,0 -25,29 -25,51 -50,22" fill="#c2ab73"/>
+          <polygon points="-25,29 25,29 25,51 -25,51" fill="#ad9662"/>
+          <polygon points="25,29 50,0 50,22 25,51" fill="#cdb67e"/>
+          <polygon points="-50,22 -25,51 25,51 50,22 50,26 25,55 -25,55 -50,26" fill="#8e784b" opacity=".5"/>
+          <polygon points="-50,0 -25,-29 25,-29 50,0 25,29 -25,29" fill="#ddc98f"/>
+          <path d="M-22 -6 h12 M2 6 h14 M-6 14 h10" stroke="#cfb87b" stroke-width="3" stroke-linecap="round"/>
+        </g>
+        <!-- elevated plateau: top face lifted 22px, deeper skirt -->
+        <g id="p-high">
+          <polygon points="-50,-22 -25,7 -25,51 -50,22" fill="#548340"/>
+          <polygon points="-25,7 25,7 25,51 -25,51" fill="#456e35"/>
+          <polygon points="25,7 50,-22 50,22 25,51" fill="#649a4a"/>
+          <polygon points="-50,-4 -25,25 25,25 50,-4 50,2 25,31 -25,31 -50,2" fill="#6b5236" opacity=".35"/>
+          <polygon points="-50,22 -25,51 25,51 50,22 50,26 25,55 -25,55 -50,26" fill="#3f5c30" opacity=".55"/>
+          <polygon points="-50,-22 -25,-51 25,-51 50,-22 25,7 -25,7" fill="#8ec468"/>
+        </g>
+
+        <!-- ---- scenery ---- -->
+        <g id="tree">
+          <ellipse cx="0" cy="3" rx="13" ry="5" fill="#000" opacity=".12"/>
+          <rect x="-2.4" y="-10" width="4.8" height="13" rx="1.6" fill="#6b4a2b"/>
+          <polygon points="0,-40 -14,-8 14,-8" fill="#2e6b39"/>
+          <polygon points="0,-52 -12,-23 12,-23" fill="#367a41"/>
+          <polygon points="0,-63 -9,-38 9,-38" fill="#3f8b4a"/>
+        </g>
+        <g id="rocks">
+          <ellipse cx="0" cy="6" rx="22" ry="8" fill="#000" opacity=".1"/>
+          <polygon points="-20,4 -12,-9 -2,-6 -4,6" fill="#b6babb"/>
+          <polygon points="-20,4 -12,-9 -12,-2 -18,8" fill="#8f9394"/>
+          <polygon points="-12,-9 -2,-6 -4,6 -12,-2" fill="#cfd2d3"/>
+          <polygon points="0,7 8,-6 20,-2 16,9" fill="#b6babb"/>
+          <polygon points="0,7 8,-6 8,1 2,10" fill="#8f9394"/>
+          <polygon points="8,-6 20,-2 16,9 8,1" fill="#cfd2d3"/>
+        </g>
+        <g id="bush">
+          <ellipse cx="0" cy="4" rx="14" ry="5" fill="#000" opacity=".1"/>
+          <path d="M-11 4c-3-6 0-13 5-13s9 5 7 11z" fill="#3f8b4a"/>
+          <path d="M0 3c-2-7 2-12 7-11s7 7 4 11z" fill="#4d9c56"/>
+          <circle cx="-6" cy="-4" r="2.4" fill="#c8383c"/><circle cx="3" cy="-7" r="2.2" fill="#c8383c"/>
+          <circle cx="7" cy="-1" r="2.1" fill="#a82b30"/>
+        </g>
+        <g id="tent">
+          <ellipse cx="0" cy="12" rx="24" ry="8" fill="#000" opacity=".12"/>
+          <polygon points="0,-30 20,12 -20,12" fill="#a97a4c"/>
+          <polygon points="0,-30 6,12 -20,12" fill="#c69663"/>
+          <polygon points="0,-30 2,12 -6,12" fill="#7d5733"/>
+          <path d="M-24 12 L0 -34 M24 12 L0 -34" stroke="#6b4a2b" stroke-width="3" stroke-linecap="round"/>
+        </g>
+        <g id="deer">
+          <ellipse cx="0" cy="10" rx="20" ry="6" fill="#000" opacity=".13"/>
+          <path d="M-14 9V-5l4-6 12-1 10 3v18h-4V6l-8 1v3h-4V7l-6-1v3z" fill="#8a5c33"/>
+          <path d="M12-9c-1-4-4-6-4-10 3 2 4 1 5-2 1 4 3 5 5 4-2 2-2 5-2 8z" fill="#6d4526"/>
+          <path d="M20-9c1-4 4-6 4-10-3 2-4 1-5-2-1 4-3 5-5 4 2 2 2 5 2 8z" fill="#6d4526" transform="translate(-9,0)"/>
+          <circle cx="16" cy="-6" r="1.4" fill="#2a1c10"/>
+        </g>
+        <g id="person">
+          <ellipse cx="0" cy="14" rx="12" ry="4.5" fill="#000" opacity=".14"/>
+          <rect x="-5" y="-8" width="10" height="17" rx="4" fill="#8a6a45"/>
+          <circle cx="0" cy="-13" r="6" fill="#d9a878"/>
+          <path d="M-6 -16c2-4 10-4 12 0z" fill="#4a3524"/>
+          <rect x="9" y="-24" width="2.6" height="36" rx="1.3" fill="#7d5733"/>
+          <polygon points="10.3,-30 14,-22 7,-22" fill="#c9ccc9"/>
+        </g>
+        <g id="campfire">
+          <ellipse cx="0" cy="10" rx="26" ry="10" fill="#e6c98d" opacity=".8"/>
+          <ellipse cx="-15" cy="9" rx="7" ry="4" fill="#b6babb"/>
+          <ellipse cx="15" cy="9" rx="7" ry="4" fill="#b6babb"/>
+          <ellipse cx="0" cy="13" rx="8" ry="4" fill="#cfd2d3"/>
+          <rect x="-10" y="0" width="20" height="4" rx="2" fill="#8a5c33" transform="rotate(14)"/>
+          <rect x="-10" y="0" width="20" height="4" rx="2" fill="#9a6b3f" transform="rotate(-14)"/>
+          <g class="flame">
+            <path d="M0-26c5 7 8 10 8 15a8 8 0 0 1-16 0c0-3 2-5 4-8 .5 3 1.5 4 2.5 4 0-4 .5-7 1.5-11z" fill="#ef8f2d"/>
+            <path d="M0-14c2.5 4 4 5.5 4 8a4 4 0 0 1-8 0c0-2 1.6-4 4-8z" fill="#f7d13f"/>
+          </g>
+          <g class="smoke"><ellipse cx="1" cy="-32" rx="5" ry="4" fill="#fff" opacity=".7"/></g>
+          <g class="smoke" style="animation-delay:2.2s"><ellipse cx="-3" cy="-30" rx="4" ry="3" fill="#fff" opacity=".6"/></g>
+        </g>
+
+        <!-- ---- forest / rock composite tiles ---- -->
+        <g id="t-forest">
+          <use href="#p-grass2"/>
+          <use href="#tree" x="-24" y="4" transform="scale(1)"/>
+          <use href="#tree" x="6" y="-8" opacity=".97"/>
+          <use href="#tree" x="24" y="14"/>
+        </g>
+        <g id="t-rocky">
+          <use href="#p-grass"/>
+          <use href="#rocks" x="-8" y="2"/>
+          <use href="#rocks" x="20" y="-12" opacity=".95"/>
+        </g>
+
+        <!-- ---- river bands (clipped to the hex top face) ---- -->
+        <g id="r-ns" clip-path="url(#hexclip)">
+          <path d="M0 -31 C -6 -14, 6 14, 0 31" stroke="#3a7fae" stroke-width="30" fill="none"/>
+          <path d="M0 -31 C -6 -14, 6 14, 0 31" stroke="#4e9fd6" stroke-width="24" fill="none"/>
+          <path d="M-4 -28 C -9 -12, 2 8, -3 28" stroke="#7cc4e9" stroke-width="5" fill="none" opacity=".85"/>
+        </g>
+        <g id="r-nse" clip-path="url(#hexclip)">
+          <path d="M0 -31 C 0 -12, 22 -6, 39 -15" stroke="#3a7fae" stroke-width="30" fill="none"/>
+          <path d="M0 -31 C 0 -12, 22 -6, 39 -15" stroke="#4e9fd6" stroke-width="24" fill="none"/>
+          <path d="M-4 -29 C -5 -10, 18 -3, 34 -11" stroke="#7cc4e9" stroke-width="5" fill="none" opacity=".85"/>
+        </g>
+        <g id="r-nws" clip-path="url(#hexclip)">
+          <path d="M-39 -15 C -20 -8, 2 -6, 0 31" stroke="#3a7fae" stroke-width="30" fill="none"/>
+          <path d="M-39 -15 C -20 -8, 2 -6, 0 31" stroke="#4e9fd6" stroke-width="24" fill="none"/>
+          <path d="M-36 -20 C -18 -13, -5 -8, -5 28" stroke="#7cc4e9" stroke-width="5" fill="none" opacity=".85"/>
+        </g>
+
+        <!-- ---- clouds ---- -->
+        <g id="p-cloud">
+          <polygon points="-50,0 -25,29 -25,45 -50,16" fill="#d8dadb"/>
+          <polygon points="-25,29 25,29 25,45 -25,45" fill="#c9cccd"/>
+          <polygon points="25,29 50,0 50,16 25,45" fill="#e2e4e5"/>
+          <polygon points="-50,0 -25,-29 25,-29 50,0 25,29 -25,29" fill="#fbfbfa"/>
+        </g>
+      </defs>
+
+      <!-- ground shadow -->
+      <ellipse cx="330" cy="300" rx="330" ry="132" fill="#c9b48d" opacity=".55" filter="url(#soft)"/>
+
+      <!-- ============ TILES (painter order: back to front) ============ -->
+      <g id="map">
+        <!-- y = 0 -->
+        <use href="#p-grass"  x="300" y="0"/>
+        <use href="#p-grass2" x="450" y="0"/>
+        <!-- y = 29 -->
+        <use href="#t-forest" x="225" y="29"/>
+        <g transform="translate(375,29)"><use href="#p-grass"/><use href="#r-ns"/></g>
+        <use href="#p-high"   x="525" y="29"/>
+        <!-- y = 58 -->
+        <use href="#t-forest" x="150" y="58"/>
+        <use href="#p-grass"  x="300" y="58"/>
+        <use href="#p-grass2" x="450" y="58"/>
+        <use href="#p-high"   x="600" y="58"/>
+        <!-- y = 87 -->
+        <use href="#t-forest" x="75"  y="87"/>
+        <use href="#p-grass"  x="225" y="87"/>
+        <g transform="translate(375,87)"><use href="#p-grass"/><use href="#r-nse"/></g>
+        <g transform="translate(525,87)"><use href="#p-high"/><use href="#deer" x="6" y="-26"/></g>
+        <!-- y = 116 -->
+        <use href="#p-grass"  x="0"   y="116"/>
+        <use href="#t-rocky"  x="150" y="116"/>
+        <g transform="translate(300,116)"><use href="#p-grass"/><use href="#campfire" x="0" y="2"/></g>
+        <g transform="translate(450,116)"><use href="#p-grass"/><use href="#r-nws"/></g>
+        <use href="#p-grass2" x="600" y="116"/>
+        <!-- y = 145 -->
+        <use href="#t-rocky"  x="75"  y="145"/>
+        <g transform="translate(225,145)"><use href="#p-grass2"/><use href="#person" x="-2" y="-2"/></g>
+        <g transform="translate(375,145)"><use href="#p-grass"/><use href="#tent" x="0" y="-4"/></g>
+        <use href="#p-grass"  x="525" y="145"/>
+        <!-- y = 174 -->
+        <use href="#t-forest" x="0"   y="174"/>
+        <use href="#p-grass"  x="150" y="174"/>
+        <g transform="translate(300,174)"><use href="#p-grass2"/><use href="#bush" x="-14" y="0"/><use href="#bush" x="14" y="10"/></g>
+        <g transform="translate(450,174)"><use href="#p-grass"/><use href="#r-nse"/></g>
+        <use href="#p-sand"   x="600" y="174"/>
+        <!-- y = 203 -->
+        <use href="#t-forest" x="75"  y="203"/>
+        <g transform="translate(225,203)"><use href="#p-grass"/><use href="#rocks" x="18" y="8" transform="scale(.8)"/></g>
+        <use href="#p-grass2" x="375" y="203"/>
+        <g transform="translate(525,203)"><use href="#p-grass"/><use href="#r-nws"/></g>
+        <!-- y = 232 -->
+        <use href="#t-forest" x="150" y="232"/>
+        <use href="#t-rocky"  x="300" y="232"/>
+        <use href="#p-grass"  x="450" y="232"/>
+        <use href="#p-sand"   x="600" y="232"/>
+        <!-- y = 261 -->
+        <use href="#t-forest" x="75"  y="261"/>
+        <use href="#t-forest" x="225" y="261"/>
+        <g transform="translate(375,261)"><use href="#p-grass2"/><use href="#bush" x="10" y="4"/></g>
+        <g transform="translate(525,261)"><use href="#p-grass"/><use href="#r-ns"/></g>
+        <!-- y = 290 -->
+        <use href="#p-grass"  x="450" y="290"/>
+        <use href="#p-sand"   x="600" y="290"/>
+        <!-- y = 319 : waterfall tile -->
+        <g transform="translate(525,319)">
+          <use href="#p-grass"/>
+          <use href="#r-ns"/>
+          <!-- water spilling over the front face -->
+          <path d="M-13 26 h26 v25 h-26 z" fill="#4e9fd6"/>
+          <path d="M-9 26 v25 M0 26 v25 M8 26 v25" stroke="#8ed0f0" stroke-width="3.5" opacity=".8"/>
+          <path d="M-15 47 q15 12 30 0 v6 q-15 12 -30 0 z" fill="#bfe4f6"/>
+          <ellipse class="foam" cx="-8" cy="52" rx="7" ry="4" fill="#eaf7ff" opacity=".9"/>
+          <ellipse class="foam" cx="7" cy="55" rx="9" ry="4.5" fill="#dcf1fd" opacity=".85" style="animation-delay:.5s"/>
+          <ellipse class="foam" cx="0" cy="59" rx="13" ry="4.5" fill="#cfeafc" opacity=".7" style="animation-delay:.9s"/>
+        </g>
+      </g>
+
+      <!-- ============ CLOUDS + RAIN ============ -->
+      <g class="cloud-cluster">
+        <g opacity=".16" transform="translate(0,300) scale(1,.34)">
+          <ellipse cx="200" cy="-540" rx="210" ry="120" fill="#8d9a80"/>
+        </g>
+        <use href="#p-cloud" x="90"  y="-268"/>
+        <use href="#p-cloud" x="240" y="-268"/>
+        <use href="#p-cloud" x="165" y="-239"/>
+        <use href="#p-cloud" x="315" y="-239"/>
+        <use href="#p-cloud" x="15"  y="-239"/>
+        <use href="#p-cloud" x="90"  y="-210"/>
+        <use href="#p-cloud" x="240" y="-210"/>
+        <use href="#p-cloud" x="390" y="-210"/>
+        <use href="#p-cloud" x="165" y="-181"/>
+        <use href="#p-cloud" x="315" y="-181"/>
+        <use href="#p-cloud" x="240" y="-152"/>
+
+        <g fill="#5fa8db">
+          <g transform="translate(45,-205)"><path class="drop" style="animation-delay:0s"    d="M0 0c-3 5-3 9 0 9s3-4 0-9z"/></g>
+          <g transform="translate(88,-172)"><path class="drop" style="animation-delay:.55s"  d="M0 0c-3 5-3 9 0 9s3-4 0-9z"/></g>
+          <g transform="translate(128,-198)"><path class="drop" style="animation-delay:.2s"  d="M0 0c-3 5-3 9 0 9s3-4 0-9z"/></g>
+          <g transform="translate(160,-148)"><path class="drop" style="animation-delay:.9s"  d="M0 0c-3 5-3 9 0 9s3-4 0-9z"/></g>
+          <g transform="translate(196,-176)"><path class="drop" style="animation-delay:.35s" d="M0 0c-3 5-3 9 0 9s3-4 0-9z"/></g>
+          <g transform="translate(232,-122)"><path class="drop" style="animation-delay:1.1s" d="M0 0c-3 5-3 9 0 9s3-4 0-9z"/></g>
+          <g transform="translate(266,-150)"><path class="drop" style="animation-delay:.65s" d="M0 0c-3 5-3 9 0 9s3-4 0-9z"/></g>
+          <g transform="translate(300,-176)"><path class="drop" style="animation-delay:.1s"  d="M0 0c-3 5-3 9 0 9s3-4 0-9z"/></g>
+          <g transform="translate(338,-150)"><path class="drop" style="animation-delay:.8s"  d="M0 0c-3 5-3 9 0 9s3-4 0-9z"/></g>
+          <g transform="translate(372,-178)"><path class="drop" style="animation-delay:1.25s"d="M0 0c-3 5-3 9 0 9s3-4 0-9z"/></g>
+          <g transform="translate(410,-176)"><path class="drop" style="animation-delay:.45s" d="M0 0c-3 5-3 9 0 9s3-4 0-9z"/></g>
+          <g transform="translate(66,-176)"><path class="drop" style="animation-delay:1.35s" d="M0 0c-3 5-3 9 0 9s3-4 0-9z"/></g>
+          <g transform="translate(212,-146)"><path class="drop" style="animation-delay:.25s" d="M0 0c-3 5-3 9 0 9s3-4 0-9z"/></g>
+          <g transform="translate(286,-120)"><path class="drop" style="animation-delay:1s"   d="M0 0c-3 5-3 9 0 9s3-4 0-9z"/></g>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+  <!-- ============ RIGHT COLUMN ============ -->
+  <div class="col">
+    <div class="panel">
+      <h2>Units</h2>
+      <div class="unit">
+        <svg width="44" height="54" viewBox="-17 -34 34 48"><rect x="-5" y="-8" width="10" height="17" rx="4" fill="#8a6a45"/><circle cx="0" cy="-13" r="6" fill="#d9a878"/><path d="M-6-16c2-4 10-4 12 0z" fill="#4a3524"/><rect x="9" y="-26" width="2.6" height="35" rx="1.3" fill="#7d5733"/><polygon points="10.3,-32 14,-24 7,-24" fill="#c9ccc9"/></svg>
+        <div>
+          <div class="nm">Hunter</div>
+          <div class="stats">
+            <span><svg width="16" height="16" viewBox="0 0 24 24" fill="#c8383c"><path d="M12 21S3 14.6 3 8.9A5 5 0 0 1 12 6a5 5 0 0 1 9 2.9C21 14.6 12 21 12 21z"/></svg>2</span>
+            <span><svg width="16" height="16" viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16z" fill="#c9ccc9" stroke="#8f9394" stroke-width="1.1"/><path d="M4 20l1-4 3 3z" fill="#8a5c33"/></svg>2</span>
+          </div>
+          <div class="doing">Hunting</div>
+        </div>
+      </div>
+      <div class="unit">
+        <svg width="44" height="54" viewBox="-17 -34 34 48"><rect x="-5" y="-8" width="10" height="17" rx="4" fill="#8a6a45"/><circle cx="0" cy="-13" r="6" fill="#d9a878"/><path d="M-7-15c1-5 11-5 13 0 -2-2-11-2-13 0z" fill="#3f2d1e"/><path d="M-6-15c-2 3-2 7 0 9" stroke="#3f2d1e" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M-14 2h11l-1.4 8h-8.2z" fill="#a9773f" stroke="#7d5733" stroke-width="1.2"/><circle cx="-11" cy="1" r="1.8" fill="#4d9c56"/><circle cx="-7" cy="1" r="1.8" fill="#3f8b4a"/></svg>
+        <div>
+          <div class="nm">Gatherer</div>
+          <div class="stats">
+            <span><svg width="16" height="16" viewBox="0 0 24 24" fill="#c8383c"><path d="M12 21S3 14.6 3 8.9A5 5 0 0 1 12 6a5 5 0 0 1 9 2.9C21 14.6 12 21 12 21z"/></svg>1</span>
+            <span><svg width="16" height="16" viewBox="0 0 24 24"><rect x="10" y="8" width="3" height="13" rx="1.4" fill="#8a5c33" transform="rotate(-20 11 14)"/><path d="M6 5l10 2-1 4-9-2z" fill="#b6babb" stroke="#8f9394" stroke-width="1"/></svg>1</span>
+          </div>
+          <div class="doing">Gathering Berries</div>
+        </div>
+      </div>
+      <div class="unit">
+        <svg width="44" height="54" viewBox="-17 -34 34 48"><rect x="-5" y="-8" width="10" height="17" rx="4" fill="#96774f"/><circle cx="0" cy="-13" r="6" fill="#d9a878"/><path d="M-6-16c2-4 10-4 12 0z" fill="#5a4128"/><rect x="8" y="-24" width="2.4" height="33" rx="1.2" fill="#8a5c33"/><polygon points="9.2,-29 12.5,-22 6,-22" fill="#b6babb"/></svg>
+        <div>
+          <div class="nm">Scout</div>
+          <div class="stats">
+            <span><svg width="16" height="16" viewBox="0 0 24 24" fill="#c8383c"><path d="M12 21S3 14.6 3 8.9A5 5 0 0 1 12 6a5 5 0 0 1 9 2.9C21 14.6 12 21 12 21z"/></svg>1</span>
+            <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3a2f21" stroke-width="1.7"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6" fill="#3a2f21"/></svg>3</span>
+          </div>
+          <div class="doing">Exploring</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="locked">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#8a785c" stroke-width="1.8"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
+        Unlocks at<br>Population 12
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:auto">
+      <h2>Effects</h2>
+      <div class="fx">
+        <svg width="34" height="34" viewBox="0 0 40 40"><ellipse cx="15" cy="16" rx="9" ry="7" fill="#f2f2f0"/><ellipse cx="25" cy="17" rx="8" ry="6" fill="#e3e3e0"/><path d="M13 26l-1.5 4M20 26l-1.5 4M27 26l-1.5 4" stroke="#5fa8db" stroke-width="2.4" stroke-linecap="round"/></svg>
+        <div><div class="nm">Rain Season</div><div class="sub">+1 Water in Valley</div></div>
+        <div class="turns"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6b5c45" stroke-width="1.9"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>3</div>
+      </div>
+      <div class="fx" style="border-top:1px solid rgba(216,201,168,.7)">
+        <svg width="34" height="34" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="#8dc26f"/><circle cx="9" cy="10" r="1.5" fill="#3d5c30"/><circle cx="15" cy="10" r="1.5" fill="#3d5c30"/><path d="M8.2 14.4c2.2 2.2 5.4 2.2 7.6 0" stroke="#3d5c30" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>
+        <div><div class="nm">Community Spirit</div><div class="sub">+1 Morale</div></div>
+        <div class="turns"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6b5c45" stroke-width="1.9"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>5</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

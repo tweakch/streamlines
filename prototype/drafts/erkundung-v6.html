@@ -1,0 +1,2455 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>STROMLINIEN · Erkundung v6 — der Abend stellt her, was der Morgen spielt</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<link rel="stylesheet" href="../kit/sot-hex.css">
+<style>
+/* Nur was dieser Prototyp allein braucht. Kommt zuletzt, gewinnt darum. */
+.wrap{max-width:1100px;padding-bottom:calc(176px + env(safe-area-inset-bottom));}
+
+/* Spielraum: Brett links, HUD-Seite rechts. Die Seite ist der Ort, an dem
+   Feldangaben erscheinen — das Brett darf sich dabei NICHT verschieben. */
+.spielraum{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start;}
+.seite{display:flex;flex-direction:column;gap:10px;position:sticky;top:10px;min-width:0;}
+/* min-width:0 ist hier keine Kosmetik: ein Grid-Element ist von Haus aus
+   min-width:auto, also mindestens so breit wie sein Inhalt. Die .hexrow-Kinder
+   sind flex:none — ohne das hier dehnt die Spalte sich auf die Feldbreite aus,
+   autosize MISST diese gedehnte Breite und lässt die Felder groß: die Karte
+   wuchs auf dem Telefon über den Rand hinaus, statt zu schrumpfen. */
+.brett{min-width:0;}
+.map{max-width:100%;}
+
+/* ---- Die Buehne (ab 901px): die Karte fuehlt sich endlos an. ----
+   Die Panes SCHWEBEN darueber: .wrap laesst Zeiger durch (pointer-events),
+   nur die Panes selbst fangen ihn. Die leere .brett-Spalte bleibt als
+   Mess-Ziel: ihr Rechteck IST "zwischen den Panes" fuers Zentrieren. */
+.buehne{display:none;}
+@media (min-width:901px){
+  .buehne{display:block;position:fixed;inset:0;overflow:hidden;z-index:0;
+          touch-action:none;cursor:grab;}
+  .buehne.zieht{cursor:grabbing;}
+  .welt{position:absolute;left:0;top:0;transform-origin:0 0;}
+  .weltgrund{position:absolute;pointer-events:none;}
+  .buehne .map{position:relative;max-width:none;width:820px;}
+  .buehne .leg{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);
+               pointer-events:none;z-index:1;background:color-mix(in srgb,var(--bg) 78%,transparent);
+               padding:3px 10px;border-radius:8px;}
+  .mittebtn{position:absolute;right:372px;bottom:16px;z-index:2;width:34px;height:34px;
+            padding:0;display:flex;align-items:center;justify-content:center;border-radius:50%;}
+  .mittebtn svg{width:17px;height:17px;}
+  /* Panes schweben: der Umschlag ist durchlaessig, die Flaechen fangen.
+     ACHTUNG: pointer-events ERBT — die Buehne ist Kind von .wrap(#game)
+     und muss sich explizit zurueckholen, sonst ist die ganze Karte
+     untreffbar (kein Klick, kein Rad, kein Zug — gefunden per
+     elementsFromPoint: nur BODY/HTML). */
+  .wrap{position:relative;z-index:1;pointer-events:none;}
+  .buehne{pointer-events:auto;}
+  .wrap header,.wrap #obenfluss{pointer-events:auto;}
+  .spielraum{pointer-events:none;}
+  .links,.seite{pointer-events:auto;}
+  .brett{pointer-events:none;}
+}
+@media (max-width:900px){
+  .spielraum{grid-template-columns:1fr;}
+  .seite{display:none;}
+}
+/* Ab 1280px teilt sich die Seite: LINKS LIEST (Uhr, Werte, Inspektor),
+   RECHTS GREIFT (Menschen, Karten, Wahlen, Commit). Der Entscheider ist
+   die Berührung: was man nur liest, steht links; was man antippt, rechts.
+   Das Brett dazwischen bekommt die Breite, die vorher Totraum war. */
+.links{display:none;}
+@media (min-width:1280px){
+  .wrap{max-width:1760px;}
+  .spielraum{grid-template-columns:300px minmax(0,1fr) 340px;}
+  .links{display:flex;flex-direction:column;gap:10px;position:sticky;top:10px;
+         min-width:0;max-height:calc(100dvh - 20px);overflow-y:auto;overscroll-behavior:contain;}
+  .links > *{flex:none;}
+}
+#obenfluss .phasenpane{margin-bottom:10px;}
+/* Ab 901px trägt die Seite den Spieler. Die Hand verliert ihren festen
+   Boden (sie ist Übergangsmieter — der Kernloop schafft Hand und
+   Phasenknopf ab, Kartenpunkt und Nachtpunkt übernehmen). */
+@media (min-width:901px){
+  .wrap{padding-bottom:30px;}
+  .seite{max-height:calc(100dvh - 20px);overflow-y:auto;overscroll-behavior:contain;}
+  /* Die Seite ist eine Flex-Spalte MIT Hoehenschranke: ohne das hier
+     schrumpfen die Kinder (flex-shrink:1 ist Vorgabe), statt zu scrollen —
+     die Verarbeitungsliste des Abends wurde unten abgeschnitten. */
+  .seite > *{flex:none;}
+  .seite .handwrap{position:static;border-top:0;background:transparent;z-index:auto;padding-bottom:0;}
+  /* 76px, damit VIER Karten in eine Zeile passen (4·76 + 3·8 = 328 < 340):
+     die Hand darf ihre Höhe nicht ändern, wenn eine Karte dazukommt. */
+  .seite .hand{--cardw:76px;max-width:none;margin:0;padding:0;flex-wrap:wrap;align-items:flex-start;
+               min-height:118px;align-content:flex-start;}
+  /* Der Hinweis bekommt IMMER seine eigene Zeile, statt mal neben und mal
+     unter den Karten zu stehen. */
+  .seite .hand .handhint{flex-basis:100%;max-width:none;text-align:center;align-self:auto;}
+  .seite .actionrow{max-width:none;margin:0;padding:0;min-height:30px;align-items:flex-start;}
+  /* „Zurücklegen" erscheint und verschwindet — es darf dabei nichts
+     verschieben. Also unsichtbar statt weg. */
+  .seite .actionrow #btnSwap.hid{display:inline-flex!important;visibility:hidden;}
+  .seite > #btnPhase{width:100%;}
+  .seite .peoplebar{margin-bottom:0;}
+  /* Der feste Block oben (Uhr, Werte, Sesshaftigkeit, Menschen) ändert nie
+     seine Höhe; alles Wachsende steht darunter. */
+  .seite > .uhr{padding-bottom:2px;}
+}
+
+/* ---- Die Uhr: Tageszeit · Jahr · Runden, ein Instrument ----
+   Sie steht zuoberst in der Seite (Telefon: über dem Brett) und hält ihre
+   Höhe unter allen Umständen — sie ist der Anker, an dem das Auge zuerst
+   landet. */
+.uhr{display:flex;flex-direction:column;gap:8px;}
+.phasenreihe{display:flex;gap:4px;}
+.ph{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px 5px;
+    border:1px solid var(--line);border-radius:7px;background:var(--panel2);
+    transition:border-color .3s,background .3s,color .3s;color:var(--ink2);}
+.ph svg{width:17px;height:17px;display:block;}
+.ph span{font-family:var(--f-mono);font-size:8px;letter-spacing:.09em;text-transform:uppercase;}
+.ph.vorbei{color:var(--ink2);opacity:.5;}
+.ph.jetzt{color:var(--zeit);border-color:var(--zeit);background:var(--panel);
+          box-shadow:0 0 9px var(--zeitglow);}
+.ph.jetzt span{font-weight:700;}
+/* Zahlenlose Zeitleiste: ein Balken aus Runden. Die Ziffer sagte nichts,
+   was der Balken nicht zeigt — die Ankermarke dagegen schon. */
+.uhr .timeline{margin:0;gap:3px;}
+.uhr .tl-seg{height:7px;border-radius:2px;cursor:default;font-size:0;}
+.uhr .tl-seg:hover{border-color:var(--line);}
+.uhr .tl-seg.now{outline-width:1.5px;outline-offset:1px;}
+.uhr .tl-seg.anchor::after{top:-8px;font-size:7px;}
+
+/* ---- Die Werte: vier Kacheln + Sesshaftigkeit, ein Rahmen, feste Höhe.
+   Jede Kachel: Zeichen · Zahl · Name · Marken-Zeile. Die Marken-Zeile ist
+   IMMER da (leer = &nbsp;) — ein Effekt hat seinen Platz, bevor er
+   existiert, und nichts wächst, wenn er kommt. */
+.werte{display:flex;flex-direction:column;gap:2px;}
+.werte .res{gap:5px;}
+/* Kompakt: Zeichen und Zahl NEBENEINANDER, der Name fällt weg (das Zeichen
+   trägt die Identität, der Titel bleibt als Tooltip). Die .pv-Spanne ist
+   der reservierte Vorschau-Platz, die Marken-Zeile bleibt darunter. */
+.werte .stat{background:transparent;border:0;box-shadow:none;padding:2px;
+             display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;}
+.werte .stat .wicon{width:15px;height:15px;color:var(--ink2);flex:none;}
+.werte .stat .wicon svg{width:100%;height:100%;display:block;}
+.werte .stat b{font-size:17px;}
+.werte .stat .pv{font-family:var(--f-mono);font-size:9.5px;font-weight:700;min-width:14px;text-align:left;}
+.werte .stat .delta{min-height:12px;flex-basis:100%;}
+.werte .prog{margin:3px 0 0;}
+.pv.pos{color:var(--good);} .pv.neg{color:var(--bad);}
+
+/* Personen-Wertekarten: Kopf (Zeichen · Name · Ort) + vier Mini-Werte.
+   Feste Höhe — die .pv-Spannen sind die Vorschau-Plätze. */
+/* Mit vier Mini-Werten ist die Personenkarte zu dicht für zwei nebeneinander
+   — eine je Zeile, volle Breite. */
+/* .wrap davor: die Basisregel (.peoplebar, align-items:center) steht im
+   Quelltext SPÄTER und gewänne sonst bei gleicher Spezifität. */
+.wrap .peoplebar{flex-direction:column;align-items:stretch;gap:6px;}
+.wrap .pbtn{flex-direction:column;align-items:stretch;gap:5px;flex:none;}
+.pbtn .pkopf{display:flex;align-items:center;gap:8px;}
+.pbtn .pwerte{display:flex;gap:4px;}
+.pbtn .pw{flex:1;display:flex;align-items:center;justify-content:center;gap:3px;
+          font-family:var(--f-mono);font-size:10.5px;padding:2px 0;border-radius:5px;
+          background:var(--panel2);}
+.pbtn .pw svg{width:11px;height:11px;color:var(--ink2);flex:none;}
+.pbtn .pw b{font-weight:700;}
+.pbtn .pw .pv{font-size:8.5px;font-weight:700;min-width:10px;}
+
+/* Skelett: leer heisst nicht weg. Gepunktete Kontur, stiller Platzhalter. */
+.skelett{border:1.5px dashed var(--line);border-radius:8px;background:transparent;
+         display:flex;align-items:center;justify-content:center;
+         font-family:var(--f-mono);font-size:9.5px;color:var(--ink2);
+         letter-spacing:.06em;text-align:center;}
+.tslot{width:var(--cardw);aspect-ratio:1 / 1.1547;flex:none;position:relative;}  /* 2/√3 — wie die Feld-Hexes */
+.tslot .skelett{position:absolute;inset:4px;
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+  border:0;background:
+    repeating-linear-gradient(45deg,transparent 0 4px,color-mix(in srgb,var(--line) 55%,transparent) 4px 5px);}
+.ti .skelett{min-height:72px;}
+
+/* Die Phasenfläche ist IMMER da und hält ihre Höhe — so springt das Brett
+   nicht, wenn der Inhalt wechselt. Das war die Rüge an v1. */
+.phasenpane{min-height:132px;}
+.phasenpane h4{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+               color:var(--ink2);margin:0 0 6px;font-weight:400;}
+.phasenpane .ptitel{font-family:var(--f-disp);font-weight:800;font-size:15px;margin-bottom:2px;}
+.phasenpane p{font-size:11.5px;line-height:1.45;color:var(--ink2);margin:0 0 8px;}
+.wahl{display:flex;flex-direction:column;gap:5px;}
+.wahl button{text-align:left;font-size:11.5px;padding:7px 10px;}
+.wahl button small{display:block;font-weight:400;font-family:var(--f-mono);font-size:9.5px;color:var(--ink2);margin-top:2px;}
+.wahl button.on small{color:var(--on-ember);}
+
+/* Erntebuch: was die Bewegung des Tages eingebracht hat, Zeile für Zeile.
+   Der Lohn muss zählbar sein, sonst fühlt sich Laufen nach nichts an. */
+.buch{margin:0;font-size:11.5px;}
+.buch .z{display:flex;gap:8px;align-items:baseline;padding:3px 0;border-bottom:1px dashed var(--line);}
+.buch .z:last-child{border-bottom:0;}
+.buch .q{flex:1;line-height:1.35;}
+.buch .q small{display:block;color:var(--ink2);font-size:9.5px;font-family:var(--f-mono);}
+.buch .w{font-family:var(--f-mono);font-weight:700;white-space:nowrap;color:var(--good);}
+.buch .w.leer{color:var(--ink2);font-weight:400;}
+.buch .summe{display:flex;gap:8px;margin-top:7px;padding-top:7px;border-top:1px solid var(--line);
+             font-family:var(--f-mono);font-size:12px;font-weight:700;}
+
+/* Menschen-Leiste */
+.peoplebar{display:flex;gap:6px;margin-bottom:10px;align-items:center;}
+.pbtn{flex:1;display:flex;align-items:center;gap:8px;background:var(--panel);border:1.5px solid var(--line);
+      border-radius:8px;padding:7px 10px;cursor:pointer;transition:border-color .2s;user-select:none;}
+.pbtn.sel{border-color:var(--ember);box-shadow:0 0 10px var(--emberglow);}
+.pbtn.leer{opacity:.45;}
+/* Die Menschenmarke traegt das Rollenbild als SVG (Korb / Speer), kein
+   Schriftzeichen. padding, damit die Zeichnung in der Scheibe atmet. */
+.pbtn .pico svg{width:100%;height:100%;display:block;}
+.pbtn .pico{width:24px;height:24px;border-radius:50%;background:var(--ember);color:var(--on-ember);
+            padding:4px;
+            display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
+.pbtn .ptxt{line-height:1.15;min-width:0;}
+.pbtn .ptxt b{font-size:11.5px;display:block;}
+.pbtn .ptxt span{font-size:9px;color:var(--ink2);font-family:var(--f-mono);}
+
+/* Feld-Inspektor — derselbe Inhalt, zwei Behälter: Seitenfläche (Desktop)
+   und Blatt von unten (Telefon). Keiner von beiden schiebt das Brett. */
+.ti .ti-head{display:flex;align-items:baseline;gap:8px;}
+.ti .ti-head b{font-family:var(--f-disp);font-size:14px;font-weight:800;}
+.ti .ti-loc{font-family:var(--f-mono);font-size:10px;color:var(--ink2);margin-left:auto;white-space:nowrap;}
+.ti .ti-desc{font-size:11.5px;color:var(--ink2);margin:3px 0 0;line-height:1.45;}
+.ti .ti-sec{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);}
+.ti .ti-lbl{font-family:var(--f-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+            color:var(--ink2);display:block;margin-bottom:3px;}
+.ti .ti-row{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;}
+.ti .ti-row .tglyph{width:22px;height:22px;color:var(--ink);flex-shrink:0;}
+.ti .ti-row .tglyph svg{width:100%;height:100%;}
+.ti ul{margin:4px 0 0;padding-left:16px;font-size:11.5px;}
+.ti li{margin-bottom:2px;}
+.ti .ti-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.ti .ti-actions button{font-size:10.5px;padding:6px 10px;}
+.ti .lohn{color:var(--good);font-weight:600;}
+
+/* ---- Gewässer als Band im Feld (aus gewaesser-labor-v1) ----
+   Ein Flussfeld ist LAND mit einem Wasserband hindurch — keine gefärbte
+   Wasserfläche mehr. Die Klassenfarben sind aus den Wasser-Tokens gemischt,
+   damit Tag/Nacht/Werkbank mitgehen: eine Stufe je Klasse, die Ordnung
+   eines Laufs liest man an Farbe UND Breite. */
+body{
+  --w-bach:color-mix(in srgb,var(--river) 62%,var(--bg));
+  --w-kfluss:var(--river);
+  --w-gfluss:var(--riverdeep);
+  --w-saum:color-mix(in srgb,var(--kies) 72%,var(--bg));
+}
+/* Das Band liegt als normales Kind ZWISCHEN Fläche (::after) und Glyph —
+   dieselbe Schicht wie .lay im Baukasten. inset:0, damit die Kantenmitten
+   zweier Nachbarfelder im selben Weltpunkt liegen und der Lauf stetig bleibt. */
+.cell .band{position:absolute;inset:0;z-index:1;pointer-events:none;
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);}
+.cell .band svg{width:100%;height:100%;display:block;}
+/* Aue / Schotterflur: wo der Fluss sich verzweigt, liegt Kies im Grünen. */
+.cell.aue{--fill:color-mix(in srgb,var(--kies) 42%,var(--flach));}
+.cell.aue::after{background-image:radial-gradient(circle at 30% 40%,color-mix(in srgb,var(--ink2) 26%,transparent) 0 1px,transparent 1.5px),
+                                  radial-gradient(circle at 70% 70%,color-mix(in srgb,var(--ink2) 20%,transparent) 0 1px,transparent 1.5px);
+                 background-size:9px 9px,7px 7px;}
+
+/* Berg muss sich vom Hang unterscheiden — er ist die Wand, nicht der Weg. */
+.cell.berg{--fill:color-mix(in srgb, var(--hang) 70%, var(--ink) 30%);}
+.cell.berg::after{background-image:repeating-linear-gradient(115deg,transparent 0 3px,color-mix(in srgb, var(--ink) 26%, transparent) 3px 6px);}
+/* Der Hang trägt jetzt Bedeutung (Sicht, Vorkommen, Jagd) — er darf sich
+   deutlicher vom Talboden abheben als in v1. */
+.cell.hang{--fill:color-mix(in srgb, var(--hang) 88%, var(--bone) 12%);--edge:color-mix(in srgb, var(--line) 55%, var(--ink) 45%);}
+
+/* Zustand schlägt Gelände. Die Falle, in die dieser Prototyp gelaufen ist:
+   „eigenes CSS zuletzt und gewinnt" gilt auch gegen den Baukasten — die
+   Zeile .cell.hang{--edge:…} oben hat .cell.valid{--edge:var(--ember)} aus
+   sot-hex.css überstimmt (gleiche Spezifität, später notiert). Ergebnis: ein
+   baubarer Hang leuchtete NICHT, also fehlte die Einladung genau auf dem
+   Gelände, das diese Fassung wichtig macht. Ein Klassenschritt mehr (.map)
+   stellt die Reihenfolge wieder her: Zustand > Gelände. */
+.map .cell.valid{--edge:var(--ember);}
+.map .cell.dropziel{--edge:var(--good);}
+.map .cell.inspect,.map .cell.sel{--edge:var(--ink);}
+body.night .map .cell.inspect{--edge:var(--bone);}
+
+/* Marken: Spur ruft, Wild zieht, Vorkommen liegt.
+   ACHTUNG — bewusster Eingriff in die Detailstufen des Baukastens:
+   sot-hex.css dünnt bei kleinen Feldern .wange und .ferse aus. Dort steckt
+   hier aber PRIMÄRE Spielinformation (Vorkommen, Wild), nicht Zierrat — auf
+   dem Telefon verschwände genau das, wofür man den Hang hochsteigt. Befund
+   für den Baukasten: die Detailstufen sollten Zierrat dünnen, nicht Zustand. */
+.map[data-lod="s"] .slot.ferse,.map[data-lod="m"] .slot.ferse,
+.map[data-lod="s"] .slot.wange{display:flex;}
+.slot.fuss .spur{animation:spurpuls 2.6s ease infinite;}
+@keyframes spurpuls{0%,100%{opacity:.5}50%{opacity:1}}
+.slot.ferse .wildmk{width:1.5em;height:1.5em;color:var(--ember);}
+.slot.ferse .wildmk svg{width:100%;height:100%;display:block;}
+/* Das Vorkommen ist der Lohn der Höhe — es muss von weitem zu sehen sein,
+   sonst steigt niemand hoch. Darum Scheibe statt nur Zeichen. */
+.slot.wange .vork svg{width:100%;height:100%;display:block;}
+.slot.wange .vork{padding:.22em;line-height:1;
+                  color:var(--on-ember);background:var(--good);border-radius:50%;
+                  width:1.7em;height:1.7em;display:flex;align-items:center;justify-content:center;
+                  box-shadow:0 0 0 1.5px var(--bg),0 1px 3px rgba(0,0,0,.3);}
+/* Sichtkegel-Vorschau: was dieser Aufstieg aufdecken WÜRDE. Die Einladung
+   muss vor dem Schritt sichtbar sein, nicht erst danach. */
+.cell.spaeh{--edge:var(--good);}
+.cell.spaeh::after{box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--good) 55%, transparent);}
+
+/* Die Tageszeit färbt das Licht — ein Wasch über allem, ohne Token zu brechen. */
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:2;opacity:0;
+            transition:opacity 1.2s ease;background:radial-gradient(120% 80% at 50% 100%,
+            color-mix(in srgb, var(--ember) 70%, transparent) 0%, transparent 70%);}
+body.daemmer::after{opacity:.16;}
+body.abendlicht::after{opacity:.26;}
+
+/* Hand (fest unten) */
+.handwrap{position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:1px solid var(--line);
+          transition:background 1.4s ease;z-index:30;padding-bottom:env(safe-area-inset-bottom);}
+.hand{--cardw:92px;max-width:1100px;margin:0 auto;padding:8px 10px;display:flex;gap:8px;align-items:flex-end;}
+@media (max-width:420px){.hand{--cardw:76px;gap:6px;}}
+
+/* Die Handkarte ist ein SECHSECK — dieselbe Silhouette wie das Feld, auf das
+   sie kommt. Damit sagt die Form, was die Karte tut: Sechseck = kommt aufs
+   Brett, Rechteck-Karte = wirkt sofort (Dämmerung), Knopf = bloße Wahl.
+   Zwei Schichten wie bei .cell: ::before ist der Rand, ::after die Fläche —
+   ein border würde vom clip-path abgeschnitten. */
+.tcard{position:relative;flex:none;width:var(--cardw);aspect-ratio:1 / 1.1547;  /* 2/√3 — wie die Feld-Hexes */
+       background:none;border:0;padding:0;user-select:none;cursor:grab;touch-action:none;
+       --cedge:var(--line);--cfill:var(--bone);
+       transition:transform .16s ease,filter .16s ease;}
+.tcard::before,.tcard::after{content:'';position:absolute;
+       clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);}
+.tcard::before{inset:0;background:var(--cedge);transition:background .18s;}
+.tcard::after{inset:2px;background:var(--cfill);}
+.tcard .tinner{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;
+       align-items:center;justify-content:center;gap:1px;padding:0 11%;text-align:center;}
+.tcard .tglyph{width:34%;height:auto;aspect-ratio:1;color:var(--ink);}
+.tcard .tglyph svg{width:100%;height:100%;display:block;}
+.tcard .nm{font-size:9.5px;font-weight:700;line-height:1.1;margin-top:2px;}
+.tcard .fx{font-size:8px;color:var(--ink2);font-family:var(--f-mono);line-height:1.15;
+       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.tcard.sel{--cedge:var(--ember);transform:translateY(-9px);filter:drop-shadow(0 7px 11px var(--emberglow));}
+.tcard.tot{opacity:.45;}
+.tcard.zieht{opacity:.3;}        /* das Original bleibt blass liegen, während der Schatten wandert */
+
+/* Der Schatten am Finger. pointer-events:none, sonst findet elementFromPoint
+   ihn selbst statt des Feldes darunter. */
+.dragghost{position:fixed;z-index:70;pointer-events:none;width:var(--gw,92px);aspect-ratio:1 / 1.1547;
+           transform:translate(-50%,-50%) scale(1.06);
+           filter:drop-shadow(0 8px 14px rgba(0,0,0,.35));opacity:.95;}
+.dragghost::before,.dragghost::after{content:'';position:absolute;
+           clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);}
+.dragghost::before{inset:0;background:var(--ember);}
+.dragghost::after{inset:2px;background:var(--bone);}
+.dragghost .tinner{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;
+           align-items:center;justify-content:center;padding:0 11%;text-align:center;}
+.dragghost .tglyph{width:34%;aspect-ratio:1;color:var(--ink);}
+.dragghost .tglyph svg{width:100%;height:100%;display:block;}
+.dragghost .nm{font-size:9.5px;font-weight:700;line-height:1.1;margin-top:2px;}
+body.zieht{cursor:grabbing;}
+body.zieht .cell.valid{--edge:var(--ember);}
+.cell.dropziel{--edge:var(--good);filter:drop-shadow(0 0 10px var(--good));}
+.hand .handhint{align-self:center;font-family:var(--f-mono);font-size:9px;color:var(--ink2);
+                line-height:1.4;max-width:130px;}
+
+/* Effektkarten der Dämmerung: sie kommen NICHT aufs Brett, darum kein
+   Sechseck — rechteckige Karte mit Art, Wirkung und Preis. */
+.effkarten{display:flex;gap:6px;margin:2px 0 8px;}
+.effkarte{flex:1;min-width:0;max-width:150px;background:var(--bone);border:1.5px solid var(--line);border-radius:9px;
+          padding:7px 7px 8px;text-align:left;cursor:pointer;font-family:var(--f-ui);
+          display:flex;flex-direction:column;gap:3px;aspect-ratio:5 / 7;
+          transition:border-color .15s,transform .15s;}
+.effkarte:hover:not(:disabled){border-color:var(--ember);transform:translateY(-2px);}
+.effkarte .art{font-family:var(--f-mono);font-size:7px;letter-spacing:.12em;text-transform:uppercase;color:var(--ember);}
+.effkarte .knm{font-family:var(--f-disp);font-weight:800;font-size:11.5px;line-height:1.08;color:var(--ink);}
+.effkarte .kfx{font-size:9.5px;color:var(--ink2);line-height:1.28;}
+.effkarte .ksperre{font-size:9px;color:var(--bad);line-height:1.25;}
+.effkarte .kkost{margin-top:auto;padding-top:4px;font-family:var(--f-mono);font-size:9px;color:var(--ink);}
+.effkarte:disabled{opacity:.42;cursor:default;}
+.effkarte.gespielt{border-color:var(--ember);background:var(--panel2);opacity:1;}
+
+/* Rechteckkarte in der Hand: gleiche Höhe wie ein Sechseck-Platz (cardw·2/√3),
+  damit die Reihe ruhig bleibt — 5:7 hochkant, die Breite folgt aus der Höhe.
+  .ruht = andere Tageszeit, liegt gedämpft. */
+.hkarte{width:calc(var(--cardw) * 1.1547 * 5 / 7);aspect-ratio:5 / 7;flex:none;
+  background:var(--bone);border:1.5px solid var(--line);border-radius:9px;
+  padding:5px 6px;text-align:left;cursor:pointer;font-family:var(--f-ui);
+  display:flex;flex-direction:column;gap:2px;transition:border-color .15s,transform .15s,opacity .3s;}
+.hkarte:hover:not(.ruht){border-color:var(--ember);transform:translateY(-2px);}
+.hkarte .art{font-family:var(--f-mono);font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ember);}
+.hkarte .kico{width:20px;height:20px;color:var(--ink);margin:1px 0;}
+.hkarte .kico svg{width:100%;height:100%;display:block;}
+.hkarte .knm{font-family:var(--f-disp);font-weight:800;font-size:11px;line-height:1.05;color:var(--ink);}
+.hkarte .kfx{font-size:8px;color:var(--ink2);line-height:1.25;}
+.hkarte.ruht{opacity:.45;cursor:default;}
+.hkarte.vorgemerkt{border-color:var(--ember);box-shadow:0 0 9px var(--emberglow);}
+.hkarte.vorgemerkt .art{color:var(--ember);}
+
+/* Karten-Akzente: der TYP einer Karte steht an ihrer Oberkante und im
+   Zeichen der Art-Zeile — Morgen warm (ember), Abend kühl (river). */
+/* Feste Töne aus dem Kit (sot.css, Tageszeiten): --z-morgen / --z-abend. */
+.effkarte,.hkarte{border-top:3px solid var(--kakzent,var(--line));}
+.k-morgen{--kakzent:var(--z-morgen);}
+.k-abend{--kakzent:var(--z-abend);}
+.effkarte .art svg,.hkarte .art svg{width:9px;height:9px;vertical-align:-1.5px;}
+.k-abend .art{color:var(--z-abend);}
+
+/* Werkbank: die herstellbaren Dinge als Karten, zwei je Zeile. */
+.werkbank{display:grid;grid-template-columns:repeat(2,minmax(0,150px));gap:6px;margin-top:4px;}
+.werkbank .effkarte{min-height:74px;}
+
+/* Zeichen im Personen-Wert (Schuhwerk an der Ausdauer) */
+.pbtn .pw b svg{width:10px;height:10px;vertical-align:-1px;color:var(--ink2);}
+.effkarte.vorgemerkt{border-color:var(--ember);box-shadow:0 0 9px var(--emberglow);}
+.effkarte.vorgemerkt .art{color:var(--ember);}
+.wahl button.vorgemerkt{border-color:var(--ember);box-shadow:0 0 8px var(--emberglow);}
+.effkarte.gespielt .art{color:var(--good);}
+.actionrow{max-width:1100px;margin:0 auto;display:flex;gap:8px;padding:0 10px 10px;align-items:center;}
+.actionrow button.primary{flex:1;}
+.actionrow .hint{flex:1;}
+
+/* Nachtkarte (Drehkarte) */
+.ncard{width:100%;max-width:340px;aspect-ratio:5 / 7;perspective:1000px;}
+.ncard-inner{position:relative;height:100%;transform-style:preserve-3d;transition:transform 1.1s cubic-bezier(.3,0,.2,1);border-radius:14px;}
+.ncard.flip .ncard-inner{transform:rotateY(180deg);}
+.nface{backface-visibility:hidden;border-radius:14px;padding:26px 22px;min-height:300px;
+       display:flex;flex-direction:column;justify-content:center;text-align:center;}
+.nback{background:var(--panel2);border:1px solid var(--line);color:var(--ink2);position:absolute;inset:0;}
+.nback .moon{font-size:40px;margin-bottom:12px;animation:breathe 3s ease infinite;}
+@keyframes breathe{0%,100%{opacity:.5}50%{opacity:1}}
+.nfront{background:var(--panel);border:1px solid var(--line);color:var(--ink);transform:rotateY(180deg);position:relative;}
+.nfront.anchor{border:2px solid var(--ember);box-shadow:0 0 34px var(--emberglow);}
+.nfront .tag{font-family:var(--f-mono);font-size:10px;letter-spacing:.16em;color:var(--ember);margin-bottom:10px;text-transform:uppercase;}
+.nfront h2{font-family:var(--f-disp);font-size:23px;font-weight:800;margin:0 0 12px;line-height:1.15;}
+.nfront p{font-size:13.5px;line-height:1.55;color:var(--ink2);margin:0 0 8px;}
+.nfront .result{margin-top:14px;font-family:var(--f-mono);font-size:13px;font-weight:700;}
+.result.good{color:var(--good);} .result.bad{color:var(--bad);}
+.nfront button{margin-top:18px;}
+.nightmsg{position:fixed;top:22%;left:0;right:0;text-align:center;font-family:var(--f-disp);font-weight:700;
+          font-size:16px;letter-spacing:.18em;color:var(--ink2);opacity:0;transition:opacity 1s;z-index:51;
+          pointer-events:none;text-transform:uppercase;}
+.nightmsg.show{opacity:1;}
+
+/* Vollbild (Intro / Zeremonie / Ende) */
+.full{position:fixed;inset:0;background:var(--bg);z-index:80;display:flex;align-items:flex-start;justify-content:center;
+      padding:max(22px,env(safe-area-inset-top)) 20px calc(30px + env(safe-area-inset-bottom));
+      transition:background 1.4s ease;overflow-y:auto;-webkit-overflow-scrolling:touch;height:100dvh;}
+.full-inner{max-width:440px;width:100%;margin:auto 0;}
+.full h1{font-family:var(--f-disp);font-weight:800;font-size:34px;line-height:1.02;margin:0 0 4px;}
+.full .sub{font-family:var(--f-mono);font-size:11px;letter-spacing:.18em;color:var(--ember);text-transform:uppercase;margin-bottom:18px;}
+.full p{font-size:14px;line-height:1.6;margin:0 0 12px;}
+.full p.dim{font-size:12.5px;}
+.rule{height:1px;background:var(--line);margin:16px 0;}
+.cnum{font-family:var(--f-mono);font-size:11px;letter-spacing:.2em;color:var(--ink2);margin-bottom:6px;}
+.choice{display:block;width:100%;text-align:left;margin-bottom:10px;padding:13px 14px;border-radius:10px;
+        background:var(--panel);border:1.5px solid var(--line);font-family:var(--f-ui);font-weight:600;font-size:13.5px;color:var(--ink);}
+.choice small{display:block;font-weight:400;font-size:11.5px;color:var(--ink2);margin-top:3px;font-family:var(--f-mono);}
+.choice:active{border-color:var(--ember);}
+.scorebox{display:flex;gap:10px;margin:14px 0;}
+.score{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center;}
+.score b{font-family:var(--f-mono);font-size:26px;display:block;}
+.score span{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);}
+.legend{font-size:10.5px;color:var(--ink2);line-height:1.5;margin-top:14px;}
+.fundnote{background:var(--panel);border-left:3px solid var(--ember);border-radius:0 8px 8px 0;padding:10px 12px;font-size:12px;line-height:1.5;margin:10px 0;}
+.fundnote b{font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;color:var(--ember);display:block;margin-bottom:3px;text-transform:uppercase;}
+</style>
+</head>
+<body>
+
+<!-- ============ INTRO ============ -->
+<div class="full" id="intro">
+  <div class="full-inner">
+    <div class="sub">Epoche I · 10 000 – 2 000 v. Chr.</div>
+    <h1>Das Tal,<br>bevor es Namen trug.</h1>
+    <p>Der Gletscher ist fort. Ein junger Fluss sucht seinen Weg zum großen See. Dein kleiner Stamm folgt ihm — und kennt vom Tal nur, was er begangen hat.</p>
+    <p><b>Vier Tageszeiten</b>, und jede stellt eine andere Frage:<br>
+      <b>Morgen</b> — was gibt das Land, was nimmst du mit?<br>
+      <b>Mittag</b> — wohin gehen die Menschen, was wird gebaut?<br>
+      <b>Abend</b> — was hat der Weg eingebracht, was machst du daraus?<br>
+      <b>Nacht</b> — was geschieht im Dunkeln?</p>
+    <p class="dim"><b>Warum man den Hang hochsteigt</b>: Von der Höhe reicht der Blick <b>doppelt so weit</b> (4 Felder statt 2) — ein Aufstieg deckt halbe Talabschnitte auf. Oben liegen die <b>Vorkommen</b> <i data-ico="silex" class="ibtn"></i> <i data-ico="ocker" class="ibtn"></i> <i data-ico="quarz" class="ibtn"></i> (Silex, Ocker, Bergkristall): nur wer dort steht, bringt sie am Abend heim, und <b>ohne Silex gibt es keine Werkzeuge</b>. Und von oben sieht der Jäger das <b>Wild</b> im Tal, bevor es ihn sieht.</p>
+    <p class="dim"><b>Das Wasser ist ein Band im Feld</b>: der junge Rhein fließt von Kantenmitte zu Kantenmitte <i>durch</i> das Feld — was daneben bleibt, ist Ufer, im selben Feld. Ein Flussfeld ist begehbar wie Land; nur wer <b>ans andere Ufer</b> will, zahlt das Wasser: den <b>Bach</b> watet man überall (−1), den <b>kleinen Fluss</b> an flachen Stellen (−2), den <b>jungen Rhein</b> quert ihr nur an den <b>Furten</b> — und die liegen dort, wo er sich in der Schotterflur verzweigt.</p>
+    <p class="dim"><b>Zwei Menschen</b>: Die <b>Sammlerin</b> <i data-ico="sammlerin" class="ibtn"></i> hat 1 Ausdauer, der <b>Jäger</b> <i data-ico="jaeger" class="ibtn"></i> hat 2. Flachland kostet 1 Schritt, der Aufstieg auf einen Hang 2 — nur der Jäger schafft ihn aus dem Stand. Berge sperren Weg und Blick.</p>
+    <p class="dim"><b>Der Abend stellt her, was der Morgen spielt</b>: Jeder Mensch bringt ein, wo er steht — dann macht die <b>Werkbank</b> eine Sache daraus: eine <b>Vorrat-Karte</b> in die Hand (am Morgen gespielt: +1 Ausdauer für alle; ungespielt fängt sie eine Hungernacht), <b>Schuhwerk</b> an die Person (+1 Ausdauer für immer), Werkzeug für den Stamm, Schnitzwerk für die Kultur. Gutes Laufen kauft besseres Laufen.</p>
+    <p class="dim">Manchmal liegt eine <b>Spur</b> <i data-ico="spur" class="ibtn"></i> im neuen Land — das richtige Plättchen darauf hebt eine echte Fundstelle. <i data-ico="beleg" class="ibtn"></i> Belegte Ereignisse geschehen immer, ob du bereit bist oder nicht.</p>
+    <button class="primary" style="width:100%" onclick="startGame()">Der erste Morgen bricht an</button>
+    <p class="legend">Prototyp. Ereignisse &amp; Fundstellen sind historisch inspiriert und für das Spiel vereinfacht – Jahreszahlen gerundet.</p>
+  </div>
+</div>
+
+<!-- ============ GAME ============ -->
+<div class="wrap hid" id="game">
+  <header class="appbar ruled">
+    <div class="brand">STROMLINIEN<small>ERKUNDUNG v6 · EPOCHE I · ALPENRHEIN</small></div>
+    <div class="clock"><b id="yr">12 000</b><span>Jahre vor heute</span></div>
+  </header>
+
+  <!-- Ein DOM-Knoten, zwei Parkplätze: dieselben Elemente wohnen auf dem
+       Telefon hier im Fluss überm Brett und ab 901px in der Seite —
+       heimat() hängt sie um. Quellordnung = mobile Ordnung. -->
+  <div id="obenfluss">
+    <div class="pane uhr" id="uhr">
+      <div class="timeline" id="timeline"></div>
+      <div class="phasenreihe" id="phasenreihe"></div>
+    </div>
+
+    <!-- Die Werte: vier Kacheln + Sesshaftigkeit in EINEM Rahmen fester
+         Höhe. Jede Kachel reserviert unter der Zahl eine Marken-Zeile —
+         ein Effekt (Vorrat, später Boni/Mali) erscheint DORT, statt die
+         Kachel zu dehnen. Für Wirkung planen, bevor es eine gibt. -->
+    <div class="pane werte" id="werte">
+      <div class="res">
+        <div class="stat" id="chipN" title="Nahrung"><div class="wicon"></div><b id="rN">4</b><span class="pv"></span><div class="delta" id="dVorrat">&nbsp;</div></div>
+        <div class="stat" id="chipS" title="Schutz"><div class="wicon"></div><b id="rS">1</b><span class="pv"></span><div class="delta">&nbsp;</div></div>
+        <div class="stat" id="chipB" title="Material"><div class="wicon"></div><b id="rB">1</b><span class="pv"></span><div class="delta">&nbsp;</div></div>
+        <div class="stat" id="chipK" title="Kultur"><div class="wicon"></div><b id="rK">0</b><span class="pv"></span><div class="delta">&nbsp;</div></div>
+      </div>
+      <div class="prog">
+        <div class="lbl"><span>Sesshaftigkeit</span><span id="progtxt">0 / 20</span></div>
+        <div class="bar"><div class="fill" id="progfill"></div></div>
+      </div>
+    </div>
+
+    <div class="peoplebar" id="peoplebar">
+      <div class="pbtn" id="pb_sammler" onclick="selPersonToggle('sammler')">
+        <div class="pkopf"><div class="pico" data-ico="sammlerin"></div><div class="ptxt"><b>Sammlerin</b><span id="pt_sammler">nicht im Tal</span></div></div>
+        <div class="pwerte"></div>
+      </div>
+      <div class="pbtn" id="pb_jaeger" onclick="selPersonToggle('jaeger')">
+        <div class="pkopf"><div class="pico" data-ico="jaeger"></div><div class="ptxt"><b>Jäger</b><span id="pt_jaeger">nicht im Tal</span></div></div>
+        <div class="pwerte"></div>
+      </div>
+    </div>
+
+    <div class="pane phasenpane" id="phasenpane"></div>
+  </div>
+
+  <!-- Die Buehne: fixe Vollbild-Flaeche HINTER den Panes. #welt wird per
+       transform verschoben/gezoomt; #weltgrund ist der endlose Hex-Schleier
+       (zur Laufzeit aus den echten Zellmassen gebaut). Mobil bleibt die
+       Karte im Fluss (.brett), heimat() traegt sie um. -->
+  <div class="buehne" id="buehne">
+    <div class="welt" id="welt">
+      <div class="weltgrund" id="weltgrund"></div>
+    </div>
+    <button class="small ghost mittebtn" id="btnMitte" onclick="zentrieren()" title="Karte zentrieren — das Entdeckte, mit 2 Feldern Rand, zwischen die Panes"></button>
+  </div>
+
+  <div class="spielraum">
+    <aside class="links" id="links"></aside>
+    <section class="brett" id="brett">
+      <div class="map" id="map"></div>
+      <div class="leg" id="mapleg"></div>
+    </section>
+    <aside class="seite" id="seite">
+      <div class="pane ti hid" id="tiSide"></div>
+    </aside>
+  </div>
+</div>
+
+<!-- Phasenfläche für das Telefon: dieselbe Fläche, im Fluss über dem Brett -->
+<div class="sheet" id="tiSheet">
+  <div class="handle"></div>
+  <div class="shead"><span class="hint">FELD</span><button class="small ghost closesheet">schließen</button></div>
+  <div class="sbody ti" id="tiSheetBody"></div>
+</div>
+
+<!-- ============ HAND ============ -->
+<div class="handwrap hid" id="handwrap">
+  <div class="hand" id="hand"></div>
+  <div class="actionrow">
+    <button class="small ghost" id="btnSwap" onclick="swapCard()">zurücklegen</button>
+    <button class="primary" id="btnPhase" onclick="naechstePhase()">Aufbrechen</button>
+  </div>
+</div>
+
+<!-- ============ NIGHT ============ -->
+<div class="nightmsg" id="nightmsg">Die Nacht bricht an …</div>
+<div class="overlay" id="nightoverlay">
+  <div class="ncard" id="ncard">
+    <div class="ncard-inner">
+      <div class="nface nback"><div class="moon" data-ico="mond"></div><div class="mono" style="font-size:11px;letter-spacing:.2em;">WAS GESCHIEHT IM DUNKELN?</div></div>
+      <div class="nface nfront" id="nfront"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CEREMONY / END ============ -->
+<div class="full hid" id="cerem"><div class="full-inner" id="ceremInner"></div></div>
+
+<script>
+</script>
+<script src="../kit/sot.js"></script>
+<script src="../kit/sot-icons.js"></script>
+<script src="../kit/sot-hex.js"></script>
+<script>
+/* =====================================================================
+   STROMLINIEN · Erkundung v6 — EIN Kartensystem
+
+   v5 bleibt, was es war (Anatomie, Commit, Vorschau am Ziel). NEU: der
+   Kernloop wird ein Kreis aus Karten — DER ABEND STELLT HER, WAS DER
+   MORGEN SPIELT.
+
+   1. EINE KARTENFLÄCHE. Die Hand trägt Sechsecke (Land, spielbar am
+      Mittag) UND Rechteckkarten (Vorrat, spielbar am Morgen) in denselben
+      vier Plätzen. Die Formensprache unterscheidet sie; die Phase sagt,
+      welche Form gerade spielbar ist (die andere liegt gedämpft).
+   2. DIE WERKBANK. Die Abend-Verarbeitungen sind Karten geworden und
+      stellen DINGE her: Trockenfleisch → eine VORRAT-Karte in die Hand
+      (braucht einen freien Platz — die Hand ist die Traglast!);
+      Schuhwerk → Ausrüstung an der Person (Zeichen am Ausdauer-Wert);
+      Werkzeug → Ausrüstung des Stamms (Zeichen am Schutz-Wert);
+      Schnitzwerk → +1 Kultur (das Zeichen geht in die Welt).
+   3. DIE VORRAT-KARTE hat zwei Leben: am Morgen gespielt gibt sie allen
+      +1 Ausdauer (Wegzehrung); ungespielt fängt sie eine Hungernacht.
+      Beides verbraucht sie. Es gibt keine freien Morgen-Effektkarten
+      mehr — wer Wegzehrung will, muss sie am Abend zuvor gemacht haben.
+   4. ALLES MIT PREIS UND WIRKUNG IST EINE KARTE — auch Späher und
+      Rasttag (Spieltest-Korrektur: Einheitlichkeit schlägt
+      Objekt-Reinheit). Den TYP trägt der Akzent an der Oberkante:
+      Morgen warm (ember), Abend kühl (riverdeep), plus Tageszeit-Zeichen
+      in der Art-Zeile.
+   5. DREI SPALTEN ab 1280px — LINKS LIEST (Uhr, Werte, Inspektor),
+      RECHTS GREIFT (Menschen, Karten, Wahlen, Commit), das Brett
+      dazwischen bekommt die Breite, die vorher Totraum war. Der
+      Entscheider ist die Berührung: was man nur liest, links; was man
+      antippt, rechts. Ziel: alles auf einem Bildschirm, kein Scrollen.
+   6. DIE BÜHNE (ab 901px) — die Karte liegt als fixe Vollbild-Fläche
+      HINTER den schwebenden Panes und fühlt sich endlos an: ein
+      Hex-Schleier in echter Zellgeometrie (zur Laufzeit gebaut, folgt
+      Tag/Nacht) setzt das Raster über den Weltrand hinaus fort.
+      Ziehen verschiebt, das Rad zoomt ZUM CURSOR, auch ins Unbesuchte.
+      ⌖ zentriert: Bounding-Box des Entdeckten + 2 Felder Rand, eingepasst
+      zwischen die Panes (Mess-Ziel ist die leere .brett-Spalte — sie
+      liefert die Breite; die Höhe kommt vom Viewport, denn eine leere
+      Grid-Spalte hat keine). Mobil bleibt die Karte im Fluss.
+
+   Aus v5 unverändert (notes/gedanken-zum-userinterface.md, Nachtrag 5):
+
+   1. SKELETT STATT AUFTRITT — jede Pane ist immer da; leer heisst
+      gepunktete Kontur, nicht weg. Der Inspektor zeigt ohne Auswahl ein
+      Skelett, die Hand hat vier feste Plätze, und eine gelegte Karte
+      hinterlässt ihren Platz als Silhouette. Die Seite hat eine feste
+      Anatomie; Zustände füllen sie, sie bauen sie nicht um.
+   2. PERSONEN-WERTE — Ausdauer (lauf) · Gesundheit (herz, NEUES KONZEPT,
+      nur Anzeige) · Angriff (bogen, NEUES KONZEPT, nur Anzeige) ·
+      Verteidigung (schutz: die +2 des Jägers, endlich sichtbar an der
+      Person statt eingerechnet in der Schutz-Zahl).
+   3. KARTENFLÄCHE — die Prosa der Phasenfläche ist raus; sie zeigt Frage
+      und Karten (Effektkarten, Erntebuch, Verarbeitungen als Karten).
+   4. VORSCHAU AM ZIEL — Schweben über einer Karte (oder Vormerken) zeigt
+      die Wirkung an den Konten, die sie trifft: −1 klein neben Nahrung,
+      +1 klein an der Ausdauer der Betroffenen. ?vorschau=<id> für
+      Screenshots.
+   5. DER PHASENKNOPF IST EIN COMMIT — Brett = Welt (sofort, endgültig),
+      Seite = Plan (offen bis zum Knopf). Vorbereitung und Verarbeitung
+      sind Vormerkungen: wieder antippen wählt ab, der Knopf bucht.
+
+   Aus v4 unverändert:
+   NEU ist die rechte Spalte als Heimat des Spieler-UIs (siehe
+   notes/gedanken-zum-userinterface.md, Nachtrag): Phasenfläche + Phasenknopf
+   (was jetzt?) → Hand (womit?) → Stats/Sesshaftigkeit/Menschen (stehender
+   Zustand). EIN DOM-Knoten, ZWEI Parkplätze — heimat() hängt dieselben
+   Knoten je matchMedia in die Seite (ab 901px) oder in den Fluss überm
+   Brett (Telefon). Kein Doppel-Schreiben mehr: der phasenpaneM-Shim aus
+   v3 ist damit weg. Die Spalte liest, das Brett handelt — hier wohnen
+   Anzeigen; jede neue Handlung gehört als Punkt aufs Brett.
+
+   DIE UHR (neu): Kopfzeile und Zeitleiste sind zusammengezogen und in die
+   Seite gewandert — ein Instrument statt dreier Streusel. Sie zeigt drei
+   Dinge übereinander: die vier Tageszeiten als Zeichenreihe (die laufende
+   glüht), das Jahr als „vor X Jahren" (nicht „v. Chr." — ein Mensch der
+   Epoche zählt nicht rückwärts auf eine Zahl zu, die es noch nicht gibt),
+   und die Runden als zahlenloser Fortschrittsbalken. Belegte Ereignisse
+   bleiben als Ankermarke darüber sichtbar: die Marke ist Information, die Ziffer
+   war es nie.
+
+   VIER NAMEN: Morgen · Mittag · Abend · Nacht. „Dämmerung/Tag" mischte
+   eine Tageszeit mit einem ganzen Tag; die neue Reihe ist symmetrisch und
+   lässt sich als Zeichen zeichnen. Die INNEREN Schlüssel bleiben
+   daemmerung/tag/abend/nacht — sie stecken in Zustand, Speicherung und
+   Debug-Parametern; ?phase= nimmt beide Schreibweisen.
+
+   RUHIGES LAYOUT: die Seite trägt oben einen festen Block (Uhr, Werte,
+   Sesshaftigkeit, Menschen), der NIE seine Höhe ändert. Alles Wachsende
+   steht darunter (Phasenfläche, Hand, Inspektor). „Zurücklegen" wird nicht
+   mehr ausgeblendet, sondern unsichtbar geschaltet, und die Hand hält ihre
+   Zeile — so springt nichts, wenn eine Karte gewählt oder gelegt wird.
+
+   Das Wasser aus v3, übernommen aus gewaesser-labor-v1:
+
+   1. KEIN Feld ist mehr „Fluss". Das Wasser fließt als BAND von
+      Kantenmitte zu Kantenmitte durch das Feld; was daneben bleibt, ist
+      Ufer — im selben Feld. Die Geländebuchstaben W und U entfallen,
+      Läufe sind eigene Daten (RUNS: Pfade über Felder).
+   2. Die Klasse wird GERECHNET, nicht gemalt: Abflussbilanz über den
+      Laufgraph, Breite b = 6·√Q, Klasse aus der Breite. Zwei Quellbäche
+      an den Hängen münden in den jungen Rhein — Bach + Fluss = mehr
+      Fluss, ohne dass es jemand anordnet.
+   3. Bewegt wird von UFER zu UFER: k Wasserkanten teilen ein Feld in
+      k Landsektoren, jeder ist ein eigener Knoten im Wegegraph. Queren
+      kostet nach Klasse (Bach −1 · kleiner Fluss −2 · junger Rhein ✕,
+      nur an der Furt −1). Ein Flussfeld ist damit begehbar wie Land —
+      teuer ist nur das ANDERE Ufer. Eine Quelle hat einen Strahl und
+      trennt nichts: um sie geht man herum.
+   4. Die FURT ist ein Ort, keine Handmarkierung: sie liegt in der
+      verzweigten Strecke (Schotterflur), wo sich dasselbe Wasser auf die
+      dreifache Breite verteilt — Gelände „Aue" entsteht daneben von
+      selbst. Das Uferlager darf jetzt IM Flussfeld stehen (das Ufer wohnt
+      dort), und der Fischgrund ist erstmals bewirtschaftbar, weil man
+      auf seinem Feld stehen kann.
+
+   Bewusste Vereinfachungen gegen das Labor: keine Höhen/Hydraulik
+   (t·v), darum keine Wasserfälle/Schnellen/Klammen auf dieser Karte;
+   der junge Rhein ist ohne Boot eine Grenze (Labor: −3 mit Wagnis);
+   das Wild ignoriert das Band (es kennt die Wechsel ohnehin).
+
+   Debug: ?autostart ?seed=N ?hand=… ?aufgedeckt ?demo ?phase=… ?runde=N
+          ?sektoren (Ufer-Sektoren zeigen)
+   ===================================================================== */
+'use strict';
+var P = SOT.params({
+  autostart:  { t:'flag', help:'Intro überspringen' },
+  seed:       { t:'int', def:0, help:'Zufallssaat für Deck, Nächte und Wild (0 = zufällig)' },
+  hand:       { t:'str', def:'', help:'Starthand erzwingen, z.B. hoehle,hoehle,hoehle' },
+  aufgedeckt: { t:'flag', help:'ganze Karte von Anfang an bekannt' },
+  phase:      { t:'enum', values:['morgen','mittag','abend','daemmerung','tag'], def:'morgen', help:'in dieser Tageszeit starten (morgen · mittag · abend)' },
+  vorschau:   { t:'str', def:'', help:'Wirkungs-Vorschau zeigen (z.B. vorrat, spaeher, schuh_jaeger, trockenfleisch) — ein Screenshot kann nicht schweben' },
+  runde:      { t:'int', def:1, min:1, max:10, help:'in dieser Runde starten' },
+  waehle:     { t:'enum', values:['sammler','jaeger'], def:'', help:'diesen Menschen vorgewählt zeigen (Zielfelder + Sichtvorschau)' },
+  karte:      { t:'int', def:-1, help:'diese Handkarte vorgewählt zeigen (0-basiert) — zeigt ihre Bauplätze' },
+  demo:       { t:'flag', help:'Beispielstand: gebaut, Jäger auf dem Hang, Karte halb erkundet' },
+  sektoren:   { t:'flag', help:'Ufer-Sektoren einzeichnen — die Knoten des Wegegraphen' }
+});
+P.phase = ({morgen:'daemmerung', mittag:'tag'})[P.phase] || P.phase;
+var rnd = SOT.rng(P.seed || Math.floor(Math.random() * 1e9));
+var $ = SOT.$, el = SOT.el, toast = SOT.toast;
+
+/* ================= WELT =================
+   Gestaltete Welt, 9×12 — nur noch LAND: B Bergland · H Hang ·
+   F Flachland · S See. Das Wasser ist keine Geländeart mehr, sondern
+   liegt als LÄUFE über den Feldern (RUNS unten); „Aue" entsteht neben
+   der verzweigten Strecke von selbst. */
+const COLS=9, ROWS=12;
+const KARTE=[
+  'BBHHFHHBB',
+  'BHHFFFHHB',
+  'BHFFFFFHB',
+  'BHFFFFHBB',
+  'HHFFFFHBB',
+  'HFFFFFFHB',
+  'BHFFFHHHB',
+  'BHFFFFHBB',
+  'BHFFFFFHB',
+  'BHFFFFHHB',
+  'BHSSSSSHB',
+  'BBSSSSSBB',
+];
+const START={c:4,r:5};
+
+const TERR={
+  B:{cls:'berg', nm:'Bergland', schritt:null, offen:false, sicht:0,
+     d:'Fels und Grat. Kein Weg führt hindurch, kein Blick darüber hinweg.'},
+  H:{cls:'hang', nm:'Hang', schritt:2, offen:true, sicht:4,
+     d:'Sonnige Halde über dem Tal. Der Aufstieg kostet 2 Ausdauer — dafür reicht der Blick von hier <b>4 Felder</b> weit statt 2. Hier liegen die Vorkommen, und von hier jagt man ins Tal hinunter.'},
+  F:{cls:'flach',nm:'Flachland', schritt:1, offen:true, sicht:2,
+     d:'Offener Talboden, leicht zu begehen. Am Wasser der beste Platz für ein Lager.'},
+  S:{cls:'lake', nm:'See', schritt:null, offen:true, sicht:2,
+     d:'Flaches Uferwasser des großen Sees – Fischgründe, und später stehen hier Häuser auf Pfählen.'},
+};
+
+/* ---- LÄUFE: das Wasser als Daten (aus gewaesser-labor-v1) ----
+   Jeder Lauf ist ein Pfad über Nachbarfelder; q0 ist die Schüttung am
+   Kopf (m³/s), jedes durchflossene Feld steuert QLOK dazu. Der junge
+   Rhein kommt mit 16 m³/s von Landquart herein (b = 6·√16 = 24 m →
+   grosser Fluss); die zwei Quellbäche entspringen an den Hängen. */
+const QLOK=0.2, BFAK=6, BRAIDF=3;
+const RUNS=[
+  {id:'R',nm:'Der junge Rhein',q0:16,
+   path:[[4,0],[4,1],[4,2],[3,3],[3,4],[3,5],[3,6],[3,7],[4,8],[4,9],[4,10]]},
+  {id:'W',nm:'Westbach',q0:0.15,path:[[1,2],[2,2],[3,2],[4,2]]},
+  {id:'O',nm:'Haldenbach',q0:0.15,path:[[7,5],[6,5],[5,5],[4,5],[3,5]]},
+];
+/* Verzweigte Strecken (Schotterflur): gestaltet, weil diese Karte keine
+   Höhen rechnet. Im Labor folgt „verzweigt" aus Gefälle und Breite —
+   hier steht es als Datum, die FOLGEN (Furt, Aue) werden gerechnet. */
+const BRAID=new Set(['3,4','3,7']);
+/* Wasserklassen — Schwellen wie im Labor (b in m). Der junge Rhein ist
+   in Epoche I ohne Boot eine Grenze: nur die Furt führt hinüber. */
+const WKLASSE=[
+  {id:'bach',  nm:'Bach',          bmax:5,  farbe:'--w-bach',  quer:1,
+   d:'Ständig wasserführend, überall zu durchwaten.'},
+  {id:'kfluss',nm:'kleiner Fluss', bmax:10, farbe:'--w-kfluss',quer:2,
+   d:'Durchwatbar nur an flachen Stellen, sonst nass bis zur Brust.'},
+  {id:'gfluss',nm:'grosser Fluss', bmax:1e9,farbe:'--w-gfluss',quer:Infinity,
+   d:'Trennt Ufer voneinander — die Furt wird zum Ort.'},
+];
+const wklasseVon=b=>WKLASSE.find(k=>b<k.bmax);
+
+/* ---- Geometrie fürs Band und die Sektoren ----
+   Kantenindizes in Baukasten-Reihenfolge E·SE·SW·W·NW·NE. Für Sektoren
+   braucht es die UMLAUF-Reihenfolge (im Uhrzeigersinn ab der NE-Kante):
+   GEO ordnet die Baukasten-Indizes dorthin um. Einheiten: Feldbreite 100,
+   Feldhöhe 115.47 — dieselben Zahlen wie SOT.hex.EDGE_MID. */
+const HXW=100, HXH=115.47;
+const GEO=[1,2,3,4,5,0];            /* kit-Kante i → Umlaufposition */
+const cxOf=(c,r)=>(c+(r&1?0.5:0))*HXW+HXW/2;
+const cyOf=(c,r)=>r*HXH*0.75+HXH/2;
+function ecken(c,r){const x=cxOf(c,r),y=cyOf(c,r);
+  return [[x,y-HXH/2],[x+HXW/2,y-HXH/4],[x+HXW/2,y+HXH/4],
+          [x,y+HXH/2],[x-HXW/2,y+HXH/4],[x-HXW/2,y-HXH/4]];}
+/* Punkt auf Kante e (kit-Index) bei t∈[0,1] — t läuft im Umlaufsinn. */
+function kantePt(c,r,e,t){const p=ecken(c,r),g=GEO[e],a=p[g],b=p[(g+1)%6];
+  return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t];}
+const kanteMitte=(c,r,e)=>kantePt(c,r,e,0.5);
+function edgeToDir(c,r,c2,r2){
+  const nb=SOT.hex.neighbors(c,r);
+  for(let e=0;e<6;e++)if(nb[e].c===c2&&nb[e].r===r2)return e;
+  return -1;
+}
+
+/* ---- Das Netz: Abflussbilanz je Lauf, Klasse aus der Breite ----
+   Nebenläufe enden auf einem Feld des Hauptlaufs; ihr Endabfluss fließt
+   dort zu. Zwei Durchgänge reichen, weil kein Lauf in einen Nebenlauf
+   mündet, der selbst noch wartet — der Fixpunkt macht es trotzdem robust. */
+function wasserRechnen(grid){
+  const at2=(c,r)=>grid[r*COLS+c];
+  for(const cell of grid){cell.segs=[];cell.q=0;cell.b=0;cell.kl=null;
+    cell.verzweigt=false;cell.merk={};cell.rays=[];cell.parts=[];}
+  /* Segmente: je Feld die Ein- und Auslasskante des Laufs */
+  for(const run of RUNS)for(let i=0;i<run.path.length;i++){
+    const [c,r]=run.path[i], cell=at2(c,r);
+    const pv=run.path[i-1], nx=run.path[i+1];
+    cell.segs.push({run:run.id, i,
+      ein:pv?edgeToDir(c,r,pv[0],pv[1]):null,
+      aus:nx?edgeToDir(c,r,nx[0],nx[1]):null});
+  }
+  /* Abfluss: q je Lauf und Index, Zuflüsse an den Mündungen */
+  const runQ={}, endQ={};
+  for(let pass=0;pass<3;pass++){
+    for(const run of RUNS){
+      runQ[run.id]=[];
+      let q=run.q0;
+      for(let i=0;i<run.path.length;i++){
+        q+=QLOK;
+        const k=run.path[i].join(',');
+        for(const other of RUNS)if(other!==run){
+          const end=other.path[other.path.length-1];
+          if(end.join(',')===k&&endQ[other.id])q+=endQ[other.id];
+        }
+        runQ[run.id][i]=q;
+      }
+      endQ[run.id]=q;
+    }
+  }
+  /* Je Feld: dominanter Abfluss, Breite, Klasse; je Strahl die Klasse
+     SEINES Laufs — an einer Mündung ist der Bachstrahl billiger zu
+     queren als die zwei Rheinstrahlen daneben. */
+  for(const cell of grid){
+    for(const s of cell.segs){
+      const run=RUNS.find(r=>r.id===s.run);
+      s.q=runQ[s.run][s.i];
+      cell.q=Math.max(cell.q,s.q);
+    }
+    if(!cell.segs.length)continue;
+    cell.b=BFAK*Math.sqrt(cell.q);
+    cell.verzweigt=BRAID.has(cell.c+','+cell.r);
+    cell.bEff=cell.verzweigt?cell.b*BRAIDF:cell.b;
+    cell.kl=wklasseVon(cell.b).id;
+    /* Die Furt ist ein Ort: die verzweigte Strecke ist die flachste
+       Stelle des Laufs — nur dort, und nur wo Queren sonst etwas kostet. */
+    cell.merk.furt=cell.verzweigt&&(cell.kl==='kfluss'||cell.kl==='gfluss');
+  }
+  /* Aue: Land neben (oder unter) einer verzweigten Strecke */
+  for(const cell of grid){
+    if(cell.t!=='F')continue;
+    if(cell.verzweigt||nachbarnIn(grid,cell).some(n=>n.verzweigt))cell.aue=true;
+  }
+  /* Sektoren: k Wasserkanten → k Strahlen → k Landsektoren (Ufer).
+     Ein Quellfeld hat einen Strahl und bleibt EIN Stück Land. */
+  for(const cell of grid)sektoren(cell);
+}
+function sektoren(cell){
+  const rays=[];
+  for(const s of cell.segs)for(const e of [s.ein,s.aus])
+    if(e!==null&&!rays.some(x=>x.e===e))rays.push({e,kl:wklasseVon(s.q?BFAK*Math.sqrt(s.q):0)?.id||'bach',q:s.q});
+  rays.sort((a,b)=>GEO[a.e]-GEO[b.e]);          /* Umlauf-Reihenfolge */
+  cell.rays=rays;
+  if(rays.length<=1){cell.parts=[{i:0,zug:[]}];return;}
+  const parts=[];
+  for(let j=0;j<rays.length;j++){
+    const a=rays[j].e, b=rays[(j+1)%rays.length].e;
+    /* Kanten, die GANZ in diesem Sektor liegen (zwischen Strahl a und b) */
+    const edges=[];
+    let g=(GEO[a]+1)%6;
+    while(g!==GEO[b]){edges.push(GEO.indexOf(g));g=(g+1)%6;}
+    parts.push({i:j,vor:a,nach:b,edges});
+  }
+  cell.parts=parts;
+}
+/* Zugangspunkte eines Sektors in Weltkoordinaten: Viertelpunkte dort, wo
+   ein Strahl die Kante zerschneidet, sonst die Kantenmitte. Nachbarfelder
+   teilen dieselben Punkte — „links bleibt links". */
+function zugaenge(cell,part){
+  const out=[];
+  if(cell.parts.length===1){
+    const rs=cell.rays.map(x=>x.e);
+    for(let e=0;e<6;e++){
+      if(rs.includes(e)){out.push(kantePt(cell.c,cell.r,e,0.25));out.push(kantePt(cell.c,cell.r,e,0.75));}
+      else out.push(kanteMitte(cell.c,cell.r,e));
+    }
+    return out;
+  }
+  out.push(kantePt(cell.c,cell.r,part.vor,0.75));
+  for(const e of part.edges)out.push(kanteMitte(cell.c,cell.r,e));
+  out.push(kantePt(cell.c,cell.r,part.nach,0.25));
+  return out;
+}
+const apKey=p=>Math.round(p[0]/8)+':'+Math.round(p[1]/8);
+/* Was kostet dieses Wasser quer? Strahl j trennt Sektor j−1 und j. */
+function querKosten(cell,ray){
+  if(cell.merk.furt)return 1;
+  const kl=WKLASSE.find(k=>k.id===(ray?ray.kl:cell.kl));
+  return kl?kl.quer:Infinity;
+}
+/* Auf welcher Seite des Laufs liegt Sektor part? (für den Inspektor) */
+function seiteVon(cell,part){
+  const s=cell.segs.find(s=>s.ein!==null&&s.aus!==null)||cell.segs[0];
+  if(!s||cell.parts.length!==2)return null;
+  const a=s.ein!==null?kanteMitte(cell.c,cell.r,s.ein):[cxOf(cell.c,cell.r),cyOf(cell.c,cell.r)];
+  const b=s.aus!==null?kanteMitte(cell.c,cell.r,s.aus):[cxOf(cell.c,cell.r),cyOf(cell.c,cell.r)];
+  const zg=zugaenge(cell,cell.parts[part]);
+  let sx=0,sy=0;for(const p of zg){sx+=p[0];sy+=p[1];}
+  sx/=zg.length;sy/=zg.length;
+  const tx=b[0]-a[0],ty=b[1]-a[1];
+  return (tx*(sy-a[1])-ty*(sx-a[0]))<0?'am linken Ufer':'am rechten Ufer';
+}
+
+/* ---- VORKOMMEN: der Grund, den Hang hochzugehen ----
+   Sie liegen ausschließlich am Hang. Wer darauf steht, bringt am Abend ein;
+   und Silex ist die Bedingung für JEDES Werkzeug — die Werkzeugschleife
+   hängt damit am Aufstieg, nicht an einer Handkarte. */
+const VORK={
+  silex:{nm:'Silexader', ico:'silex', ertrag:{B:1},
+    d:'Feuerstein in der Felsbank. Wer ihn schlägt, hat Klingen — und wer Klingen hat, hat Werkzeug.',
+    lohn:'+1 Material · schaltet den Werkzeugbau frei'},
+  ocker:{nm:'Ockergrube', ico:'ocker', ertrag:{K:1},
+    d:'Roter Ocker, mit Wasser zu Farbe gerieben. Die ältesten Zeichen des Tals sind damit gemalt.',
+    lohn:'+1 Kultur'},
+  quarz:{nm:'Bergkristall', ico:'quarz', ertrag:{B:1,K:1},
+    d:'Klarer Quarz aus einer Kluft. Zu gut zum Werkzeug, zu schön zum Wegwerfen.',
+    lohn:'+1 Material · +1 Kultur'},
+};
+const VORKOMMEN=[
+  {c:1,r:8,art:'silex'},   {c:7,r:2,art:'ocker'},
+  {c:1,r:4,art:'quarz'},   {c:7,r:9,art:'silex'},
+];
+
+/* ---- WILD: bewegliche Beute, die gute Aufstellung belohnt ----
+   Zieht jede Nacht ein Feld durchs offene Land. Der Jäger daneben bekommt
+   etwas; der Jäger OBEN mit Blick darauf bekommt das Doppelte und die
+   Fährte (er weiß, wohin es morgen zieht). */
+const WILDSTART=[{c:5,r:2},{c:3,r:8}];
+
+/* ================= PLÄTTCHEN ================= */
+/* Die vier Tageszeiten: Anzeigename und Zeichenname an EINER Stelle.
+   Die Zeichnungen lagen hier als eigener Hausstil (viewBox 24, stroke
+   1.9) — jetzt aus kit/sot-icons.js, also derselbe Strich wie alles.
+   Schlüssel bleiben daemmerung/tag/… (Zustand, Speicher, Debug-Parameter). */
+const PHASEN=[
+  {k:'daemmerung',nm:'Morgen',ic:'morgen'},
+  {k:'tag',       nm:'Mittag',ic:'sonne'},
+  {k:'abend',     nm:'Abend', ic:'abend'},
+  {k:'nacht',     nm:'Nacht', ic:'mond'},
+];
+const PHNAME=Object.fromEntries(PHASEN.map(p=>[p.k,p.nm]));
+/* Ein Mensch dieser Epoche zählt nicht rückwärts auf eine Zahl zu, die es
+   noch nicht gibt — das Spiel zählt darum von heute nach hinten. */
+function vorHeute(y){return SOT.jahr(y+2000);}
+
+/* ico(name) — ein Icon in einer Zeichenkette (Legenden, Inspektor, Prosa).
+   Der Behälter .ibtn bemisst das SVG, sonst hängt es auf der Grundlinie.
+   Für echte Elemente stattdessen SOT.iconEl(name, klasse). */
+const ico=n=>'<i class="ibtn">'+SOT.icon(n)+'</i>';
+/* Markup darf `data-ico="name"` schreiben statt SVG einzukleben — dieser
+   Sweep füllt es nach dem Laden. Hält das HTML lesbar. */
+function icoSweep(root){
+  (root||document).querySelectorAll('[data-ico]').forEach(n=>{
+    if(!n.firstChild)n.innerHTML=SOT.icon(n.dataset.ico);
+  });
+}
+
+/* Zeichen kommen aus dem Baukasten: SOT.icon(name) aus kit/sot-icons.js.
+   Die lokale G-Tabelle stand in fünf Dateien byte-gleich — jetzt einmal.
+   Icons sind SVG, immer: kein Schriftzeichen steht für ein Spielding. */
+const TILES={
+  fisch:{nm:'Fischgrund',fx:'+1 Nahrung/Tag',glyph:'fisch',valid:c=>c.segs.length>0||c.t==='S',d:'Reusen und Speerplätze am Lauf oder im flachen Seewasser – der Fluss ernährt, wer ihn lesen kann. Weil das Ufer im selben Feld liegt, kann die Sammlerin hier erstmals STEHEN und bewirtschaften.'},
+  lager:{nm:'Uferlager',fx:'+1 Nahrung/Tag',glyph:'lager',valid:c=>c.t==='F'&&c.amWasser,d:'Feuerstelle, Zelte, Vorräte – das Herz des Stamms, auf festem Grund am Wasser. Das Ufer wohnt im Flussfeld: auch dort steht es gut.'},
+  wald:{nm:'Auenwald',fx:'+1 Material/Tag',glyph:'wald',valid:c=>c.t==='F',d:'Weiden und Erlen der Aue: Holz für Feuer, Werkzeug und Bau.'},
+  terrasse:{nm:'Hochterrasse',fx:'+1 Schutz',glyph:'terrasse',valid:c=>c.t==='F'||c.t==='H',d:'Erhöhter Rastplatz mit Weitblick – wer oben sitzt, wird nicht überrascht.'},
+  hoehle:{nm:'Höhle',fx:'+2 Schutz',glyph:'hoehle',valid:c=>c.t==='H',d:'Fels über dem Kopf: der älteste Schutz, den das Tal kennt. Nur an den Hängen.'},
+  flint:{nm:'Feuerstein',fx:'+1 Mat auf Silex',glyph:'flint',valid:c=>c.t==='H'||c.t==='F',d:'Eine Schlagstelle: hier wird Silex zu Klingen verarbeitet. Auf einer Silexader liefert sie dauerhaft.'},
+  pfahl:{nm:'Pfahlbau',fx:'−3 Mat · +1 N/Tag · +1 Schutz',glyph:'pfahl',valid:c=>c.t==='S'||c.seeUfer,d:'Ein Haus auf Pfählen im flachen Wasser – die neue Bauweise vom See.'},
+};
+const DECKW=[['lager',22],['wald',19],['fisch',15],['terrasse',14],['hoehle',13],['flint',13]];
+
+const FUND=[
+  {r:10,c:4,types:['pfahl','fisch'],name:'Pfahlbau-Fundstelle · Seeufer',
+   txt:'An flachen Ufern wie diesem standen jahrtausendelang Pfahlbaudörfer – ihre Hölzer sind aufs Jahr genau datierbar. Heute UNESCO-Welterbe.',k:2,auth:2},
+  {r:1,c:6,types:['hoehle','terrasse'],name:'Jägerrastplatz · Hanglage',
+   txt:'Auf sonnigen Terrassen über dem Tal hinterließen mittelsteinzeitliche Jäger Feuerstellen und Klingen – lange bevor jemand sesshaft war.',k:1,auth:2},
+  {r:8,c:1,types:['flint'],name:'Silex-Abbaustelle',
+   txt:'Gutes Steinmaterial war kostbar und wurde über weite Strecken getauscht – die ersten Handelswege des Tals, lange vor jeder Straße.',k:1,auth:2},
+];
+
+const YEARS=[10000,9200,8400,7600,6800,6200,5200,4300,3400,2600];
+const ROUNDS=10;
+const ANCHORS={
+  3:{tag:'Belegtes Ereignis · ~8 400 v. Chr.',h:'Die Wälder erobern das Tal',
+     p:'Nach der Eiszeit kehrt der Wald zurück. Wo Tundra war, rauschen jetzt Auen. Holz gibt es im Überfluss.',
+     fx(){S.woodBoost=true;S.B+=1;return {txt:'Auenwald liefert ab jetzt +2 Material/Tag. (+1 Material)',good:true};}},
+  5:{tag:'Belegtes Ereignis · ~6 200 v. Chr.',h:'Die große Kälte',
+     p:'Ein jäher Klimasturz – in Eisbohrkernen bis heute lesbar. Jahrzehnte aus Frost und Missjagd. Niemand im Tal hat so etwas je erlebt.',
+     fx(){if(getS()>=5){S.N=Math.max(0,S.N-2);return{txt:'Euer Schutz hält stand. −2 Nahrung.',good:true};}else{S.N=Math.max(0,S.N-4);return{txt:'Ungeschützt trifft euch die Kälte. −4 Nahrung.',good:false};}}},
+  7:{tag:'Belegtes Ereignis · ~4 300 v. Chr.',h:'Die ersten Bauern am See',
+     p:'Fremde mit Saatgut und neuen Bauweisen erreichen das Seeufer. Ihre Häuser stehen auf Pfählen im flachen Wasser.',
+     fx(){S.pfahlUnlocked=true;S.pending.push('pfahl','pfahl');S.K+=1;return{txt:'PFAHLBAU freigeschaltet – zwei Plättchen kommen auf deine Hand. (+1 Kultur)',good:true};}},
+  9:{tag:'Belegtes Ereignis · ~3 400 v. Chr.',h:'Der See steigt',
+     p:'Nasse Jahrhunderte. Das Wasser holt sich die flachen Ufer zurück.',
+     fx(){S.fishBlocked=true;if(S.tiles.some(t=>t.type==='pfahl')){S.K+=2;return{txt:'Eure Pfahlbauten stehen über der Flut – die Bauweise besteht die Probe. (+2 Kultur, Fischgründe morgen gestört)',good:true};}else{S.B=Math.max(0,S.B-2);return{txt:'Das Ufer versinkt. −2 Material, Fischgründe morgen gestört.',good:false};}}},
+};
+const NIGHTS=[
+  {w:22,tag:'Die Nacht',h:'Etwas umkreist das Lager',glyph:'wolf',
+   p:'Zweige brechen. Augen im Dunkeln. Der Hund knurrt, das Feuer wird kleiner.',
+   fx(){if(getS()>=4){return{txt:'Eure Wälle, Feuer und der Jäger halten es fern. Nichts verloren.',good:true};}else{S.N=Math.max(0,S.N-2);return{txt:'Am Morgen fehlen Vorräte. −2 Nahrung.',good:false};}}},
+  {w:16,tag:'Die Nacht',h:'Frost kriecht ins Lager',
+   p:'Der Atem gefriert an den Fellen. Wer Holz hat, verbrennt es. Wer keins hat, friert.',
+   fx(){if(S.B>=3){S.B-=1;return{txt:'Ihr verbrennt Vorräte und haltet durch. −1 Material.',good:true};}else{S.N=Math.max(0,S.N-2);return{txt:'Die Kälte zehrt an euch. −2 Nahrung.',good:false};}}},
+  {w:18,tag:'Die Nacht',h:'Stille',
+   p:'Nur der Fluss spricht. Die Sterne stehen so klar, dass die Ältesten Geschichten in sie hineinlesen.',
+   fx(){return{txt:'Nichts geschieht. Manchmal ist das das größte Geschenk.',good:true};}},
+  {w:16,tag:'Die Nacht',h:'Das Wild zieht weiter',
+   p:'Im Morgengrauen ist die Fährte kalt. Die Rudel wechseln das Tal, wie sie es immer taten.',
+   fx(){S.wildSprung=true;return{txt:'Die Rudel ziehen heute zwei Felder statt einem.',good:true};}},
+  {w:14,tag:'Die Nacht',h:'Fremde am Feuer',
+   p:'Eine kleine Gruppe bittet um Platz am Feuer. Sie kennen Stellen, die ihr nicht kennt.',
+   fx(){S.extraDraw=true;return{txt:'Morgen ziehst du ein zusätzliches Plättchen.',good:true};}},
+  {w:14,tag:'Die Nacht',h:'Ein Fund im Kies',
+   p:'Bernstein, glatt wie Wasser. Er kommt von weit her – jemand hat ihn hierher getragen.',
+   fx(){S.K+=1;return{txt:'+1 Kultur.',good:true};}},
+];
+
+/* ================= ZUSTAND ================= */
+let S;
+function newState(){return{
+  round:1, phase:'daemmerung', N:4,S:1,B:1,K:0, prog:0,
+  placedThisDay:0, swapped:false, vorbereitung:null, verarbeitet:false,
+  hand:[], pending:[], tiles:[],
+  woodBoost:false, pfahlUnlocked:false, fishBlocked:false, extraDraw:false,
+  silexGeholt:false, wildSprung:false, sichtBonus:0, ausdauerBonus:0,
+  hungry:0, authGot:0, authMax:0, fundFound:0, werkzeug:false,
+  neuland:0, letzteErnte:null, faehrte:null,
+  people:{
+    /* hp/atk/def: Gesundheit und Angriff sind NEUE KONZEPTE, hier nur
+       Anzeige (Haken für Risikoleiter und Jagd). def ist geerdet: die +2
+       des Jägers, die bisher unsichtbar im effektiven Schutz steckten. */
+    sammler:{nm:'Sammlerin', ico:'sammlerin', cell:null, part:0, basis:1, rest:1, schuhwerk:false, hp:3, hpMax:3, atk:1, def:0},
+    jaeger:{nm:'Jäger', ico:'jaeger', cell:null, part:0, basis:2, rest:2, schuhwerk:false, hp:3, hpMax:3, atk:2, def:2},
+  },
+  wild:WILDSTART.map(w=>({...w})),
+  combos:[],
+  grid:buildGrid(),
+};}
+function buildGrid(){
+  const g=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+    g.push({r,c,t:KARTE[r][c],tile:null,entdeckt:false,neu:false,spur:false,
+            vork:null,amWasser:false,seeUfer:false,aue:false});
+  wasserRechnen(g);
+  for(const cell of g){
+    const adj=nachbarnIn(g,cell);
+    /* Das Ufer wohnt im Flussfeld: wer auf einem Feld mit Lauf steht,
+       steht schon am Wasser — Nachbarschaft zählt weiterhin dazu. */
+    cell.amWasser=cell.segs.length>0||adj.some(o=>o.segs.length>0||o.t==='S');
+    cell.seeUfer=cell.t==='F'&&adj.some(o=>o.t==='S');
+  }
+  for(const v of VORKOMMEN)g[v.r*COLS+v.c].vork=v.art;
+  return g;
+}
+const at=(c,r)=>(c<0||r<0||c>=COLS||r>=ROWS)?null:S.grid[r*COLS+c];
+function nachbarnIn(list,cell){
+  return SOT.hex.neighborsIn(cell.c,cell.r,COLS,ROWS).map(n=>list[n.r*COLS+n.c]);
+}
+const nachbarn=cell=>nachbarnIn(S.grid,cell);
+function adjCells(cell){
+  const set=new Set();
+  for(const n of nachbarn(cell)){
+    set.add(n);
+    if(n.merk&&n.merk.furt)for(const nn of nachbarn(n))if(nn!==cell)set.add(nn);
+  }
+  if(cell.merk&&cell.merk.furt)for(const n of nachbarn(cell))set.add(n);
+  return[...set];
+}
+function getS(){return S.S+(S.people.jaeger.cell?2:0);}
+const ausdauerVon=p=>p.basis+(p.schuhwerk?1:0)+S.ausdauerBonus;
+const hexAbstand=(a,b)=>SOT.hex.dist({c:a.c,r:a.r},{c:b.c,r:b.r});
+
+/* ================= SICHT & ERKUNDUNG =================
+   Sicht folgt dem Tal, nicht dem Zirkel (aus kartenwachstum-v1): Breitensuche
+   durch offenes Gelände, Bergland wird gesehen aber nicht durchschaut.
+   NEU: die Weite kommt vom Gelände, auf dem man STEHT — Hang 4, Talboden 2.
+   Das ist der ganze Grund, einen Hang hochzugehen. */
+function sichtweite(cell){return Math.max(1,(TERR[cell.t].sicht||2)+S.sichtBonus);}
+function sichtfeld(cell,n){
+  const gesehen=new Set([cell]), q=[[cell,0]];
+  while(q.length){
+    const[c,d]=q.shift();
+    if(d>=n)continue;
+    for(const nb of nachbarn(c)){
+      if(gesehen.has(nb))continue;
+      gesehen.add(nb);
+      if(TERR[nb.t].offen)q.push([nb,d+1]);
+    }
+  }
+  return gesehen;
+}
+function entdecke(cell,weite){
+  let neu=0; const spuren=[], vorkommen=[];
+  for(const c of sichtfeld(cell,weite===undefined?sichtweite(cell):weite)){
+    if(c.entdeckt)continue;
+    c.entdeckt=true;c.neu=true;neu++;
+    const f=FUND.find(f=>f.r===c.r&&f.c===c.c&&!f.found);
+    if(f){c.spur=true;spuren.push(f);}
+    if(c.vork)vorkommen.push(c);
+  }
+  S.neuland+=neu;
+  if(vorkommen.length)setTimeout(()=>toast('Vorkommen gesichtet: '
+    +vorkommen.map(c=>VORK[c.vork].nm).join(', ')+' — wer dort steht, bringt es abends heim.',3600),700);
+  else if(spuren.length)setTimeout(()=>toast('Eine Spur im neuen Land — sieh sie dir an.',3200),700);
+  return neu;
+}
+/* Was ein Aufstieg AUFDECKEN würde — die Einladung vor dem Schritt. */
+function spaehVorschau(cell){
+  const out=new Set();
+  for(const c of sichtfeld(cell,sichtweite(cell)))if(!c.entdeckt)out.add(c);
+  return out;
+}
+
+/* ================= BEWEGUNG =================
+   Von UFER zu UFER, nicht von Feld zu Feld (aus gewaesser-labor-v1):
+   Knoten ist (Feld, Sektor). Innerhalb eines Feldes quert man das Wasser
+   (Kosten nach Klasse bzw. Furt), zwischen Feldern geht man über die
+   gemeinsamen Zugangspunkte der Kanten — halbe Kanten dort, wo ein Lauf
+   die Kante zerschneidet, sodass links links bleibt. */
+const pk=(cell,i)=>(cell.r*COLS+cell.c)+'#'+i;
+function groessterPart(cell){
+  let best=0,bl=-1;
+  for(const p of cell.parts){const l=p.edges?p.edges.length:6;if(l>bl){bl=l;best=p.i;}}
+  return best;
+}
+function wegGraph(){
+  const G=new Map(), add=(a,b,w)=>{if(!G.has(a))G.set(a,[]);G.get(a).push({to:b,w});};
+  const ap=new Map();
+  for(const cell of S.grid){
+    if(!cell.entdeckt||TERR[cell.t].schritt===null)continue;
+    for(const part of cell.parts){
+      const id=pk(cell,part.i);
+      if(!G.has(id))G.set(id,[]);
+      for(const p of zugaenge(cell,part)){const k=apKey(p);
+        if(!ap.has(k))ap.set(k,[]);ap.get(k).push({id,cell});}
+    }
+    const n=cell.parts.length;
+    if(n>1)for(let j=0;j<n;j++){
+      const q=querKosten(cell,cell.rays[j]);
+      if(q===Infinity)continue;
+      add(pk(cell,(j-1+n)%n),pk(cell,j),q);
+      add(pk(cell,j),pk(cell,(j-1+n)%n),q);
+    }
+  }
+  for(const [,lst] of ap){
+    if(lst.length<2)continue;
+    for(let i=0;i<lst.length;i++)for(let j=0;j<lst.length;j++){
+      if(i===j||lst[i].cell===lst[j].cell)continue;
+      add(lst[i].id,lst[j].id,TERR[lst[j].cell.t].schritt);
+    }
+  }
+  return G;
+}
+function zielFelder(pid){
+  const p=S.people[pid], m=new Map();
+  if(S.phase!=='tag'||p.rest<=0)return m;
+  if(!p.cell){
+    for(const t of S.tiles)m.set(t.cell,{k:0,part:groessterPart(t.cell)});
+    return m;
+  }
+  const G=wegGraph(), start=pk(p.cell,p.part||0);
+  if(!G.has(start))return m;
+  const dist=new Map([[start,0]]), q=[[0,start]];
+  while(q.length){
+    q.sort((a,b)=>a[0]-b[0]);
+    const [d,u]=q.shift();
+    if(d>(dist.get(u)??Infinity))continue;
+    for(const e of (G.get(u)||[])){
+      const nd=d+e.w;
+      if(nd>p.rest)continue;
+      if(nd<(dist.get(e.to)??Infinity)){dist.set(e.to,nd);q.push([nd,e.to]);}
+    }
+  }
+  dist.forEach((d,id)=>{
+    const [ci,pi]=id.split('#').map(Number);
+    const cell=S.grid[ci];
+    if(cell===p.cell&&pi===(p.part||0))return;
+    const best=m.get(cell);
+    if(!best||d<best.k)m.set(cell,{k:d,part:pi});
+  });
+  return m;
+}
+function movePerson(cell){
+  const pid=selPerson, p=S.people[pid];
+  const targets=zielFelder(pid);
+  if(!targets.has(cell))return;
+  const ziel=targets.get(cell);
+  const first=!p.cell, querung=cell===p.cell;
+  p.rest=first?0:p.rest-ziel.k;
+  p.cell=cell;p.part=ziel.part;
+  const neu=entdecke(cell);
+  let msg=first?'Der Aufbruch: '+p.nm+' betritt das Tal.'
+         :querung?p.nm+' quert das Wasser — jetzt '+(seiteVon(cell,ziel.part)||'am anderen Ufer')+'.'
+         :p.nm+' zieht weiter.';
+  if(cell.t==='H')msg+=' Von hier reicht der Blick weit.';
+  if(neu)msg+=' Neues Land: +'+neu+' Felder.';
+  toast(msg,3000);
+  if(p.rest<=0)selPerson=null;
+  renderAll();
+}
+
+/* ================= ERNTE (ABEND) =================
+   Der Lohn des Tages, Zeile für Zeile und mit Quelle. Genau das fehlte:
+   Bewegung hatte Kosten, aber keine sichtbare Gegenbuchung. */
+function ernteRechnen(){
+  const zeilen=[], sum={N:0,S:0,B:0,K:0};
+  const add=(q,detail,g)=>{
+    zeilen.push({q,detail,g});
+    for(const k in g)sum[k]+=g[k];
+  };
+  for(const pid of['sammler','jaeger']){
+    const p=S.people[pid];
+    if(!p.cell){zeilen.push({q:p.nm+' '+ico(p.ico),detail:'nicht im Tal',g:null});continue;}
+    let etwas=false;
+    /* 1. Bewirtschaftetes Plättchen (nur die Sammlerin) */
+    if(pid==='sammler'&&p.cell.tile){
+      const t=p.cell.tile;
+      if(t==='wald'||t==='flint'){add(p.nm+' '+ico('sammlerin')+' bewirtschaftet','Auf '+TILES[t].nm,{B:1});etwas=true;}
+      else if((t==='fisch'&&!S.fishBlocked)||t==='lager'||t==='pfahl'){add(p.nm+' '+ico('sammlerin')+' bewirtschaftet','Auf '+TILES[t].nm,{N:1});etwas=true;}
+    }
+    /* 2. Vorkommen — der Lohn der Höhe */
+    if(p.cell.vork){
+      const v=VORK[p.cell.vork];
+      add(p.nm+' '+ico(p.ico)+' am '+v.nm,ico(v.ico)+' '+v.lohn,{...v.ertrag});
+      if(p.cell.vork==='silex'&&!S.silexGeholt){
+        S.silexGeholt=true;
+        setTimeout(()=>toast('Silex in der Hand — ab heute lässt sich Werkzeug bauen.',3400),1200);
+      }
+      etwas=true;
+    }
+    /* 3. Jagd — gute Aufstellung wird bezahlt, Höhe doppelt */
+    if(pid==='jaeger'){
+      const jagd=jagdErtrag(p.cell);
+      if(jagd){add(p.nm+' '+ico('jaeger')+' '+jagd.wie,jagd.detail,jagd.g);etwas=true;}
+    }
+    if(!etwas)zeilen.push({q:p.nm+' '+ico(p.ico),detail:'steht, wo nichts zu holen ist',g:null});
+  }
+  /* 4. Neuland — Erkundung selbst zählt, aber gedeckelt: sonst wäre ein
+     einziger Aufstieg mit Sicht 4 mehr wert als die halbe Runde. */
+  if(S.neuland>0){
+    const k=Math.min(2,Math.floor(S.neuland/6));
+    zeilen.push({q:'Neues Land',detail:S.neuland+' Felder erkundet'
+      +(k?(k>=2?' · Höchstmaß erreicht':''):' — ab 6 gibt es Kultur'),g:k?{K:k}:null});
+    if(k)sum.K+=k;
+  }
+  return{zeilen,sum};
+}
+function jagdErtrag(cell){
+  let bestes=null;
+  for(const w of S.wild){
+    const wc=at(w.c,w.r);
+    if(!wc||!wc.entdeckt)continue;
+    const d=hexAbstand(cell,wc);
+    if(cell.t==='H'&&d<=2){
+      const kand={wie:'jagt vom Hang',detail:'Rudel '+d+' Felder unter ihm gesichtet · Fährte gelesen',g:{N:2},faehrte:w};
+      if(!bestes||bestes.g.N<2)bestes=kand;
+    }else if(d<=1){
+      if(!bestes)bestes={wie:'jagt im Tal',detail:'Rudel im Nachbarfeld',g:{N:1}};
+    }
+  }
+  return bestes;
+}
+function ernteBuchen(){
+  const e=ernteRechnen();
+  S.N+=e.sum.N;S.S+=e.sum.S;S.B+=e.sum.B;S.K+=e.sum.K;
+  S.letzteErnte=e;
+  const j=e.zeilen.find(z=>z.g&&z.g.N===2&&/Hang/.test(z.q));
+  S.faehrte=j?jagdErtrag(S.people.jaeger.cell)?.faehrte||null:null;
+  if(e.sum.N)flashChip('chipN');if(e.sum.B)flashChip('chipB');
+  if(e.sum.K)flashChip('chipK');if(e.sum.S)flashChip('chipS');
+}
+
+/* ================= VERARBEITUNG (ABEND) =================
+   Eine Wahl je Abend. Schuhwerk ist die Schleife, die sich selbst antreibt —
+   in der Handbuch-Tabelle steht sie schon als „wie Reichweite wächst". */
+function verarbeitungen(){
+  const v=[];
+  v.push({id:'werkzeug',nm:'Werkzeug schlagen',kosten:'−2 Material',lohn:'+2 Schutz, dauerhaft',
+    fx:{res:{B:-2,S:+2}},
+    moeglich:S.silexGeholt&&S.B>=2&&!S.werkzeug,
+    warum:!S.silexGeholt?'braucht Silex — hol es am Hang':S.werkzeug?'schon gebaut':'braucht 2 Material',
+    tun(){S.B-=2;S.S+=2;S.werkzeug=true;toast('Klingen und Schaber – +2 Schutz.');}});
+  for(const pid of['sammler','jaeger']){
+    const p=S.people[pid];
+    v.push({id:'schuh_'+pid,nm:'Schuhwerk für '+p.nm,kosten:'−2 Material',lohn:'+1 Ausdauer, für immer',
+      fx:{res:{B:-2},pers:{[pid]:{aus:'+1'}}},
+      moeglich:S.B>=2&&!p.schuhwerk,
+      warum:p.schuhwerk?'trägt schon Schuhwerk':'braucht 2 Material',
+      tun(){S.B-=2;p.schuhwerk=true;toast(p.nm+' geht ab morgen '+ausdauerVon(p)+' Schritte weit.',3200);}});
+  }
+  v.push({id:'trockenfleisch',nm:'Trockenfleisch einlagern',kosten:'−2 Nahrung',lohn:'+1 Vorrat-Karte in die Hand',
+    fx:{res:{N:-2},vorrat:'+1'},
+    moeglich:S.N>=3&&S.hand.length<4,
+    warum:S.hand.length>=4?'die Hand ist voll — die Hand ist die Traglast':'braucht 3 Nahrung im Lager',
+    tun(){S.N-=2;S.hand.push('fx_vorrat');toast('Ein Vorrat liegt im Trockenen — die Karte liegt in der Hand.');}});
+  v.push({id:'schnitz',nm:'Schnitzwerk & Zeichen',kosten:'−1 Material, −1 Nahrung',lohn:'+1 Kultur',
+    fx:{res:{B:-1,N:-1,K:+1}},
+    moeglich:S.B>=1&&S.N>=2,warum:'braucht Material und Nahrung',
+    tun(){S.B--;S.N--;S.K++;flashChip('chipK');toast('Ein Zeichen mehr, das bleibt. +1 Kultur');}});
+  return v;
+}
+
+
+/* ================= VORBEREITUNG (MORGEN) ================= */
+/* Die drei Vorbereitungen sind EFFEKTKARTEN: sie kommen nicht aufs Brett,
+   sie wirken sofort und sind nach dem Ausspielen verbraucht. „Ohne Umstände
+   aufbrechen" ist keine davon — das ist bloß die Entscheidung, keine zu
+   spielen, und steht darum als Knopf in der Zeile (Aufbrechen). */
+/* Späher und Rasttag sind keine Objekte — nackte Wahlen (Knöpfe), keine
+   Karten. Die Wegzehrung ist zur VORRAT-Karte geworden: hergestellt am
+   Abend, gespielt aus der Hand. */
+function vorbereitungen(){
+  return[
+    {id:'spaeher',nm:'Späher vorausschicken',kosten:'−1 Nahrung',
+     lohn:'+1 Sichtweite auf jedem Feld, heute',
+     fx:{res:{N:-1}},
+     moeglich:S.N>=2,warum:'braucht 2 Nahrung im Lager',
+     tun(){S.N--;S.sichtBonus=1;}},
+    {id:'rast',nm:'Rasttag halten',kosten:'niemand geht heute',
+     lohn:'+2 Nahrung',
+     fx:{res:{N:+2},pers:{sammler:{aus:'→0'},jaeger:{aus:'→0'}}},
+     moeglich:true,warum:'',
+     tun(){S.N+=2;for(const p of Object.values(S.people))p.rest=0;flashChip('chipN');}},
+    {id:'vorrat',nm:'Vorrat packen',kosten:'verbraucht die Karte',
+     lohn:'+1 Ausdauer für alle, heute',
+     fx:FXKARTEN.fx_vorrat.fx,
+     moeglich:S.hand.includes('fx_vorrat'),warum:'keine Vorrat-Karte in der Hand',
+     tun(){S.hand.splice(S.hand.indexOf('fx_vorrat'),1);S.ausdauerBonus=1;}},
+  ];
+}
+
+
+/* ============ VORSCHAU AM ZIEL ============
+   Die Wirkung einer Karte erscheint an den Konten, die sie trifft — klein
+   neben der Zahl (Werte-Pane) bzw. am Mini-Wert der Person. Die Plätze
+   dafür sind reserviert (Marken-Zeile, .pv-Spannen): nichts springt. */
+function vorschau(id){
+  document.querySelectorAll('.pv').forEach(e=>{e.textContent='';e.className='pv';});
+  renderRes();          /* stellt die Marken-Zeile (Vorrat/Werkzeug) zurück */
+  if(!id)return;
+  const def=[...vorbereitungen(),...verarbeitungen()].find(v=>v.id===id);
+  if(!def||!def.fx)return;
+  const setz=(el2,txt)=>{if(!el2)return;el2.textContent=txt;
+    el2.className='pv '+(txt.startsWith('−')||txt.startsWith('-')?'neg':'pos');};
+  for(const [k,d] of Object.entries(def.fx.res||{}))
+    setz(document.querySelector('#chip'+({N:'N',S:'S',B:'B',K:'K'})[k]+' .pv'),SOT.vz(d));
+  /* Karten-Herstellung: die Vorschau gehört auf die Marken-Zeile, nicht
+     neben die Zahl — dort würde sie umbrechen und die Pane dehnen. */
+  if(def.fx.vorrat){
+    const dv=document.querySelector('#dVorrat');
+    dv.innerHTML='Karte '+def.fx.vorrat;dv.className='delta pos';
+  }
+  for(const [pid,st] of Object.entries(def.fx.pers||{}))
+    for(const [w,d] of Object.entries(st))
+      setz(document.querySelector('#pb_'+pid+' .pv[data-w="'+w+'"]'),String(d));
+}
+
+/* ================= HELFER ================= */
+function drawTile(){
+  if(S.pending.length)return S.pending.shift();
+  const tot=DECKW.reduce((a,[,w])=>a+w,0);let x=rnd()*tot;
+  for(const[k,w]of DECKW){x-=w;if(x<=0)return k;}return 'lager';
+}
+function flashChip(id){const n=$('#'+id);n.classList.remove('flash');void n.offsetWidth;n.classList.add('flash');}
+/* Rechteckkarten in der Hand: 'fx_'-Präfix. Alles andere ist ein Plättchen. */
+const istKarte=e=>typeof e==='string'&&e.startsWith('fx_');
+const FXKARTEN={
+  fx_vorrat:{nm:'Vorrat',art:'spielbar am Morgen',lohn:'+1 Ausdauer für alle, heute',
+    nacht:'ungespielt: fängt eine Hungernacht',ico:'vorrat',
+    fx:{pers:{sammler:{aus:'+1'},jaeger:{aus:'+1'}}}},
+};
+function baubar(tk){
+  if(istKarte(tk))return false;
+  return!(tk==='pfahl'&&!S.pfahlUnlocked)
+    &&S.grid.some(c=>c.entdeckt&&!c.tile&&TILES[tk].valid(c));
+}
+function kannBauen(){return S.hand.some(baubar);}
+
+/* ================= RENDER ================= */
+let selIdx=null, selPerson=null, selCell=null, blatt=null;
+function merkeZellEls(){
+  document.querySelectorAll('#map .cell').forEach((el2,i)=>{if(S.grid[i])S.grid[i].el=el2;});
+}
+function renderAll(){
+  renderRes();renderTimeline();renderMap();merkeZellEls();renderHand();renderPeople();
+  renderPhase();renderTileInfo();
+  vorschau(wahl.morgen||wahl.abend);   /* Vormerkungs-Vorschau übersteht jeden Render */
+  if(mqSeite.matches)requestAnimationFrame(schleier);
+  $('#yr').textContent=vorHeute(YEARS[S.round-1]);renderPhasenreihe();
+  $('#progtxt').textContent=S.prog+' / 20';
+  $('#progfill').style.width=Math.min(100,S.prog/20*100)+'%';
+}
+function renderRes(){
+  $('#rN').textContent=S.N;$('#rS').textContent=getS();$('#rB').textContent=S.B;$('#rK').textContent=S.K;
+  const nv=S.hand.filter(istKarte).length;
+  $('#dVorrat').innerHTML=nv?'Vorrat ×'+nv:'&nbsp;';
+  $('#dVorrat').className='delta'+(nv?' pos':'');
+  $('#chipS').querySelector('.delta').innerHTML=S.werkzeug?'Werkzeug':'&nbsp;';
+}
+function renderTimeline(){
+  /* Ohne Ziffern: der Balken sagt „wie weit", die Ankermarke sagt „hier steht
+     etwas Belegtes an". Mehr trug die Zahl nie bei. */
+  const tl=SOT.clear($('#timeline'));
+  for(let i=1;i<=ROUNDS;i++)
+    tl.appendChild(el('div.tl-seg'+(i<S.round?'.done':'')+(i===S.round?'.now':'')+(ANCHORS[i]?'.anchor':''),
+      {title:'Runde '+i+(ANCHORS[i]?' · belegtes Ereignis':'')}));
+}
+function renderPhasenreihe(){
+  const r=SOT.clear($('#phasenreihe'));
+  const jetzt=PHASEN.findIndex(p=>p.k===S.phase);
+  PHASEN.forEach((p,i)=>{
+    r.appendChild(el('div.ph'+(i===jetzt?'.jetzt':'')+(i<jetzt?'.vorbei':''),
+      {html:SOT.icon(p.ic)+'<span>'+p.nm+'</span>',title:p.nm}));
+  });
+}
+/* ---------- Das Wasserband zeichnen ----------
+   Ein SVG je Feld, viewBox 100×115.47 — dieselben Einheiten wie die
+   Sektorgeometrie, darum teilen Nachbarfelder die Kantenmitten exakt.
+   Kandidat für den Baukasten (sot-wasser), sobald es in zwei Drafts
+   gleich aussieht — auftakt-v1 ist der zweite Ort. */
+function lokalPt(cell,p){
+  return [p[0]-(cxOf(cell.c,cell.r)-HXW/2), p[1]-(cyOf(cell.c,cell.r)-HXH/2)];
+}
+function bandPfad(cell,s,off){
+  const C=[HXW/2,HXH/2];
+  const a=s.ein!==null?lokalPt(cell,kanteMitte(cell.c,cell.r,s.ein)):null;
+  const b=s.aus!==null?lokalPt(cell,kanteMitte(cell.c,cell.r,s.aus)):null;
+  if(!a&&!b)return '';
+  if(!a)return 'M '+C[0]+' '+C[1]+' L '+b[0].toFixed(1)+' '+b[1].toFixed(1);
+  if(!b)return 'M '+a[0].toFixed(1)+' '+a[1].toFixed(1)+' L '+C[0]+' '+C[1];
+  let cx=C[0],cy=C[1];
+  if(off){const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1;cx+=-dy/L*off;cy+=dx/L*off;}
+  return 'M '+a[0].toFixed(1)+' '+a[1].toFixed(1)+' Q '+cx.toFixed(1)+' '+cy.toFixed(1)
+        +' '+b[0].toFixed(1)+' '+b[1].toFixed(1);
+}
+/* Überzeichnung „lesbar" wie im Labor: maßstabsgetreu wäre ein 3-m-Bach
+   0,3 % der Feldbreite — unsichtbar. Die Kurve überzeichnet unten stark
+   und oben logarithmisch, damit die Ordnung der Klassen lesbar bleibt. */
+function bandBreite(b){
+  let f;
+  if(b<0.5)f=.028; else if(b<5)f=.028+(b-0.5)/4.5*.042;
+  else if(b<10)f=.070+(b-5)/5*.035;
+  else if(b<100)f=.105+Math.log10(b/10)*.100;
+  else f=Math.min(.34,.205+Math.log10(b/100)*.10);
+  return f*HXW;
+}
+function partPoly(cell,part){
+  const pts=[[cxOf(cell.c,cell.r),cyOf(cell.c,cell.r)],kanteMitte(cell.c,cell.r,part.vor)];
+  const cp=ecken(cell.c,cell.r);
+  let g=(GEO[part.vor]+1)%6;
+  for(let k=0;k<6;k++){pts.push(cp[g]);if(g===GEO[part.nach])break;g=(g+1)%6;}
+  pts.push(kanteMitte(cell.c,cell.r,part.nach));
+  return pts.map(p=>lokalPt(cell,p));
+}
+function bandSVG(cell){
+  let h='';
+  /* Ufersaum zuerst: der Kies, der IM Feld liegt */
+  for(const s of cell.segs){
+    const d=bandPfad(cell,s,0); if(!d)continue;
+    const sw=bandBreite(BFAK*Math.sqrt(s.q));
+    const uw=sw+Math.max(3,sw*.6)*(cell.verzweigt?2.6:1);
+    h+='<path d="'+d+'" fill="none" stroke="var(--w-saum)" stroke-width="'+uw.toFixed(1)+'" stroke-linecap="round"/>';
+  }
+  for(const s of cell.segs){
+    const b=BFAK*Math.sqrt(s.q), sw=bandBreite(b);
+    const farbe='var('+wklasseVon(b).farbe+')';
+    if(cell.verzweigt){
+      /* Furkation: drei Rinnen, die sich an den Kanten wieder treffen */
+      for(const off of [-HXH*0.16,0,HXH*0.16])
+        h+='<path d="'+bandPfad(cell,s,off)+'" fill="none" stroke="'+farbe+'" stroke-width="'+(sw*0.45).toFixed(1)+'" stroke-linecap="round"/>';
+    }else{
+      const d=bandPfad(cell,s,0);
+      if(d)h+='<path d="'+d+'" fill="none" stroke="'+farbe+'" stroke-width="'+sw.toFixed(1)+'" stroke-linecap="round"/>';
+    }
+    if(s.ein===null)h+='<circle cx="'+(HXW/2)+'" cy="'+(HXH/2)+'" r="'+Math.max(3,sw*.9).toFixed(1)+'" fill="'+farbe+'"/>';
+  }
+  /* Furt: helle Querstriche — die flache Stelle, an der man hinüberkommt */
+  if(cell.merk.furt){
+    const s=cell.segs.find(x=>x.ein!==null&&x.aus!==null)||cell.segs[0];
+    const a=s.ein!==null?lokalPt(cell,kanteMitte(cell.c,cell.r,s.ein)):[HXW/2,HXH/2];
+    const b2=s.aus!==null?lokalPt(cell,kanteMitte(cell.c,cell.r,s.aus)):[HXW/2,HXH/2];
+    const dx=b2[0]-a[0],dy=b2[1]-a[1],L=Math.hypot(dx,dy)||1;
+    const tx=dx/L,ty=dy/L,px=-ty,py=tx;
+    const len=cell.verzweigt?HXH*0.21:bandBreite(cell.b)*0.8;
+    for(let i=-1;i<=1;i++){
+      const x=HXW/2+tx*i*7, y=HXH/2+ty*i*7;
+      h+='<line x1="'+(x-px*len).toFixed(1)+'" y1="'+(y-py*len).toFixed(1)
+        +'" x2="'+(x+px*len).toFixed(1)+'" y2="'+(y+py*len).toFixed(1)
+        +'" stroke="var(--bone)" stroke-width="2" stroke-linecap="round"/>';
+    }
+  }
+  /* ?sektoren: die Landsektoren als Knoten des Wegegraphen */
+  if(P.sektoren&&cell.parts.length>1)
+    for(const part of cell.parts)
+      h+='<polygon points="'+partPoly(cell,part).map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')
+        +'" fill="none" stroke="var(--ember)" stroke-width="1.4" stroke-dasharray="4 3" opacity=".75" transform="translate('+(HXW/2)+' '+(HXH/2)+') scale(.84) translate('+(-HXW/2)+' '+(-HXH/2)+')"/>';
+  if(!h)return '';
+  return '<svg viewBox="0 0 '+HXW+' '+HXH+'" preserveAspectRatio="none">'+h+'</svg>';
+}
+
+function renderMap(){
+  const targets=selPerson?zielFelder(selPerson):null;
+  /* Sichtvorschau: steht ein Mensch bereit, zeigen wir am Zielfeld, wie viel
+     Welt dieser Schritt aufdecken würde — sonst bleibt Höhe eine Behauptung. */
+  let vorschau=null;
+  if(targets&&targets.size){
+    vorschau=new Map();
+    targets.forEach((k,cell)=>{
+      const n=spaehVorschau(cell).size;
+      if(n>0)vorschau.set(cell,n);
+    });
+  }
+  SOT.hex.grid('map',COLS,ROWS,(d,c,r)=>{
+    const cell=at(c,r);
+    if(!cell.entdeckt){
+      d.classList.add('fog');
+      d.onclick=()=>toast('Unbekanntes Land — schick jemanden hin.');
+      return;
+    }
+    TERR[cell.t].cls.split(' ').forEach(k=>d.classList.add(k));
+    if(cell.aue)d.classList.add('aue');
+    if(cell.neu){d.classList.add('reveal');cell.neu=false;}
+    /* Das Wasser: ein Band durchs Feld, kein gefärbtes Feld */
+    if(cell.segs.length||(P.sektoren&&cell.parts.length>1)){
+      const svg=bandSVG(cell);
+      if(svg)d.appendChild(el('div.band',{html:svg}));
+    }
+    if(cell.tile){
+      d.classList.add('placed');
+      d.appendChild(el('div.glyph',{html:SOT.icon(TILES[cell.tile].glyph)}));
+    }
+    /* Slots wie im Feldmodell: krone Menschen · wange Vorkommen ·
+       ferse Fauna (Wild) · fuss Zeichen/Namen */
+    for(const pid of['sammler','jaeger'])
+      if(S.people[pid].cell===cell)SOT.hex.mark(d,'krone',SOT.iconEl(S.people[pid].ico,'pers'));
+    if(cell.vork)SOT.hex.mark(d,'wange',SOT.iconEl(VORK[cell.vork].ico,'vork'));
+    if(S.wild.some(w=>w.c===c&&w.r===r))
+      SOT.hex.mark(d,'ferse',SOT.iconEl('hirsch','wildmk'));
+    const fuss=[];
+    if(cell.merk.furt)fuss.push('FURT');
+    if(cell.r===0&&cell.c===4)fuss.push('LANDQUART');
+    if(cell.r===11&&cell.c===4)fuss.push('BODENSEE');
+    if(fuss.length)SOT.hex.mark(d,'fuss',el('span',{text:fuss[0]}));
+    if(cell.spur)SOT.hex.mark(d,'fuss',SOT.iconEl('spur','mk spur'));
+    if(cell===selCell)d.classList.add('inspect');
+    if(targets&&targets.has(cell)){
+      d.classList.add('valid');
+      if(vorschau&&vorschau.get(cell)>=4)d.classList.add('spaeh');
+      SOT.hex.mark(d,'zahl',el('span',{text:vorschau&&vorschau.get(cell)?'+'+vorschau.get(cell):''}));
+      d.onclick=()=>movePerson(cell);
+    }else if(selIdx!==null&&!cell.tile&&(()=>{const tk=S.hand[selIdx];
+        return tk&&TILES[tk].valid(cell)&&!(tk==='pfahl'&&!S.pfahlUnlocked);})()){
+      d.classList.add('valid');d.onclick=()=>placeTile(cell);
+    }else{
+      d.classList.add('clickable');d.onclick=()=>toggleInspect(cell);
+    }
+  });
+  const bekannt=S.grid.filter(c=>c.entdeckt).length;
+  $('#mapleg').innerHTML='<span><b>'+bekannt+'</b> / '+(COLS*ROWS)+' Felder bekannt</span>'
+    +'<span>Wasser = Band im Feld, daneben ist Ufer</span>'
+    +'<span>'+ico('silex')+ico('ocker')+ico('quarz')+' Vorkommen — nur am Hang</span>'
+    +'<span>'+ico('spur')+' Spur</span>'
+    +(targets&&targets.size?'<span>+n = so viele Felder deckt dieser Schritt auf</span>':'')
+    +(S.faehrte?'<span>Fährte gelesen: das Rudel zieht nach Norden</span>':'');
+}
+
+/* ---------- Feld-Inspektor: EIN Inhalt, zwei Behälter ---------- */
+function toggleInspect(cell){
+  selCell=selCell===cell?null:cell;
+  renderMap();renderTileInfo();
+  if(selCell&&blatt&&window.matchMedia('(max-width:900px)').matches)blatt.open();
+}
+function closeInspect(){selCell=null;if(blatt)blatt.close();renderMap();renderTileInfo();}
+function locOf(cell){
+  let s='ABCDEFGHI'[cell.c]+(cell.r+1);
+  if(cell.r===0&&cell.c===4)s+=' · Landquart';
+  if(cell.r===11&&cell.c===4)s+=' · Bodensee';
+  else if(cell.seeUfer&&!cell.tile)s+=' · Seeufer';
+  return s;
+}
+function tileEffects(cell){
+  const t=cell.tile,fx=[];
+  if(!t)return fx;
+  const adj=adjCells(cell).filter(c=>c.tile);
+  const nearCamp=adj.some(c=>c.tile==='lager'||c.tile==='pfahl');
+  if(t==='fisch'){fx.push(S.fishBlocked?'Fischgründe gestört – morgen kein Ertrag':'+1 Nahrung/Tag');if(nearCamp)fx.push('Verbund Fangplatz (Lager/Pfahlbau nebenan): +1 Nahrung/Tag');}
+  if(t==='lager')fx.push('+1 Nahrung/Tag');
+  if(t==='pfahl'){fx.push('+1 Nahrung/Tag');fx.push('+1 Schutz (beim Bau erhalten)');}
+  if(t==='wald'){fx.push(S.woodBoost?'+2 Material/Tag (Wiederbewaldung)':'+1 Material/Tag');if(nearCamp)fx.push('Verbund (Lager/Pfahlbau nebenan): +1 Material/Tag');}
+  if(t==='terrasse')fx.push('+1 Schutz (beim Bau erhalten)');
+  if(t==='hoehle')fx.push('+2 Schutz (beim Bau erhalten)');
+  if(t==='flint')fx.push(cell.vork==='silex'?'+1 Material/Tag (steht auf der Silexader)':'ohne Silexader darunter: kein laufender Ertrag');
+  const keypart=t+':'+cell.r+','+cell.c;
+  if(S.combos.some(k=>k.includes(keypart))){
+    if(t==='hoehle'||t==='terrasse')fx.push('Verbund aktiv: Höhle + Terrasse (+1 Schutz, einmalig erhalten)');
+    if(t==='pfahl')fx.push('Verbund aktiv: Dorf (+1 Kultur, einmalig erhalten)');
+  }
+  return fx;
+}
+function inspectMove(pid){selPerson=pid;movePerson(selCell);}
+function inspectBuild(i){selIdx=i;placeTile(selCell);}
+function tileInfoHTML(){
+  const cell=selCell,ter=TERR[cell.t];
+  const title=cell.tile?TILES[cell.tile].nm:ter.nm;
+  let h='<div class="ti-head"><b>'+title+'</b><span class="ti-loc">'+locOf(cell)+'</span></div>';
+  h+='<p class="ti-desc"><b>'+ter.nm+'</b> · '+ter.d+'</p>';
+  if(cell.aue)h+='<p class="ti-desc"><b>Aue / Schotterflur</b> · Kies im Grünen: hier verzweigt sich der Fluss und wandert mit jedem Hochwasser — und genau hier liegen die Furten.</p>';
+  if(TERR[cell.t].schritt!==null)
+    h+='<p class="ti-desc">Betreten kostet <b>'+ter.schritt+'</b> Ausdauer · Sicht von hier <b>'
+      +(ter.sicht||2)+'</b> Felder'+(cell.t==='H'?' <span class="lohn">(doppelt so weit wie im Tal)</span>':'')+'</p>';
+  if(cell.segs.length){
+    const kl=WKLASSE.find(k=>k.id===cell.kl);
+    const laeufe=[...new Set(cell.segs.map(s=>s.run))].map(id=>RUNS.find(r=>r.id===id).nm);
+    const anteil=cell.b/1000*100, quer=querKosten(cell,null);
+    h+='<div class="ti-sec"><span class="ti-lbl">'+ico('lauf')+' Gewässer</span>'
+      +'<div class="ti-row">'+laeufe.join(' + ')+' · '+kl.nm
+      +(cell.verzweigt?' · verzweigt':'')+(cell.merk.furt?' · Furt':'')+'</div>'
+      +'<p class="ti-desc">'+kl.d+' Abfluss '+cell.q.toFixed(1)+' m³/s → Breite '
+      +(cell.b<3?cell.b.toFixed(1):cell.b.toFixed(0))+' m <span class="lohn">(b = 6·√Q — gerechnet, nicht gemalt)</span>. '
+      +'Das Wasser nimmt <b>'+anteil.toFixed(anteil<1?1:0)+' %</b> der Feldbreite ein — daneben bleibt Ufer, im selben Feld.'
+      +(cell.verzweigt?' Verzweigt verteilt es sich auf die dreifache Breite und wird flach — darum die Furt.':'')+'</p>'
+      +'<p class="ti-desc">Ans andere Ufer: '
+      +(cell.merk.furt?'<span class="lohn">Furt — 1 Ausdauer</span>'
+        :quer===Infinity?'<b>ohne Boot unmöglich</b> — such die Furt in der Schotterflur'
+        :'−'+quer+' Ausdauer (waten)')
+      +(cell.parts.length>1?' · '+cell.parts.length+' Ufer-Sektoren':' · die Quelle trennt nichts — man geht herum')+'</p></div>';
+  }
+  if(cell.vork){
+    const v=VORK[cell.vork];
+    h+='<div class="ti-sec"><span class="ti-lbl">'+ico(v.ico)+' Vorkommen</span>'
+      +'<div class="ti-row">'+v.nm+'</div><p class="ti-desc">'+v.d+'</p>'
+      +'<p class="ti-desc lohn">Wer am Abend hier steht: '+v.lohn+'</p></div>';
+  }
+  if(cell.spur){
+    const f=FUND.find(f=>f.r===cell.r&&f.c===cell.c&&!f.found);
+    if(f)h+='<div class="ti-sec"><span class="ti-lbl">'+ico('spur')+' Spur</span><p class="ti-desc">Hier liegt etwas verborgen. Das richtige Plättchen hebt es: <b>'+f.types.map(k=>TILES[k].nm).join(' oder ')+'</b>.</p></div>';
+  }
+  if(S.wild.some(w=>w.c===cell.c&&w.r===cell.r))
+    h+='<div class="ti-sec"><span class="ti-lbl">Wild</span><p class="ti-desc">Ein Rudel steht hier. Der Jäger daneben bringt am Abend <b>+1 Nahrung</b> ein — <span class="lohn">von einem Hang aus mit Blick darauf +2 und die Fährte</span>. Nach der Nacht ist es weitergezogen.</p></div>';
+  if(cell.tile){
+    const t=TILES[cell.tile];
+    h+='<div class="ti-sec"><span class="ti-lbl">Plättchen</span>'
+      +'<div class="ti-row"><div class="tglyph">'+SOT.icon(t.glyph)+'</div>'+t.nm+'</div>'
+      +'<p class="ti-desc">'+t.d+'</p>'
+      +'<ul>'+tileEffects(cell).map(f=>'<li>'+f+'</li>').join('')+'</ul></div>';
+  }else if(cell.entdeckt){
+    h+='<div class="ti-sec"><span class="ti-lbl">Plättchen</span><p class="ti-desc">Noch unbebaut.</p></div>';
+  }
+  const ppl=[];
+  for(const pid of['sammler','jaeger']){
+    const p=S.people[pid];
+    if(p.cell===cell)ppl.push('<li><b>'+p.nm+' '+ico(p.ico)+'</b> · Ausdauer '+p.rest+'/'+ausdauerVon(p)
+      +(p.schuhwerk?' · Schuhwerk':'')
+      +(cell.parts.length>1?' · '+(seiteVon(cell,p.part)||'Sektor '+p.part):'')+'</li>');
+  }
+  if(ppl.length)h+='<div class="ti-sec"><span class="ti-lbl">Menschen</span><ul>'+ppl.join('')+'</ul></div>';
+  const acts=[];
+  if(S.phase==='tag'){
+    for(const pid of['sammler','jaeger'])
+      if(zielFelder(pid).has(cell)){
+        const n=spaehVorschau(cell).size;
+        acts.push('<button onclick="inspectMove(\''+pid+'\')">'+S.people[pid].nm+' '+S.people[pid].ico
+          +' hierher'+(n?' (+'+n+' Felder Sicht)':'')+'</button>');
+      }
+    if(!cell.tile&&cell.entdeckt){
+      const seen=new Set();
+      S.hand.forEach((tk,i)=>{
+        if(istKarte(tk))return;
+        if(seen.has(tk))return;seen.add(tk);
+        if(TILES[tk].valid(cell)&&!(tk==='pfahl'&&!S.pfahlUnlocked))
+          acts.push('<button onclick="inspectBuild('+i+')">'+TILES[tk].nm+' hier bauen</button>');
+      });
+    }
+  }
+  if(acts.length)h+='<div class="ti-sec"><span class="ti-lbl">Aktionen</span><div class="ti-actions">'+acts.join('')+'</div></div>';
+  return h;
+}
+function renderTileInfo(){
+  const side=$('#tiSide'), body=$('#tiSheetBody');
+  side.classList.remove('hid');
+  if(!selCell){
+    side.innerHTML='<span class="ti-lbl">Feld</span><div class="skelett">kein Feld gewählt —<br>tippe eines auf dem Brett</div>';
+    body.innerHTML='';
+    return;
+  }
+  const h=tileInfoHTML();
+  side.innerHTML=h+'<div class="ctrl"><button class="small ghost" onclick="closeInspect()">schließen</button></div>';
+  body.innerHTML=h;
+}
+
+/* ---------- Phasenfläche ---------- */
+function renderPhase(){
+  const n=$('#phasenpane');
+  const p=S.phase;
+  /* Laufende Tageszeit ans Kit melden: body[data-zeit] färbt Phasenknopf
+     und Rundenmarke von selbst (sot.css, Tageszeiten). */
+  SOT.zeit(p);
+  if(p==='daemmerung'){
+    /* Alles mit Preis und Wirkung ist eine KARTE — auch Späher und
+       Rasttag (Spieltest-Korrektur: Einheitlichkeit schlägt Objekt-Reinheit;
+       den TYP trägt der Akzent: Morgen warm, Abend kühl). */
+    let h='<h4>Morgen · Runde '+S.round+'</h4>'
+      +'<div class="ptitel">Was gibt das Land, was nimmst du mit?</div>'
+      +'<div class="effkarten">';
+    for(const v of vorbereitungen()){
+      if(v.id==='vorrat')continue;
+      const dran=wahl.morgen===v.id;
+      h+='<button class="effkarte k-morgen'+(dran?' vorgemerkt':'')+'"'
+        +(v.moeglich&&!S.vorbereitung?'':' disabled')
+        +' onclick="merke(\'morgen\',\''+v.id+'\')"'
+        +' onmouseenter="vorschau(\''+v.id+'\')" onmouseleave="vorschau(wahl.morgen)">'
+        +'<span class="art">'+SOT.icon('morgen')+(dran?' ◈ vorgemerkt':' Morgen')+'</span>'
+        +'<span class="knm">'+v.nm+'</span>'
+        +'<span class="kfx">'+v.lohn+'</span>'
+        +'<span class="kkost">'+(v.moeglich?v.kosten:v.warum)+'</span>'
+        +'</button>';
+    }
+    h+='</div>';
+    n.innerHTML=h;
+  }
+  else if(p==='tag'){
+    n.innerHTML='<h4>Mittag · Runde '+S.round+'</h4>'
+      +'<div class="ptitel">Wohin gehen die Menschen?</div>'
+      +(S.placedThisDay?'<p class="lohn">Gebaut: '+S.placedThisDay+'.</p>'
+        :(kannBauen()?'':'<p class="hint">Nichts baubar — leg eine Karte zurück oder geh in den Abend.</p>'));
+  }
+  else if(p==='abend'){
+    const e=S.letzteErnte||{zeilen:[],sum:{N:0,S:0,B:0,K:0}};
+    let h='<h4>Abend · Runde '+S.round+'</h4>'
+      +'<div class="ptitel">Was hat der Weg eingebracht?</div><div class="buch">';
+    for(const z of e.zeilen){
+      const w=z.g?Object.entries(z.g).map(([k,v])=>SOT.vz(v)+' '+({N:'N',S:'S',B:'Mat',K:'K'}[k])).join(' · '):'—';
+      h+='<div class="z"><span class="q">'+z.q+'<small>'+z.detail+'</small></span>'
+        +'<span class="w'+(z.g?'':' leer')+'">'+w+'</span></div>';
+    }
+    const s=e.sum;
+    h+='</div><div class="buch"><div class="summe"><span>Ernte</span><span class="spacer"></span><span>'
+      +([['N',s.N],['Schutz',s.S],['Mat',s.B],['Kultur',s.K]].filter(x=>x[1]).map(x=>SOT.vz(x[1])+' '+x[0]).join(' · ')
+        ||'nichts')+'</span></div></div>';
+    if(!S.verarbeitet){
+      /* Die WERKBANK: Karten, die Dinge herstellen — eine je Abend. */
+      h+='<h4 style="margin-top:12px">Werkbank — eine Sache je Abend</h4><div class="werkbank">';
+      for(const v of verarbeitungen()){
+        const dran=wahl.abend===v.id;
+        h+='<button class="effkarte k-abend'+(dran?' vorgemerkt':'')+'"'+(v.moeglich?'':' disabled')
+          +' onclick="merke(\'abend\',\''+v.id+'\')"'
+          +' onmouseenter="vorschau(\''+v.id+'\')" onmouseleave="vorschau(wahl.abend)">'
+          +'<span class="art">'+SOT.icon('abend')+(dran?' ◈ vorgemerkt':' herstellen')+'</span>'
+          +'<span class="knm">'+v.nm+'</span>'
+          +'<span class="kfx">'+v.lohn+'</span>'
+          +'<span class="kkost">'+(v.moeglich?v.kosten:v.warum)+'</span>'
+          +'</button>';
+      }
+      h+='</div>';
+    }else h+='<p class="lohn" style="margin-top:10px">Hergestellt. Die Nacht kann kommen.</p>';
+    n.innerHTML=h;
+  }
+  else n.innerHTML='<h4>Nacht</h4><div class="ptitel">Was geschieht im Dunkeln?</div>';
+
+  /* Knopfzeile */
+  const b=$('#btnPhase'), sw=$('#btnSwap');
+  if(p==='daemmerung'){b.textContent=wahl.morgen==='vorrat'?'Vorrat packen & aufbrechen'
+    :wahl.morgen?'Spielen & aufbrechen':'Aufbrechen · Mittag beginnen';b.disabled=false;}
+  else if(p==='tag'){
+    const offen=S.placedThisDay===0&&kannBauen();
+    b.textContent=offen?'Erst ein Plättchen legen …':'Abend · Ernte einbringen';
+    b.disabled=offen;
+  }
+  else if(p==='abend'){b.textContent=wahl.abend?'Verarbeiten & Nacht anbrechen lassen':'Nacht anbrechen lassen';b.disabled=false;}
+  else{b.textContent='…';b.disabled=true;}
+  sw.classList.toggle('hid',!(selIdx!==null&&!S.swapped&&(p==='daemmerung'||p==='tag')));
+}
+function selPersonToggle(pid){
+  if(S.phase!=='tag')return;
+  const p=S.people[pid];
+  if(p.rest<=0){toast(S.vorbereitung==='rast'?'Rasttag – heute geht niemand.':'Keine Ausdauer mehr – morgen wieder.');return;}
+  selPerson=selPerson===pid?null:pid;selIdx=null;
+  renderAll();
+  if(selPerson){
+    const t=zielFelder(pid);
+    if(t.size===0)toast(p.cell?'Kein erreichbares Feld.':'Kein Plättchen zum Betreten – erst bauen.');
+    else toast(p.nm+' · '+p.rest+' Ausdauer'+(pid==='jaeger'?' — genug für einen Hang (2 Schritte).':' — ein Schritt im Tal.'),3200);
+  }
+}
+function renderPeople(){
+  for(const pid of['sammler','jaeger']){
+    const n=$('#pb_'+pid),p=S.people[pid];
+    n.classList.toggle('sel',selPerson===pid);
+    n.classList.toggle('leer',p.rest<=0&&selPerson!==pid);
+    $('#pt_'+pid).textContent=p.cell?'im Tal':'nicht im Tal';
+    /* Vier Mini-Werte. Gesundheit und Angriff sind Anzeige ohne Mechanik —
+       reservierter Platz für Risikoleiter und Jagd (Nachtrag 5). Jede
+       Spanne .pv ist der Vorschau-Platz. */
+    const W=[['lauf','Ausdauer',p.rest+'/'+ausdauerVon(p)+(p.schuhwerk?' '+SOT.icon('schuh'):''),'aus'],
+             ['herz','Gesundheit',p.hp+'/'+p.hpMax,'hp'],
+             ['bogen','Angriff',p.atk,'atk'],
+             ['schutz','Verteidigung',p.def,'def']];
+    $('#pb_'+pid+' .pwerte').innerHTML=W.map(([ic,tt,val,key])=>
+      '<span class="pw" title="'+tt+'">'+SOT.icon(ic)+'<b>'+val+'</b><span class="pv" data-w="'+key+'"></span></span>').join('');
+  }
+}
+function kartenInhalt(tk,tot){
+  const t=TILES[tk];
+  return '<div class="tinner"><div class="tglyph">'+SOT.icon(t.glyph)+'</div>'
+    +'<div class="nm">'+t.nm+'</div>'
+    +'<div class="fx">'+(tot?'kein Platz dafür':t.fx)+'</div></div>';
+}
+function renderHand(){
+  /* Vier feste Plätze für BEIDE Formen: Sechsecke (Land, Mittag) und
+     Rechteckkarten (Vorrat, Morgen). Die Phase dämpft, was gerade nicht
+     spielbar ist; eine gelegte Karte hinterlässt ihre Silhouette. */
+  const h=SOT.clear($('#hand'));
+  for(let i=0;i<4;i++){
+    if(i<S.hand.length){
+      const e2=S.hand[i];
+      if(istKarte(e2)){
+        const k=FXKARTEN[e2];
+        const spielbar=S.phase==='daemmerung'&&!S.vorbereitung;
+        const dran=spielbar&&wahl.morgen==='vorrat'&&S.hand.indexOf('fx_vorrat')===i;
+        const d=el('button.hkarte.k-morgen'+(spielbar?'':'.ruht')+(dran?'.vorgemerkt':''),
+          {title:k.nacht,
+           onclick:()=>{if(spielbar)merke('morgen','vorrat');},
+           onmouseenter:()=>vorschau('vorrat'),
+           onmouseleave:()=>vorschau(wahl.morgen)});
+        d.innerHTML='<span class="art">'+SOT.icon('morgen')+' '+(dran?'◈ vorgemerkt':k.art)+'</span>'
+          +'<span class="kico">'+SOT.icon(k.ico)+'</span>'
+          +'<span class="knm">'+k.nm+'</span>'
+          +'<span class="kfx">'+k.lohn+'</span>';
+        h.appendChild(d);
+      }else{
+        const tk=e2, tot=!baubar(tk)||S.phase==='daemmerung';
+        const d=el('div.tcard'+(selIdx===i?'.sel':'')+(tot?'.tot':''),
+          {html:kartenInhalt(tk,!baubar(tk)),data:{i:i}});
+        zieheKarte(d,i);
+        h.appendChild(d);
+      }
+    }else{
+      h.appendChild(el('div.tslot',{title:'leerer Platz'},[el('div.skelett')]));
+    }
+  }
+  h.appendChild(el('div.handhint',
+    {text:S.phase==='daemmerung'?'Rechteck spielt heute — Sechsecke warten auf den Mittag.'
+      :'Karte aufs Feld ziehen — oder antippen und dann das Feld.'}));
+}
+/* ---------- Ziehen & Ablegen ----------
+   Pointer Events statt HTML5-Drag-and-Drop: Letzteres gibt es auf einem
+   Telefon nicht, und dieser Prototyp wird auf dem Telefon gespielt. Eine
+   Codebahn für Maus und Finger; Antippen bleibt als Weg erhalten (unter der
+   Schwelle von 8px gilt der Zug als Tipp). */
+let zug=null;
+function zieheKarte(karte,i){
+  karte.addEventListener('pointerdown',e=>{
+    if(S.phase!=='tag')return;
+    e.preventDefault();
+    zug={i,karte,x0:e.clientX,y0:e.clientY,los:false,ghost:null,ziel:null};
+    karte.setPointerCapture(e.pointerId);
+  });
+  karte.addEventListener('pointermove',e=>{
+    if(!zug||zug.i!==i)return;
+    if(!zug.los){
+      if(Math.hypot(e.clientX-zug.x0,e.clientY-zug.y0)<8)return;
+      /* Jetzt wird es ein Zug: Karte wählen, damit die Karte dieselben
+         Zielfelder leuchten lässt wie beim Antippen. */
+      zug.los=true;selIdx=i;selPerson=null;
+      renderMap();renderPhase();
+      document.body.classList.add('zieht');
+      zug.karte.classList.add('zieht');
+      const tot=!baubar(S.hand[i]);
+      zug.ghost=el('div.dragghost',{html:kartenInhalt(S.hand[i],tot)});
+      zug.ghost.style.setProperty('--gw',getComputedStyle($('#hand')).getPropertyValue('--cardw').trim());
+      document.body.appendChild(zug.ghost);
+    }
+    zug.ghost.style.left=e.clientX+'px';
+    zug.ghost.style.top=e.clientY+'px';
+    const unter=feldUnter(e.clientX,e.clientY);
+    if(zug.ziel&&zug.ziel!==unter)zug.ziel.classList.remove('dropziel');
+    zug.ziel=unter;
+    if(unter)unter.classList.add('dropziel');
+  });
+  const ende=e=>{
+    if(!zug||zug.i!==i)return;
+    const z=zug;zug=null;
+    if(z.ghost)z.ghost.remove();
+    document.body.classList.remove('zieht');
+    z.karte.classList.remove('zieht');
+    if(z.ziel)z.ziel.classList.remove('dropziel');
+    if(!z.los){                                  /* Tipp, kein Zug */
+      selIdx=selIdx===i?null:i;selPerson=null;renderAll();return;
+    }
+    if(z.ziel){
+      const cell=at(+z.ziel.dataset.c,+z.ziel.dataset.r);
+      selIdx=i;placeTile(cell);
+    }else{
+      renderAll();
+      toast('Dort kann das nicht stehen — die leuchtenden Felder gehen.',2400);
+    }
+  };
+  karte.addEventListener('pointerup',ende);
+  karte.addEventListener('pointercancel',ende);
+}
+/* Nur Felder, die JETZT ein gültiges Ziel sind, nehmen die Karte an. */
+function feldUnter(x,y){
+  const n=document.elementFromPoint(x,y);
+  const cell=n&&n.closest?n.closest('.cell'):null;
+  return cell&&cell.classList.contains('valid')?cell:null;
+}
+
+/* ================= BAUEN ================= */
+function authFor(tk,cell){
+  const f=FUND.find(f=>f.r===cell.r&&f.c===cell.c&&f.types.includes(tk)&&!f.found);
+  let pts=0,max=3,note=null;
+  if(tk==='fisch'){pts=2;max=2;}
+  else if(tk==='pfahl'){pts=(cell.t==='S'||cell.seeUfer)?3:1;max=3;}
+  else if(tk==='hoehle'){pts=cell.t==='H'?2:0;max=2;}
+  else if(tk==='terrasse'){pts=cell.t==='H'?2:1;max=2;}
+  else if(tk==='lager'){pts=1;max=1;}
+  else if(tk==='wald'){pts=cell.amWasser?1:0;max=1;}
+  else if(tk==='flint'){pts=cell.vork==='silex'?2:cell.t==='H'?1:0;max=2;}
+  if(f){pts+=f.auth;f.found=true;cell.spur=false;S.fundFound++;S.K+=f.k;note=f;}
+  return{pts,max,note};
+}
+function checkCombos(cell){
+  const tk=cell.tile, adj=adjCells(cell).filter(c=>c.tile);
+  const has=k=>adj.some(c=>c.tile===k);
+  const key=(a,b,c1,c2)=>[a+':'+c1.r+','+c1.c,b+':'+c2.r+','+c2.c].sort().join('|');
+  function once(k,fx,msg){if(!S.combos.includes(k)){S.combos.push(k);fx();setTimeout(()=>toast('VERBUND · '+msg,2600),900);}}
+  if(tk==='hoehle'&&has('terrasse')){const o=adj.find(c=>c.tile==='terrasse');once(key('hoehle','terrasse',cell,o),()=>{S.S+=1;flashChip('chipS');},'Höhle + Terrasse: +1 Schutz');}
+  if(tk==='terrasse'&&has('hoehle')){const o=adj.find(c=>c.tile==='hoehle');once(key('hoehle','terrasse',o,cell),()=>{S.S+=1;flashChip('chipS');},'Höhle + Terrasse: +1 Schutz');}
+  if(tk==='pfahl'&&has('pfahl')){const o=adj.find(c=>c.tile==='pfahl');once(key('pfahl','pfahl',cell,o),()=>{S.K+=1;flashChip('chipK');},'Zwei Pfahlbauten: ein Dorf entsteht. +1 Kultur');}
+}
+function placeTile(cell){
+  const tk=S.hand[selIdx];
+  if(tk==='pfahl'){if(S.B<3){toast('Pfahlbau braucht 3 Material.');return;}S.B-=3;S.S+=1;}
+  if(tk==='hoehle')S.S+=2;
+  if(tk==='terrasse')S.S+=1;
+  cell.tile=tk;S.tiles.push({type:tk,cell});
+  S.hand.splice(selIdx,1);selIdx=null;S.placedThisDay++;
+  checkCombos(cell);
+  entdecke(cell,1);
+  const a=authFor(tk,cell);S.authGot+=a.pts;S.authMax+=a.max;
+  if(a.note){
+    toast('FUNDSTELLE ENTDECKT · +'+a.note.k+' Kultur',3000);
+    setTimeout(()=>showFund(a.note),350);
+  }else{
+    toast(a.pts>=a.max?'+'+a.pts+' Authentizität – so bauten sie wirklich':a.pts>0?'+'+a.pts+' Authentizität':'Hier gab es das nie. +0 Authentizität');
+  }
+  renderAll();
+}
+function swapCard(){
+  if(selIdx===null||S.swapped||istKarte(S.hand[selIdx]))return;
+  const alt=S.hand[selIdx], neu=drawTile();
+  S.hand[selIdx]=neu;S.swapped=true;selIdx=null;
+  toast(TILES[alt].nm+' zurückgelegt – dafür gezogen: '+TILES[neu].nm+'.');
+  renderAll();
+}
+function showFund(f){
+  const fr=$('#nfront');
+  $('#ncard').classList.remove('flip');
+  fr.className='nface nfront anchor';
+  fr.innerHTML='<div class="tag">Fundstelle entdeckt</div><h2>'+f.name+'</h2><p>'+f.txt+'</p><div class="result good">+'+f.k+' Kultur · +'+f.auth+' Authentizität</div><button class="primary" onclick="closeOverlay()">Weiterbauen</button>';
+  $('#nightoverlay').classList.add('on');
+  requestAnimationFrame(()=>setTimeout(()=>$('#ncard').classList.add('flip'),80));
+}
+function closeOverlay(){$('#nightoverlay').classList.remove('on');$('#ncard').classList.remove('flip');}
+
+/* ================= DER TAGESLAUF ================= */
+/* Der Phasenknopf ist ein COMMIT: er bucht die Vormerkung der Seite und
+   schaltet dann weiter. Brett-Züge (legen, gehen) sind davon unberührt —
+   sie geschehen auf dem Brett und sind endgültig. */
+function naechstePhase(){
+  if(S.phase==='daemmerung'){
+    if(wahl.morgen){const v=vorbereitungen().find(x=>x.id===wahl.morgen);
+      if(v&&v.moeglich){v.tun();S.vorbereitung=v.id;
+        for(const p of Object.values(S.people))if(p.rest>0)p.rest=ausdauerVon(p);}}
+    wahl.morgen=null;vorschau(null);
+    beginTag();
+  }
+  else if(S.phase==='tag')beginAbend();
+  else if(S.phase==='abend'){
+    if(wahl.abend){const v=verarbeitungen().find(x=>x.id===wahl.abend);
+      if(v&&v.moeglich){v.tun();S.verarbeitet=true;}}
+    wahl.abend=null;vorschau(null);
+    beginNacht();
+  }
+}
+/* Vormerkungen: reiner UI-Zustand, nie im Spielstand. */
+const wahl={morgen:null,abend:null};
+function merke(art,id){
+  if(art==='morgen'&&S.vorbereitung)return;
+  if(art==='abend'&&S.verarbeitet)return;
+  wahl[art]=wahl[art]===id?null:id;
+  vorschau(wahl[art]);
+  renderAll();
+}
+function beginDaemmerung(){
+  S.phase='daemmerung';
+  S.vorbereitung=null;S.verarbeitet=false;S.swapped=false;S.placedThisDay=0;
+  S.sichtBonus=0;S.ausdauerBonus=0;S.neuland=0;S.letzteErnte=null;S.faehrte=null;
+  selPerson=null;selIdx=null;
+  SOT.night(false);
+  document.body.classList.remove('abendlicht');
+  document.body.classList.add('daemmer');
+  /* Was das Land gibt: die Plättchen liefern, die Hand wird aufgefüllt. */
+  tagesEinkommen();
+  const draws=S.extraDraw?2:1;S.extraDraw=false;
+  for(let i=0;i<draws;i++)if(S.hand.length<4)S.hand.push(drawTile());
+  while(S.hand.length<3)S.hand.push(drawTile());
+  for(const p of Object.values(S.people))p.rest=ausdauerVon(p);
+  renderAll();
+}
+function tagesEinkommen(){
+  let n=0,b=0;
+  for(const t of S.tiles){
+    if(t.type==='fisch'&&!S.fishBlocked)n++;
+    if(t.type==='lager')n++;
+    if(t.type==='pfahl')n++;
+    if(t.type==='wald')b+=S.woodBoost?2:1;
+    if(t.type==='flint'&&t.cell.vork==='silex')b++;
+    const adj=adjCells(t.cell).filter(c=>c.tile);
+    const nearCamp=adj.some(c=>c.tile==='lager'||c.tile==='pfahl');
+    if(nearCamp&&t.type==='fisch'&&!S.fishBlocked)n++;
+    if(nearCamp&&t.type==='wald')b++;
+  }
+  S.fishBlocked=false;
+  S.N+=n;S.B+=b;
+  if(n)flashChip('chipN');if(b)flashChip('chipB');
+}
+function beginTag(){
+  S.phase='tag';
+  document.body.classList.remove('daemmer');
+  renderAll();
+  toast('Der Tag gehört den Beinen.',2200);
+}
+function beginAbend(){
+  S.phase='abend';
+  selPerson=null;selIdx=null;
+  document.body.classList.add('abendlicht');
+  ernteBuchen();
+  renderAll();
+  const s=S.letzteErnte.sum;
+  const ges=s.N+s.S+s.B+s.K;
+  toast(ges?'Der Abend rechnet ab: '+SOT.vz(ges)+' auf allen Konten.':'Ein Tag ohne Ertrag. Morgen anders laufen.',3000);
+}
+function beginNacht(){
+  S.phase='nacht';
+  document.body.classList.remove('daemmer','abendlicht');
+  SOT.night(true);
+  renderPhase();
+  const msg=$('#nightmsg');msg.classList.add('show');
+  setTimeout(()=>{msg.classList.remove('show');
+    $('#nightoverlay').classList.add('on');
+    setTimeout(revealNight,1300);
+  },1400);
+}
+function pickNight(){
+  const a=ANCHORS[S.round];
+  if(a)return{...a,anchor:true,glyph:null};
+  const tot=NIGHTS.reduce((s,n)=>s+n.w,0);let x=rnd()*tot;
+  for(const n of NIGHTS){x-=n.w;if(x<=0)return n;}
+  return NIGHTS[2];
+}
+function revealNight(){
+  const ev=pickNight();
+  const res=ev.fx();
+  S.N=Math.max(0,S.N-1);
+  const fr=$('#nfront');
+  fr.className='nface nfront'+(ev.anchor?' anchor':'');
+  fr.innerHTML='<div class="tag">'+(ev.anchor?ico('beleg')+' '+ev.tag:ev.tag)+'</div>'
+    +(ev.glyph?'<div style="width:44px;height:44px;margin:0 auto 8px;color:var(--ember)">'+SOT.icon(ev.glyph)+'</div>':'')
+    +'<h2>'+ev.h+'</h2><p>'+ev.p+'</p>'
+    +'<div class="result '+(res.good?'good':'bad')+'">'+res.txt+'</div>'
+    +'<p class="dim" style="font-size:11px;margin-top:10px">Der Stamm isst: −1 Nahrung</p>'
+    +'<button class="primary" onclick="endNight()">Den Morgen erwarten</button>';
+  $('#ncard').classList.add('flip');
+  renderRes();
+}
+function wildZieht(){
+  const schritte=S.wildSprung?2:1;S.wildSprung=false;
+  for(const w of S.wild){
+    for(let i=0;i<schritte;i++){
+      const hier=at(w.c,w.r);
+      const wege=nachbarn(hier).filter(n=>n.t==='F'||n.t==='H');
+      if(!wege.length)continue;
+      const ziel=wege[Math.floor(rnd()*wege.length)];
+      w.c=ziel.c;w.r=ziel.r;
+    }
+  }
+}
+function endNight(){
+  $('#nightoverlay').classList.remove('on');$('#ncard').classList.remove('flip');
+  if(S.N<=0){
+    const vi=S.hand.indexOf('fx_vorrat');
+    if(vi>=0){S.hand.splice(vi,1);S.N+=2;toast('Der Vorrat wird angebrochen – der Hunger bleibt aus.',3000);}
+    else{S.hungry++;toast('Die Vorräte sind leer. Der Stamm hungert ('+S.hungry+'/2).',3000);}
+  }else S.hungry=0;
+  if(S.hungry>=2){gameOver();return;}
+  const gain=Math.max(0,Math.min(3,Math.min(S.N,getS(),S.B)));
+  S.prog+=gain;
+  wildZieht();
+  S.round++;
+  if(S.round>ROUNDS){startCeremony();return;}
+  setTimeout(()=>{beginDaemmerung();
+    if(gain>0)toast('Sesshaftigkeit +'+gain+' (schwächste Ressource zählt)');
+    else toast('Keine Sesshaftigkeit – eine Ressource liegt bei null.');
+  },600);
+}
+function gameOver(){
+  const ci=$('#ceremInner');
+  SOT.night(true);
+  $('#cerem').classList.remove('hid');$('#handwrap').classList.add('hid');
+  ci.innerHTML='<div class="sub">vor '+vorHeute(YEARS[Math.min(S.round,ROUNDS)-1])+' Jahren</div>'
+    +'<h1>Der Stamm zieht weiter.</h1>'
+    +'<p>Zwei Winter ohne Vorräte – das Tal gibt euch nichts mehr. Ihr folgt dem Wild nach Norden. Vielleicht kehren eure Enkel zurück.</p>'
+    +'<p class="dim">So endeten die meisten Geschichten dieser Zeit. Die Archäologie findet nur die, die blieben.</p>'
+    +'<div class="rule"></div>'
+    +'<button class="primary" style="width:100%" onclick="location.reload()">Noch einmal – diesmal weißt du, was kommt</button>';
+}
+
+/* ================= ZEREMONIE ================= */
+let cstep=0;
+function startCeremony(){
+  cstep=0;$('#handwrap').classList.add('hid');
+  SOT.night(false);document.body.classList.remove('daemmer','abendlicht');
+  $('#cerem').classList.remove('hid');
+  ceremStep();
+}
+function ceremStep(){
+  const ci=$('#ceremInner');cstep++;
+  if(cstep===1){
+    ci.innerHTML=cHead(1,'Der letzte Sommer')
+      +'<p>Die Alten spüren es zuerst: Diese Art zu leben geht zu Ende. Ein letztes Mal zieht der Stamm jagend durchs ganze Tal.</p>'
+      +'<div class="fundnote"><b>+1 Nahrung</b>Ein Abschied in Fülle.</div>'
+      +cBtn('Weiter');
+    S.N++;
+  }
+  else if(cstep===2){
+    const opts=S.tiles.filter(t=>t.type==='fisch'||t.type==='hoehle');
+    let html=cHead(2,'Das Opfer')
+      +'<p>Wer bleibt, muss loslassen. Wähle, was der alten Lebensweise geopfert wird – es verschwindet für immer vom Tal.</p>';
+    if(opts.length===0){
+      html+='<p class="dim">Ihr besitzt nichts Provisorisches mehr – das Opfer wurde längst gebracht.</p>'+cBtn('Weiter');
+    }else{
+      opts.slice(0,3).forEach(t=>{
+        html+='<button class="choice" onclick="ceremSacrifice('+S.tiles.indexOf(t)+')">'+TILES[t.type].nm+' aufgeben<small>'+(t.type==='hoehle'?'−2 Schutz':'−1 Nahrung/Tag')+'</small></button>';
+      });
+    }
+    ci.innerHTML=html;return;
+  }
+  else if(cstep===3){
+    const pf=S.tiles.find(t=>t.type==='pfahl');
+    const la=S.tiles.find(t=>t.type==='lager');
+    let body;
+    if(pf){S.K+=2;body='<p>Euer Pfahlbau wird zum Kern eines Dorfes, das Jahrhunderte stehen wird. Kinder werden geboren, die nie etwas anderes kennen als: <i>hier</i>.</p><div class="fundnote"><b>+2 Kultur</b>Ein Ort bekommt Dauer.</div>';}
+    else if(la){S.K+=1;body='<p>Euer Uferlager wird fest: Pfosten statt Zelte, Vorratsgruben statt Bündel.</p><div class="fundnote"><b>+1 Kultur</b>Der Anfang von Dauer.</div>';}
+    else{body='<p class="dim">Kein Lager, das bleiben könnte. Die Sesshaftigkeit wird andere finden – nicht euch.</p>';}
+    ci.innerHTML=cHead(3,'Das Fundament')+body+cBtn('Weiter');
+  }
+  else if(cstep===4){
+    ci.innerHTML=cHead(4,'Fremde am Fluss')
+      +'<p>Eine Familie steht am Ufer. Andere Sprache, andere Werkzeuge, dieselbe Müdigkeit. Sie bitten um einen Platz.</p>'
+      +'<button class="choice" onclick="ceremChoice(true)">Aufnehmen<small>+2 Nahrung, +1 Kultur · aber Unruhe: −1 Schutz</small></button>'
+      +'<button class="choice" onclick="ceremChoice(false)">Abweisen<small>+1 Schutz · das Tal bleibt, wie es ist</small></button>';
+    return;
+  }
+  else if(cstep===5){finalScreen();return;}
+}
+function ceremSacrifice(idx){
+  const t=S.tiles[idx];
+  if(t.type==='hoehle')S.S=Math.max(0,S.S-2);
+  t.cell.tile=null;S.tiles.splice(idx,1);
+  toast(TILES[t.type].nm+' geopfert.');
+  ceremStep();
+}
+function ceremChoice(take){
+  if(take){S.N+=2;S.K+=1;S.S=Math.max(0,S.S-1);toast('Die Fremden bleiben. Das Tal wird größer als ein Stamm.');}
+  else{S.S+=1;toast('Sie ziehen weiter, seewärts.');}
+  ceremStep();
+}
+function cHead(n,t){return '<div class="cnum">ZEREMONIE · KARTE '+['I','II','III','IV','V'][n-1]+' / V</div><h1 style="font-size:27px">'+t+'</h1>';}
+function cBtn(l){return '<div class="rule"></div><button class="primary" style="width:100%" onclick="ceremStep()">'+l+'</button>';}
+
+function finalScreen(){
+  const vals=[S.N,getS(),S.B,S.K];
+  const avg=vals.reduce((a,b)=>a+b,0)/4;
+  const bal=avg>0?Math.round(Math.min(...vals)/avg*100):0;
+  const auth=S.authMax>0?Math.round(S.authGot/S.authMax*100):0;
+  const bekannt=S.grid.filter(c=>c.entdeckt).length;
+  const vorkGefunden=S.grid.filter(c=>c.vork&&c.entdeckt).length;
+  let tier,tiertxt;
+  if(S.prog>=16){tier='Die Pfahlbauer';tiertxt='Euer Dorf steht auf Pfählen im flachen Wasser – genau dort, wo Jahrtausende später Taucher seine Reste finden werden. Epoche II wartet: Von Süden her erzählen Händler von einem Volk, das Straßen baut.';}
+  else if(S.prog>=10){tier='Am Ufer angekommen';tiertxt='Ihr seid geblieben – noch nicht fest verwurzelt, aber das Tal kennt jetzt eure Namen. Die nächste Epoche wird entscheiden, ob es sie behält.';}
+  else{tier='Das Tal bleibt wild';tiertxt='Ihr habt überlebt, mehr nicht. Andere werden es sein, deren Spuren die Archäologie findet. Aber jetzt kennst du das Tal – und weißt, wann die Kälte kommt.';}
+  $('#ceremInner').innerHTML='<div class="cnum">ZEREMONIE · KARTE V / V</div>'
+    +'<div class="sub">Realitätsabgleich · 2 000 v. Chr.</div>'
+    +'<h1 style="font-size:30px">'+tier+'</h1>'
+    +'<p>'+tiertxt+'</p>'
+    +'<div class="scorebox"><div class="score"><b>'+bal+'%</b><span>Balance</span></div>'
+    +'<div class="score"><b>'+auth+'%</b><span>Authentizität</span></div>'
+    +'<div class="score"><b>'+S.fundFound+'/3</b><span>Fundstellen</span></div></div>'
+    +'<p class="dim">Ihr habt <b>'+bekannt+' von '+(COLS*ROWS)+' Feldern</b> begangen und <b>'+vorkGefunden+' von '+VORKOMMEN.length+' Vorkommen</b> gefunden — bekannt ist, was begangen wurde.</p>'
+    +'<p class="dim"><b>Balance</b>: schwächste Ressource geteilt durch Durchschnitt. <b>Authentizität</b>: Wie oft hast du gebaut, wo Menschen wirklich bauten?</p>'
+    +(S.fundFound<3?'<p class="dim">Es liegen noch '+(3-S.fundFound)+' Fundstellen unentdeckt im Tal …</p>':'<p class="dim">Alle Fundstellen entdeckt – das Tal hat dir alles gezeigt.</p>')
+    +'<div class="rule"></div>'
+    +'<button class="primary" style="width:100%" onclick="location.reload()">Noch einmal durch die Zeit reisen</button>'
+    +'<p class="legend">'+ico('beleg')+' Belegte Ereignisse geschehen in jeder Partie zur selben Zeit. Wer sie kennt, spielt anders.<br>Prototyp – Daten historisch inspiriert und vereinfacht, Jahre gerundet.</p>';
+}
+
+/* ================= START ================= */
+function startGame(){
+  S=newState();selCell=null;selIdx=null;selPerson=null;
+  entdecke(at(START.c,START.r));
+  S.grid.forEach(c=>c.neu=false);
+  S.neuland=0;                      /* die Ankunft ist kein Verdienst des Tages */
+  if(P.aufgedeckt)S.grid.forEach(c=>{c.entdeckt=true;
+    const f=FUND.find(f=>f.r===c.r&&f.c===c.c);if(f)c.spur=true;});
+  if(P.hand){
+    S.hand=P.hand.split(',').map(s=>s.trim()).filter(k=>TILES[k]||FXKARTEN[k]);
+    while(S.hand.length<3)S.hand.push(drawTile());
+  }else{
+    for(let i=0;i<3;i++)S.hand.push(drawTile());
+    if(!S.hand.some(t=>t==='fisch'||t==='lager'))S.hand[0]='lager';
+  }
+  /* Eine Vorrat-Karte zum Start: das herstellbare Ding ist vom ersten
+     Morgen an sichtbar — Regel und Belohnung erklären sich selbst. */
+  if(!S.hand.includes('fx_vorrat')&&S.hand.length<4){
+    S.hand.push('fx_vorrat');
+  }
+  if(false){
+  }
+  $('#intro').classList.add('hid');$('#game').classList.remove('hid');$('#handwrap').classList.remove('hid');
+  S.round=P.runde;
+  document.body.classList.add('daemmer');
+  renderAll();
+  requestAnimationFrame(()=>requestAnimationFrame(zentrieren));
+  toast('Morgen: wähle die Vorbereitung, dann brich auf.',3600);
+}
+
+/* Ein Knoten, zwei Parkplätze: die Seite trägt den Spieler (ab 901px).
+   Ordnung dort: was jetzt? (Phasenfläche + Knopf) → womit? (Hand) →
+   stehender Zustand (Stats, Sesshaftigkeit, Menschen), Inspektor zuletzt. */
+/* Zeichen der vier Werte aus dem Baukasten: Beerenzweig (sammeln) ·
+   Palisade (bergen) · Reisigbündel (bauen) · Spirale (das Zeichen, das
+   bleibt). Sie lagen hier in einem 24er-Feld — im Register auf das Hausfeld
+   gebracht, ohne die Zeichnung zu ändern. */
+for(const [k,kurz] of Object.entries({nahrung:'N',schutz:'S',material:'B',kultur:'K'})){
+  $('#chip'+kurz).querySelector('.wicon').innerHTML=SOT.icon(k);
+}
+const mqSeite=window.matchMedia('(min-width:901px)');
+const mqBreit=window.matchMedia('(min-width:1280px)');
+function heimat(){
+  const knopf=$('#btnPhase');
+  if(mqBreit.matches){
+    /* Drei Spalten: links liest (Uhr · Werte · Inspektor), rechts greift
+       (Menschen · Frage/Karten · Commit · Hand). */
+    $('#links').append($('#uhr'),$('#werte'),$('#tiSide'));
+    $('#seite').prepend($('#peoplebar'),$('#phasenpane'),knopf,$('#handwrap'));
+  }else if(mqSeite.matches){
+    /* Eine Spalte: fester Block oben, Wachsendes darunter. */
+    $('#seite').prepend($('#uhr'),$('#werte'),$('#peoplebar'),
+                        $('#phasenpane'),knopf,$('#handwrap'));
+    $('#seite').append($('#tiSide'));
+  }else{
+    $('#obenfluss').append($('#uhr'),$('#werte'),$('#peoplebar'),$('#phasenpane'));
+    document.body.appendChild($('#handwrap'));   /* fixed unten — Ort im DOM egal */
+    $('#handwrap .actionrow').appendChild(knopf);
+    $('#seite').append($('#tiSide'));
+  }
+  /* Die Karte selbst: auf die Buehne (Desktop) oder in den Fluss (Telefon). */
+  if(mqSeite.matches){
+    $('#welt').appendChild($('#map'));
+    $('#buehne').appendChild($('#mapleg'));
+    requestAnimationFrame(()=>requestAnimationFrame(zentrieren));
+  }else{
+    $('#brett').append($('#map'),$('#mapleg'));
+    $('#map').style.removeProperty('width');
+  }
+}
+mqSeite.addEventListener('change',heimat);
+mqBreit.addEventListener('change',heimat);heimat();
+
+icoSweep();
+/* ============ DIE BUEHNE: Pan, Zoom, Zentrieren, Schleier ============
+   Ziehen verschiebt die Welt, das Rad zoomt ZUM CURSOR (der Punkt unter
+   der Maus bleibt liegen), auch ins Unbesuchte. ⌖ passt die Bounding-Box
+   des Entdeckten + 2 Felder Rand zwischen die Panes (Mess-Ziel ist das
+   Rechteck der leeren .brett-Spalte). */
+const view={x:0,y:0,k:1};
+function applyView(){
+  $('#welt').style.transform='translate('+view.x+'px,'+view.y+'px) scale('+view.k+')';
+}
+function stageRects(){
+  const b=$('#buehne').getBoundingClientRect();
+  const m=$('#map').getBoundingClientRect();
+  return{b,m};
+}
+function zellmass(){
+  const c0=$('#map .hexrow .cell'); if(!c0)return null;
+  const r=c0.getBoundingClientRect(); if(!r.width)return null;
+  const reihen=$('#map').querySelectorAll('.hexrow');
+  if(reihen.length<3)return null;
+  const y0=reihen[0].getBoundingClientRect().top, y2=reihen[2].getBoundingClientRect().top;
+  const c1=reihen[0].querySelectorAll('.cell')[1];
+  const dx=c1?c1.getBoundingClientRect().left-r.left:r.width;
+  return{w:r.width/view.k,h:r.height/view.k,dx:dx/view.k,dy2:(y2-y0)/view.k};
+}
+let schleierKey='';
+function schleier(){
+  const z=zellmass(); if(!z)return;
+  const cs=getComputedStyle(document.body);
+  const linie=cs.getPropertyValue('--line').trim(), tile=cs.getPropertyValue('--tile').trim();
+  const key=[z.dx,z.dy2,linie,tile].join('|');
+  if(key===schleierKey)return; schleierKey=key;
+  /* Ein Muster-Ziegel = 2 Reihen: Sechseck bei (0,0), das zweite eine Reihe
+     tiefer und eine halbe Spalte weiter. Zellmasse sind die ECHTEN. */
+  const W=z.dx, H=z.dy2, w=z.w, h=z.h, rs=H/2;
+  const hexPfad=(ox,oy)=>{
+    const p=[[w/2,0],[w,h*.25],[w,h*.75],[w/2,h],[0,h*.75],[0,h*.25]];
+    return '<polygon points="'+p.map(q=>(q[0]+ox).toFixed(2)+','+(q[1]+oy).toFixed(2)).join(' ')
+      +'" fill="'+tile+'" fill-opacity=".38" stroke="'+linie+'" stroke-opacity=".5" stroke-width="1.5"/>';
+  };
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'">'
+    +hexPfad(0,0)+hexPfad(W/2,rs)+hexPfad(-W/2,rs)+'</svg>';
+  const g=$('#weltgrund'), AUS=40;      /* Ziegel Ausdehnung je Richtung */
+  g.style.left=(-AUS*W)+'px'; g.style.top=(-AUS*H)+'px';
+  g.style.width=(2*AUS*W+820)+'px'; g.style.height=(2*AUS*H+1200)+'px';
+  g.style.background='url(\'data:image/svg+xml;utf8,'+encodeURIComponent(svg)+'\') 0 0/'+W+'px '+H+'px';
+  /* Phase angleichen: die Zelle (0,0) liegt bei (mx,my) in der Welt. */
+  const {m}=stageRects(), wl=$('#welt').getBoundingClientRect();
+  const mx=(m.left-wl.left)/view.k, my=(m.top-wl.top)/view.k;
+  g.style.backgroundPosition=(((mx+AUS*W)%W+W)%W)+'px '+(((my+AUS*H)%H+H)%H)+'px';
+}
+function zentrieren(){
+  if(!mqSeite.matches)return;
+  const zielEl=$('#brett'); if(!zielEl)return;
+  const br=zielEl.getBoundingClientRect();
+  if(!br.width)return;
+  /* Die leere Brett-Spalte liefert nur die BREITE zwischen den Panes —
+     ihre Hoehe ist null (kein Inhalt mehr). Hoehe = Viewport bis zur
+     Legende. */
+  const ziel={left:br.left,width:br.width,
+              top:Math.max(br.top,64),
+              height:Math.max(220,window.innerHeight-Math.max(br.top,64)-72)};
+  const z=zellmass(); if(!z){requestAnimationFrame(zentrieren);return;}
+  /* Bounding-Box des Entdeckten, in Welt-Koordinaten. */
+  const wl=$('#welt').getBoundingClientRect();
+  let x0=1/0,y0=1/0,x1=-1/0,y1=-1/0,irgend=false;
+  for(const c of S.grid){
+    if(!c.entdeckt||!c.el)continue;
+    const r=c.el.getBoundingClientRect();
+    x0=Math.min(x0,(r.left-wl.left)/view.k); y0=Math.min(y0,(r.top-wl.top)/view.k);
+    x1=Math.max(x1,(r.right-wl.left)/view.k); y1=Math.max(y1,(r.bottom-wl.top)/view.k);
+    irgend=true;
+  }
+  if(!irgend){const m=$('#map');x0=0;y0=0;x1=m.offsetWidth;y1=m.offsetHeight;}
+  /* 2 Felder Rand */
+  x0-=2*z.dx; x1+=2*z.dx; y0-=z.dy2; y1+=z.dy2;
+  const k=Math.min(ziel.width/(x1-x0), ziel.height/(y1-y0), 1.6);
+  view.k=Math.max(.35,k);
+  view.x=ziel.left+ziel.width/2-view.k*(x0+x1)/2;
+  view.y=ziel.top+ziel.height/2-view.k*(y0+y1)/2;
+  applyView();schleier();
+}
+(function buehneInit(){
+  const b=$('#buehne');
+  $('#btnMitte').innerHTML=SOT.icon('hexfeld');
+  let pan=null,gepannt=false;
+  b.addEventListener('pointerdown',e=>{
+    if(e.target.closest('.mittebtn'))return;
+    pan={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y,los:false};
+  });
+  b.addEventListener('pointermove',e=>{
+    if(!pan)return;
+    const dx=e.clientX-pan.x, dy=e.clientY-pan.y;
+    if(!pan.los){
+      if(Math.hypot(dx,dy)<6)return;
+      pan.los=true;gepannt=true;b.classList.add('zieht');
+      b.setPointerCapture(e.pointerId);
+    }
+    view.x=pan.vx+dx;view.y=pan.vy+dy;applyView();
+  });
+  const ende=()=>{pan=null;b.classList.remove('zieht');
+    setTimeout(()=>{gepannt=false;},0);};
+  b.addEventListener('pointerup',ende);
+  b.addEventListener('pointercancel',ende);
+  /* Nach einem Zug darf der Loslass-Klick kein Feld treffen. */
+  b.addEventListener('click',e=>{if(gepannt){e.stopPropagation();e.preventDefault();}},true);
+  b.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const k2=Math.min(2.6,Math.max(.35,view.k*Math.exp(-e.deltaY*.0012)));
+    /* Zoom ZUM CURSOR: der Weltpunkt unter der Maus bleibt liegen. */
+    view.x=e.clientX-(e.clientX-view.x)*(k2/view.k);
+    view.y=e.clientY-(e.clientY-view.y)*(k2/view.k);
+    view.k=k2;applyView();
+  },{passive:false});
+})();
+
+SOT.hex.autosize('map',COLS);
+blatt=SOT.sheet('#tiSheet');
+SOT.debug(P);
+(function init(){
+  if(!(P.demo||P.autostart||P.hand||P.aufgedeckt||P.waehle||P.karte>=0||P.phase!=='daemmerung'||P.runde>1))return;
+  startGame();
+  if(P.demo){
+    /* Ein Stand, der die Belohnungsschleife zeigt: Lager und Wald stehen,
+       der Jäger ist auf den Hang gestiegen (Sicht 4 → viel Neuland),
+       die Sammlerin steht auf dem Quarz. */
+    S.hand=['lager','wald','fisch'];
+    selIdx=0;placeTile(at(4,5));
+    selIdx=0;S.hand=['wald','fisch','hoehle'];placeTile(at(3,5));
+    S.hand=['hoehle','terrasse','flint'];
+    S.people.sammler.cell=at(3,5);S.people.sammler.rest=0;
+    S.people.jaeger.cell=at(1,4);S.people.jaeger.rest=0;
+    entdecke(at(1,4));
+    S.placedThisDay=1;
+  }
+  if(P.phase==='tag'||P.phase==='abend'||P.waehle||P.karte>=0)beginTag();
+  if(P.phase==='abend'){if(!S.placedThisDay)S.placedThisDay=1;beginAbend();}
+  if(P.karte>=0&&P.karte<S.hand.length){selIdx=P.karte;selPerson=null;}
+  if(P.waehle){
+    const p=S.people[P.waehle];
+    if(!p.cell&&S.tiles.length)p.cell=S.tiles[0].cell;
+    p.rest=ausdauerVon(p);selPerson=P.waehle;
+  }
+  renderAll();
+  if(P.vorschau){
+    if(S.phase==='daemmerung')wahl.morgen=P.vorschau;
+    if(S.phase==='abend')wahl.abend=P.vorschau;
+    vorschau(P.vorschau);renderAll();vorschau(P.vorschau);
+  }
+})();
+</script>
+</body>
+</html>

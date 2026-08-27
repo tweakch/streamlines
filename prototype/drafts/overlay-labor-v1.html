@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Overlay-Labor v1 — statische Feldparameter aus dem Kartenspeicher</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<script src="../kit/sot.js" defer></script>
+<style>
+/* Eigene Regeln zuletzt — Farben kommen aus den Tokens, ausser den
+   Overlay-Paletten: die sind Daten und stehen in der Pipeline, nicht hier. */
+html,body{height:100%}
+body{margin:0;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);
+     font-family:var(--f-body);overflow:hidden}
+header{display:flex;align-items:baseline;gap:.75rem;padding:.5rem .8rem;
+       border-bottom:1px solid var(--line);background:var(--panel);flex:none}
+header h1{font-family:var(--f-display);font-size:1rem;margin:0;font-weight:600}
+header .sub{color:var(--ink2);font-size:.75rem}
+main{flex:1;display:flex;min-height:0}
+#buehne{flex:1;position:relative;min-width:0}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+canvas.zieht{cursor:grabbing}
+aside{width:19rem;flex:none;border-left:1px solid var(--line);background:var(--panel);
+      overflow-y:auto;padding:.7rem;display:flex;flex-direction:column;gap:.8rem}
+@media (max-width:820px){aside{position:absolute;right:0;top:0;bottom:0;z-index:5;
+  box-shadow:var(--shadow);transform:translateX(100%);transition:transform .2s}
+  aside.auf{transform:none}}
+.gruppe{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink2);
+        margin:.2rem 0 .35rem}
+.ovliste{display:flex;flex-direction:column;gap:2px}
+.ov{display:flex;align-items:center;gap:.45rem;padding:.32rem .45rem;border-radius:var(--r-sm);
+    border:1px solid transparent;cursor:pointer;font-size:.82rem;text-align:left;
+    background:none;color:var(--ink);width:100%}
+.ov:hover{background:var(--panel2)}
+.ov[aria-pressed=true]{background:var(--ember);color:var(--on-ember);border-color:var(--ember)}
+.ov .fehlt{color:var(--bad);font-size:.68rem}
+.ov[aria-pressed=true] .fehlt{color:var(--on-ember);opacity:.85}
+.naehe{display:flex;height:5px;border-radius:99px;overflow:hidden;flex:none;width:3.6rem;
+       background:var(--line)}
+.naehe i{display:block}
+.naehe .b{background:var(--good)} .naehe .i{background:var(--warn)} .naehe .e{background:var(--bad)}
+.legende{display:flex;flex-direction:column;gap:.2rem;font-size:.75rem}
+.legende div{display:flex;align-items:center;gap:.4rem}
+.legende .swatch{width:.85rem;height:.85rem;border-radius:3px;border:1px solid var(--line);flex:none}
+.verlauf{height:.85rem;border-radius:3px;border:1px solid var(--line)}
+.karte-info{font-size:.75rem;color:var(--ink2);line-height:1.45}
+.zelle dl{display:grid;grid-template-columns:auto 1fr;gap:.15rem .5rem;font-size:.78rem;margin:.2rem 0}
+.zelle dt{color:var(--ink2)} .zelle dd{margin:0}
+.marke{font-size:.62rem;padding:.05rem .3rem;border-radius:99px;border:1px solid var(--line)}
+.marke.belegt{color:var(--good);border-color:var(--good)}
+.marke.inspiriert{color:var(--warn);border-color:var(--warn)}
+.marke.erfunden{color:var(--bad);border-color:var(--bad)}
+.leiste{position:absolute;left:.6rem;bottom:.6rem;display:flex;gap:.35rem;flex-wrap:wrap;z-index:2}
+.leiste .btn{font-size:.75rem;padding:.25rem .55rem}
+.hinweis{position:absolute;inset:0;display:grid;place-items:center;text-align:center;
+         padding:2rem;background:var(--bg);z-index:9}
+/* display:grid schlägt sonst das [hidden] des Browsers — der Hinweis stünde
+   dauerhaft über der Karte. */
+.hinweis[hidden]{display:none}
+.hinweis code{font-family:var(--f-mono);font-size:.8rem;background:var(--panel2);
+              padding:.15rem .35rem;border-radius:4px}
+table.protokoll{width:100%;border-collapse:collapse;font-size:.72rem;font-family:var(--f-mono)}
+table.protokoll th,table.protokoll td{padding:.2rem .3rem;border-bottom:1px solid var(--line);
+  text-align:right;white-space:nowrap}
+table.protokoll th:first-child,table.protokoll td:first-child{text-align:left}
+</style>
+</head>
+<body>
+<header>
+  <h1>Overlay-Labor</h1>
+  <span class="sub" id="kopf">lädt …</span>
+</header>
+<main>
+  <div id="buehne">
+    <canvas id="leinwand"></canvas>
+    <div class="leiste">
+      <button class="btn" id="bEbene">Ebene 1</button>
+      <button class="btn" id="bProtokoll">Herkunft</button>
+      <button class="btn" id="bHeim">zurücksetzen</button>
+      <button class="btn" id="bSeite">Overlays</button>
+    </div>
+    <div class="hinweis" id="hinweis" hidden>
+      <div>
+        <p><strong>Kein Kartenspeicher.</strong></p>
+        <p class="karte-info">Dieser Prototyp liest über <code>pipeline/serve.mjs</code>
+          aus <code>pipeline/out/karte.sqlite</code>. Erst backen, dann servieren:</p>
+        <p><code>node --no-warnings pipeline/bake-overlays.mjs</code><br>
+           <code>node --no-warnings pipeline/serve.mjs</code></p>
+      </div>
+    </div>
+  </div>
+  <aside id="seite">
+    <div>
+      <div class="gruppe">Grund — was das Gelände ist</div>
+      <div class="ovliste" id="grundListe"></div>
+      <div class="gruppe" style="margin-top:.6rem">Anlage — was darin liegt</div>
+      <div class="ovliste" id="anlageListe"></div>
+    </div>
+    <div>
+      <div class="gruppe">Legende</div>
+      <div id="legende" class="legende"></div>
+      <div class="karte-info" id="ovNotiz" style="margin-top:.4rem"></div>
+    </div>
+    <div class="zelle">
+      <div class="gruppe">Zelle</div>
+      <div id="zelle" class="karte-info">Ein Feld antippen.</div>
+    </div>
+  </aside>
+</main>
+
+<div class="sheet" id="protokoll">
+  <div class="handle"></div>
+  <div class="shead"><strong>Herkunftsprotokoll</strong>
+    <button class="btn closesheet">schliessen</button></div>
+  <div class="sbody" id="protokollBody"></div>
+</div>
+
+<script>
+const API = '';                               // gleicher Ursprung wie serve.mjs
+const SQRT3 = Math.sqrt(3);
+const TILE = 32;
+
+let karte = null, ebene = 1, overlay = null;
+let sicht = { x: 0, y: 0, zoom: 1 };          // x/y = km im Kartenraum, zoom = px/km
+const kachelCache = new Map();                // "ov/eb/tx/ty" → Uint8Array | 'leer' | Promise
+const indexCache = new Map();                 // "ov/eb"       → Map("tx,ty" → hash)
+let markiert = null;
+let protokollSheet = null;
+
+const lw = document.getElementById('leinwand');
+const ctx = lw.getContext('2d', { alpha: false });
+
+/* ---------- Geometrie: identisch mit pipeline/lib/geo.mjs ---------- */
+const groesse = (hexKm) => hexKm / SQRT3;
+const axialOf = (c, r) => c - ((r - (r & 1)) / 2);
+function zentrumKm(c, r, s) { return [s * SQRT3 * (axialOf(c, r) + r / 2), s * 1.5 * r]; }
+function zelleBeiKm(x, y, s) {
+  const q = ((SQRT3 / 3) * x - y / 3) / s, r = ((2 / 3) * y) / s;
+  let rx = Math.round(q), ry = Math.round(-q - r), rz = Math.round(r);
+  const dx = Math.abs(rx - q), dy = Math.abs(ry - (-q - r)), dz = Math.abs(rz - r);
+  if (dx > dy && dx > dz) rx = -ry - rz; else if (dy > dz) ry = -rx - rz; else rz = -rx - ry;
+  return [rx + ((rz - (rz & 1)) / 2), rz];
+}
+
+/* ---------- Daten ---------- */
+async function ladeKarte() {
+  const r = await fetch(API + '/api/karte');
+  if (!r.ok) throw new Error('Kartenspeicher nicht erreichbar');
+  return r.json();
+}
+/* NICHT async: der Cache muss die fertige Map SYNCHRON zurückgeben können.
+   Als async-Funktion liefert sie immer ein Promise, `idx instanceof Map` ist
+   nie wahr, und zeichnen() ruft sich über .then() endlos selbst auf. */
+function kachelIndex(ov, eb) {
+  const k = ov + '/' + eb;
+  if (indexCache.has(k)) return indexCache.get(k);
+  const p = fetch(`${API}/api/kacheln/${ov}/${eb}`).then(r => r.json()).then(j => {
+    const m = new Map(j.kacheln.map(x => [x.tx + ',' + x.ty, x.hash]));
+    indexCache.set(k, m); return m;
+  });
+  indexCache.set(k, p);
+  return p;
+}
+/* Eine Kachel wird genau einmal geholt: der Hash aus dem Index macht die
+   Antwort unveränderlich, der Browser fragt danach nie wieder nach. */
+function holeKachel(ov, eb, tx, ty, hash) {
+  const k = `${ov}/${eb}/${tx}/${ty}`;
+  const da = kachelCache.get(k);
+  if (da) return da;
+  const p = fetch(`${API}/api/kachel/${ov}/${eb}/${tx}/${ty}?h=${hash}`)
+    .then(r => r.ok ? r.arrayBuffer() : null)
+    .then(b => {
+      const v = b ? new Uint8Array(b) : 'leer';
+      kachelCache.set(k, v); zeichnen(); return v;
+    });
+  kachelCache.set(k, p);
+  return p;
+}
+
+/* ---------- Farben ---------- */
+const hexZuRgb = (h) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+function paletteFuer(o) {
+  if (o.klassen && o.klassen.length) {
+    const t = new Array(256).fill(null);
+    for (const k of o.klassen) t[k.wert] = k.farbe;
+    return (v) => t[v];
+  }
+  const s = o.skala || { von: '#eee', bis: '#333', max: 255 };
+  const a = hexZuRgb(s.von), b = hexZuRgb(s.bis), max = s.max || 255;
+  const tab = new Array(256);
+  for (let v = 1; v < 256; v++) {
+    const t = Math.min(1, v / max);
+    tab[v] = `rgb(${a.map((c, i) => Math.round(c + (b[i] - c) * t)).join(',')})`;
+  }
+  return (v) => tab[v];
+}
+let farbeVon = () => null;
+
+/* ---------- Zeichnen ---------- */
+function passeGroesseAn() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  lw.width = lw.clientWidth * dpr; lw.height = lw.clientHeight * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+function zeichnen() {
+  if (!karte || !overlay) return;
+  const eb = karte.ebenen.find(e => e.id === ebene);
+  const s = groesse(eb.hex_km);
+  const W = lw.clientWidth, H = lw.clientHeight;
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg');
+  ctx.fillRect(0, 0, W, H);
+
+  const kmProPx = 1 / sicht.zoom;
+  const x0 = sicht.x, y0 = sicht.y;
+  const x1 = x0 + W * kmProPx, y1 = y0 + H * kmProPx;
+  /* Zellfenster aus dem Sichtfenster, grosszügig gerundet. */
+  const c0 = Math.max(0, Math.floor(x0 / (s * SQRT3)) - 1);
+  const c1 = Math.min(eb.cols - 1, Math.ceil(x1 / (s * SQRT3)) + 1);
+  const r0 = Math.max(0, Math.floor(y0 / (s * 1.5)) - 1);
+  const r1 = Math.min(eb.rows - 1, Math.ceil(y1 / (s * 1.5)) + 1);
+
+  const idx = kachelIndex(overlay.id, ebene);
+  const karten = idx instanceof Map ? idx : null;
+  if (!karten) { idx.then(zeichnen); return; }
+
+  const px = s * sicht.zoom;                 // Kantenlänge in Pixeln
+  const alsRechteck = px < 3;                // zu klein für Sechsecke
+  let fehlend = 0;
+
+  for (let r = r0; r <= r1; r++) {
+    for (let c = c0; c <= c1; c++) {
+      const tx = Math.floor(c / TILE), ty = Math.floor(r / TILE);
+      const hash = karten.get(tx + ',' + ty);
+      if (!hash) continue;
+      const daten = kachelCache.get(`${overlay.id}/${ebene}/${tx}/${ty}`);
+      if (!daten) { holeKachel(overlay.id, ebene, tx, ty, hash); fehlend++; continue; }
+      if (!(daten instanceof Uint8Array)) { fehlend++; continue; }
+      const v = daten[(r % TILE) * TILE + (c % TILE)];
+      if (!v) continue;
+      const farbe = farbeVon(v);
+      if (!farbe) continue;
+      const [kx, ky] = zentrumKm(c, r, s);
+      const sx = (kx - x0) * sicht.zoom, sy = (ky - y0) * sicht.zoom;
+      ctx.fillStyle = farbe;
+      if (alsRechteck) {
+        ctx.fillRect(sx - px * 0.87, sy - px * 0.75, px * 1.74 + 0.5, px * 1.5 + 0.5);
+      } else {
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const a = Math.PI / 180 * (60 * i - 30);
+          const X = sx + px * Math.cos(a), Y = sy + px * Math.sin(a);
+          i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
+        }
+        ctx.closePath(); ctx.fill();
+      }
+    }
+  }
+
+  if (markiert && markiert.ebene === ebene) {
+    const [kx, ky] = zentrumKm(markiert.c, markiert.r, s);
+    const sx = (kx - x0) * sicht.zoom, sy = (ky - y0) * sicht.zoom;
+    ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--ember');
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = Math.PI / 180 * (60 * i - 30);
+      const X = sx + px * Math.cos(a), Y = sy + px * Math.sin(a);
+      i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
+    }
+    ctx.closePath(); ctx.stroke();
+  }
+
+  document.getElementById('kopf').textContent =
+    `${overlay.name} · Ebene ${ebene} (${eb.hex_km} km/Feld) · ` +
+    `${kachelCache.size} Kacheln im Speicher` + (fehlend ? ` · ${fehlend} unterwegs` : '');
+}
+
+/* ---------- Bedienung ---------- */
+function heim() {
+  const eb = karte.ebenen.find(e => e.id === ebene);
+  const s = groesse(eb.hex_km);
+  const r = eb.region;
+  const W = lw.clientWidth || 800, H = lw.clientHeight || 600;
+  if (r) {
+    sicht.zoom = Math.min(W / (r[2] - r[0]), H / (r[3] - r[1])) * 0.95;
+    sicht.x = r[0] - (W / sicht.zoom - (r[2] - r[0])) / 2;
+    sicht.y = r[1] - (H / sicht.zoom - (r[3] - r[1])) / 2;
+  } else {
+    const bx = eb.cols * s * SQRT3, by = eb.rows * s * 1.5;
+    sicht.zoom = Math.min(W / bx, H / by) * 0.95;
+    sicht.x = -(W / sicht.zoom - bx) / 2; sicht.y = -(H / sicht.zoom - by) / 2;
+  }
+  zeichnen();
+}
+
+function waehle(o) {
+  overlay = o;
+  farbeVon = paletteFuer(o);
+  if (!o.ebenen.includes(ebene)) ebene = o.ebenen[0];
+  document.getElementById('bEbene').textContent = 'Ebene ' + ebene;
+  for (const b of document.querySelectorAll('.ov'))
+    b.setAttribute('aria-pressed', String(b.dataset.id === o.id));
+  zeigeLegende(o);
+  zeichnen();
+}
+
+function zeigeLegende(o) {
+  const box = document.getElementById('legende');
+  box.innerHTML = '';
+  if (o.quelleFehlt) {
+    box.innerHTML = '<div style="color:var(--bad)">Quelle fehlt — der Mapper steht, die Geometrie nicht.</div>';
+  } else if (o.klassen && o.klassen.length) {
+    for (const k of o.klassen) {
+      const d = document.createElement('div');
+      d.innerHTML = `<span class="swatch" style="background:${k.farbe}"></span><span>${k.name}</span>`;
+      box.appendChild(d);
+    }
+  } else if (o.skala) {
+    const d = document.createElement('div');
+    d.style.flexDirection = 'column'; d.style.alignItems = 'stretch';
+    d.innerHTML =
+      `<div class="verlauf" style="background:linear-gradient(90deg,${o.skala.von},${o.skala.bis})"></div>` +
+      `<div style="display:flex;justify-content:space-between;color:var(--ink2);font-size:.7rem">` +
+      `<span>wenig</span><span>${o.einheit || ''}</span><span>viel</span></div>`;
+    box.appendChild(d);
+  }
+  const m = ['belegt', 'inspiriert', 'erfunden']
+    .filter(k => o[k] > 0.005)
+    .map(k => `<span class="marke ${k}">${Math.round(o[k] * 100)} % ${k}</span>`).join(' ');
+  document.getElementById('ovNotiz').innerHTML =
+    m + '<br>' + (o.notiz || '') + '<br><em>' + o.kodierung + '</em>';
+}
+
+async function zeigeZelle(c, r) {
+  markiert = { c, r, ebene };
+  zeichnen();
+  const box = document.getElementById('zelle');
+  if (ebene > 1) {
+    box.innerHTML = '<em>Zellabfrage gibt es nur für Ebene 0 und 1 — ' +
+      'die feine Ebene liegt nur als Kacheln vor.</em>';
+    return;
+  }
+  const j = await (await fetch(`${API}/api/zelle?ebene=${ebene}&c=${c}&r=${r}`)).json();
+  if (!j.werte.length) { box.innerHTML = `<em>(${c}, ${r}) — nichts bekannt.</em>`; return; }
+  const zeilen = j.werte.map(w => {
+    const status = w.belegt >= 0.5 ? 'belegt' : w.erfunden >= 0.5 ? 'erfunden' : 'inspiriert';
+    return `<dt>${w.name}</dt><dd>${w.klasse ?? lesbar(w)} ` +
+      `<span class="marke ${status}">${status}</span></dd>`;
+  }).join('');
+  box.innerHTML = `<div style="color:var(--ink2)">Feld ${c}, ${r}</div><dl>${zeilen}</dl>`;
+}
+/* Rohwert → Klartext anhand der Kodierung, die die Pipeline mitliefert. */
+function lesbar(w) {
+  const k = w.kodierung || '';
+  if (k.includes('× 25 m')) return (w.wert * 25) + ' m';
+  if (k.includes('× 10 m')) return (w.wert * 10) + ' m';
+  if (k.includes('÷ 2')) return (w.wert / 2).toFixed(1) + ' %';
+  if (k.includes('− 200')) return (w.wert * 5 - 200) + ' m';
+  return String(w.wert);
+}
+
+async function zeigeProtokoll() {
+  const j = await (await fetch(API + '/api/bericht')).json();
+  const zeilen = j.eintraege.map(e => `<tr>
+      <td>${e.stufe}</td><td>${e.eingabe.toLocaleString('de-CH')}</td>
+      <td style="color:var(--good)">${Math.round(e.belegt * 100)}</td>
+      <td style="color:var(--warn)">${Math.round(e.inspiriert * 100)}</td>
+      <td style="color:var(--bad)">${Math.round(e.erfunden * 100)}</td>
+      <td>${e.ausgestossen.toLocaleString('de-CH')}</td></tr>`).join('');
+  const g = j.gesamt;
+  document.getElementById('protokollBody').innerHTML =
+    `<p class="karte-info">Was aus den Quellen wurde. Prozente beziehen sich auf
+      die <em>Ausgabe</em>, „ausgestossen" auf die Eingabe.</p>
+      <table class="protokoll"><thead><tr><th>Stufe</th><th>Eingabe</th>
+      <th>bel.</th><th>insp.</th><th>erf.</th><th>ausgest.</th></tr></thead>
+      <tbody>${zeilen}<tr><td><strong>gesamt</strong></td>
+      <td>${g.eingabe.toLocaleString('de-CH')}</td>
+      <td>${Math.round(g.anteil.belegt * 100)}</td>
+      <td>${Math.round(g.anteil.inspiriert * 100)}</td>
+      <td>${Math.round(g.anteil.erfunden * 100)}</td>
+      <td>${g.ausgestossen.toLocaleString('de-CH')}</td></tr></tbody></table>`;
+  protokollSheet.open();
+}
+
+/* ---------- Start ---------- */
+window.addEventListener('DOMContentLoaded', async () => {
+  const P = SOT.params({
+    overlay: { t: 'str', def: 'hoehe', txt: 'Overlay-Id beim Start' },
+    ebene: { t: 'int', def: 1, min: 0, max: 2, txt: 'Kartenebene' },
+    c: { t: 'int', def: -1, txt: 'Zelle vorwählen (Spalte)' },
+    r: { t: 'int', def: -1, txt: 'Zelle vorwählen (Reihe)' },
+    protokoll: { t: 'flag', txt: 'Herkunftsprotokoll sofort öffnen' },
+  });
+
+  protokollSheet = SOT.sheet('#protokoll');
+
+  try { karte = await ladeKarte(); }
+  catch { document.getElementById('hinweis').hidden = false; return; }
+
+  ebene = P.ebene;
+  const listen = { grund: document.getElementById('grundListe'),
+                   anlage: document.getElementById('anlageListe') };
+  for (const o of karte.overlays) {
+    const b = document.createElement('button');
+    b.className = 'ov'; b.dataset.id = o.id; b.type = 'button';
+    b.innerHTML = `<span style="flex:1">${o.name}</span>` +
+      (o.quelleFehlt ? '<span class="fehlt">Quelle fehlt</span>' :
+        `<span class="naehe" title="belegt / inspiriert / erfunden">
+           <i class="b" style="width:${o.belegt * 100}%"></i>
+           <i class="i" style="width:${o.inspiriert * 100}%"></i>
+           <i class="e" style="width:${o.erfunden * 100}%"></i></span>`);
+    b.onclick = () => waehle(o);
+    (listen[o.gruppe] || listen.grund).appendChild(b);
+  }
+
+  waehle(karte.overlays.find(o => o.id === P.overlay) || karte.overlays[0]);
+  passeGroesseAn(); heim();
+  if (P.c >= 0 && P.r >= 0) zeigeZelle(P.c, P.r);
+  if (P.protokoll) zeigeProtokoll();
+  SOT.debug(P);
+
+  /* Ebene durchschalten — nur die, die das Overlay wirklich führt. */
+  document.getElementById('bEbene').onclick = () => {
+    const mgl = overlay.ebenen;
+    ebene = mgl[(mgl.indexOf(ebene) + 1) % mgl.length];
+    document.getElementById('bEbene').textContent = 'Ebene ' + ebene;
+    heim();
+  };
+  document.getElementById('bHeim').onclick = heim;
+  document.getElementById('bProtokoll').onclick = zeigeProtokoll;
+  document.getElementById('bSeite').onclick =
+    () => document.getElementById('seite').classList.toggle('auf');
+});
+
+window.addEventListener('resize', () => { passeGroesseAn(); zeichnen(); });
+
+/* Ziehen, Zoomen, Antippen */
+let zieht = null;
+lw.addEventListener('pointerdown', (e) => {
+  zieht = { x: e.clientX, y: e.clientY, sx: sicht.x, sy: sicht.y, bewegt: 0 };
+  lw.setPointerCapture(e.pointerId); lw.classList.add('zieht');
+});
+lw.addEventListener('pointermove', (e) => {
+  if (!zieht) return;
+  const dx = e.clientX - zieht.x, dy = e.clientY - zieht.y;
+  zieht.bewegt = Math.max(zieht.bewegt, Math.abs(dx) + Math.abs(dy));
+  sicht.x = zieht.sx - dx / sicht.zoom; sicht.y = zieht.sy - dy / sicht.zoom;
+  zeichnen();
+});
+lw.addEventListener('pointerup', (e) => {
+  const war = zieht; zieht = null; lw.classList.remove('zieht');
+  if (!war || war.bewegt > 4 || !karte) return;
+  const eb = karte.ebenen.find(x => x.id === ebene), s = groesse(eb.hex_km);
+  const rect = lw.getBoundingClientRect();
+  const kx = sicht.x + (e.clientX - rect.left) / sicht.zoom;
+  const ky = sicht.y + (e.clientY - rect.top) / sicht.zoom;
+  const [c, r] = zelleBeiKm(kx, ky, s);
+  if (c >= 0 && r >= 0 && c < eb.cols && r < eb.rows) zeigeZelle(c, r);
+});
+lw.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = lw.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const kx = sicht.x + mx / sicht.zoom, ky = sicht.y + my / sicht.zoom;
+  sicht.zoom = Math.max(0.05, Math.min(60, sicht.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15)));
+  sicht.x = kx - mx / sicht.zoom; sicht.y = ky - my / sicht.zoom;
+  zeichnen();
+}, { passive: false });
+</script>
+</body>
+</html>

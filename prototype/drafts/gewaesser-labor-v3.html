@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Gewässer-Labor v3 — der Kantenvertrag, bewiesen</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<style>
+/* =====================================================================
+   Gewässer-Labor v3 — der Kantenvertrag, vollzogen.
+   v2 zeigte den organischen Fluss als EINEN Zug je Lauf über das ganze
+   Brett — nahtlos, aber trivial nahtlos: eine Linie kann sich nicht
+   selbst widersprechen. Das Spiel zeichnet aber JE FELD (Z-Ordnung mit
+   Plättchen, Nebel, Marken). v3 beweist darum den Kantenvertrag aus dem
+   Art-Direction-Handbuch (Kap. 5): jedes Feld rendert sein Wasser als
+   EIGENES, auf sein Sechseck geclipptes Stück — und die Flussbetten
+   fluchten trotzdem, weil beide Nachbarn dieselben REINEN FUNKTIONEN
+   aus Koordinaten + Weltsaat auswerten statt einander zu kennen:
+
+     Lage      IMMER die Kantenmitte, ohne Ausnahme — fester Port
+               (Entscheid; dieselbe Norm wie handgezeichnete Tiles)
+     Tangente  ein Catmull-Rom-Zug je Lauf, als Funktion — beide Felder
+               tasten dieselbe Kurve an derselben Stelle ab (C1)
+     Breite    b = 6·√Q, q beidseits gleich (Abflussbilanz)
+     Ruhe      der Pinsel ist WERT-RAUSCHEN IN WELTKOORDINATEN, je
+               Scheitel geometrisch aufgetragen — dieselbe Rauschkarte
+               auf beiden Seiten der Kante, darum braucht es kein
+               Ausblenden zur Kante (die „ODER"-Klausel des Vertrags)
+
+   Zwei Schalter machen den Beweis sichtbar:
+     ?explode=N   zieht die Felder auseinander — jedes Stück trägt
+                  sichtbar seinen eigenen Flussabschnitt
+     ?bruch       bricht den Vertrag (je Feld die v6-Kurve durch die
+                  eigene Mitte, Breite konstant) — die Nähte erscheinen
+                  im SELBEN Je-Feld-Gerüst: es ist der Vertrag, der die
+                  Nahtlosigkeit macht, nicht das grosse SVG.
+
+   Gegenüber v2 ist auch die Saat REINER geworden: v2 verbrauchte einen
+   fortlaufenden Zufallsstrom (Reihenfolge-abhängig), v3 hasht direkt
+   die Koordinaten — genau das, was der Vertrag verlangt.
+   ===================================================================== */
+body{max-width:1100px;margin:0 auto;padding:14px 14px 40px;}
+header.kopf{margin-bottom:12px;}
+header.kopf h1{font-family:var(--f-disp);font-weight:800;font-size:21px;margin:0;}
+header.kopf .sub{font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink2);margin-top:3px;}
+.tafel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;}
+.tafel h2{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  font-weight:400;color:var(--ink2);margin:0 0 8px;}
+.tafel h2 b{color:var(--ink);font-weight:700;}
+.tafel svg{display:block;width:100%;height:auto;background:var(--bg);border-radius:8px;}
+.vertrag{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:12px;line-height:1.55;}
+.vertrag h3{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  font-weight:400;color:var(--ink2);margin:0 0 6px;}
+.vertrag .dim{color:var(--ink2);font-size:11px;margin:8px 0 0;}
+</style>
+</head>
+<body>
+<header class="kopf">
+  <h1>Gewässer-Labor v3 — der Kantenvertrag, bewiesen</h1>
+  <div class="sub">Jedes Feld zeichnet sein Wasser selbst · geclippt aufs Sechseck · und die Betten fluchten</div>
+</header>
+
+<div class="tafel">
+  <h2 id="tafeltitel"><b>Je Feld ein eigenes Stück.</b> <span id="tafelsub">Vertrag erfüllt — keine Naht.</span></h2>
+  <svg id="brett"></svg>
+</div>
+
+<div class="vertrag">
+  <h3>Der Vertrag an der Kante (Art-Direction, Kap. 5)</h3>
+  <p><b>Lage</b> (immer die Kantenmitte — fester Port, ohne Ausnahme) · <b>Tangente</b> (beide Felder tasten
+  denselben Catmull-Rom-Zug ab — eine reine Funktion aus Koordinaten + Weltsaat) · <b>Breite</b>
+  (b = 6·√Q, beidseits gleich) · <b>Ruhe</b> (der Pinsel ist Wert-Rauschen in <i>Weltkoordinaten</i> —
+  dieselbe Rauschkarte auf beiden Seiten, kein Ausblenden nötig). Kein Feld kennt das Innere seines
+  Nachbarn; sie teilen nur die Funktionen — und den festen Port.</p>
+  <p class="dim"><code>?explode=24</code> zieht die Felder auseinander (jedes trägt sein Stück) ·
+  <code>?bruch</code> bricht den Vertrag und zeigt die Nähte · <code>?seed ?amp ?pinsel ?freq ?hilfe</code>.
+  Historisch inspiriert und für das Spiel vereinfacht.</p>
+</div>
+
+<script src="../kit/sot.js"></script>
+<script>
+'use strict';
+var P = SOT.params({
+  seed:    { t:'int', def:7,  help:'Weltsaat — Auslenkung und Pinselrauschen' },
+  amp:     { t:'int', def:22, min:0, max:34, help:'Auslenkung der Mittellinie, % der Feldbreite' },
+  pinsel:  { t:'int', def:6,  min:0, max:16, help:'Pinsel: Rauschamplitude in Welteinheiten (0 = aus)' },
+  freq:    { t:'int', def:60, min:10, max:200, help:'Rauschfrequenz ×0,001 (Wellenlänge ≈ 1000/freq)' },
+  explode: { t:'int', def:0,  min:0, max:60, help:'Felder auseinanderziehen (px) — der Beweis' },
+  bruch:   { t:'flag', help:'Vertragsbruch: je Feld die v6-Kurve durch die eigene Mitte' }
+});
+SOT.debug(P);
+/* Vier der sechs Parameter haben einen Bereich (amp, pinsel, freq, explode) —
+   das Brett macht daraus Schieber. Ohne eigenen Rückruf, weil dieser Prototyp
+   sein Brett einmalig beim Laden baut; jede Änderung lädt neu. */
+/* Vier der sechs Parameter haben einen Bereich (amp, pinsel, freq, explode) —
+   das Brett macht daraus Schieber. Ohne eigenen Rückruf, weil dieser Prototyp
+   sein Brett einmalig beim Laden baut; jede Änderung lädt neu. */
+SOT.regler(P);
+
+/* ---- Daten: identisch mit erkundung-v6 / labor-v2 --------------------- */
+var COLS=9, ROWS=12, HXW=100, HXH=115.47;
+var QLOK=0.2, BFAK=6;
+var RUNS=[
+  {id:'R',q0:16,path:[[4,0],[4,1],[4,2],[3,3],[3,4],[3,5],[3,6],[3,7],[4,8],[4,9],[4,10]]},
+  {id:'W',q0:0.15,path:[[1,2],[2,2],[3,2],[4,2]]},
+  {id:'O',q0:0.15,path:[[7,5],[6,5],[5,5],[4,5],[3,5]]}
+];
+var BRAIDIDX={R:[4,7]};                 /* Verzweigung nur im Feldinnern */
+var BRAID=new Set(['3,4','3,7']);
+var VB_W=COLS*HXW+HXW/2, VB_H=(ROWS-1)*HXH*0.75+HXH;
+
+function cx(c,r){return (c+(r&1?0.5:0))*HXW+HXW/2;}
+function cy(c,r){return r*HXH*0.75+HXH/2;}
+function ecken(c,r){var x=cx(c,r),y=cy(c,r);
+  return [[x,y-HXH/2],[x+HXW/2,y-HXH/4],[x+HXW/2,y+HXH/4],
+          [x,y+HXH/2],[x-HXW/2,y+HXH/4],[x-HXW/2,y-HXH/4]];}
+function kanteMitte(a,b){return [(cx(a[0],a[1])+cx(b[0],b[1]))/2,(cy(a[0],a[1])+cy(b[0],b[1]))/2];}
+
+var runQ={},endQ={};
+for(var pass=0;pass<3;pass++){
+  RUNS.forEach(function(run){
+    runQ[run.id]=[];var q=run.q0;
+    run.path.forEach(function(p,i){
+      q+=QLOK;var k=p.join(',');
+      RUNS.forEach(function(o){
+        if(o!==run&&o.path[o.path.length-1].join(',')===k&&endQ[o.id])q+=endQ[o.id];
+      });
+      runQ[run.id][i]=q;
+    });
+    endQ[run.id]=q;
+  });
+}
+function bandBreite(b){
+  var f;
+  if(b<0.5)f=.028; else if(b<5)f=.028+(b-0.5)/4.5*.042;
+  else if(b<10)f=.070+(b-5)/5*.035;
+  else if(b<100)f=.105+Math.log10(b/10)*.100;
+  else f=Math.min(.34,.205+Math.log10(b/100)*.10);
+  return f*HXW;
+}
+var farbe=function(q){var b=BFAK*Math.sqrt(q);
+  return b<5?'var(--w-bach)':b<10?'var(--river)':'var(--riverdeep)';};
+
+/* =====================================================================
+   REINE SAAT: kein fortlaufender Zufallsstrom (Reihenfolge-abhängig wie
+   in v2), sondern ein Hash direkt aus den Koordinaten — der Vertrag
+   verlangt, dass BEIDE Nachbarn jeden Wert unabhängig errechnen können.
+   ===================================================================== */
+function hash(a,b,c){
+  var h=(a|0)*374761393+(b|0)*668265263+(c|0)*974634013+(P.seed|0)*144665;
+  h=(h^(h>>>13))>>>0;h=Math.imul(h,1274126177)>>>0;h=(h^(h>>>16))>>>0;
+  return h/4294967296*2-1;              /* → [−1, 1] */
+}
+/* Wert-Rauschen in Weltkoordinaten — die Rauschkarte des Pinsels. */
+function glatt(t){return t*t*(3-2*t);}
+function rausch(x,y){
+  var ix=Math.floor(x),iy=Math.floor(y),fx=glatt(x-ix),fy=glatt(y-iy);
+  var a=hash(ix,iy,9),b=hash(ix+1,iy,9),c=hash(ix,iy+1,9),d=hash(ix+1,iy+1,9);
+  return a+(b-a)*fx+(c-a)*fy+(a-b-c+d)*fx*fy;
+}
+function pinsel(x,y){
+  if(!P.pinsel)return 0;
+  var f=P.freq/1000;
+  return (rausch(x*f,y*f)+0.5*rausch(x*f*2.3+37,y*f*2.3+11))*P.pinsel;
+}
+
+/* ---- Die Vertragsfunktionen: reine Geometrie aus Koordinaten ---------- */
+/* Durchgangspunkt eines Feldes: quer zur Fliessrichtung ausgelenkt. */
+function durchPkt(run,i){
+  var p=run.path[i],pv=run.path[i-1]||p,nx=run.path[i+1]||p;
+  var dx=cx(nx[0],nx[1])-cx(pv[0],pv[1]),dy=cy(nx[0],nx[1])-cy(pv[0],pv[1]);
+  var L=Math.hypot(dx,dy)||1,q=runQ[run.id][i];
+  var f=0.55+0.75/(1+q);
+  var off=Math.max(-30,Math.min(30,hash(p[0],p[1],1)*(P.amp/100*HXW)*f));
+  return {x:cx(p[0],p[1])-dy/L*off,y:cy(p[0],p[1])+dx/L*off,q:q,ci:i};
+}
+/* Kreuzungspunkt einer Kante: IMMER die Kantenmitte, ohne Ausnahme —
+   fester Port (Entscheid). Damit teilt das prozedurale Band dieselbe
+   Port-Norm wie handgezeichnete Tiles; die Lebendigkeit wohnt im
+   Feldinnern (Durchgangspunkt, Rauschen), nie am Übergang. */
+function kantePkt(run,i){
+  var a=run.path[i-1],b=run.path[i],m=kanteMitte(a,b);
+  return {x:m[0],y:m[1],q:(runQ[run.id][i-1]+runQ[run.id][i])/2,ci:i-0.5};
+}
+function crSample(cp,S){
+  var out=[];
+  for(var i=0;i<cp.length-1;i++){
+    var p0=cp[Math.max(0,i-1)],p1=cp[i],p2=cp[i+1],p3=cp[Math.min(cp.length-1,i+2)];
+    for(var s=0;s<S;s++){
+      var t=s/S,t2=t*t,t3=t2*t;
+      out.push({
+        x:.5*(2*p1.x+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*t2+(-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+        y:.5*(2*p1.y+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*t2+(-p0.y+3*p1.y-3*p2.y+p3.y)*t3),
+        q:p1.q+(p2.q-p1.q)*t, ci:p1.ci+(p2.ci-p1.ci)*t
+      });
+    }
+  }
+  out.push({x:cp[cp.length-1].x,y:cp[cp.length-1].y,q:cp[cp.length-1].q,ci:cp[cp.length-1].ci});
+  for(var j=0;j<out.length;j++){
+    var A=out[Math.max(0,j-1)],B=out[Math.min(out.length-1,j+1)];
+    var dx=B.x-A.x,dy=B.y-A.y,L=Math.hypot(dx,dy)||1;
+    out[j].tx=dx/L;out[j].ty=dy/L;out[j].nx=-dy/L;out[j].ny=dx/L;
+  }
+  for(j=0;j<out.length;j++){
+    var C1=out[Math.max(0,j-2)],C2=out[Math.min(out.length-1,j+2)];
+    out[j].kr=C1.tx*C2.ty-C1.ty*C2.tx;
+  }
+  return out;
+}
+/* Band als Polygon; jeder Scheitel wird vom Welt-Rauschen entlang seiner
+   Normalen verschoben — dieselbe Karte für beide Nachbarn einer Kante. */
+function ribbon(sm,wOf){
+  var L=[],R=[];
+  sm.forEach(function(s){
+    var w=wOf(s),n=pinsel(s.x,s.y);
+    L.push([s.x+s.nx*(w[0]+n),s.y+s.ny*(w[0]+n)]);
+    R.push([s.x-s.nx*(w[1]-n),s.y-s.ny*(w[1]-n)]);
+  });
+  return 'M '+L.map(function(p){return p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' L ')
+       +' L '+R.reverse().map(function(p){return p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' L ')+' Z';
+}
+function braidBump(runId,ci){
+  var m=0;
+  (BRAIDIDX[runId]||[]).forEach(function(k){
+    var d=Math.abs(ci-k);if(d<0.5)m=Math.max(m,0.5*(1+Math.cos(2*Math.PI*d)));
+  });
+  return m;
+}
+
+/* ---- Die gesamte Wassergeometrie, EINMAL aus reinen Funktionen --------
+   Schichtregel der Mündung: erst ALLE Säume (aufsteigend nach Q), dann
+   die Wasserkörper (Wasser + Talweg) aufsteigend nach Q. Der Nebenlauf
+   schneidet so durch den Kies des Hauptlaufs bis zur Wasserlinie, und
+   das grössere Wasser deckt ihn dort sauber ab — nie liegt ein Ufer
+   AUF Wasser. */
+function wasserBauen(){
+  var haupt=null,saums=[],koerper=[],alleSm=[];
+  RUNS.forEach(function(run){
+    var cp=[];
+    if(run.id==='R')cp.push({x:cx(4,0),y:0,q:runQ.R[0],ci:-0.5});
+    for(var i=0;i<run.path.length;i++){
+      if(i>0)cp.push(kantePkt(run,i));
+      cp.push(durchPkt(run,i));
+    }
+    if(run.id==='R')cp.push({x:cx(4,10),y:VB_H,q:endQ.R,ci:run.path.length-0.5});
+    if(run.id!=='R'&&haupt){
+      cp.pop();
+      var ziel=run.path[run.path.length-1],zx=cx(ziel[0],ziel[1]),zy=cy(ziel[0],ziel[1]);
+      var bestJ=0,bestD=1e9;
+      haupt.forEach(function(s,j){var d=(s.x-zx)*(s.x-zx)+(s.y-zy)*(s.y-zy);if(d<bestD){bestD=d;bestJ=j;}});
+      var j=Math.min(haupt.length-2,bestJ+6),M=haupt[j];
+      var vor=cp[cp.length-1];
+      var seite=((vor.x-M.x)*M.nx+(vor.y-M.y)*M.ny)>=0?1:-1;
+      cp.push({x:M.x-M.tx*52+M.nx*seite*16,y:M.y-M.ty*52+M.ny*seite*16,q:endQ[run.id],ci:vor.ci+0.5});
+      cp.push({x:M.x,y:M.y,q:endQ[run.id],ci:vor.ci+1});
+    }
+    var sm=crSample(cp,10);
+    if(run.id==='R')haupt=sm;
+    alleSm.push(sm);
+    var wV=function(s){return bandBreite(BFAK*Math.sqrt(s.q));};
+
+    var saum=ribbon(sm,function(s){
+      var w=wV(s),k=Math.max(-1,Math.min(1,s.kr*26)),bb=braidBump(run.id,s.ci);
+      var g=Math.max(2.5,w*0.5),weit=1+1.9*bb;
+      return [(w/2+g*(1+Math.max(0,k)*1.7))*weit,(w/2+g*(1+Math.max(0,-k)*1.7))*weit];
+    });
+    saums.push({q:endQ[run.id],svg:'<path d="'+saum+'" fill="var(--w-saum)"/>'});
+
+    var kk='';
+    var fluss=ribbon(sm,function(s){
+      var w=wV(s)*(1-0.45*braidBump(run.id,s.ci));return [w/2,w/2];
+    });
+    kk+='<path d="'+fluss+'" fill="'+farbe(sm[Math.floor(sm.length/2)].q)+'"/>';
+
+    (BRAIDIDX[run.id]||[]).forEach(function(k){
+      var zone=sm.filter(function(s){return Math.abs(s.ci-k)<=0.48;});
+      if(zone.length<4)return;
+      [[26,0.30],[-18,0.19]].forEach(function(arm){
+        var d='M '+zone.map(function(s){
+          var t=(s.ci-k+0.48)/0.96,off=Math.sin(Math.PI*t)*arm[0]+pinsel(s.x,s.y+arm[0]);
+          return (s.x+s.nx*off).toFixed(1)+' '+(s.y+s.ny*off).toFixed(1);
+        }).join(' L ');
+        var wA=bandBreite(BFAK*Math.sqrt(zone[0].q))*arm[1];
+        kk+='<path d="'+d+'" fill="none" stroke="'+farbe(zone[0].q)+'" stroke-width="'+wA.toFixed(1)+'" stroke-linecap="round"/>';
+      });
+      var M2=zone[Math.floor(zone.length/2)],ang=Math.atan2(M2.ty,M2.tx)*180/Math.PI;
+      [[14,26,6],[-10,18,4.5]].forEach(function(b){
+        kk+='<ellipse cx="'+(M2.x+M2.nx*b[0]).toFixed(1)+'" cy="'+(M2.y+M2.ny*b[0]).toFixed(1)
+          +'" rx="'+b[1]+'" ry="'+b[2]+'" transform="rotate('+ang.toFixed(1)+' '+(M2.x+M2.nx*b[0]).toFixed(1)
+          +' '+(M2.y+M2.ny*b[0]).toFixed(1)+')" fill="var(--kies)" stroke="var(--w-saum)" stroke-width="1"/>';
+      });
+    });
+
+    var tal=ribbon(sm,function(s){
+      var w=wV(s)*(1-0.45*braidBump(run.id,s.ci))*0.28;return [w/2,w/2];
+    });
+    kk+='<path d="'+tal+'" fill="var(--w-tal)"/>';
+
+    if(run.id!=='R'){
+      var s0=sm[0];
+      kk+='<circle cx="'+s0.x.toFixed(1)+'" cy="'+s0.y.toFixed(1)+'" r="'
+        +Math.max(3,wV(s0)*.9).toFixed(1)+'" fill="'+farbe(s0.q)+'"/>';
+    }
+    koerper.push({q:endQ[run.id],svg:kk});
+  });
+  var auf=function(a,b){return a.q-b.q;},sv=function(x){return x.svg;};
+  saums.sort(auf);koerper.sort(auf);
+  return {svg:saums.map(sv).join('')+koerper.map(sv).join(''),samples:alleSm};
+}
+
+/* ---- Vertragsbruch: je Feld die v6-Kurve durch die eigene Mitte ------- */
+function bruchStueck(c,r){
+  var h='';
+  RUNS.forEach(function(run){
+    run.path.forEach(function(p,i){
+      if(p[0]!==c||p[1]!==r)return;
+      var pv=run.path[i-1],nx=run.path[i+1];
+      var C=[cx(c,r),cy(c,r)];
+      var a=pv?kanteMitte(pv,p):null,b=nx?kanteMitte(p,nx):null;
+      var q=runQ[run.id][i],w=bandBreite(BFAK*Math.sqrt(q));
+      function pf(){
+        if(!a)return 'M '+C[0].toFixed(1)+' '+C[1].toFixed(1)+' L '+b[0].toFixed(1)+' '+b[1].toFixed(1);
+        if(!b)return 'M '+a[0].toFixed(1)+' '+a[1].toFixed(1)+' L '+C[0].toFixed(1)+' '+C[1].toFixed(1);
+        return 'M '+a[0].toFixed(1)+' '+a[1].toFixed(1)+' Q '+C[0].toFixed(1)+' '+C[1].toFixed(1)+' '+b[0].toFixed(1)+' '+b[1].toFixed(1);
+      }
+      var uw=w+Math.max(3,w*.6)*(BRAID.has(c+','+r)?2.6:1);
+      h+='<path d="'+pf()+'" fill="none" stroke="var(--w-saum)" stroke-width="'+uw.toFixed(1)+'" stroke-linecap="round"/>'
+        +'<path d="'+pf()+'" fill="none" stroke="'+farbe(q)+'" stroke-width="'+w.toFixed(1)+'" stroke-linecap="round"/>';
+    });
+  });
+  return h;
+}
+
+/* ---- Das Brett: je Feld eine geclippte Gruppe ------------------------- */
+var wasser=P.bruch?null:wasserBauen();
+
+/* Welche Felder überhaupt Wasser zeichnen: alle, deren Mitte nahe genug
+   an irgendeiner Probe liegt (Band + Saum + Arme reichen ≤ ~90). */
+var wasserFelder=new Set();
+if(wasser){
+  for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
+    var X=cx(c,r),Y=cy(c,r),nah=false;
+    wasser.samples.forEach(function(sm){
+      if(nah)return;
+      for(var i=0;i<sm.length;i+=2)
+        if((sm[i].x-X)*(sm[i].x-X)+(sm[i].y-Y)*(sm[i].y-Y)<95*95){nah=true;return;}
+    });
+    if(nah)wasserFelder.add(c+','+r);
+  }
+}else{
+  RUNS.forEach(function(run){run.path.forEach(function(p){wasserFelder.add(p.join(','));});});
+}
+
+var MX=VB_W/2,MY=VB_H/2;
+function bauen(){
+  var defs='',boden='',stuecke='';
+  for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
+    var pts=ecken(c,r).map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ');
+    var braidNah=BRAID.has(c+','+r);
+    boden+='<polygon points="'+pts+'" fill="var(--flach)" fill-opacity="'+(braidNah?0:.45)
+      +'" stroke="var(--line)" stroke-opacity=".55" stroke-width="1"/>';
+    if(braidNah)boden+='<polygon points="'+pts+'" fill="var(--kies)" fill-opacity=".28"/>';
+    if(!wasserFelder.has(c+','+r))continue;
+    /* clip-path in Weltkoordinaten: die Gruppe verschiebt Clip UND Inhalt
+       gemeinsam — genau das macht ?explode möglich. */
+    var id='hc'+c+'_'+r;
+    defs+='<clipPath id="'+id+'"><polygon points="'+pts+'"/></clipPath>';
+    var ex=0,ey=0;
+    if(P.explode){
+      var dx=cx(c,r)-MX,dy=cy(c,r)-MY,L=Math.hypot(dx,dy)||1;
+      ex=dx/L*P.explode;ey=dy/L*P.explode;
+    }
+    var inhalt=P.bruch?bruchStueck(c,r):wasser.svg;
+    stuecke+='<g transform="translate('+ex.toFixed(1)+' '+ey.toFixed(1)+')" clip-path="url(#'+id+')">'
+      +'<polygon points="'+pts+'" fill="var(--flach)" fill-opacity=".45"/>'
+      +(BRAID.has(c+','+r)?'<polygon points="'+pts+'" fill="var(--kies)" fill-opacity=".28"/>':'')
+      +inhalt+'</g>';
+  }
+  return '<defs>'+defs+'</defs>'+boden+stuecke;
+}
+
+var st=document.createElement('style');
+st.textContent=':root,body{--w-bach:color-mix(in srgb,var(--river) 62%,var(--bg));'
+  +'--w-saum:color-mix(in srgb,var(--kies) 72%,var(--bg));'
+  +'--w-tal:color-mix(in srgb,var(--riverdeep) 72%,var(--ink));}'
+  +'body.night{--w-tal:color-mix(in srgb,var(--riverdeep) 60%,var(--bg));}';
+document.head.appendChild(st);
+
+var svg=document.getElementById('brett');
+var rand=P.explode?P.explode+10:0;
+svg.setAttribute('viewBox',(-rand)+' '+(-rand)+' '+(VB_W+2*rand)+' '+(VB_H+2*rand));
+svg.innerHTML=bauen();
+if(P.bruch)document.getElementById('tafelsub').textContent='VERTRAGSBRUCH — je Feld zur eigenen Mitte: die Tangente bricht an jeder Kante, das Raster taktet wieder.';
+else if(P.explode)document.getElementById('tafelsub').textContent='auseinandergezogen: jedes Feld trägt seinen eigenen Abschnitt.';
+</script>
+</body>
+</html>

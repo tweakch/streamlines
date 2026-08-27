@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Namen — wie ein Ort seinen Namen verliert</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<style>
+  /* Nur was dieser Prototyp allein braucht. Kommt zuletzt, gewinnt darum.
+
+     Der Prüfstand hat EINE Frage: trägt es, wenn dem Spieler sein eigener
+     Name aus der Hand genommen wird? Darum steht hier fast nur Typografie —
+     die beiden Register (Welt / Ausgrabung) müssen sich auf den ersten Blick
+     unterscheiden, sonst spricht der Museumsführer mitten im Spiel weiter. */
+
+  .stage{max-width:520px;}
+
+  /* --- Register 1: die Welt. Sie spricht in der Schrift des Spiels. ------- */
+  .welt{font-size:14px;line-height:1.55;}
+  .welt em{font-style:normal;color:var(--ember);}
+
+  /* --- Register 2: die Ausgrabung. Eigene Schrift, eigene Marke, eigener
+         Rand — und sie tritt NIE ohne ihre Marke auf. Wer sie einmal
+         gelernt hat, weiß danach immer, wer redet. --------------------- */
+  .grabung{font-family:var(--f-mono);font-size:11px;line-height:1.65;
+           color:var(--ink2);border-left:2px solid var(--line);
+           padding:2px 0 2px 10px;display:flex;gap:8px;align-items:flex-start;}
+  /* SOT.icon() liefert ein nacktes <svg> ohne Grösse — die kommt hier her. */
+  .grabung > svg{flex:none;width:13px;height:13px;margin-top:3px;opacity:.7;}
+  .grabung b{color:var(--ink);font-weight:400;}
+  .grabung.leer{opacity:.45;}
+
+  /* --- Die Karte ---------------------------------------------------------- */
+  .karte{background:var(--panel2);border:1px solid var(--line);
+         border-radius:var(--r-md);overflow:hidden;position:relative;}
+  .karte svg{display:block;width:100%;height:auto;}
+  /* Kein Rahmen um die Welt: der Rand verliert sich, er endet nicht.
+     Das ist die UI-Hälfte von „eine Welt, die größer ist als das Verstehen". */
+  .karte::after{content:'';position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 50%,transparent 46%,
+               color-mix(in srgb,var(--bg) 88%,transparent) 92%);}
+
+  /* Beschriftungen auf der Karte. paint-order:stroke legt den Halo UNTER
+     die Schrift — ohne das frisst die Kontur die Buchstaben von innen. */
+  text{paint-order:stroke;stroke:var(--bg);stroke-width:3px;stroke-linejoin:round;}
+  .l-aussen{font-family:var(--f-display);font-weight:700;font-size:18px;
+            fill:var(--ink);letter-spacing:.04em;}
+  .l-aussen.fremd{font-family:var(--f-mono);font-weight:400;letter-spacing:.14em;
+                  font-size:15px;fill:var(--rom);}
+  .l-eigen{font-family:var(--f-body);font-size:13px;fill:var(--ink2);}
+  .l-eigen.gross{font-family:var(--f-display);font-weight:700;font-size:18px;
+                 fill:var(--ink);letter-spacing:.02em;}
+  .l-eigen.blass{fill:var(--ink2);opacity:.5;font-size:12px;}
+  .verklungen{opacity:0;}
+  text,.marke{transition:opacity 1.1s ease,font-size .9s ease,fill .9s ease;}
+
+  /* --- Die Taufe ---------------------------------------------------------- */
+  .frage{font-family:var(--f-display);font-weight:700;font-size:17px;
+         line-height:1.3;margin:0 0 4px;}
+  .vorschlaege{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;}
+  .vorschlaege .chip{cursor:pointer;}
+  .taufeingabe{display:flex;gap:6px;}
+  .taufeingabe input{flex:1;}
+
+  /* --- Die Uhr im Kopf: sie zählt NICHT. Sie erzählt. -------------------- */
+  .zeit{text-align:right;line-height:1.25;}
+  .zeit b{display:block;font-family:var(--f-display);font-weight:700;font-size:12.5px;}
+  .zeit span{font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;
+             text-transform:uppercase;color:var(--ink2);}
+
+  /* --- Die Chronik am Ende ----------------------------------------------- */
+  .chronik{width:100%;border-collapse:collapse;font-size:12px;}
+  .chronik th{font-family:var(--f-mono);font-size:9px;letter-spacing:.12em;
+              text-transform:uppercase;color:var(--ink2);text-align:left;
+              font-weight:400;padding:0 6px 6px 0;}
+  .chronik td{padding:5px 6px 5px 0;border-top:1px solid var(--line);
+              vertical-align:top;}
+  .chronik td.eigen{font-family:var(--f-display);font-weight:700;}
+  .chronik td.weg{color:var(--ink2);opacity:.5;}
+  .chronik .fremd{font-family:var(--f-mono);font-size:11px;color:var(--rom);
+                  letter-spacing:.08em;}
+
+  /* Pane-Skelett: leer heißt nicht weg (erkundung-v5, Nachtrag 5). */
+  .pane.skelett{border-style:dashed;color:var(--ink2);}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <header class="appbar ruled">
+    <div class="brand">NAMEN<small>Werkstatt-Prüfstand</small></div>
+    <div class="zeit"><b id="zeitInnen">der dritte Winter</b><span id="zeitAussen">hier, jetzt</span></div>
+  </header>
+
+  <!-- Die Karte ist immer da. Sie ändert nur, wie sie heißt. -->
+  <div class="karte" id="karte"></div>
+
+  <!-- Die Stimme der Welt: innen, im Wir, ohne Jahreszahl. -->
+  <div class="pane" id="paneWelt"><div class="welt" id="welt"></div></div>
+
+  <!-- Die Stimme der Ausgrabung: außen, mit Marke, mit Jahreszahl.
+       Vor dem ersten Fund ein Skelett — nie ein Auftritt aus dem Nichts. -->
+  <div class="pane" id="paneGrabung"></div>
+
+  <!-- Der Handlungsraum. -->
+  <div class="pane" id="paneTun"></div>
+
+</div>
+
+<script src="../kit/sot.js"></script>
+<script src="../kit/sot-icons.js"></script>
+<script src="../kit/sot-hex.js"></script>
+<script>
+/* ===========================================================================
+   Namen — Prüfstand für den Namensverlust über die Epochen.
+
+   Der Kern in einem Satz: der Spieler benennt drei Orte in seiner Sprache,
+   und die Kampagne nimmt ihm die Namen auf drei verschiedene Weisen weg.
+
+     Wasser  → ERSETZT      ein fremdes Wort verdrängt das eigene
+     Furt    → UMGEWIDMET   der Ort bleibt, sein Zweck wird umbenannt
+     Lager   → VERSCHLIFFEN das eigene Wort überlebt — unerkennbar
+
+   Die Pointe sitzt am Ende: die Ausgrabung notiert „Wurzel unbekannt",
+   und der Spieler ist die Wurzel.
+   ========================================================================= */
+
+var P = SOT.params({
+  szene:  { t:'enum', values:['taufen','zeit','fund'], def:'taufen',
+            help:'taufen (benennen) · zeit (Epochen) · fund (Ende)' },
+  epoche: { t:'int', def:1, min:1, max:5, help:'Epoche I–V, wirkt mit szene=zeit|fund' },
+  namen:  { t:'list', def:['Das Laute','Wo wir hinüber','Beim Weid'],
+            help:'Namen vorgeben: Wasser,Furt,Lager — spart das Tippen' },
+  auto:   { t:'flag', help:'Epochen von selbst weiterlaufen lassen' }
+});
+
+/* ---------------------------------------------------------------- Zustand ---
+   S.namen sind die Wörter des Spielers. Sie werden nie überschrieben —
+   verloren geht nur ihre Sichtbarkeit auf der Karte. */
+var S = { szene:P.szene, ep:P.epoche, namen:{ wasser:'', furt:'', lager:'' }, taufIdx:0 };
+
+/* ------------------------------------------------------------------- Welt ---
+   Neun Spalten, sieben Zeilen, Spitz-oben, odd-r (Projektkonvention).
+   Das Wasser läuft durchgehend von Nord nach Süd, die Furt liegt darin. */
+var COLS = 9, ROWS = 7, HW = 64, GAP = 2;
+var GELAENDE = [
+  'BBhwWfhBB',
+  'BhfwWffhB',
+  'hffwWfffh',
+  'hfkFffffh',
+  'hffLwfffh',
+  'BhffwWffh',
+  'BBhfwWfhB'
+];
+var FARBE = { B:'--hang', h:'--hang', f:'--flach', W:'--wald',
+              w:'--river', F:'--riverdeep', k:'--kies', L:'--ufer' };
+/* B ist Berg — dunkler als Hang, aber aus demselben Token gemischt, damit
+   Tag/Nacht/Werkbank nicht auseinanderfallen. */
+function fuellung(ch){
+  if (ch === 'B') return 'color-mix(in srgb, var(--hang) 72%, var(--ink))';
+  return 'var(' + FARBE[ch] + ')';
+}
+
+/* Die drei Orte. anker = Feld, dy = wohin die Beschriftung ausweicht. */
+var ORTE = [
+  { id:'wasser', c:3, r:1, dx:-52, dy:2,  anker:'end',   frage:'Wie nennt ihr das Wasser?',
+    ico:'stromschnelle',
+    vorschlag:['Das Laute','Weisswasser','Der Riss','Fischwasser'] },
+  { id:'furt',   c:3, r:3, dx:52,  dy:2,  anker:'start', frage:'Und die Stelle, an der ihr hinüberkommt?',
+    ico:'furt', icoSpaet:'bruecke', icoAb:4,
+    vorschlag:['Wo wir hinüber','Flachtritt','Die Steine','Kniewasser'] },
+  { id:'lager',  c:3, r:4, dx:-52, dy:44, anker:'end',   frage:'Und dieser Platz hier, an dem euer Feuer steht?',
+    ico:'lager',
+    vorschlag:['Beim Weid','Unser Ufer','Hinter den Weiden','Zuhause'] }
+];
+
+/* ---------------------------------------------------- Wie Namen verrutschen ---
+   Drei Verlustarten, je Ort eine. Jede Funktion bekommt das Wort des
+   Spielers und gibt zurück, was auf der Karte steht:
+     aussen  = das Wort, das die Geschichte behält (fremd:true → andere Schrift)
+     eigen   = was vom Wort des Spielers noch zu sehen ist
+     stufe   = 'gross' (es ist sein Ort) · '' · 'blass' · null (verklungen)   */
+
+/* Verschleifen: das eigene Wort geht durch fremde Münder und kommt
+   verändert zurück. Kein Wörterbuch — nur Endungen, wie im Echten. */
+function ohneUmlaut(s){
+  return s.replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss');
+}
+function stamm(n){
+  /* Der erste bedeutungstragende Teil: Artikel und Präpositionen fallen
+     weg, wie sie es in echten Ortsnamen tun („Beim Weid" → „Weid"). */
+  var w = ohneUmlaut(n).split(/[\s-]+/).filter(function(x){
+    return !/^(der|die|das|dem|den|beim|bei|am|an|im|in|zu|zum|unser|unsere|hinter|wo|wir)$/i.test(x);
+  });
+  var s = (w[w.length-1] || ohneUmlaut(n)).replace(/[^A-Za-zÀ-ÿ]/g,'');
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+function latein(n){
+  var s = stamm(n).toUpperCase().replace(/W/g,'V').replace(/U/g,'V');
+  if (/[AEIOV]$/.test(s)) return s + 'NISSA';
+  return s + 'ONA';
+}
+function mittel(n){ return stamm(n) + 'un'; }
+function neuzeit(n){ return stamm(n) + 'enau'; }
+
+var VERLUST = {
+  /* ERSETZT — ein Wort von außen legt sich über das eigene und bleibt. */
+  wasser: [
+    function(n){ return { aussen:null,      eigen:n, stufe:'gross' }; },
+    function(n){ return { aussen:'RHENVS',   fremd:true, eigen:n, stufe:'' }; },
+    function(n){ return { aussen:'Rin',      eigen:n, stufe:'blass' }; },
+    function(n){ return { aussen:'Rhein',    eigen:null, stufe:null }; },
+    function(n){ return { aussen:'Rhein',    eigen:'km 65,3', stufe:'blass' }; }
+  ],
+  /* UMGEWIDMET — der Ort überlebt, aber er heißt nach seinem Nutzen für
+     die, die gerade das Sagen haben. */
+  furt: [
+    function(n){ return { aussen:null,          eigen:n, stufe:'gross' }; },
+    function(n){ return { aussen:'AD VADVM',    fremd:true, eigen:n, stufe:'' }; },
+    function(n){ return { aussen:'Zollstatt',   eigen:n, stufe:'blass' }; },
+    function(n){ return { aussen:'Zollbrugg',   eigen:null, stufe:null }; },
+    function(n){ return { aussen:'Rheinbrücke', eigen:null, stufe:null }; }
+  ],
+  /* VERSCHLIFFEN — das eigene Wort ist noch da. Man erkennt es nur nicht. */
+  lager: [
+    function(n){ return { aussen:null, eigen:n, stufe:'gross' }; },
+    function(n){ return { aussen:'VICVS '+latein(n), fremd:true, eigen:n, stufe:'' }; },
+    function(n){ return { aussen:mittel(n),  eigen:n, stufe:'blass' }; },
+    function(n){ return { aussen:neuzeit(n), eigen:null, stufe:null }; },
+    function(n){ return { aussen:neuzeit(n), eigen:null, stufe:null }; }
+  ]
+};
+
+/* ---------------------------------------------------------------- Epochen ---
+   innen  = wie ein Mensch die Zeit erlebt: kein Jahr, kein „v. Chr."
+   aussen = die Ausgrabung. Nur SIE darf zählen — und sie tritt nur auf,
+            wenn etwas Belegtes zu sagen ist. */
+var EPOCHEN = [
+  { n:'I',
+    zeitInnen:'der dritte Winter',    zeitAussen:'hier, jetzt',
+    welt:'Das Wasser ist laut, seit der Schnee geht. Wir bleiben, bis es leiser wird.',
+    grabung:null },
+  { n:'II',
+    zeitInnen:'das Jahr der Schnüre',  zeitAussen:'hier, jetzt',
+    welt:'Fremde sind das Tal heraufgekommen und messen den Boden mit Schnüren. '+
+         'Sie fragen nicht, wie die Furt heißt. Sie schreiben etwas auf.',
+    grabung:'Vor <b>2 000 Jahren</b> wird das Tal Provinz. In den Listen des '+
+            'Statthalters erscheint ein Ort — unter einem Namen, den hier '+
+            'niemand gesprochen hat.' },
+  { n:'III',
+    zeitInnen:'das Jahr des Zolls',    zeitAussen:'hier, jetzt',
+    welt:'Am Übergang steht ein Haus, und wer hinüber will, zahlt. '+
+         'Die Alten sagen noch den alten Namen. Die Kinder sagen den neuen.',
+    grabung:'Vor <b>800 Jahren</b> nennt eine Urkunde den Übergang zum ersten '+
+            'Mal — als Zollstelle. Der ältere Name des Orts ist in keiner '+
+            'Urkunde belegt.' },
+  { n:'IV',
+    zeitInnen:'das Jahr der Karte',    zeitAussen:'hier, jetzt',
+    welt:'Jemand hat das Tal gezeichnet. Auf der Zeichnung steht, wie alles heißt.',
+    grabung:'Vor <b>200 Jahren</b> wird das Tal vermessen und beschriftet. '+
+            'Was auf der Karte steht, gilt; was nicht darauf steht, gilt nicht.' },
+  { n:'V',
+    zeitInnen:'heute',                 zeitAussen:'hier, jetzt',
+    welt:'Der Fluss läuft gerade. Über die Brücke fahren Lastwagen.',
+    grabung:'<b>Heute.</b> Unter dem Brückenkopf liegt eine Feuerstelle, '+
+            '<b>12 000 Jahre</b> alt. Der Ortsname gilt als vorrömisch; '+
+            'seine Wurzel ist <b>unbekannt</b>.' }
+];
+
+/* ================================================================= Karte === */
+function zeichneKarte(){
+  var gs = SOT.hex.gridSize(COLS, ROWS, HW, GAP);
+  var svg = '<svg viewBox="0 0 '+gs.w.toFixed(0)+' '+gs.h.toFixed(0)+'" '+
+            'role="img" aria-label="Talausschnitt mit Wasser, Furt und Lager">';
+  for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++){
+    var ch = GELAENDE[r].charAt(c), m = SOT.hex.center(c, r, HW, GAP);
+    svg += '<polygon points="'+SOT.hex.points(m.x, m.y, HW)+'" fill="'+fuellung(ch)+
+           '" stroke="var(--line)" stroke-width="1" stroke-opacity=".35"/>';
+  }
+  /* Zeichen der drei Orte — SVG, nie ein Schriftzeichen. */
+  ORTE.forEach(function(o){
+    var m = SOT.hex.center(o.c, o.r, HW, GAP);
+    /* iconSVG zentriert selbst auf (x,y) — kein eigener Halb-Versatz.
+       Das Zeichen folgt der Funktion: ab Epoche icoAb steht dort etwas
+       anderes als vorher — aus der Furt ist eine Brücke geworden. */
+    var nm = (o.icoAb && S.ep >= o.icoAb) ? o.icoSpaet : o.ico;
+    svg += SOT.iconSVG(nm, m.x, m.y, 24);
+  });
+  /* Beschriftungsebene: eigene Gruppe, damit sie über allem liegt. */
+  ORTE.forEach(function(o){
+    var m = SOT.hex.center(o.c, o.r, HW, GAP);
+    var x = m.x + o.dx, y = m.y + o.dy;
+    svg += '<g id="lab-'+o.id+'">'+
+             '<text class="l-aussen" x="'+x.toFixed(0)+'" y="'+y.toFixed(0)+'" '+
+                   'text-anchor="'+o.anker+'"></text>'+
+             '<text class="l-eigen" x="'+x.toFixed(0)+'" y="'+(y+17).toFixed(0)+'" '+
+                   'text-anchor="'+o.anker+'"></text>'+
+           '</g>';
+  });
+  svg += '</svg>';
+  SOT.$('karte').innerHTML = svg;
+}
+
+/* Beschriftung für die aktuelle Epoche schreiben. */
+function schreibeLabels(){
+  ORTE.forEach(function(o){
+    var name = S.namen[o.id];
+    var g = SOT.$('lab-'+o.id);
+    var ta = g.querySelector('.l-aussen'), te = g.querySelector('.l-eigen');
+    if (!name){ ta.textContent = ''; te.textContent = ''; return; }
+    var v = VERLUST[o.id][S.ep - 1](name);
+
+    ta.textContent = v.aussen || '';
+    ta.setAttribute('class', 'l-aussen' + (v.fremd ? ' fremd' : '') +
+                             (v.aussen ? '' : ' verklungen'));
+
+    /* Solange kein fremder Name da ist, trägt das eigene Wort die Karte
+       (grosse Schrift). Sobald einer da ist, rutscht es in die zweite
+       Zeile — und irgendwann ist die zweite Zeile leer. */
+    te.textContent = v.eigen || '';
+    te.setAttribute('class', 'l-eigen' +
+      (v.stufe === 'gross' ? ' gross' : v.stufe === 'blass' ? ' blass' : '') +
+      (v.eigen ? '' : ' verklungen'));
+    /* Ohne fremden Namen sitzt das eigene Wort auf der oberen Zeile. */
+    var m = SOT.hex.center(o.c, o.r, HW, GAP), y = m.y + o.dy;
+    te.setAttribute('y', (v.aussen ? y + 17 : y).toFixed(0));
+  });
+}
+
+/* ================================================================ Register === */
+function sagWelt(text){ SOT.$('welt').innerHTML = text; }
+
+function sagGrabung(text){
+  var p = SOT.$('paneGrabung');
+  if (!text){
+    p.className = 'pane skelett';
+    p.innerHTML = '<div class="grabung leer">'+SOT.icon('beleg')+
+                  '<span>noch spricht nur die Welt</span></div>';
+    return;
+  }
+  p.className = 'pane';
+  p.innerHTML = '<div class="grabung">'+SOT.icon('beleg')+'<span>'+text+'</span></div>';
+}
+
+/* ================================================================== Taufe === */
+function zeigeTaufe(){
+  var o = ORTE[S.taufIdx];
+  SOT.$('zeitInnen').textContent = EPOCHEN[0].zeitInnen;
+  SOT.$('zeitAussen').textContent = EPOCHEN[0].zeitAussen;
+  sagWelt('Ihr seid den Fluss heraufgekommen und geblieben. '+
+          'Es gibt hier noch nichts, was einen Namen hätte.');
+  sagGrabung(null);
+
+  var vs = o.vorschlag.map(function(v){
+    return '<span class="chip" data-wort="'+v+'">'+v+'</span>';
+  }).join('');
+
+  SOT.$('paneTun').className = 'pane';
+  SOT.$('paneTun').innerHTML =
+    '<p class="frage">'+o.frage+'</p>'+
+    '<p class="hint">'+(S.taufIdx+1)+' von 3 — dieses Wort steht danach auf der Karte.</p>'+
+    '<div class="vorschlaege">'+vs+'</div>'+
+    '<div class="taufeingabe">'+
+      '<input id="tin" type="text" maxlength="24" placeholder="oder ein eigenes Wort">'+
+      '<button class="primary" id="tok">so heißt es</button>'+
+    '</div>'+
+    '<p class="note">Euer Wort <b>beschreibt</b>, was da ist. Ein Name ist es '+
+    'erst für die, die später kommen.</p>';
+
+  SOT.$('paneTun').querySelectorAll('.chip').forEach(function(ch){
+    ch.onclick = function(){ taufe(ch.dataset.wort); };
+  });
+  SOT.$('tok').onclick = function(){ taufe(SOT.$('tin').value.trim()); };
+  SOT.$('tin').onkeydown = function(e){
+    if (e.key === 'Enter') taufe(SOT.$('tin').value.trim());
+  };
+}
+
+function taufe(wort){
+  if (!wort) { SOT.toast('Ein Wort fehlt noch.'); return; }
+  S.namen[ORTE[S.taufIdx].id] = wort;
+  schreibeLabels();
+  S.taufIdx++;
+  if (S.taufIdx < ORTE.length) zeigeTaufe();
+  else { S.szene = 'zeit'; S.ep = 1; zeigeZeit(); }
+}
+
+/* ================================================================ Epochen === */
+function zeigeZeit(){
+  var e = EPOCHEN[S.ep - 1];
+  SOT.$('zeitInnen').textContent = e.zeitInnen;
+  SOT.$('zeitAussen').textContent = e.zeitAussen;
+  sagWelt(e.welt);
+  sagGrabung(e.grabung);
+  /* Neu zeichnen, weil das Zeichen der Furt ab Epoche IV ein anderes ist. */
+  zeichneKarte();
+  schreibeLabels();
+
+  SOT.$('paneTun').className = 'pane';
+  if (S.ep < EPOCHEN.length){
+    SOT.$('paneTun').innerHTML =
+      '<button class="primary wide" id="weiter">Die Zeit geht weiter</button>'+
+      '<p class="hint" style="margin-top:8px">Epoche '+e.n+' von V</p>';
+    SOT.$('weiter').onclick = function(){ S.ep++; zeigeZeit(); };
+  } else {
+    SOT.$('paneTun').innerHTML =
+      '<button class="primary wide" id="weiter">Was ist geblieben?</button>';
+    SOT.$('weiter').onclick = function(){ S.szene = 'fund'; zeigeFund(); };
+  }
+}
+
+/* =================================================================== Fund === */
+function zeigeFund(){
+  S.ep = 5;
+  zeichneKarte(); schreibeLabels();
+  var e = EPOCHEN[4];
+  SOT.$('zeitInnen').textContent = e.zeitInnen;
+  SOT.$('zeitAussen').textContent = e.zeitAussen;
+  sagWelt(e.welt);
+  sagGrabung(e.grabung);
+
+  var zeilen = ORTE.map(function(o){
+    var n = S.namen[o.id] || '—';
+    var tds = '<td class="eigen">'+n+'</td>';
+    for (var ep = 2; ep <= 5; ep++){
+      var v = VERLUST[o.id][ep-1](n);
+      var txt = v.aussen || '—';
+      tds += '<td class="'+(v.fremd ? 'fremd' : '')+(v.aussen ? '' : ' weg')+'">'+txt+'</td>';
+    }
+    return '<tr>'+tds+'</tr>';
+  }).join('');
+
+  SOT.$('paneTun').className = 'pane';
+  SOT.$('paneTun').innerHTML =
+    '<p class="frage">Was ihr gesagt habt — und was davon aufgeschrieben wurde</p>'+
+    '<table class="chronik">'+
+      '<tr><th>euer Wort</th><th>II</th><th>III</th><th>IV</th><th>heute</th></tr>'+
+      zeilen+
+    '</table>'+
+    '<p class="note" style="margin-top:12px">Drei Arten, einen Namen zu verlieren: '+
+    'das Wasser wurde <b>ersetzt</b>, die Furt <b>umgewidmet</b>, euer Lager '+
+    '<b>verschliffen</b> — sein Wort steht heute noch auf jedem Schild, und '+
+    'niemand kann es mehr lesen.</p>'+
+    '<div class="grabung" style="margin-top:12px">'+SOT.icon('beleg')+
+      '<span>Die Ausgrabung notiert: <b>Wurzel unbekannt</b>. '+
+      'Nur ihr wisst, dass die Wurzel <b>'+(S.namen.lager||'—')+'</b> war.</span>'+
+    '</div>'+
+    '<button class="ghost wide" id="nochmal" style="margin-top:14px">noch einmal benennen</button>';
+  SOT.$('nochmal').onclick = function(){
+    S.namen = { wasser:'', furt:'', lager:'' }; S.taufIdx = 0; S.ep = 1;
+    schreibeLabels(); zeigeTaufe();
+  };
+}
+
+/* ================================================================== Start === */
+zeichneKarte();
+
+/* ?auto will den Ablauf sehen, nicht die Taufe tippen — es überspringt sie
+   mit den Namen aus ?namen= (sonst liefe die Automatik ins Leere). */
+if (P.szene === 'taufen' && !P.auto){
+  zeigeTaufe();
+} else {
+  /* Für Screenshots: Namen aus ?namen= übernehmen, Szene direkt öffnen. */
+  ORTE.forEach(function(o, i){ S.namen[o.id] = P.namen[i] || o.vorschlag[0]; });
+  S.taufIdx = ORTE.length;
+  if (P.szene === 'fund') zeigeFund();
+  else { S.szene = 'zeit'; S.ep = P.epoche; zeigeZeit(); }
+}
+
+if (P.auto){
+  (function lauf(){
+    if (S.szene !== 'zeit') return;
+    if (S.ep < EPOCHEN.length){ S.ep++; zeigeZeit(); setTimeout(lauf, 2600); }
+    else { S.szene = 'fund'; zeigeFund(); }
+  })();
+}
+
+SOT.debug(P);
+</script>
+</body>
+</html>

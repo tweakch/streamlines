@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Fluss-Gefälle-Labor v2 — Talwerkbank, senkrecht</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<style>
+/* =====================================================================
+   Fluss-Gefälle-Labor v2 — senkrecht, mit Hexfeldern.
+
+   v1 lag waagrecht und zeichnete ein glattes Band. Das war gut zum
+   Kurvenlesen, aber es log über das Ziel: im Spiel besteht der Fluss aus
+   PLÄTTCHEN, und ein Band von 171 m sagt nichts darüber, wie viele Felder
+   das sind. v2 dreht die Werkbank in die Fliessrichtung (oben → unten)
+   und zeichnet die Aufsicht als Hexraster — damit steht die eigentliche
+   Frage im Bild: WIE VIELE FELDER ist der Fluss hier breit?
+
+   Drei Spalten, links nach rechts wie der Blick wandert:
+     Profil          senkrecht, mit zwei Griffen für den Ausschnitt
+     Einstellungen   je Abschnitt Abfall, Zufluss, See-Tiefe und Fall
+     Aufsicht        Hexfelder, senkrecht, nur der gewählte Ausschnitt
+
+   Wie v1 trägt diese Datei eine PARAMETRISIERTE KOPIE der Formeln aus
+   lib/fluss-breite (ein Draft darf lib/ nicht verlinken — kit/inline.mjs
+   bettet nur den Baukasten ein). Bewährt sich eine Einstellung, wandern
+   die Zahlen nach lib/fluss-breite.js, nicht umgekehrt.
+   ===================================================================== */
+body{background:var(--bg);}
+.kopf{max-width:1400px;margin:0 auto;padding:16px 16px 2px;}
+.kopf h1{font-size:clamp(19px,3vw,25px);margin:0 0 3px;}
+.kopf .sub{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.09em;
+           text-transform:uppercase;color:var(--ink2);}
+
+.werk{max-width:1400px;margin:10px auto;padding:0 16px;
+      display:grid;grid-template-columns:190px minmax(280px,1fr) minmax(300px,1.1fr);
+      gap:12px;align-items:start;}
+@media (max-width:900px){.werk{grid-template-columns:1fr;}}
+.saeule{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-md);
+        padding:10px 12px 12px;}
+.saeule h2{font-size:12px;margin:0 0 2px;}
+.saeule .hint{font-family:var(--f-mono);font-size:9.5px;color:var(--ink2);margin:0 0 8px;
+        line-height:1.4;}
+.saeule svg{display:block;width:100%;height:auto;touch-action:none;}
+/* Ein senkrechter Fluss ist lang: 20 km bei 0.5 km/Feld sind 40 Zeilen, und
+   bei 100 km wären es 200. Die Aufsicht bekommt darum einen Rahmen mit
+   Bildlauf statt die Seite auf 4 000 px zu strecken (beim ersten Bild genau
+   so passiert). Die Feldgrösse ist gedeckelt, damit mehr Zeilen ins Bild
+   passen als in die Breite. */
+.planbox{max-height:74vh;overflow-y:auto;overflow-x:hidden;
+        border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel2);}
+.planbox svg{max-width:330px;margin:0 auto;}
+
+/* je-10-km-Editor */
+table.blocke{width:100%;border-collapse:collapse;font-size:11px;}
+table.blocke th{text-align:right;font-family:var(--f-mono);font-size:8.5px;letter-spacing:.05em;
+        text-transform:uppercase;color:var(--ink2);padding:3px 4px;border-bottom:1.5px solid var(--line);}
+table.blocke th:first-child,table.blocke td:first-child{text-align:left;}
+table.blocke td{padding:2px 4px;border-bottom:1px solid var(--line);text-align:right;
+        font-variant-numeric:tabular-nums;}
+table.blocke input{width:42px;padding:3px 3px;font-size:10.5px;text-align:right;
+        font-family:var(--f-mono);}
+table.blocke td.kl{text-align:left;white-space:nowrap;font-size:10px;}
+.kmark{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:4px;}
+.k-rinnsal{background:color-mix(in srgb, var(--river) 45%, var(--bg));}
+.k-bach{background:color-mix(in srgb, var(--river) 70%, var(--bg));}
+.k-kfluss{background:var(--river);}
+.k-gfluss{background:color-mix(in srgb, var(--riverdeep) 55%, var(--river));}
+.k-strom{background:var(--riverdeep);}
+.k-see{background:color-mix(in srgb, var(--riverdeep) 80%, var(--river));}
+table.blocke tr.ausser td{opacity:.38;}
+table.blocke tr.ausser input{opacity:.55;}
+.mini{font-family:var(--f-mono);font-size:9.5px;color:var(--ink2);}
+.zeile{display:flex;gap:6px;align-items:center;margin:8px 0 0;}
+.zeile button{font-size:10px;padding:5px 9px;}
+
+.kennz{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0;}
+.kennz .stat{flex:1 1 76px;min-width:76px;}
+.kennz .stat b{font-size:15px;}
+
+.hist{font-family:var(--f-mono);font-size:10px;color:var(--ink2);margin:8px 0 0;
+        padding:6px 8px;background:var(--panel2);border-radius:var(--r-sm);line-height:1.5;}
+.hist b{color:var(--ink);}
+.legende{display:flex;flex-wrap:wrap;gap:9px;font-family:var(--f-mono);font-size:9px;
+        color:var(--ink2);margin:6px 0 0;}
+.legende i{display:inline-block;width:10px;height:10px;border-radius:2px;
+        vertical-align:-1px;margin-right:4px;}
+
+.schluss{max-width:1400px;margin:16px auto 60px;padding:0 16px;font-size:12.5px;color:var(--ink2);}
+.schluss h3{color:var(--ink);font-size:13px;margin:0 0 6px;}
+.schluss p{margin:0 0 8px;line-height:1.55;}
+</style>
+</head>
+<body class="werkbank">
+<header class="kopf">
+  <h1>Fluss-Gefälle-Labor v2 — Talwerkbank</h1>
+  <div class="sub">Fliessrichtung oben → unten · Profil in Abschnitten · Seen, Fälle, Delta · Aufsicht in Hexfeldern</div>
+</header>
+
+<div class="werk">
+  <div class="saeule">
+    <h2>Profil</h2>
+    <p class="hint" id="profHint">Die zwei Griffe schneiden den Ausschnitt für die Aufsicht.</p>
+    <svg id="profil" viewBox="0 0 190 720" preserveAspectRatio="xMidYMin meet"></svg>
+  </div>
+
+  <div class="saeule">
+    <h2>Einstellungen</h2>
+    <p class="hint">Je Abschnitt: <b>Abfall</b> (m), <b>Zufluss</b> (m³/s), <b>See</b>-Tiefe (m, 0 = keiner) und <b>Fall</b> (m, Wasserfall am oberen Abschnittsrand). Zahl der Abschnitte und Lauflänge im Parameterbrett (<code>bloecke</code>, <code>laenge</code>). Blasse Zeilen liegen ausserhalb des Ausschnitts.</p>
+    <div style="overflow-x:auto"><table class="blocke" id="blocke"></table></div>
+    <div class="zeile">
+      <button id="btnRegler">Regler</button>
+      <button id="btnReset">Blöcke zurücksetzen</button>
+    </div>
+    <div class="kennz" id="kennz"></div>
+    <p class="hist" id="hist"></p>
+    <div class="legende">
+      <span><i style="background:var(--riverdeep)"></i>Korridor (Wasserraum)</span>
+      <span><i style="background:color-mix(in srgb, var(--riverdeep) 80%, var(--river))"></i>See (satter = tiefer)</span>
+      <span><i style="background:var(--kies)"></i>Schotter (verzweigt / Delta)</span>
+      <span><i style="background:var(--ufer)"></i>Ufer</span>
+      <span><i style="background:var(--flach)"></i>Talboden</span>
+      <span><i style="background:var(--hang)"></i>Hang</span>
+      <span><i id="swBerg"></i>Berg</span>
+    </div>
+  </div>
+
+  <div class="saeule">
+    <h2>Aufsicht</h2>
+    <p class="hint" id="planHint"></p>
+    <div class="planbox"><svg id="plan" preserveAspectRatio="xMidYMin meet"></svg></div>
+  </div>
+</div>
+
+<div class="schluss">
+  <h3>Was hier geprüft wird</h3>
+  <p><b>Korridor statt Wasser.</b> Die blaue Fläche ist seit dieser Fassung nicht «das
+  Wasser», sondern der <i>Korridor</i>, in dem Wasser fliessen kann — der eigentliche Lauf
+  wird in einem späteren Schritt darübergelegt. Voreinstellung <code>breite=korridor</code>:
+  je Klasse eine feste Felderbreite (Rinnsal 1 · Bach 2 · kleiner Fluss 3 · grosser
+  Fluss 4 · Strom 5 — am Ende des Laufs steht das Meer, und kurz davor wird der grosse
+  Fluss zum Strom, ab 85 m³/s). Ungerade Breiten rasten mittig aufs Feld, gerade auf die
+  Feldgrenze — so ist eine 2er-Breite <i>konstant</i> statt ein Zufall des Mäanders.
+  <code>breite=hydro</code> ist die alte gerechnete Fassung; alles darunter gilt für sie.</p>
+  <p><b>Seen und Fälle.</b> Jeder Abschnitt kann ein See sein (Spalte «See m»; die Tiefe
+  färbt das Wasser dunkler, der Spiegel liegt glatt auf Auslaufhöhe und der Blockabfall
+  sitzt am Einlauf). Vor dem See fächert der Lauf über <code>deltaKm</code> auf und schüttet
+  einen Kiesfächer in den See hinein — das Delta, aus dem später Flur wird. «Fall m» setzt
+  einen Wasserfall an den oberen Abschnittsrand: die Höhe springt dort, die Zeile liest
+  sich als Fall, im Plan steht Schaum, im Profil eine rote Kerbe. Zahl der Abschnitte
+  (<code>bloecke</code>) und Lauflänge (<code>laenge</code>, Vorgabe 100 km) sind frei —
+  mit 100 Abschnitten auf 100 km wird jeder Kilometer einzeln stellbar. Das Meer am Ende
+  spielt ein tiefer See im letzten Abschnitt: der Strom schüttet sein Delta hinein.</p>
+  <p><b>Wie viele Felder ist der Fluss breit?</b> Das ist die Frage, die ein Band nicht
+  beantwortet. Die Aufsicht rechnet die Breite in Meter über die Feldkante in Felder um —
+  bei 500 m je Feld ist ein Rhein von 190 m eben <i>ein</i> Feld, nicht drei. Der Regler
+  <code>ueber</code> ist die Übertreibung, die eine Karte braucht, damit ein Fluss überhaupt
+  sichtbar bleibt (nur <code>breite=hydro</code>); <code>hexKm</code> stellt die Feldgrösse.</p>
+  <p><b>Warum es 1, 3, 5 waren — und wie 2 und 4 entstehen.</b> Nicht die Rundung der
+  Breite war schuld, sondern die <i>symmetrische Lage</i>: wer eine gerundete Breite
+  mittig um die Laufmitte legt, kann nur ungerade Felderzahlen bekommen. Sobald der Lauf
+  eine <b>Feldgrenze überspannen</b> darf, entstehen gerade Breiten von selbst. Gemessen
+  über 70 km (km 30–100), Breite × Zeilen:</p>
+  <p><code>symmetrisch</code> → 1×40 · 3×100 &nbsp;·&nbsp;
+     <code>mehrheit</code> und <code>stetig</code> → 1×40 · <b>2×9</b> · 3×77 · <b>4×14</b></p>
+  <p>Die drei Arten unterscheiden sich also nicht in der gerechneten Breite, sondern darin,
+  <i>wann ein Feld als Wasser zählt</i>: <code>stetig</code> gibt dem Randfeld die
+  Teildeckung, die ihm zusteht (weiche Kante), <code>mehrheit</code> macht ab 50 % ein
+  ganzes Feld daraus (scharfe Kante, gleiche Breitenverteilung) und
+  <code>symmetrisch</code> ist die alte Fassung. <b>Voreinstellung ist
+  <code>mehrheit</code></b> — sie zeichnet Plättchen, wie ein Plättchenspiel sie braucht,
+  und trifft trotzdem gerade Breiten. Das Histogramm bei den Einstellungen zählt mit.</p>
+  <p><b>Die Klasse steht bei den Einstellungen</b>, je 10-km-Block mit dem Abfluss am unteren
+  Blockende — dort führt der Abschnitt seinen vollen Abfluss, und danach heisst er. Die
+  Grenzen sind die der <i>Karte</i> (nach Abfluss: 2 / 10 / 60 m³/s), nicht die des
+  Gewässer-Labors (nach Breite) — die beiden widersprechen sich, siehe
+  <code>lib/fluss-breite.md</code>, Befund 1.</p>
+  <p><b>Die Schwellen sind geeicht, die Kurvenform ist es nicht.</b> <code>jBraid</code>
+  (12 m/km), <code>jSchnell</code> (55), <code>jFall</code> (120) und der Verzweigungsfaktor 3
+  stammen aus <code>gewaesser-labor-v1</code>. Die Exponenten und Deckel darauf sind geraten —
+  sie sind der Grund für dieses Labor.</p>
+  <p class="dim">Debug: <code>?von</code> <code>?bis</code> (Ausschnitt in km) ·
+  <code>?laenge</code> <code>?bloecke</code> ·
+  <code>?abfall</code> <code>?zufluss</code> <code>?see</code> <code>?fall</code>
+  (je Abschnitt, Komma-Liste) · <code>?breite</code> · <code>?deltaKm</code> ·
+  <code>?steil</code> · <code>?talBreite</code> · <code>?hexKm</code> · <code>?ueber</code> ·
+  <code>?fade</code> · <code>?nurAbfluss</code> · <code>?q0</code> · <code>?regler</code> ·
+  <code>?hilfe</code> · <code>?night</code>.
+  Historisch inspiriert und für das Spiel vereinfacht.</p>
+</div>
+
+<script src="../kit/sot.js"></script>
+<script src="../kit/sot-hex.js"></script>
+<script>
+'use strict';
+
+var BLOCK_KM = 10;   /* wird aus laenge/bloecke gerechnet — kein fester Zehner mehr */
+
+var P = SOT.params({
+  laenge:     { t:'int', def:100, min:10, max:300, step:5, help:'Lauflänge (km)' },
+  bloecke:    { t:'int', def:10, min:2, max:100, help:'Zahl der Abschnitte im Profil' },
+  abfall:     { t:'list', def:[], help:'Höhenabfall je Abschnitt (m), Komma-Liste' },
+  zufluss:    { t:'list', def:[], help:'Zufluss je Abschnitt (m³/s), Komma-Liste' },
+  see:        { t:'list', def:[], help:'Seetiefe je Abschnitt (m, 0 = kein See), Komma-Liste' },
+  fall:       { t:'list', def:[], help:'Wasserfall am oberen Abschnittsrand (m), Komma-Liste' },
+  deltaKm:    { t:'num', def:2, min:0, max:10, step:0.5, help:'Länge des Deltas vor einem See (km)' },
+  breite:     { t:'enum', values:['korridor','hydro'], def:'korridor',
+                help:'Blaue Fläche: korridor (je Klasse fest 1·2·3·4·5 Felder — der Raum, in dem Wasser fliessen KANN) · hydro (gerechnete Breite × ueber)' },
+  von:        { t:'num', def:-1, min:-1, max:300, help:'Ausschnitt von (km), −1 = automatisch' },
+  bis:        { t:'num', def:-1, min:-1, max:300, help:'Ausschnitt bis (km), −1 = automatisch' },
+  steil:      { t:'num', def:1, min:0.2, max:3, step:0.05, help:'Steilheit: alle Abfälle mal diesem Faktor' },
+  talBreite:  { t:'int', def:7, min:1, max:19, help:'Breite des Talbodens in Feldern' },
+  flanke:     { t:'int', def:3, min:1, max:8, help:'Hang- und Bergfelder je Seite' },
+  hexKm:      { t:'num', def:0.5, min:0.1, max:2, step:0.1, help:'Feldgrösse (km je Feld)' },
+  ueber:      { t:'int', def:10, min:1, max:60, help:'Übertreibung der Flussbreite (sonst wäre er 1 Feld)' },
+  maeander:   { t:'num', def:1, min:0, max:1, step:0.05, help:'Ausschlag des Mäanders (Anzeige, 0 = gerade)' },
+  deckung:    { t:'enum', values:['stetig','mehrheit','symmetrisch'], def:'mehrheit',
+                help:'Wie ein Feld zu Wasser wird: stetig (Teildeckung) · mehrheit (ab 50 % ganz) · symmetrisch (gerundete Breite um die Mitte → nur 1,3,5)' },
+  lamFaktor:  { t:'num', def:3, min:1, max:10, step:0.5, help:'Mäanderlänge strecken — 1 ist massstäblich (und im groben Raster unlesbar)' },
+  hangExp:    { t:'num', def:0.25, min:0, max:1, step:0.01, help:'Hang: Exponent — 0 schaltet den Hang aus' },
+  hangMin:    { t:'num', def:0.45, min:0.2, max:1, step:0.01, help:'Hang: schmalster Faktor' },
+  gangK:      { t:'num', def:0.5, min:0, max:2, step:0.05, help:'Gang: Stärke — 0 schaltet den Gang aus' },
+  gangMax:    { t:'num', def:1.6, min:1, max:3, step:0.05, help:'Gang: breitester Faktor (Schwemmfächer)' },
+  gangMin:    { t:'num', def:0.7, min:0.3, max:1, step:0.05, help:'Gang: schmalster Faktor (Klamm)' },
+  sinK:       { t:'num', def:0.8, min:0, max:2, step:0.05, help:'Windung je Zehnerpotenz unter jBraid' },
+  sinMax:     { t:'num', def:2.6, min:1, max:4, step:0.1, help:'Windung: Deckel' },
+  jBraid:     { t:'num', def:0.012, min:0.002, max:0.05, step:0.001, help:'Verzweigt unter diesem Gefälle' },
+  braid:      { t:'num', def:3, min:1, max:5, step:0.1, help:'Verzweigungsfaktor (Gürtelbreite)' },
+  fade:       { t:'flag', help:'Verzweigung ausblenden statt schalten — gegen die Klippe bei Q = 100' },
+  nurAbfluss: { t:'flag', help:'Gelände aus: nur b = 6·√Q' },
+  q0:         { t:'num', def:0.5, min:0.1, max:50, step:0.1, help:'Abfluss an der Quelle (m³/s) — unter 2 beginnt der Lauf als Rinnsal' }
+});
+
+var J_SCHNELL = 0.055, J_FALL = 0.120;
+var klemme = function (x, lo, hi) { return x < lo ? lo : x > hi ? hi : x; };
+
+/* Gewässerklasse — die Grenzen der KARTE, also nach Abfluss, nicht nach
+   Breite (dynamic-rhein-tiles:1237). Das Labor `gewaesser-labor` schneidet
+   nach Breite und käme hier auf andere Namen; die Abweichung ist in
+   lib/fluss-breite.md als Befund 1 festgehalten. */
+/* `kor` ist die Korridorbreite in Feldern (breite=korridor): der Raum, in dem
+   Wasser fliessen kann — nicht das Wasser selbst; der eigentliche Lauf wird
+   in einem späteren Schritt darübergelegt.
+   Die Grenzen 2 / 10 / 60 sind die der Karte; die 85 ist neu und gehört dem
+   STROM — am Ende des Laufs steht das Meer, und kurz davor wird der grosse
+   Fluss zum Strom. Das Vorgabeprofil erreicht ihn auf den letzten 10 km. */
+var KLASSEN = [
+  { bis:2,        key:'rinnsal', nm:'Rinnsal',       kor:1, col:'var(--w-rinnsal, var(--river))' },
+  { bis:10,       key:'bach',    nm:'Bach',          kor:2, col:'var(--river)' },
+  { bis:60,       key:'kfluss',  nm:'kleiner Fluss', kor:3, col:'var(--river)' },
+  { bis:85,       key:'gfluss',  nm:'grosser Fluss', kor:4, col:'color-mix(in srgb, var(--riverdeep) 55%, var(--river))' },
+  { bis:Infinity, key:'strom',   nm:'Strom',         kor:5, col:'var(--riverdeep)' }
+];
+function klasseVon(q) {
+  for (var i = 0; i < KLASSEN.length; i++) if (q < KLASSEN[i].bis) return KLASSEN[i];
+  return KLASSEN[KLASSEN.length - 1];
+}
+/* Seefarbe: je tiefer, desto mehr Tiefwasser. Nicht Richtung --ink mischen —
+   im Nachtthema ist die Tinte HELL, ein tiefer See würde blasser statt
+   dunkler. river → riverdeep dreht in beiden Themen richtig. */
+function seeCol(tiefe) {
+  return 'color-mix(in srgb, var(--riverdeep) ' + Math.round(40 + klemme(tiefe, 0, 60)) + '%, var(--river))';
+}
+
+/* ---- Formeln, parametrisiert (Kopie aus lib/fluss-breite) -------------- */
+function breiteM(q) { return 6 * Math.sqrt(q); }
+function hangFaktor(j) {
+  if (!(j > P.jBraid) || P.hangExp <= 0) return 1;
+  return klemme(Math.pow(P.jBraid / j, P.hangExp), P.hangMin, 1);
+}
+function gangFaktor(jVor, j, jNach) {
+  if (jVor === undefined || jNach === undefined || P.gangK <= 0) return 1;
+  return klemme(1 + P.gangK * ((jVor - jNach) / (2 * Math.max(j, P.jBraid))), P.gangMin, P.gangMax);
+}
+function sinuositaet(j) {
+  if (!(j > 0)) return P.sinMax;
+  if (j >= P.jBraid || P.sinK <= 0) return 1;
+  return klemme(1 + P.sinK * Math.log10(P.jBraid / j), 1, P.sinMax);
+}
+function braidAnteil(q, j) {
+  var b = breiteM(q);
+  if (j >= P.jBraid) return 0;
+  if (!P.fade) return (b >= 8 && b < 60) ? 1 : 0;
+  return Math.min(klemme((b - 6) / 4, 0, 1), klemme((70 - b) / 20, 0, 1));
+}
+function breiteMitGefaelle(q, jVor, j, jNach) {
+  if (P.nurAbfluss) return breiteM(q);
+  var b = breiteM(q) * hangFaktor(j) * gangFaktor(jVor, j, jNach);
+  return b * (1 + (P.braid - 1) * braidAnteil(q, j));
+}
+
+/* ---- Blöcke (Abschnitte) ------------------------------------------------
+   Zahl der Abschnitte (`bloecke`) und Lauflänge (`laenge`) sind frei —
+   BLOCK_KM ergibt sich daraus. Die Voreinstellung ist ein Alpenrhein-artiges
+   Profil je Zehntel des Laufs, auf die Abschnittslänge skaliert: oben steil,
+   ein deutlicher Talausgang, unten flach. Zuflüsse wachsen talwärts. */
+var VOR_ABFALL  = [620, 430, 300, 210, 150, 95, 55, 30, 18, 12];
+var VOR_ZUFLUSS = [4, 7, 9, 12, 14, 12, 10, 8, 7, 7];
+var BL = [];
+/* P.set() legt Listen als Kommastring zurück in P — vor dem Lesen wieder
+   zur Liste machen, sonst liest P.abfall[0] nach einem urlNach() nur das
+   erste ZEICHEN. */
+function alsListe(v) {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string' && v) return v.split(',');
+  return [];
+}
+function bloeckeSetzen() {
+  var n = P.bloecke;
+  BLOCK_KM = P.laenge / n;
+  var lAb = alsListe(P.abfall), lZu = alsListe(P.zufluss),
+      lSee = alsListe(P.see), lFall = alsListe(P.fall);
+  BL = [];
+  for (var i = 0; i < n; i++) {
+    var vi = Math.min(9, Math.floor((i + 0.5) / n * 10)), f = BLOCK_KM / 10;
+    var a  = lAb[i]  !== undefined ? parseFloat(lAb[i])  : Math.round(VOR_ABFALL[vi] * f);
+    var z  = lZu[i]  !== undefined ? parseFloat(lZu[i])  : Math.round(VOR_ZUFLUSS[vi] * f * 10) / 10;
+    var se = lSee[i]  !== undefined ? parseFloat(lSee[i])  : 0;
+    var fa = lFall[i] !== undefined ? parseFloat(lFall[i]) : 0;
+    BL.push({ i:i, kmVon:i*BLOCK_KM, kmBis:(i+1)*BLOCK_KM,
+              abfall: isFinite(a) ? a : 0, zufluss: isFinite(z) ? z : 0,
+              see: isFinite(se) ? Math.max(0, se) : 0,
+              fall: isFinite(fa) ? Math.max(0, fa) : 0 });
+  }
+}
+function blockBei(km) {
+  return BL[klemme(Math.floor(km / BLOCK_KM), 0, BL.length - 1)];
+}
+
+/* Höhe am km-Punkt: linear im Block, kumuliert von unten. Ein Fall ist ein
+   Sprung am oberen Blockrand; ein See ist glatt — sein Spiegel liegt auf
+   Auslaufhöhe, der ganze Blockabfall sitzt am Einlauf. */
+function hoeheBei(km) {
+  var h = 0;
+  for (var i = BL.length - 1; i >= 0; i--) {
+    var b = BL[i], d = b.abfall * P.steil, f = b.fall * P.steil;
+    if (km >= b.kmBis) return h;
+    if (km >= b.kmVon) {
+      if (b.see > 0) return h;
+      return h + d * (b.kmBis - km) / (b.kmBis - b.kmVon);
+    }
+    h += d + f;
+  }
+  return h;
+}
+function abflussBei(km) {
+  var q = P.q0;
+  for (var i = 0; i < BL.length; i++) {
+    var b = BL[i];
+    if (km <= b.kmVon) break;
+    q += b.zufluss * Math.min(1, (km - b.kmVon) / (b.kmBis - b.kmVon));
+  }
+  return Math.max(0.1, q);
+}
+/* Nächster Seeanfang flussab — auch ausserhalb des Ausschnitts. */
+function naechsterSeeVon(km) {
+  for (var i = 0; i < BL.length; i++)
+    if (BL[i].see > 0 && BL[i].kmVon > km) return BL[i].kmVon;
+  return Infinity;
+}
+
+/* ---- Reihen der Aufsicht (eine je Hexzeile) ---------------------------- */
+function reihen(von, bis) {
+  var dk = P.hexKm, n = Math.max(1, Math.round((bis - von) / dk)), R = [];
+  for (var i = 0; i < n; i++) {
+    var km = von + (i + 0.5) * dk;
+    var h0 = hoeheBei(km - dk/2), h1 = hoeheBei(km + dk/2);
+    R.push({ i:i, km:km, j: Math.max(0, (h0 - h1) / (dk * 1000)), q: abflussBei(km) });
+  }
+  for (var k = 0; k < R.length; k++) {
+    var a = R[k];
+    var jVor = k > 0 ? R[k-1].j : undefined, jNach = k < R.length-1 ? R[k+1].j : undefined;
+    a.sin = P.nurAbfluss ? 1 : sinuositaet(a.j);
+    a.brAnteil = P.nurAbfluss ? 0 : braidAnteil(a.q, a.j);
+    a.bRein = breiteM(a.q);
+    a.b = breiteMitGefaelle(a.q, jVor, a.j, jNach);
+    a.gangWort = gangFaktor(jVor, a.j, jNach) > 1.05 ? 'flacher'
+               : gangFaktor(jVor, a.j, jNach) < 0.95 ? 'steiler' : 'gleich';
+    a.klasse = klasseVon(a.q);
+
+    /* See und Delta: liegt die Zeile in einem Seeblock, ist sie See; liegt
+       sie kurz VOR einem, fächert der Lauf über deltaKm auf und lagert ab. */
+    var bl = blockBei(a.km);
+    a.see = bl.see > 0 ? bl.see : 0;
+    a.seeVon = a.see ? bl.kmVon : 0;
+    var sv = a.see ? Infinity : naechsterSeeVon(a.km);
+    a.delta = (P.deltaKm > 0 && isFinite(sv)) ? klemme(1 - (sv - a.km) / P.deltaKm, 0, 1) : 0;
+
+    /* Breite in FELDERN — der eigentliche Zweck dieser Ansicht.
+       `korridor` (Voreinstellung): die blaue Fläche ist nicht «das Wasser»,
+       sondern der Korridor, in dem Wasser fliessen kann — je Klasse fest
+       1 · 2 · 3 · 5 Felder; der eigentliche Lauf kommt später obendrauf.
+       `hydro`: die gerechnete Breite mal `ueber`, die alte Fassung.
+       `felderRoh` ist die ungerundete Zahl, `felder` die gerundete Anzeige. */
+    if (P.breite === 'korridor') a.felderRoh = a.klasse.kor;
+    else a.felderRoh = Math.max(0.15, a.b * P.ueber / (P.hexKm * 1000));
+    if (a.delta > 0) {
+      a.felderRoh += a.delta * (P.talBreite * 0.8 - a.felderRoh);
+      a.brAnteil = Math.max(a.brAnteil, a.delta);
+    }
+    if (a.see) a.felderRoh = P.talBreite;
+    a.felder = Math.max(1, Math.round(a.felderRoh));
+    a.lage = a.see ? 'See'
+           : a.j >= J_FALL ? 'Fall' : a.j >= J_SCHNELL ? 'Schnelle' : a.j < P.jBraid ? 'flach' : 'normal';
+  }
+  /* Wasserfälle den Zeilen zuordnen, in denen ihre Blockgrenze liegt. */
+  BL.forEach(function (b) {
+    if (b.fall > 0 && b.kmVon > von && b.kmVon < bis) {
+      var idx = klemme(Math.floor((b.kmVon - von) / dk), 0, R.length - 1);
+      R[idx].fallM = (R[idx].fallM || 0) + b.fall;
+    }
+  });
+  return R;
+}
+
+/* ---- Ausschnitt -------------------------------------------------------- */
+var AUS = { von:0, bis:0 };
+function ausschnittSetzen() {
+  var L = P.laenge;
+  /* Voreinstellung ist der Talausgang — dort passiert das Interessante:
+     das Gefälle bricht ein, der Lauf verwildert und wird breit. */
+  var v = P.von >= 0 ? P.von : Math.round(L * 0.35);
+  var b = P.bis >= 0 ? P.bis : Math.round(L * 0.85);
+  AUS.von = klemme(Math.min(v, b), 0, L);
+  AUS.bis = klemme(Math.max(v, b), AUS.von + P.hexKm, L);
+}
+
+/* ---- Profil zeichnen (senkrecht, oben = Quelle) ------------------------ */
+var PROF = { x0:52, x1:170, y0:16, y1:690 };
+function kmZuY(km) { return PROF.y0 + km / P.laenge * (PROF.y1 - PROF.y0); }
+function yZuKm(y) { return klemme((y - PROF.y0) / (PROF.y1 - PROF.y0) * P.laenge, 0, P.laenge); }
+
+function zeichneProfil() {
+  var L = P.laenge, hMax = hoeheBei(0) || 1, s = '';
+  var xH = function (h) { return PROF.x0 + (1 - h / hMax) * (PROF.x1 - PROF.x0); };
+
+  /* Höhenprofil als Fläche — links ist hoch, rechts ist tief. */
+  var pts = [];
+  for (var km = 0; km <= L; km += Math.max(0.5, L / 160)) {
+    pts.push(xH(hoeheBei(km)).toFixed(1) + ',' + kmZuY(km).toFixed(1));
+  }
+  s += '<polygon points="' + PROF.x0 + ',' + PROF.y0 + ' ' + pts.join(' ') + ' ' +
+       PROF.x0 + ',' + PROF.y1 + '" fill="var(--hang)" fill-opacity=".4"/>';
+  s += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="var(--ink2)" stroke-width="1.3"/>';
+
+  /* Gefällebalken links neben dem Profil, je Block */
+  var jMax = 0;
+  BL.forEach(function (b) { jMax = Math.max(jMax, b.abfall * P.steil / (BLOCK_KM * 1000)); });
+  jMax = jMax || 1;
+  BL.forEach(function (b) {
+    var j = b.abfall * P.steil / (BLOCK_KM * 1000);
+    var y = kmZuY(b.kmVon), hgt = kmZuY(b.kmBis) - y;
+    var w = j / jMax * 30;
+    var col = j >= J_FALL ? 'var(--bad)' : j >= J_SCHNELL ? 'var(--warn)'
+            : j < P.jBraid ? 'var(--river)' : 'var(--ink2)';
+    s += '<rect x="' + (PROF.x0 - 4 - w).toFixed(1) + '" y="' + (y+0.6).toFixed(1) +
+         '" width="' + w.toFixed(1) + '" height="' + Math.max(1,hgt-1.2).toFixed(1) +
+         '" fill="' + col + '" fill-opacity=".85"/>';
+  });
+
+  /* Seen als Fläche, Fälle als Kerbe am oberen Blockrand */
+  BL.forEach(function (b) {
+    if (b.see > 0) {
+      s += '<rect x="' + PROF.x0 + '" y="' + kmZuY(b.kmVon).toFixed(1) + '" width="' +
+           (PROF.x1 - PROF.x0) + '" height="' + (kmZuY(b.kmBis) - kmZuY(b.kmVon)).toFixed(1) +
+           '" fill="var(--river)" fill-opacity=".2"/>';
+    }
+    if (b.fall > 0) {
+      var yF = kmZuY(b.kmVon);
+      s += '<line x1="' + (PROF.x0 - 36) + '" y1="' + yF.toFixed(1) + '" x2="' + PROF.x1 +
+           '" y2="' + yF.toFixed(1) + '" stroke="var(--bad)" stroke-width="1.4" stroke-dasharray="3 2"/>';
+    }
+  });
+
+  /* Der gewählte Ausschnitt */
+  var yA = kmZuY(AUS.von), yB = kmZuY(AUS.bis);
+  /* Das Band selbst ist anfassbar und verschiebt den GANZEN Ausschnitt —
+     die Griffe an seinen Rändern ändern nur je eine Kante. Reihenfolge im
+     Treffertest: erst Griff, dann Band, sonst käme man an die Kanten nicht
+     mehr heran. */
+  s += '<rect class="band" data-band="1" x="6" y="' + yA.toFixed(1) + '" width="178" height="' +
+       (yB-yA).toFixed(1) + '" fill="var(--ember)" fill-opacity=".10" style="cursor:grab"/>';
+  [[yA,'von',AUS.von],[yB,'bis',AUS.bis]].forEach(function (g, gi) {
+    s += '<g class="griff" data-g="' + gi + '" style="cursor:ns-resize">' +
+         '<line x1="6" y1="' + g[0].toFixed(1) + '" x2="184" y2="' + g[0].toFixed(1) +
+         '" stroke="var(--ember)" stroke-width="1.6"/>' +
+         '<rect x="6" y="' + (g[0]-7).toFixed(1) + '" width="178" height="14" fill="transparent"/>' +
+         '<rect x="148" y="' + (g[0]-6).toFixed(1) + '" width="36" height="12" rx="3" fill="var(--ember)"/>' +
+         '<text x="166" y="' + (g[0]+3).toFixed(1) + '" font-size="8" text-anchor="middle" ' +
+         'fill="var(--on-ember)" font-family="monospace">' + g[2].toFixed(0) + '</text></g>';
+  });
+
+  /* km-Achse: Strich an jeder Blockgrenze, Beschriftung gedünnt, wenn es
+     viele Abschnitte sind. */
+  var labelJede = Math.max(1, Math.ceil(BL.length / 14));
+  for (var ti = 0; ti <= BL.length; ti++) {
+    var t = ti * BLOCK_KM;
+    if (ti % labelJede === 0) {
+      s += '<text x="2" y="' + (kmZuY(t)+3).toFixed(1) + '" font-size="7.5" fill="var(--ink2)" ' +
+           'font-family="monospace">' + Math.round(t) + '</text>';
+    }
+    s += '<line x1="16" y1="' + kmZuY(t).toFixed(1) + '" x2="' + PROF.x0 + '" y2="' + kmZuY(t).toFixed(1) +
+         '" stroke="var(--line)" stroke-width=".5"/>';
+  }
+  s += '<text x="' + PROF.x1 + '" y="' + (PROF.y0-5) + '" font-size="7.5" text-anchor="end" ' +
+       'fill="var(--ink2)" font-family="monospace">0 m</text>';
+  s += '<text x="' + PROF.x0 + '" y="' + (PROF.y0-5) + '" font-size="7.5" fill="var(--ink2)" ' +
+       'font-family="monospace">' + Math.round(hMax) + ' m</text>';
+
+  document.getElementById('profil').innerHTML = s;
+  document.getElementById('profHint').textContent =
+    'Quelle oben, Mündung unten · links die Gefällebalken je Block · die zwei Griffe schneiden den Ausschnitt (' +
+    AUS.von.toFixed(0) + '–' + AUS.bis.toFixed(0) + ' km).';
+}
+
+/* ---- Aufsicht als Hexraster (senkrecht) -------------------------------- */
+function zeichnePlan(R) {
+  var cols = P.talBreite + 2 * P.flanke;
+  var W = 300, w = W / (cols + 0.5), g = SOT.hex.gridSize(cols, R.length, w, 0);
+  var mid = (cols - 1) / 2, s = '';
+  var bergCol = 'color-mix(in srgb, var(--hang) 55%, var(--ink))';
+
+  /* Mäander: die Mitte wandert mit der Windung. Phase entlang des Laufs
+     aufsummiert (in v1 sprang sie an jeder Abschnittsgrenze). */
+  var phase = 0, seeMitte = mid;
+  R.forEach(function (a) {
+    /* Massstäblich ist λ ≈ 11·b — bei 172 m Breite also 1.9 km. Auf einem
+       0.5-km-Raster sind das keine vier Felder je Welle: das liest sich als
+       Rauschen, nicht als Mäander. Ein erkennbarer Bogen braucht rund acht
+       Felder je Welle, also hexKm ≤ 0.25 km — oder eine gestreckte
+       Wellenlänge (lamFaktor), die dann ehrlich Schema ist und nicht Maß.
+       `felderJeWelle` steht in der Zeile, damit man sieht, wo man steht. */
+    var lamKm = Math.max(P.hexKm * 2, 11 * a.b / 1000) * P.lamFaktor;
+    a.felderJeWelle = lamKm / P.hexKm;
+    phase += 2 * Math.PI * P.hexKm / lamKm;
+    /* Im Hexraster ist der Mäander ohnehin gerastert — die Auslenkung kann
+       die Windung darum nicht massstäblich tragen wie das Band in v1. Sie
+       ist eine ANZEIGE: volle Talbreite bei σ ≈ 1.6, mit `maeander` regelbar.
+       Die Windung selbst steht als Zahl in der Zeile. */
+    var amp = (P.talBreite / 2 - 0.5) * klemme((a.sin - 1) / 0.6, 0, 1) * P.maeander;
+    if (a.delta > 0) amp *= (1 - a.delta);   /* vor dem See streckt sich der Lauf */
+    a.mitte = mid + Math.sin(phase) * amp;
+    if (a.see) a.mitte = seeMitte;           /* die Mündung friert die Laufmitte ein */
+    else seeMitte = a.mitte;
+    /* Korridor rastet am Raster: ungerade Breiten mittig aufs Feld, gerade
+       auf die Feldgrenze — so ist eine 2er-Breite KONSTANT statt Zufall des
+       Mäanders. `symmetrisch` rundet die Breite und legt sie mittig um die
+       Laufmitte — daraus können nur ungerade Felderzahlen werden. Die beiden
+       anderen Arten rechnen mit der ungerundeten Breite und lassen zu, dass
+       der Lauf eine Feldgrenze überspannt; dann entstehen auch 2 und 4. */
+    if (P.breite === 'korridor' && !a.see && a.delta === 0) {
+      a.mitte = (a.felder % 2) ? Math.round(a.mitte) : Math.round(a.mitte - 0.5) + 0.5;
+    }
+    a.halb = (P.deckung === 'symmetrisch' ? a.felder : a.felderRoh) / 2;
+  });
+
+  R.forEach(function (a) {
+    a.nBreit = 0; a.nBenetzt = 0;
+    /* Delta-Fächer: in den ersten Zeilen IM See schüttet der Lauf einen
+       Kieskegel — je weiter hinein, desto schmaler und blasser. */
+    var fanT = 0, fanW = 0;
+    if (a.see && P.deltaKm > 0) {
+      var kmIn = a.km - a.seeVon, fanKm = P.deltaKm * 0.7;
+      if (kmIn <= fanKm) { fanT = 1 - kmIn / fanKm; fanW = 1 + fanT * P.talBreite * 0.7; }
+    }
+    for (var c = 0; c < cols; c++) {
+      var p = SOT.hex.center(c, a.i, w, 0);
+      var pts = SOT.hex.points(p.x, p.y, w);
+      var d = Math.abs(c - a.mitte);   /* Abstand zur Laufmitte in Feldern */
+      var dTal = Math.abs(c - mid);
+
+      /* Seezeile: Wasser über den ganzen Talboden, Tiefe färbt, Ufer aussen. */
+      if (a.see) {
+        var imSee = dTal <= P.talBreite / 2;
+        var grundS = imSee ? 'var(--flach)'
+                   : dTal <= P.talBreite / 2 + 1 ? 'var(--ufer)'
+                   : dTal <= P.talBreite / 2 + P.flanke - 1 ? 'var(--hang)' : bergCol;
+        s += '<polygon points="' + pts + '" fill="' + grundS +
+             '" stroke="var(--line)" stroke-width=".4" stroke-opacity=".5"/>';
+        if (imSee) {
+          s += '<polygon points="' + pts + '" fill="' + seeCol(a.see) + '"/>';
+          a.nBenetzt++;
+          if (fanW > 0 && d <= fanW / 2) {
+            s += '<polygon points="' + pts + '" fill="var(--kies)" fill-opacity="' +
+                 (0.35 + 0.5 * fanT).toFixed(2) + '"/>';
+          }
+        }
+        continue;
+      }
+
+      /* 1. Der Grund — immer, damit Wasser darüber teildeckend liegen kann. */
+      var grund;
+      if (dTal <= P.talBreite / 2) grund = 'var(--flach)';
+      else if (dTal <= P.talBreite / 2 + P.flanke - 1) grund = 'var(--hang)';
+      else grund = bergCol;
+      if (d <= a.halb + 0.9 && dTal <= P.talBreite / 2 + 1) grund = 'var(--ufer)';
+      s += '<polygon points="' + pts + '" fill="' + grund +
+           '" stroke="var(--line)" stroke-width=".4" stroke-opacity=".5"/>';
+
+      /* 2. Schotter, wo der Lauf verwildert — neben dem Wasser. */
+      if (a.brAnteil > 0 && d > a.halb && d <= a.halb + 1.1) {
+        s += '<polygon points="' + pts + '" fill="var(--kies)" fill-opacity="' +
+             (0.45 + 0.5 * a.brAnteil).toFixed(2) + '"/>';
+      }
+
+      /* 3. Das Wasser. Deckung = Überlappung des Feldes [d−0.5, d+0.5] mit
+            dem Fluss [−halb, +halb]. Diskret ist das 0 oder 1, stetig ein
+            Bruchteil — und genau der macht Breiten wie 2 oder 2.4 sichtbar,
+            die eine symmetrische Ganzfelddeckung nie zeigen kann. */
+      var ueberlapp = klemme(a.halb - d + 0.5, 0, 1);
+      var deckung = P.deckung === 'stetig' ? ueberlapp
+                  : P.deckung === 'mehrheit' ? (ueberlapp >= 0.5 ? 1 : 0)
+                  : (d <= a.halb ? 1 : 0);
+      if (deckung >= 0.5) a.nBreit++;          /* so breit LIEST sich die Zeile */
+      if (ueberlapp > 0.05) a.nBenetzt++;
+      if (deckung > 0) {
+        s += '<polygon points="' + pts + '" fill="' + a.klasse.col + '"' +
+             (deckung < 1 ? ' fill-opacity="' + deckung.toFixed(2) + '"' : '') + '/>';
+      }
+    }
+    /* Wasserfall: Schaumlinien quer über den Lauf, Höhe daneben. */
+    if (a.fallM) {
+      var pm = SOT.hex.center(a.mitte, a.i, w, 0);
+      var hb = (a.halb + 0.3) * w;
+      s += '<line x1="' + (pm.x - hb).toFixed(1) + '" y1="' + pm.y.toFixed(1) +
+           '" x2="' + (pm.x + hb).toFixed(1) + '" y2="' + pm.y.toFixed(1) +
+           '" stroke="var(--on-river)" stroke-width="2.4" stroke-dasharray="4 3" opacity=".9"/>' +
+           '<line x1="' + (pm.x - hb).toFixed(1) + '" y1="' + (pm.y + 3).toFixed(1) +
+           '" x2="' + (pm.x + hb).toFixed(1) + '" y2="' + (pm.y + 3).toFixed(1) +
+           '" stroke="var(--on-river)" stroke-width="1.2" stroke-dasharray="2 4" opacity=".55"/>' +
+           '<text x="' + (pm.x + hb + 4).toFixed(1) + '" y="' + (pm.y + 3).toFixed(1) +
+           '" font-size="7" fill="var(--ink2)" font-family="monospace">Fall ' +
+           a.fallM.toFixed(0) + ' m</text>';
+    }
+    /* km-Marke alle 5 km */
+    if (Math.abs(a.km % 5) < P.hexKm / 2) {
+      var py = SOT.hex.center(0, a.i, w, 0).y;
+      s += '<text x="3" y="' + (py+3).toFixed(1) + '" font-size="8" fill="var(--ink2)" ' +
+           'font-family="monospace">' + a.km.toFixed(0) + '</text>';
+    }
+  });
+
+  var svg = document.getElementById('plan');
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + g.h.toFixed(1));
+  svg.innerHTML = s;
+
+  var fluss = R.filter(function (a) { return !a.see; });
+  var breiteste = fluss.reduce(function (m, a) { return a.felderRoh > m.felderRoh ? a : m; }, fluss[0] || R[0]);
+  /* Wie breit liest sich der Lauf tatsächlich, in ganzen Feldern? Das ist die
+     Frage — und sie wird über die GEZEICHNETEN Felder beantwortet, nicht über
+     die ungerundete Zahl. Seezeilen zählen nicht mit — dort ist alles Wasser. */
+  var hist = {};
+  fluss.forEach(function (a) { hist[a.nBreit] = (hist[a.nBreit] || 0) + 1; });
+  var histText = Object.keys(hist).sort(function (x, y) { return x - y; })
+    .map(function (k) { return k + '×' + hist[k]; }).join(' · ') || '— nur See';
+  document.getElementById('hist').innerHTML =
+    '<b>Feldbreiten im Ausschnitt</b> (Breite × Zeilen): ' + histText +
+    (hist[2] || hist[4] ? '' : ' — <i>keine geraden Breiten</i>');
+  var jeWelle = R.reduce(function (m, a) { return Math.min(m, a.felderJeWelle || 99); }, 99);
+  document.getElementById('planHint').textContent =
+    R.length + ' Zeilen à ' + P.hexKm + ' km · ' + cols + ' Felder breit · Breite: ' +
+    (P.breite === 'korridor' ? 'Korridor je Klasse (1·2·3·4·5)' : 'hydro, Übertreibung ' + P.ueber + '×') +
+    ' · Deckung: ' + P.deckung + ' · breiteste Flussstelle ' +
+    breiteste.felderRoh.toFixed(1) + ' Felder bei km ' +
+    breiteste.km.toFixed(0) + ' (' + breiteste.b.toFixed(0) + ' m) · Mäander engstens ' +
+    jeWelle.toFixed(1) + ' Felder je Welle' + (jeWelle < 8 ? ' — zu grob für einen echten Bogen' : '');
+}
+
+/* ---- Kennzahlen und Blocktabelle -------------------------------------- */
+function zeichneKennz(R) {
+  var m = R[R.length-1], breiteste = R.reduce(function (a,b) { return b.felder > a.felder ? b : a; }, R[0]);
+  var verz = R.filter(function (a) { return a.brAnteil > 0; }).length;
+  var k = [
+    ['Q unten', m.q.toFixed(1), 'm³/s'],
+    ['b unten', m.b.toFixed(0), 'm'],
+    ['Klasse', m.see ? 'See ' + m.see + ' m' : m.klasse.nm, ''],
+    ['Felder', m.nBreit, 'gezeichnet'],
+    ['roh', m.felderRoh.toFixed(1), 'Felder'],
+    ['verzweigt', verz, 'Zeilen']
+  ];
+  document.getElementById('kennz').innerHTML = k.map(function (x) {
+    return '<div class="stat"><b>' + x[1] + '</b><span>' + x[0] + ' ' + x[2] + '</span></div>';
+  }).join('');
+}
+
+function fmtKm(x) { return String(Math.round(x * 10) / 10); }
+function zeichneBloecke() {
+  var h = '<tr><th>km</th><th>Abfall</th><th>Zufl.</th><th>See m</th><th>Fall m</th><th>J</th><th>Q</th><th>Klasse</th><th>F</th></tr>';
+  BL.forEach(function (b) {
+    var j = b.abfall * P.steil / (b.kmBis - b.kmVon);
+    var ausser = (b.kmBis <= AUS.von || b.kmVon >= AUS.bis);
+    /* Klasse am UNTEREN Ende des Blocks — dort führt er den vollen Abfluss,
+       und danach heisst der Abschnitt. */
+    var q = abflussBei(b.kmBis);
+    var kl = klasseVon(q);
+    var jj = j / 1000;
+    var fr;
+    if (P.breite === 'korridor') fr = kl.kor;
+    else { var bb = breiteMitGefaelle(q, jj, jj, jj); fr = bb * P.ueber / (P.hexKm * 1000); }
+    var klZelle = b.see > 0
+      ? '<span class="kmark k-see"></span>See'
+      : '<span class="kmark k-' + kl.key + '"></span>' + kl.nm;
+    h += '<tr' + (ausser ? ' class="ausser"' : '') + '><td>' + fmtKm(b.kmVon) + '–' + fmtKm(b.kmBis) + '</td>' +
+      '<td><input type="number" data-f="abfall" data-i="' + b.i + '" value="' + b.abfall + '" step="10" min="0"></td>' +
+      '<td><input type="number" data-f="zufluss" data-i="' + b.i + '" value="' + b.zufluss + '" step="1" min="0"></td>' +
+      '<td><input type="number" data-f="see" data-i="' + b.i + '" value="' + b.see + '" step="5" min="0"></td>' +
+      '<td><input type="number" data-f="fall" data-i="' + b.i + '" value="' + b.fall + '" step="5" min="0"></td>' +
+      '<td class="mini">' + j.toFixed(1) + '</td>' +
+      '<td class="mini">' + (q < 10 ? q.toFixed(1) : q.toFixed(0)) + '</td>' +
+      '<td class="kl">' + klZelle + '</td>' +
+      '<td class="mini">' + (P.breite === 'korridor' ? fr : fr.toFixed(1)) + '</td></tr>';
+  });
+  var tab = document.getElementById('blocke');
+  tab.innerHTML = h;
+  tab.querySelectorAll('input').forEach(function (inp) {
+    inp.addEventListener('change', function () {
+      var v = parseFloat(inp.value);
+      BL[+inp.dataset.i][inp.dataset.f] = isFinite(v) ? Math.max(0, v) : 0;
+      urlNach();
+      alles();
+    });
+  });
+}
+
+/* Blöcke in die URL zurückschreiben — der Stand bleibt teilbar. */
+function urlNach() {
+  P.set('abfall', BL.map(function (b) { return b.abfall; }).join(','));
+  P.set('zufluss', BL.map(function (b) { return b.zufluss; }).join(','));
+  var seeAlle = BL.some(function (b) { return b.see > 0; });
+  var fallAlle = BL.some(function (b) { return b.fall > 0; });
+  P.set('see', seeAlle ? BL.map(function (b) { return b.see; }).join(',') : null);
+  P.set('fall', fallAlle ? BL.map(function (b) { return b.fall; }).join(',') : null);
+  P.set('von', AUS.von.toFixed(0));
+  P.set('bis', AUS.bis.toFixed(0));
+}
+
+/* ---- Griffe ziehen ----------------------------------------------------- */
+function griffeVerdrahten() {
+  var svg = document.getElementById('profil');
+  var zieht = null;
+  function kmVonEvent(e) {
+    var r = svg.getBoundingClientRect();
+    return yZuKm((e.clientY - r.top) / r.height * 720);   /* 720 = viewBox-Höhe */
+  }
+  svg.addEventListener('pointerdown', function (e) {
+    var g = e.target.closest('.griff');
+    var b = g ? null : e.target.closest('.band');
+    if (!g && !b) return;
+    zieht = g ? { art:'griff', g:+g.dataset.g }
+              : { art:'band', startKm:kmVonEvent(e), von:AUS.von, bis:AUS.bis };
+    svg.setPointerCapture(e.pointerId);
+    if (b) b.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+  svg.addEventListener('pointermove', function (e) {
+    if (!zieht) return;
+    var km = kmVonEvent(e);
+    if (zieht.art === 'griff') {
+      if (zieht.g === 0) AUS.von = Math.min(km, AUS.bis - P.hexKm);
+      else AUS.bis = Math.max(km, AUS.von + P.hexKm);
+    } else {
+      /* Ganzer Ausschnitt: Breite bleibt, er stösst oben und unten an. */
+      var breite = zieht.bis - zieht.von;
+      var v = klemme(zieht.von + (km - zieht.startKm), 0, P.laenge - breite);
+      AUS.von = v; AUS.bis = v + breite;
+    }
+    alles();
+  });
+  function loslassen() { if (!zieht) return; zieht = null; urlNach(); alles(); }
+  svg.addEventListener('pointerup', loslassen);
+  svg.addEventListener('pointercancel', loslassen);
+}
+
+/* ---- alles ------------------------------------------------------------- */
+function alles() {
+  var R = reihen(AUS.von, AUS.bis);
+  zeichneProfil();
+  zeichnePlan(R);
+  zeichneKennz(R);
+  zeichneBloecke();
+  /* Die gerechneten Zeilen offenlegen — zum Nachmessen von aussen, wie
+     eiszeit-labor es mit window.PRUEFUNG hält. */
+  window.LAB = { R:R, aus:AUS, bloecke:BL };
+}
+function neuAufbauen() { bloeckeSetzen(); ausschnittSetzen(); alles(); }
+
+bloeckeSetzen();
+ausschnittSetzen();
+alles();
+griffeVerdrahten();
+document.getElementById('swBerg').style.background = 'color-mix(in srgb, var(--hang) 55%, var(--ink))';
+document.getElementById('btnReset').addEventListener('click', function () {
+  P.set('abfall', null); P.set('zufluss', null); P.set('see', null); P.set('fall', null);
+  P.abfall = []; P.zufluss = []; P.see = []; P.fall = [];
+  neuAufbauen();
+});
+
+var brett = SOT.regler(P, { titel:'Talwerkbank', onChange: function (name) {
+  if (name === 'laenge' || name === 'bloecke' || name === 'hexKm') neuAufbauen(); else alles();
+} });
+document.getElementById('btnRegler').addEventListener('click', brett.toggle);
+SOT.debug(P, { extra: [{ label:'Regler', onclick: brett.toggle }] });
+</script>
+</body>
+</html>

@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Lauf über dem Korridor v1</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<style>
+/* =====================================================================
+   Lauf über dem Korridor — v1.
+
+   fluss-gefaelle-labor-v2 hat entschieden: die blaue Fläche ist der
+   KORRIDOR, der Raum, in dem Wasser fliessen kann — nicht das Wasser.
+   Diese Datei ist der angekündigte nächste Schritt: der eigentliche LAUF
+   wird darübergelegt. Zwei Aufsichten nebeneinander, dieselben Zeilen:
+   links der Korridor allein (die Bühne), rechts der Lauf darauf.
+
+   Zugleich ist die Datei der ZWEITE VERBRAUCHER der Bibliothek: sie trägt
+   eine WÖRTLICHE Kopie der API-Fassungen aus lib/fluss-profil und
+   lib/fluss-breite (ein Draft darf lib/ nicht verlinken — kit/inline.mjs
+   bettet nur den Baukasten ein). Wo die Kopie nicht reicht, ist das ein
+   API-Befund und gehört in die .md der Bibliothek, nicht hierher gepatcht.
+
+   Der Lauf spricht die Band-Sprache von gewaesser-labor-v3 (Catmull-Rom-
+   Zug, Band als Polygon, b = 6·√Q), angepasst an die senkrechte Werkbank:
+   die Zeile ist der Stützpunkt, die Normale liegt waagrecht.
+   ===================================================================== */
+body{background:var(--bg);}
+.kopf{max-width:1400px;margin:0 auto;padding:16px 16px 2px;}
+.kopf h1{font-size:clamp(19px,3vw,25px);margin:0 0 3px;}
+.kopf .sub{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.09em;
+           text-transform:uppercase;color:var(--ink2);}
+
+.werk{max-width:1400px;margin:10px auto;padding:0 16px;
+      display:grid;grid-template-columns:250px 1fr;gap:12px;align-items:start;}
+@media (max-width:820px){.werk{grid-template-columns:1fr;}}
+.saeule{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-md);
+        padding:10px 12px 12px;}
+.saeule h2{font-size:12px;margin:0 0 2px;}
+.saeule .hint{font-family:var(--f-mono);font-size:9.5px;color:var(--ink2);margin:0 0 8px;
+        line-height:1.4;}
+.szen{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 10px;}
+.szen button{font-size:10px;padding:5px 8px;}
+.szen button.on{outline:2px solid var(--ember);}
+.kennz{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0;}
+.kennz .stat{flex:1 1 100px;min-width:100px;}
+.kennz .stat b{font-size:14px;}
+.legende{display:flex;flex-direction:column;gap:5px;font-family:var(--f-mono);
+        font-size:9px;color:var(--ink2);margin:12px 0 0;}
+.legende i{display:inline-block;width:12px;height:10px;border-radius:2px;
+        vertical-align:-2px;margin-right:5px;}
+.zeile{display:flex;gap:6px;align-items:center;margin:10px 0 0;}
+.zeile button{font-size:10px;padding:5px 9px;}
+
+/* Zwei Karten in EINEM Rollrahmen — gleiche Zeilen, gemeinsamer Bildlauf. */
+.planbox{max-height:78vh;overflow-y:auto;overflow-x:hidden;
+        border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel2);
+        display:flex;gap:2px;justify-content:center;padding:0 4px;}
+.planbox svg{display:block;width:100%;max-width:330px;height:auto;flex:1 1 0;}
+.plankopf{display:flex;gap:2px;justify-content:center;padding:0 4px;margin:0 0 4px;}
+.plankopf span{flex:1 1 0;max-width:330px;text-align:center;font-family:var(--f-mono);
+        font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);}
+
+.schluss{max-width:1400px;margin:16px auto 60px;padding:0 16px;font-size:12.5px;color:var(--ink2);}
+.schluss h3{color:var(--ink);font-size:13px;margin:0 0 6px;}
+.schluss p{margin:0 0 8px;line-height:1.55;}
+</style>
+</head>
+<body class="werkbank">
+<header class="kopf">
+  <h1>Lauf über dem Korridor — v1</h1>
+  <div class="sub">Der Korridor ist die Bühne · der Lauf ist das Wasser · zweiter Verbraucher von lib/fluss-*</div>
+</header>
+
+<div class="werk">
+  <div class="saeule">
+    <h2>Werkstatt</h2>
+    <p class="hint">Vier Szenarien; Profil-Listen (<code>?abfall</code> …) überstimmen sie.
+    Regler im Parameterbrett (Griff rechts oder <code>?regler</code>).
+    Die Modellkonstanten sind die der Bibliothek und ABSICHTLICH nicht regelbar —
+    geprüft wird, ob ein Renderer mit ihnen leben kann.</p>
+    <div class="szen" id="szen"></div>
+    <div class="zeile"><button id="btnRegler">Regler</button></div>
+    <div class="kennz" id="kennz"></div>
+    <div class="legende" id="legende"></div>
+  </div>
+
+  <div class="saeule">
+    <h2>Aufsicht</h2>
+    <p class="hint" id="planHint"></p>
+    <div class="plankopf"><span>Korridor allein (Bühne)</span><span>Korridor + Lauf</span></div>
+    <div class="planbox">
+      <svg id="planKor" preserveAspectRatio="xMidYMin meet"></svg>
+      <svg id="planLauf" preserveAspectRatio="xMidYMin meet"></svg>
+    </div>
+  </div>
+</div>
+
+<div class="schluss">
+  <h3>Was hier geprüft wird</h3>
+  <p><b>Liest sich der Lauf über dem Korridor?</b> Der Korridor ist je Klasse fest
+  1·2·3·4·5 Felder breit (Plättchen-Logik, gerastet); der Lauf darüber ist ein
+  <i>Band</i> in gerechneter Breite (b = 6·√Q, moduliert vom Gefälle und dessen Gang),
+  das im Korridor mäandert, sich in der Schotterflur in Fäden aufteilt, vor einem See
+  ins Delta fächert und am Wasserfall schäumt. Links die Bühne allein, rechts beides —
+  der Vergleich ist die Antwort.</p>
+  <p><b>Zweiter Verbraucher der Bibliothek.</b> Alle Modellrechnung ist eine wörtliche
+  Kopie der API-Fassungen aus <code>lib/fluss-profil</code> (Blöcke → Höhe/Abfluss/
+  Delta/Fälle) und <code>lib/fluss-breite</code> (Klassen, Korridor, Rastung, Breite
+  mit Gefälle). Die Konstanten sind die der Bibliothek und hier bewusst
+  <i>nicht</i> regelbar — regelbar ist nur die Zeichnung (<code>ueber</code>,
+  <code>fuell</code>, <code>maeander</code>, <code>faeden</code> …). Reicht die API
+  nicht, ist das ein Befund für <code>lib/*.md</code>, kein Patch hier.</p>
+  <p><b>Band-Sprache.</b> Der Zug ist Catmull-Rom durch die Zeilenmitten, das Band ein
+  Polygon aus linker und rechter Kante (Normale waagrecht — die Werkbank ist senkrecht),
+  wie es <code>gewaesser-labor-v3</code> für die Karte etabliert hat. <code>?eckig</code>
+  zeigt die rohe Zeilentreppe als Gegenprobe. Verzweigung: die Bibliothek kennt nur den
+  Schalter <code>verzweigt()</code> — die weiche Ein-/Ausblendung der Fäden rechnet der
+  Renderer selbst über die Nachbarzeilen (bekannter offener Punkt „Klippe bei Q = 100",
+  <code>lib/fluss-breite.md</code>).</p>
+  <p class="dim">Debug: <code>?szenario=alpenrhein|meer|seenkette|wildbach</code> ·
+  <code>?laenge ?bloecke</code> · <code>?abfall ?zufluss ?see ?fall</code> (je Abschnitt,
+  Komma-Listen) · <code>?von ?bis</code> · <code>?q0 ?steil ?deltaKm</code> ·
+  <code>?hexKm ?talBreite ?flanke</code> · <code>?ueber ?fuell ?maeander ?lamFaktor
+  ?faeden</code> · <code>?eckig</code> · <code>?regler ?hilfe ?night</code>.
+  Historisch inspiriert und für das Spiel vereinfacht.</p>
+</div>
+
+<script src="../kit/sot.js"></script>
+<script src="../kit/sot-hex.js"></script>
+<script>
+'use strict';
+
+var P = SOT.params({
+  szenario:  { t:'enum', values:['alpenrhein','meer','seenkette','wildbach'], def:'alpenrhein',
+               help:'Profil-Vorgabe: Alpenrhein · Strom ins Meer · Seenkette mit Fall · Wildbach' },
+  laenge:    { t:'int', def:100, min:10, max:300, step:5, help:'Lauflänge (km)' },
+  bloecke:   { t:'int', def:10, min:2, max:100, help:'Zahl der Abschnitte' },
+  abfall:    { t:'list', def:[], help:'Höhenabfall je Abschnitt (m), überstimmt das Szenario' },
+  zufluss:   { t:'list', def:[], help:'Zufluss je Abschnitt (m³/s), überstimmt das Szenario' },
+  see:       { t:'list', def:[], help:'Seetiefe je Abschnitt (m), überstimmt das Szenario' },
+  fall:      { t:'list', def:[], help:'Fall am oberen Abschnittsrand (m), überstimmt das Szenario' },
+  von:       { t:'num', def:-1, min:-1, max:300, help:'Ausschnitt von (km), −1 = automatisch' },
+  bis:       { t:'num', def:-1, min:-1, max:300, help:'Ausschnitt bis (km), −1 = automatisch' },
+  q0:        { t:'num', def:0.5, min:0.1, max:50, step:0.1, help:'Abfluss an der Quelle (m³/s)' },
+  steil:     { t:'num', def:1, min:0.2, max:3, step:0.05, help:'alle Abfälle mal diesem Faktor' },
+  deltaKm:   { t:'num', def:2, min:0, max:10, step:0.5, help:'Länge des Deltas vor einem See (km)' },
+  hexKm:     { t:'num', def:0.5, min:0.1, max:2, step:0.1, help:'Feldgrösse (km je Feld)' },
+  talBreite: { t:'int', def:7, min:3, max:15, help:'Talboden in Feldern' },
+  flanke:    { t:'int', def:2, min:1, max:6, help:'Hang- und Bergfelder je Seite' },
+  ueber:     { t:'int', def:10, min:1, max:60, help:'Übertreibung der LAUF-Breite (Zeichnung)' },
+  fuell:     { t:'num', def:0.85, min:0.3, max:1, step:0.05, help:'wieviel vom Korridor der Lauf höchstens füllt' },
+  maeander:  { t:'num', def:1, min:0, max:1, step:0.05, help:'Ausschlag des Laufs im Korridor (0 = mittig)' },
+  lamFaktor: { t:'num', def:3, min:1, max:10, step:0.5, help:'Mäanderlänge strecken (Schema, nicht Mass)' },
+  faeden:    { t:'int', def:2, min:0, max:3, help:'Nebenfäden in der Schotterflur (0 = aus)' },
+  eckig:     { t:'flag', help:'Band ungeglättet — die rohe Zeilentreppe als Gegenprobe' }
+});
+
+var klemme = function (x, lo, hi) { return x < lo ? lo : x > hi ? hi : x; };
+
+/* ============================ KOPIE lib/fluss-profil ======================
+   Wörtlich die API-Fassung (Argumente statt Regler). Nicht anfassen —
+   Abweichungsbedarf ist ein Befund für lib/fluss-profil.md. */
+function blockBei(bloecke, km) {
+  for (var i = 0; i < bloecke.length; i++) if (km < bloecke[i].kmBis) return bloecke[i];
+  return bloecke[bloecke.length - 1];
+}
+function hoeheBei(bloecke, km, steil) {
+  if (steil === undefined) steil = 1;
+  var h = 0;
+  for (var i = bloecke.length - 1; i >= 0; i--) {
+    var b = bloecke[i], d = b.abfall * steil, f = (b.fall || 0) * steil;
+    if (km >= b.kmBis) return h;
+    if (km >= b.kmVon) {
+      if (b.see > 0) return h;
+      return h + d * (b.kmBis - km) / (b.kmBis - b.kmVon);
+    }
+    h += d + f;
+  }
+  return h;
+}
+function abflussBei(bloecke, km, q0) {
+  var q = q0;
+  for (var i = 0; i < bloecke.length; i++) {
+    var b = bloecke[i];
+    if (km <= b.kmVon) break;
+    q += b.zufluss * Math.min(1, (km - b.kmVon) / (b.kmBis - b.kmVon));
+  }
+  return Math.max(0.1, q);
+}
+function naechsterSeeVon(bloecke, km) {
+  for (var i = 0; i < bloecke.length; i++) {
+    if (bloecke[i].see > 0 && bloecke[i].kmVon > km) return bloecke[i].kmVon;
+  }
+  return Infinity;
+}
+function deltaAnteil(bloecke, km, deltaKm) {
+  if (!(deltaKm > 0)) return 0;
+  if (blockBei(bloecke, km).see > 0) return 0;
+  var sv = naechsterSeeVon(bloecke, km);
+  if (!isFinite(sv)) return 0;
+  return klemme(1 - (sv - km) / deltaKm, 0, 1);
+}
+function fallZeilen(bloecke, von, bis, dk) {
+  var n = Math.max(1, Math.round((bis - von) / dk));
+  var je = {};
+  bloecke.forEach(function (b) {
+    if (b.fall > 0 && b.kmVon > von && b.kmVon < bis) {
+      var i = klemme(Math.floor((b.kmVon - von) / dk), 0, n - 1);
+      je[i] = (je[i] || 0) + b.fall;
+    }
+  });
+  return Object.keys(je).sort(function (a, b) { return a - b; })
+    .map(function (i) { return { i: +i, fall: je[i] }; });
+}
+
+/* ============================ KOPIE lib/fluss-breite ======================
+   Nur die hier gebrauchten Funktionen, wörtlich, mit den Konstanten der
+   Bibliothek (J_VERZWEIGT 0.012 usw.) — absichtlich NICHT regelbar. */
+var J_VERZWEIGT = 0.012, J_SCHNELL = 0.055, J_FALL = 0.120, BRAID_FAKTOR = 3.0;
+function breiteM(q, bfak) { return (bfak || 6) * Math.sqrt(q); }
+function hangFaktor(j) {
+  if (!(j > J_VERZWEIGT)) return 1;
+  return klemme(Math.pow(J_VERZWEIGT / j, 0.25), 0.45, 1);
+}
+function gangFaktor(jVor, j, jNach) {
+  if (jVor === undefined || jNach === undefined) return 1;
+  var bezug = Math.max(j, J_VERZWEIGT);
+  return klemme(1 + 0.5 * ((jVor - jNach) / (2 * bezug)), 0.7, 1.6);
+}
+function sinuositaet(j) {
+  if (!(j > 0)) return 2.6;
+  if (j >= J_VERZWEIGT) return 1;
+  return klemme(1 + 0.8 * Math.log10(J_VERZWEIGT / j), 1, 2.6);
+}
+function verzweigt(q, j) {
+  var b = breiteM(q);
+  return j < J_VERZWEIGT && b >= 8 && b < 60;
+}
+function breiteMitGefaelle(q, profil, opt) {
+  var b = breiteM(q, opt && opt.bfak);
+  if (!profil) return b;
+  var j = profil.j;
+  if (!(j >= 0)) return b;
+  b *= hangFaktor(j) * gangFaktor(profil.jVor, j, profil.jNach);
+  if (opt && opt.verzweigung && verzweigt(q, j)) b *= BRAID_FAKTOR;
+  return b;
+}
+var Q_STROM = 85;
+var KLASSEN_STROM = [
+  { bis: 2,        key: 'rinnsal', name: 'Rinnsal',       felder: 1 },
+  { bis: 10,       key: 'bach',    name: 'Bach',          felder: 2 },
+  { bis: 60,       key: 'kfluss',  name: 'kleiner Fluss', felder: 3 },
+  { bis: Q_STROM,  key: 'gfluss',  name: 'grosser Fluss', felder: 4 },
+  { bis: Infinity, key: 'strom',   name: 'Strom',         felder: 5 }
+];
+function klasseStrom(q) {
+  for (var i = 0; i < KLASSEN_STROM.length; i++) if (q < KLASSEN_STROM[i].bis) return KLASSEN_STROM[i];
+  return KLASSEN_STROM[KLASSEN_STROM.length - 1];
+}
+function korridorFelder(q) { return klasseStrom(q).felder; }
+function rasteMitte(mitte, felder) {
+  return (felder % 2) ? Math.round(mitte) : Math.round(mitte - 0.5) + 0.5;
+}
+function feldDeckung(d, halb, art) {
+  var ueberlapp = klemme(halb - d + 0.5, 0, 1);
+  if (art === 'stetig') return ueberlapp;
+  if (art === 'symmetrisch') return d <= halb ? 1 : 0;
+  return ueberlapp >= 0.5 ? 1 : 0;
+}
+/* ===================== Ende der Bibliothekskopien ======================== */
+
+/* Klassenfarben — Zeichnung, nicht Modell (die Bibliothek führt keine Optik). */
+var KLASSE_COL = {
+  rinnsal: 'var(--w-rinnsal, var(--river))',
+  bach:    'var(--river)',
+  kfluss:  'var(--river)',
+  gfluss:  'color-mix(in srgb, var(--riverdeep) 55%, var(--river))',
+  strom:   'var(--riverdeep)'
+};
+function seeCol(tiefe) {
+  return 'color-mix(in srgb, var(--riverdeep) ' + Math.round(40 + klemme(tiefe, 0, 60)) + '%, var(--river))';
+}
+
+/* ---- Szenarien und Blöcke ---------------------------------------------- */
+var SZENARIEN = {
+  alpenrhein: { name:'Alpenrhein',
+    abfall:[620,430,300,210,150,95,55,30,18,12], zufluss:[4,7,9,12,14,12,10,8,7,7],
+    see:[], fall:[] },
+  meer: { name:'Strom ins Meer',
+    abfall:[620,430,300,210,150,95,55,30,18,0], zufluss:[4,7,9,12,14,12,10,8,7,7],
+    see:[0,0,0,0,0,0,0,0,0,60], fall:[] },
+  seenkette: { name:'Seenkette',
+    abfall:[620,430,300,0,210,120,70,0,25,12], zufluss:[4,7,9,3,12,12,10,4,7,7],
+    see:[0,0,0,25,0,0,0,45,0,0], fall:[0,0,0,0,50,0,40,0,0,0] },
+  wildbach: { name:'Wildbach',
+    abfall:[900,700,520,380,270,190,130,80,45,25], zufluss:[0.6,0.8,1,1.2,1.5,1.8,2,2.5,3,3.5],
+    see:[], fall:[0,0,60,0,0,35,0,0,0,0] }
+};
+
+function alsListe(v) {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string' && v) return v.split(',');
+  return [];
+}
+var BL = [], BLOCK_KM = 10;
+function bloeckeSetzen() {
+  var n = P.bloecke, sz = SZENARIEN[P.szenario];
+  BLOCK_KM = P.laenge / n;
+  var lAb = alsListe(P.abfall), lZu = alsListe(P.zufluss),
+      lSee = alsListe(P.see), lFall = alsListe(P.fall);
+  BL = [];
+  for (var i = 0; i < n; i++) {
+    var vi = Math.min(9, Math.floor((i + 0.5) / n * 10)), f = BLOCK_KM / 10;
+    var wert = function (liste, vor) {
+      if (liste[i] !== undefined) { var v = parseFloat(liste[i]); return isFinite(v) ? v : 0; }
+      return vor[vi] !== undefined ? vor[vi] * f : 0;
+    };
+    BL.push({ i:i, kmVon:i*BLOCK_KM, kmBis:(i+1)*BLOCK_KM,
+      abfall: Math.round(wert(lAb, sz.abfall)),
+      zufluss: Math.round(wert(lZu, sz.zufluss) * 10) / 10,
+      see: Math.max(0, lSee[i] !== undefined ? parseFloat(lSee[i]) || 0 : (sz.see[vi] || 0)),
+      fall: Math.max(0, lFall[i] !== undefined ? parseFloat(lFall[i]) || 0 : (sz.fall[vi] || 0)) });
+  }
+}
+
+var AUS = { von:0, bis:0 };
+function ausschnittSetzen() {
+  var L = P.laenge;
+  var v = P.von >= 0 ? P.von : Math.round(L * 0.4);
+  var b = P.bis >= 0 ? P.bis : L;
+  AUS.von = klemme(Math.min(v, b), 0, L);
+  AUS.bis = klemme(Math.max(v, b), AUS.von + P.hexKm, L);
+}
+
+/* ---- Zeilen -------------------------------------------------------------
+   Je Hexzeile die Modellfakten aus den Bibliothekskopien; danach zwei
+   Laufmitten: die GERASTETE des Korridors (Plättchen) und die WEICHE des
+   Laufs (Band). Der Lauf bleibt in den Grenzen des gerasteten Korridors. */
+function reihen(von, bis) {
+  var dk = P.hexKm, n = Math.max(1, Math.round((bis - von) / dk)), R = [];
+  for (var i = 0; i < n; i++) {
+    var km = von + (i + 0.5) * dk;
+    var h0 = hoeheBei(BL, km - dk/2, P.steil), h1 = hoeheBei(BL, km + dk/2, P.steil);
+    R.push({ i:i, km:km, j: Math.max(0, (h0 - h1) / (dk * 1000)), q: abflussBei(BL, km, P.q0) });
+  }
+  R.forEach(function (a, k) {
+    var jVor = k > 0 ? R[k-1].j : undefined, jNach = k < R.length-1 ? R[k+1].j : undefined;
+    a.klasse = klasseStrom(a.q);
+    a.kor = korridorFelder(a.q);
+    var bl = blockBei(BL, a.km);
+    a.see = bl.see > 0 ? bl.see : 0;
+    a.seeVon = a.see ? bl.kmVon : 0;
+    a.delta = deltaAnteil(BL, a.km, P.deltaKm);
+    a.sin = sinuositaet(a.j);
+    a.verz = verzweigt(a.q, a.j);
+    a.bRinne = breiteMitGefaelle(a.q, { jVor: jVor, j: a.j, jNach: jNach });
+    /* Korridorbreite in Feldern, mit Delta-Auffächerung (fraktional) */
+    a.korF = a.kor;
+    if (a.delta > 0) a.korF += a.delta * (P.talBreite * 0.8 - a.korF);
+    if (a.see) a.korF = P.talBreite;
+    /* Lauf: gezeichnete Breite in Feldern, gedeckelt vom Korridor */
+    a.laufF = klemme(a.bRinne * P.ueber / (P.hexKm * 1000), 0.12, a.korF * P.fuell);
+  });
+  /* Weiche Verzweigung: die Bibliothek schaltet hart (Klippe bei Q = 100,
+     lib/fluss-breite.md) — der Renderer glättet über die Nachbarzeilen. */
+  R.forEach(function (a, k) {
+    var s = 0, m = 0;
+    for (var d = -2; d <= 2; d++) {
+      var r = R[k + d];
+      if (r) { s += r.verz ? 1 : 0; m++; }
+    }
+    a.braidT = a.see ? 0 : s / m;
+  });
+  R.faelle = fallZeilen(BL, von, bis, dk);
+  return R;
+}
+
+/* ---- Mitten: Korridor (gerastet) und Lauf (weich) ----------------------- */
+function mittenSetzen(R, mid) {
+  var phaseKor = 0, phaseLauf = 0, seeMitte = mid;
+  R.forEach(function (a) {
+    /* Korridor wandert träge durchs Tal (grosser Bogen) … */
+    var lamKor = Math.max(P.hexKm * 6, 22 * Math.max(60, a.bRinne) / 1000) * P.lamFaktor;
+    phaseKor += 2 * Math.PI * P.hexKm / lamKor;
+    var ampKor = (P.talBreite / 2 - a.korF / 2) * 0.8 * klemme((a.sin - 1) / 0.6, 0, 1);
+    if (a.delta > 0) ampKor *= (1 - a.delta);
+    var roh = mid + Math.sin(phaseKor) * ampKor;
+    a.korMitte = (a.see || a.delta > 0) ? roh : rasteMitte(roh, a.kor);
+    if (a.see) a.korMitte = seeMitte; else seeMitte = a.korMitte;
+    /* … der Lauf mäandert schneller IM Korridor. */
+    var lamLauf = Math.max(P.hexKm * 2, 11 * a.bRinne / 1000) * P.lamFaktor;
+    phaseLauf += 2 * Math.PI * P.hexKm / lamLauf;
+    var spiel = Math.max(0, a.korF / 2 - a.laufF / 2 - 0.06);
+    var ampLauf = spiel * klemme((a.sin - 1) / 0.6, 0.15, 1) * P.maeander;
+    a.laufMitte = klemme(a.korMitte + Math.sin(phaseLauf) * ampLauf,
+                         a.korMitte - spiel, a.korMitte + spiel);
+  });
+}
+
+/* ---- Band-Zeichnung (Catmull-Rom, Band-Sprache aus gewaesser-labor-v3) -- */
+function glatterZug(pts) {
+  if (P.eckig || pts.length < 3) {
+    return pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join('');
+  }
+  var s = 'M' + pts[0][0].toFixed(1) + ',' + pts[0][1].toFixed(1);
+  for (var i = 0; i < pts.length - 1; i++) {
+    var p0 = pts[Math.max(0, i-1)], p1 = pts[i], p2 = pts[i+1], p3 = pts[Math.min(pts.length-1, i+2)];
+    s += 'C' + (p1[0] + (p2[0]-p0[0])/6).toFixed(1) + ',' + (p1[1] + (p2[1]-p0[1])/6).toFixed(1) +
+         ' ' + (p2[0] - (p3[0]-p1[0])/6).toFixed(1) + ',' + (p2[1] - (p3[1]-p1[1])/6).toFixed(1) +
+         ' ' + p2[0].toFixed(1) + ',' + p2[1].toFixed(1);
+  }
+  return s;
+}
+/* Band = linke Kante hinunter, rechte hinauf. pts: [{x,y,halb}] in px.
+   Das M der rechten Kante wird zum L — so verbindet sich das Band unten,
+   ohne dass rohe Koordinaten aneinanderkleben (der erste Wurf tat genau
+   das: «L87.9,963.987.9,963.9» — der Parser las daraus einen Punkt bei
+   x ≈ 0.9 und zeichnete eine Haarlinie quer über die Karte). */
+function bandPfad(pts) {
+  var links = pts.map(function (p) { return [p.x - p.halb, p.y]; });
+  var rechts = pts.slice().reverse().map(function (p) { return [p.x + p.halb, p.y]; });
+  return glatterZug(links) + glatterZug(rechts).replace(/^M/, 'L') + 'Z';
+}
+
+/* ---- Zeichnen ------------------------------------------------------------ */
+function zeichne(R) {
+  var cols = P.talBreite + 2 * P.flanke;
+  var W = 300, w = W / (cols + 0.5), g = SOT.hex.gridSize(cols, R.length, w, 0);
+  var mid = (cols - 1) / 2;
+  var bergCol = 'color-mix(in srgb, var(--hang) 55%, var(--ink))';
+  mittenSetzen(R, mid);
+
+  var px = function (feld, row) { return SOT.hex.center(feld, row, w, 0); };
+
+  /* Beide Karten teilen den Untergrund; nur die Wasserdarstellung trennt sie. */
+  function karte(mitLauf) {
+    var s = '';
+    R.forEach(function (a) {
+      var fanT = 0, fanW = 0;
+      if (a.see && P.deltaKm > 0) {
+        var kmIn = a.km - a.seeVon, fanKm = P.deltaKm * 0.7;
+        if (kmIn <= fanKm) { fanT = 1 - kmIn / fanKm; fanW = 1 + fanT * P.talBreite * 0.7; }
+      }
+      for (var c = 0; c < cols; c++) {
+        var p = px(c, a.i), pts = SOT.hex.points(p.x, p.y, w);
+        var d = Math.abs(c - a.korMitte), dTal = Math.abs(c - mid);
+        if (a.see) {
+          var imSee = dTal <= P.talBreite / 2;
+          var grundS = imSee ? 'var(--flach)'
+                     : dTal <= P.talBreite / 2 + 1 ? 'var(--ufer)'
+                     : dTal <= P.talBreite / 2 + P.flanke - 1 ? 'var(--hang)' : bergCol;
+          s += '<polygon points="' + pts + '" fill="' + grundS +
+               '" stroke="var(--line)" stroke-width=".4" stroke-opacity=".5"/>';
+          if (imSee) {
+            s += '<polygon points="' + pts + '" fill="' + seeCol(a.see) + '"/>';
+            if (fanW > 0 && d <= fanW / 2) {
+              s += '<polygon points="' + pts + '" fill="var(--kies)" fill-opacity="' +
+                   (0.3 + 0.45 * fanT).toFixed(2) + '"/>';
+            }
+          }
+          continue;
+        }
+        var grund;
+        if (dTal <= P.talBreite / 2) grund = 'var(--flach)';
+        else if (dTal <= P.talBreite / 2 + P.flanke - 1) grund = 'var(--hang)';
+        else grund = bergCol;
+        if (d <= a.korF / 2 + 0.9 && dTal <= P.talBreite / 2 + 1) grund = 'var(--ufer)';
+        s += '<polygon points="' + pts + '" fill="' + grund +
+             '" stroke="var(--line)" stroke-width=".4" stroke-opacity=".5"/>';
+        if (a.braidT > 0.05 && d > a.korF / 2 && d <= a.korF / 2 + 1.1) {
+          s += '<polygon points="' + pts + '" fill="var(--kies)" fill-opacity="' +
+               (0.4 + 0.5 * a.braidT).toFixed(2) + '"/>';
+        }
+        var deck = feldDeckung(d, a.korF / 2, 'mehrheit');
+        if (deck > 0) {
+          s += '<polygon points="' + pts + '" fill="' + KLASSE_COL[a.klasse.key] + '"' +
+               (mitLauf ? ' fill-opacity=".28"' : '') + '/>';
+        }
+      }
+      if (Math.abs(a.km % 5) < P.hexKm / 2) {
+        s += '<text x="3" y="' + (px(0, a.i).y + 3).toFixed(1) + '" font-size="8" fill="var(--ink2)" ' +
+             'font-family="monospace">' + a.km.toFixed(0) + '</text>';
+      }
+    });
+    return s;
+  }
+
+  /* Der Lauf: zusammenhängende Nicht-See-Strecken, je Klassenfarbe ein
+     Bandstück (mit einer Zeile Überlappung, damit keine Naht entsteht). */
+  function laufBaender() {
+    var s = '', runs = [], run = null;
+    R.forEach(function (a) {
+      if (a.see) { run = null; return; }
+      if (!run) { run = []; runs.push(run); }
+      run.push(a);
+    });
+    runs.forEach(function (rn) {
+      /* nach Klassenfarbe teilen */
+      var teile = [], teil = null, key = '';
+      rn.forEach(function (a) {
+        if (a.klasse.key !== key) {
+          key = a.klasse.key;
+          var neu = teil ? [teil[teil.length - 1]] : [];   /* eine Zeile Überlapp */
+          teil = neu; teile.push({ key: key, zeilen: teil });
+        }
+        teile[teile.length - 1].zeilen.push(a);
+      });
+      teile.forEach(function (t) {
+        if (t.zeilen.length < 2) return;
+        var pts = t.zeilen.map(function (a) {
+          var p = px(a.laufMitte, a.i);
+          return { x: p.x, y: p.y, halb: Math.max(1.2, a.laufF / 2 * w) };
+        });
+        s += '<path d="' + bandPfad(pts) + '" fill="' + KLASSE_COL[t.key] + '"/>';
+      });
+      /* Nebenfäden in der Schotterflur */
+      for (var k = 1; k <= P.faeden; k++) {
+        var seite = (k % 2) ? 1 : -1, fpts = [], stueck = [];
+        rn.forEach(function (a, idx) {
+          if (a.braidT > 0.1) {
+            var spiel = Math.max(0, a.korF / 2 - a.laufF * 0.2);
+            var off = seite * Math.sin(idx * 0.9 + k * 2.1) * spiel * a.braidT;
+            var p = px(klemme(a.laufMitte + off, a.korMitte - a.korF / 2 + 0.2,
+                              a.korMitte + a.korF / 2 - 0.2), a.i);
+            stueck.push({ x: p.x, y: p.y, halb: Math.max(0.8, a.laufF * 0.18 * w * a.braidT) });
+          } else if (stueck.length) { fpts.push(stueck); stueck = []; }
+        });
+        if (stueck.length) fpts.push(stueck);
+        fpts.forEach(function (st) {
+          if (st.length < 3) return;
+          s += '<path d="' + bandPfad(st) + '" fill="' + KLASSE_COL[rn[0].klasse.key] +
+               '" fill-opacity=".75"/>';
+        });
+      }
+      /* Delta-Arme: endet die Strecke an einem See, fächert der Lauf hinein. */
+      var letzte = rn[rn.length - 1], nach = R[letzte.i + 1];
+      if (nach && nach.see && P.deltaKm > 0) {
+        var fanKm = P.deltaKm * 0.7, fanZeilen = Math.max(2, Math.round(fanKm / P.hexKm));
+        var start = px(letzte.laufMitte, letzte.i);
+        for (var arm = -1; arm <= 1; arm++) {
+          var apts = [{ x: start.x, y: start.y, halb: Math.max(1.2, letzte.laufF / 2 * w) }];
+          for (var z = 1; z <= fanZeilen; z++) {
+            var row = R[letzte.i + z];
+            if (!row || !row.see) break;
+            var t = z / fanZeilen;
+            var ziel = px(letzte.korMitte + arm * (P.talBreite * 0.32) * t, row.i);
+            apts.push({ x: start.x + (ziel.x - start.x) * t, y: ziel.y,
+                        halb: Math.max(0.8, letzte.laufF / 2 * w * (1 - t) * 0.8) });
+          }
+          if (apts.length > 2) {
+            s += '<path d="' + bandPfad(apts) + '" fill="' + KLASSE_COL[letzte.klasse.key] +
+                 '" fill-opacity="' + (arm === 0 ? 0.95 : 0.7) + '"/>';
+          }
+        }
+      }
+    });
+    /* Schaum an den Fällen — quer über den LAUF, nicht den Korridor. */
+    R.faelle.forEach(function (f) {
+      var a = R[f.i];
+      if (!a || a.see) return;
+      var pm = px(a.laufMitte, a.i), hb = Math.max(3, (a.laufF / 2 + 0.25) * w);
+      s += '<line x1="' + (pm.x - hb).toFixed(1) + '" y1="' + pm.y.toFixed(1) +
+           '" x2="' + (pm.x + hb).toFixed(1) + '" y2="' + pm.y.toFixed(1) +
+           '" stroke="var(--on-river)" stroke-width="2.2" stroke-dasharray="3 2" opacity=".9"/>' +
+           '<text x="' + (pm.x + hb + 4).toFixed(1) + '" y="' + (pm.y + 3).toFixed(1) +
+           '" font-size="7" fill="var(--ink2)" font-family="monospace">Fall ' + f.fall.toFixed(0) + ' m</text>';
+    });
+    return s;
+  }
+
+  var vb = '0 0 ' + W + ' ' + g.h.toFixed(1);
+  var kor = document.getElementById('planKor'), lauf = document.getElementById('planLauf');
+  kor.setAttribute('viewBox', vb); lauf.setAttribute('viewBox', vb);
+  kor.innerHTML = karte(false);
+  lauf.innerHTML = karte(true) + laufBaender();
+}
+
+/* ---- Werkstatt-Spalte ---------------------------------------------------- */
+function zeichneKennz(R) {
+  var m = R[R.length - 1];
+  var fluss = R.filter(function (a) { return !a.see; });
+  var u = fluss.length ? fluss[fluss.length - 1] : m;
+  var k = [
+    ['Q unten', m.q.toFixed(1) + ' m³/s', m.see ? 'im See' : ''],
+    ['Klasse', m.see ? 'See ' + m.see + ' m' : m.klasse.name, ''],
+    ['Rinne', u.bRinne.toFixed(0) + ' m', 'gerechnet'],
+    ['Lauf', u.laufF.toFixed(1) + ' F', 'im Korridor ' + u.kor + ' F']
+  ];
+  document.getElementById('kennz').innerHTML = k.map(function (x) {
+    return '<div class="stat"><b>' + x[1] + '</b><span>' + x[0] + (x[2] ? ' · ' + x[2] : '') + '</span></div>';
+  }).join('');
+}
+function zeichneLegende() {
+  var e = [
+    ['color-mix(in srgb, var(--riverdeep) 28%, var(--flach))', 'Korridor (Wasserraum, blass)'],
+    ['var(--riverdeep)', 'Lauf (Band, Klassenfarbe)'],
+    ['color-mix(in srgb, var(--riverdeep) 80%, var(--river))', 'See (satter = tiefer)'],
+    ['var(--kies)', 'Schotter / Delta-Fächer'],
+    ['var(--ufer)', 'Ufer'], ['var(--flach)', 'Talboden'], ['var(--hang)', 'Hang']
+  ];
+  document.getElementById('legende').innerHTML = e.map(function (x) {
+    return '<span><i style="background:' + x[0] + '"></i>' + x[1] + '</span>';
+  }).join('');
+}
+function zeichneSzen() {
+  var box = document.getElementById('szen');
+  box.innerHTML = '';
+  Object.keys(SZENARIEN).forEach(function (key) {
+    var b = document.createElement('button');
+    b.textContent = SZENARIEN[key].name;
+    if (key === P.szenario) b.className = 'on';
+    b.addEventListener('click', function () {
+      P.set('szenario', key);
+      P.set('abfall', null); P.set('zufluss', null); P.set('see', null); P.set('fall', null);
+      P.abfall = []; P.zufluss = []; P.see = []; P.fall = [];
+      neuAufbauen();
+    });
+    box.appendChild(b);
+  });
+}
+
+function alles() {
+  var R = reihen(AUS.von, AUS.bis);
+  zeichne(R);
+  zeichneKennz(R);
+  zeichneSzen();
+  var verzZeilen = R.filter(function (a) { return a.braidT > 0.5; }).length;
+  document.getElementById('planHint').textContent =
+    R.length + ' Zeilen à ' + P.hexKm + ' km (km ' + AUS.von.toFixed(0) + '–' + AUS.bis.toFixed(0) +
+    ') · Korridor je Klasse 1·2·3·4·5 · Lauf ' + P.ueber + '× übertrieben, höchstens ' +
+    Math.round(P.fuell * 100) + ' % des Korridors · ' + verzZeilen + ' Zeilen verzweigt · Fälle: ' +
+    R.faelle.length;
+  window.LAB = { R: R, aus: AUS, bloecke: BL };
+}
+function neuAufbauen() { bloeckeSetzen(); ausschnittSetzen(); alles(); }
+
+neuAufbauen();
+zeichneLegende();
+var brett = SOT.regler(P, { titel:'Laufwerkstatt', onChange: function (name) {
+  if (['laenge','bloecke','hexKm','szenario'].indexOf(name) >= 0) neuAufbauen(); else { ausschnittSetzen(); alles(); }
+} });
+document.getElementById('btnRegler').addEventListener('click', brett.toggle);
+SOT.debug(P, { extra: [{ label:'Regler', onclick: brett.toggle }] });
+</script>
+</body>
+</html>

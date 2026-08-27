@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Allmende — wer am selben Wasser sitzt</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<style>
+  /* Nur was dieser Prototyp allein braucht. Kommt zuletzt, gewinnt darum.
+
+     Werkstatt-Prüfstand, kein Ort der Welt — darum das Werkbank-Register.
+     Was der Spieler später sähe: die Karte, seine Entnahme-Punkte, die
+     Feuer der anderen, die Nachtkarte und am Epochenende die Auswertung.
+     Die „Rechnung" rechts unten bliebe im Spiel unsichtbar. */
+
+  .wrap{max-width:1080px;}
+  .zwei{display:grid;gap:12px;grid-template-columns:1fr;}
+  @media(min-width:900px){ .zwei{grid-template-columns:1fr 360px;align-items:start;} }
+
+  /* --- Die Karte ---------------------------------------------------------- */
+  .karte{background:var(--panel2);border:1px solid var(--line);
+         border-radius:var(--r-md);overflow:hidden;position:relative;}
+  .karte svg{display:block;width:100%;height:auto;}
+  .karte polygon[data-feld]{cursor:pointer;}
+  @keyframes puls{0%,100%{opacity:.9;r:4.5}50%{opacity:.35;r:6}}
+  .karte circle.punkt{fill:var(--ember);animation:puls 1.6s infinite;pointer-events:none;}
+
+  /* --- Das Lager ---------------------------------------------------------- */
+  .lz{display:flex;align-items:center;gap:10px;padding:6px 0;
+      border-bottom:1px solid var(--line);font-size:12px;}
+  .lz:last-child{border-bottom:0;}
+  .lz > svg{flex:none;width:18px;height:18px;color:var(--ink);}
+  .lz .nm{flex:1;color:var(--ink2);}
+  .lz b{font-family:var(--f-mono);font-weight:400;color:var(--ink);}
+  /* Balkenreihe statt Zahl, wie die Stufen-Treppe in gefuege-v1. */
+  .balken{display:flex;gap:3px;flex:none;}
+  .balken i{width:7px;height:14px;border-radius:2px;background:var(--line);}
+  .balken i.an{background:var(--ember);}
+  .balken i.voll{background:var(--warn);}
+  .lz.not b{color:var(--warn);}
+
+  /* --- Die Mitnutzer ------------------------------------------------------ */
+  .mit{display:flex;align-items:center;gap:10px;padding:6px 0;
+       border-bottom:1px solid var(--line);font-size:11.5px;}
+  .mit:last-child{border-bottom:0;}
+  .mit > svg{flex:none;width:18px;height:18px;color:var(--ink);}
+  .mit .nm b{display:block;font-size:12px;font-weight:600;}
+  .mit .nm span{color:var(--ink2);font-size:10.5px;}
+  .mit .tat{margin-left:auto;font-family:var(--f-mono);font-size:10px;
+            color:var(--ink2);text-align:right;white-space:nowrap;}
+  .mit.hart > svg{color:var(--bad);}
+
+  /* --- Die Nacht ---------------------------------------------------------- */
+  /* Die Nachtkarte ist EIN Satz mit einem Zeichen — kein Kasten mit Titel:
+     sie erzählt, was geschah, während niemand zusah. */
+  .nacht{display:flex;gap:9px;align-items:flex-start;font-size:12px;
+         line-height:1.5;padding:2px 0;}
+  .nacht > svg{flex:none;width:17px;height:17px;margin-top:2px;color:var(--ink2);}
+  .nacht b{color:var(--ink);}
+  .nacht.gut > svg{color:var(--river);}
+  .nacht.schlimm > svg{color:var(--warn);}
+
+  /* --- Die Rechnung (im Spiel unsichtbar) --------------------------------- */
+  .regel{display:grid;grid-template-columns:auto 1fr;gap:8px;padding:6px 0;
+         border-bottom:1px solid var(--line);font-size:11.5px;}
+  .regel:last-child{border-bottom:0;}
+  .regel .zug{font-family:var(--f-mono);font-size:10px;white-space:nowrap;color:var(--ink2);}
+  .regel .warum{color:var(--ink2);font-size:11px;line-height:1.45;}
+
+  /* --- Chronik & Auswertung ---------------------------------------------- */
+  .chz{font-size:11.5px;line-height:1.5;margin:6px 0;color:var(--ink2);}
+  .chz b{color:var(--ink);}
+  .ausw .kopf{font-family:var(--f-display);font-weight:800;letter-spacing:.08em;
+              font-size:15px;margin:0 0 2px;}
+  .ausw .urteil{font-size:12.5px;line-height:1.5;margin:8px 0;}
+  .ausw table{width:100%;border-collapse:collapse;font-size:11.5px;margin:8px 0;}
+  .ausw td{padding:4px 0;border-bottom:1px solid var(--line);color:var(--ink2);}
+  .ausw td:last-child{text-align:right;font-family:var(--f-mono);color:var(--ink);}
+  .ausw .diagramm svg{display:block;width:100%;height:auto;}
+  .kleinkurven{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px;}
+  .kleinkurven figure{margin:0;}
+  .kleinkurven figcaption{font-family:var(--f-mono);font-size:9px;color:var(--ink2);
+                          text-align:center;margin-top:2px;}
+
+  .epzeile{display:flex;align-items:center;gap:14px;}
+  .epzeile .ep{font-family:var(--f-display);font-weight:800;font-size:14px;letter-spacing:.1em;}
+  .epzeile .rd{font-family:var(--f-mono);font-size:10px;color:var(--ink2);}
+  h3{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.14em;
+     text-transform:uppercase;color:var(--ink2);font-weight:400;margin:0 0 6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="appbar ruled">
+    <div class="brand">ALLMENDE<small>Werkstatt-Prüfstand · wer am selben Wasser sitzt</small></div>
+    <div class="epzeile">
+      <span class="ep" id="epLabel">EPOCHE I</span>
+      <span class="rd" id="rdLabel">Runde 1/8</span>
+    </div>
+  </header>
+
+  <div class="zwei">
+
+    <div>
+      <div class="pane ausw hid" id="ausw"></div>
+      <div class="karte" id="karte"></div>
+      <p class="hint" style="margin:8px 2px 0">Antippen nimmt eine Einheit. Reich trägt die
+        Entnahme; was dünn wird, erholt sich nur manchmal; was erschöpft ist, kommt in dieser
+        Epoche nicht wieder. Jedes Feuer nimmt in seiner Nähe. Historisch inspiriert und
+        vereinfacht.</p>
+
+      <div class="pane" style="margin-top:12px">
+        <h3>Die Nacht</h3>
+        <div id="nacht"><p class="hint">noch keine Nacht vergangen</p></div>
+      </div>
+
+      <div class="pane" style="margin-top:12px">
+        <h3>Chronik</h3>
+        <div id="chronik"><p class="hint">noch keine Runde vergangen</p></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="pane">
+        <h3>Das Lager</h3>
+        <div id="lager"></div>
+        <button class="primary wide" id="weiter" style="margin-top:10px">Runde weiter</button>
+        <button class="wide hid" id="darre" style="margin-top:8px">Darre bauen (−2 Vorrat)</button>
+        <button class="wide hid" id="ordnung" style="margin-top:8px">Allmendordnung beschliessen</button>
+        <p class="hint" id="hinweis" style="margin-top:8px"></p>
+      </div>
+
+      <div class="pane" style="margin-top:12px">
+        <h3>Am selben Wasser <span class="hint">(die Feuer der anderen)</span></h3>
+        <div id="mitnutzer"></div>
+      </div>
+
+      <div class="pane" style="margin-top:12px">
+        <h3>Die Rechnung <span class="hint">(im Spiel unsichtbar)</span></h3>
+        <div id="rechnung"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="../kit/sot.js"></script>
+<script src="../kit/sot-icons.js"></script>
+<script src="../kit/sot-hex.js"></script>
+<script>
+/* ===========================================================================
+   Allmende v2 — der epochen-invariante Kernloop, jetzt räumlich.
+
+   Vorbild bleibt «Fischteich» (iconomix m06, SNB): viele nehmen aus einem
+   Bestand, der sich aus dem Rest erneuert. Neu in v2 sind drei Dinge aus
+   `hearth-band` (Grok-Demo, vier Banden in einem Tal) — jedes schliesst
+   eine in v1 GEMESSENE Lücke, nicht eine vermutete:
+
+     1. **Jeder hat ein Feuer.** In v1 waren die Mitnutzer Zeilen in einer
+        Liste und nahmen „das vollste Feld irgendwo". Jetzt sitzt jeder an
+        einem Ort und nimmt beim NÄCHSTEN geeigneten Feld. Damit wird die
+        Tragik räumlich: Felder zwischen zwei Feuern werden von beiden
+        Seiten geleert, Narben strahlen von Siedlungen aus. Das war die
+        offene Frage aus v1 („tragen abstrakte Mitnutzer das Dilemma
+        solo?") — die Antwort ist: als Körper mit Feuer, nicht als Zeile.
+     2. **Vorrat verdirbt.** v1s schärfster Befund war „Raubbau ist
+        innerhalb der Epoche gratis" (0/27 Bestand bei 0 Hungerwintern).
+        Der Speicher hat jetzt eine Grenze; was darüber liegt, verdirbt.
+        Horten hört auf, kostenlos zu sein — ohne die eine Naturregel
+        anzutasten. Die Darre hebt die Grenze (der Abend, der etwas
+        Bleibendes herstellt).
+     3. **Die Nacht ist eine Karte.** Fünf Ereignisse, datengetrieben und
+        gesät: Mast · Flut · Frost · Wölfe · Stille. Zwei davon lesen den
+        Zustand des Lagers (Wölfe kommen zum Vorrat, die Flut nimmt vom
+        Ufer) — die Waage aus P4, hier im Kleinen. Die Natur schwankt,
+        die Regel bleibt.
+
+   NICHT portiert (und warum): der Mehrspieler-Unterbau (Kernpfeiler parkt
+   ihn bis Schicht 1–2 stehen — Befund trotzdem notiert: dieser Loop ist
+   der geborene Mehrspieler-Modus), die Punkte-Wertung (Stromlinien
+   hinterlässt Belege, keine Punkte), Jäger/Sammlerin mit Verletzung und
+   Bewegung (das ist `erkundung`s Gebiet und dort besser gebaut), und das
+   wandernde Wild — es würde die eine lesbare Naturregel verwischen und
+   steht als Kandidat für v3.
+
+   Regeln der Natur, in einem Satz: ein reiches Feld trägt die Entnahme;
+   ein dünnes erholt sich nur manchmal; ein erschöpftes nie. Narben wandern
+   in die nächste Epoche.
+   ========================================================================= */
+
+var P = SOT.params({
+  epoche: { t:'int', def:1, min:1, max:5, help:'Startepoche I–V (frisch, ohne Narben)' },
+  runden: { t:'int', def:8, min:4, max:12, help:'Runden je Epoche' },
+  seed:   { t:'int', def:1, help:'Zufallssaat — macht einen Lauf wiederholbar' },
+  auto:   { t:'enum', def:'', values:['','gier','mass','ordnung'],
+            help:'Bot spielt die Epoche: gier (nimmt das Maximum) · mass (nimmt nur vom '+
+                 'Reichen) · ordnung (wie mass, beschliesst aber sofort die Allmendordnung)' },
+  nacht:  { t:'enum', def:'', values:['','mast','flut','frost','woelfe','stille'],
+            help:'Nachtkarte erzwingen (statt gesät) — für Screenshots' },
+  spiel:  { t:'flag', help:'Spielregister statt Werkbank (zum Beurteilen des Tons)' }
+});
+if (!P.spiel) document.body.classList.add('werkbank');
+var rnd = SOT.rng(P.seed);
+
+/* ----------------------------------------------------------------- Epochen ---
+   Die Datentabelle IST die Epochen-These: der Loop bleibt, nur sie wechselt.
+   `staende` sind die drei Bestandsarten (je drei Felder, an FESTEN Orten —
+   dasselbe Tal, andere Augen), `beleg` die Belegstatus-Pflicht (P6).
+   `technik` = Entnahmen des Spielers je Runde · `bedarf` = was das Lager am
+   Abend isst · `speicher` = was der Vorrat über die Nacht hält (NEU in v2:
+   die Grenze wächst mit der Vorratstechnik, nicht mit dem Wohlstand).
+   `mitnutzer` nehmen sichtbar und unsteuerbar — jeder von seinem `feuer` aus. */
+var EPOCHEN = [
+  { n:1, nm:'Mesolithikum', technik:2, bedarf:1, speicher:2,
+    staende:[
+      { typ:'A', nm:'Fischgründe',   ico:'fisch',  beleg:'historisch inspiriert' },
+      { typ:'B', nm:'Haselbestände', ico:'hasel',  beleg:'belegt' },
+      { typ:'C', nm:'Wild der Höhe', ico:'hirsch', beleg:'historisch inspiriert' }],
+    mitnutzer:[] },
+  { n:2, nm:'Neolithikum', technik:2, bedarf:2, speicher:3,
+    staende:[
+      { typ:'A', nm:'Fischgründe',  ico:'fisch', beleg:'historisch inspiriert' },
+      { typ:'B', nm:'Uferweide',    ico:'birke', beleg:'historisch inspiriert' },
+      { typ:'C', nm:'Wald (Rodung)',ico:'wald',  beleg:'historisch inspiriert' }],
+    mitnutzer:[
+      { id:'dorf', nm:'Das Nachbardorf', ico:'mensch', art:'nachbar', feuer:{c:7,r:4},
+        satz:'nimmt vom Reichen in der Nähe, meidet das Dünne' }] },
+  { n:3, nm:'Eisenzeit & Rom', technik:3, bedarf:2, speicher:4,
+    staende:[
+      { typ:'A', nm:'Fischgründe',      ico:'fisch', beleg:'historisch inspiriert' },
+      { typ:'B', nm:'Talweide',         ico:'birke', beleg:'historisch inspiriert' },
+      { typ:'C', nm:'Wald (Köhlerei)',  ico:'wald',  beleg:'historisch inspiriert' }],
+    mitnutzer:[
+      { id:'dorf',  nm:'Die Talschaft',   ico:'mensch', art:'nachbar', feuer:{c:7,r:4},
+        satz:'nimmt vom Reichen in der Nähe, meidet das Dünne' },
+      { id:'macht', nm:'Die ferne Macht', ico:'anker',  art:'macht', ziel:'C', menge:2,
+        feuer:{c:8,r:0},
+        satz:'holt Holzkohle fürs Eisen — zwei Lasten je Runde, ohne zu fragen' }] },
+  { n:4, nm:'Mittelalter', technik:3, bedarf:3, speicher:4,
+    staende:[
+      { typ:'A', nm:'Fischenz',     ico:'fisch', beleg:'belegt' },
+      { typ:'B', nm:'Allmendweide', ico:'birke', beleg:'belegt' },
+      { typ:'C', nm:'Hochwald',     ico:'wald',  beleg:'belegt' }],
+    ordnung:true,   /* die Allmendordnung ist hier beschliessbar — belegt */
+    mitnutzer:[
+      { id:'dorf1', nm:'Dorfgenossen',   ico:'mensch', art:'nachbar', feuer:{c:7,r:4},
+        satz:'nimmt vom Reichen in der Nähe, meidet das Dünne' },
+      { id:'dorf2', nm:'Dorfgenossen',   ico:'mensch', art:'nachbar', feuer:{c:1,r:5},
+        satz:'nimmt vom Reichen in der Nähe, meidet das Dünne' },
+      { id:'gier',  nm:'Der Übernutzer', ico:'fremde', art:'gier',    feuer:{c:3,r:0},
+        menge:2,
+        satz:'nimmt zwei aus der Nähe, auch wenn es das Letzte ist' }] },
+  { n:5, nm:'Neuzeit & Moderne', technik:4, bedarf:3, speicher:5,
+    staende:[
+      { typ:'A', nm:'Fischbestand', ico:'fisch',    beleg:'historisch inspiriert' },
+      { typ:'B', nm:'Auen',         ico:'rohr',     beleg:'historisch inspiriert' },
+      { typ:'C', nm:'Kies & Grund', ico:'fundkies', beleg:'historisch inspiriert' }],
+    mitnutzer:[
+      { id:'gier', nm:'Der Markt',  ico:'fremde',     art:'gier', feuer:{c:3,r:0},
+        satz:'nimmt das Vollste in der Nähe, auch wenn es das Letzte ist' },
+      { id:'ind1', nm:'Das Werk',   ico:'herstellen', art:'macht', ziel:'C', menge:2,
+        feuer:{c:8,r:0},
+        satz:'baggert denselben Grund — zwei Lasten je Runde, ohne zu fragen' },
+      { id:'ind2', nm:'Das Werk',   ico:'herstellen', art:'macht', ziel:'A', menge:2,
+        feuer:{c:6,r:6},
+        satz:'fischt dieselben Gründe — zwei Lasten je Runde, ohne zu fragen' }] }
+];
+
+/* ------------------------------------------------------------- Nachtkarten ---
+   Fünf Karten, datengetrieben und gesät. `wirkt(ctx)` gibt den Satz zurück,
+   der in der Chronik und im Nachtkasten steht — oder null, wenn nichts
+   geschah (dann bleibt die Karte als „nichts" sichtbar, statt zu schweigen).
+
+   Zwei davon LESEN DEN ZUSTAND (P4, die Waage im Kleinen): die Wölfe kommen
+   zum Vorrat, die Flut nimmt vom Ufer. Der Rest ist Natur, die schwankt.
+   `frost` unterdrückt die Erneuerung — darum läuft die Nacht VOR ihr. */
+var NAECHTE = [
+  { id:'mast', nm:'Mastjahr', ico:'hasel', ton:'gut', gewicht:3,
+    wirkt:function(){
+      var n = 0;
+      S.felder.forEach(function(f){
+        if (f.typ === 'B' && f.stand > 0 && f.stand < VOLL){ f.stand++; n++; }
+      });
+      return n ? 'Ein Mastjahr: Nüsse und Beeren im Überfluss — <b>' + n +
+                 '</b> Feld' + (n === 1 ? '' : 'er') + ' im Talboden trägt mehr.'
+               : 'Ein Mastjahr — aber im Talboden ist nichts mehr, das davon '+
+                 'zulegen könnte.';
+    } },
+  { id:'flut', nm:'Hochwasser', ico:'weiher', ton:'gut', gewicht:2,
+    wirkt:function(){
+      var n = 0;
+      S.felder.forEach(function(f){
+        if (f.typ === 'A' && f.stand > 0 && f.stand < VOLL){ f.stand++; n++; }
+      });
+      var weg = Math.min(S.vorrat, 1);
+      S.vorrat -= weg;
+      return 'Der Fluss tritt über: die Gründe am Wasser füllen sich (<b>' + n +
+             '</b>), das Lager am Ufer verliert <b>' + weg + '</b> Vorrat.';
+    } },
+  { id:'frost', nm:'Späte Kälte', ico:'frost', ton:'schlimm', gewicht:2,
+    kein_wachstum:true,
+    wirkt:function(){
+      return 'Eine späte Kälte legt sich übers Tal. <b>Nichts wächst nach</b> '+
+             'in dieser Nacht.';
+    } },
+  { id:'woelfe', nm:'Wölfe am Lager', ico:'wolf', ton:'schlimm', gewicht:3,
+    wirkt:function(){
+      /* Besitz zieht an — der Kern der Waage. Ein leeres Lager ist kein Ziel. */
+      if (S.vorrat < 2)
+        return 'Wölfe streifen ums Lager, finden aber nichts, was den Weg '+
+               'lohnt. Ein leeres Lager ist kein Ziel.';
+      var weg = Math.min(S.vorrat, 2);
+      S.vorrat -= weg;
+      return 'Wölfe kommen an den <b>Vorrat</b> — was gelagert ist, zieht an. '+
+             '<b>−' + weg + '</b> Vorrat.';
+    } },
+  { id:'stille', nm:'Stille Nacht', ico:'stille', ton:'', gewicht:4,
+    wirkt:function(){ return 'Die Nacht bleibt still. Das Feuer hält.'; } }
+];
+function naechteWahl(){
+  if (P.nacht){
+    for (var j = 0; j < NAECHTE.length; j++) if (NAECHTE[j].id === P.nacht) return NAECHTE[j];
+  }
+  var summe = 0, i;
+  for (i = 0; i < NAECHTE.length; i++) summe += NAECHTE[i].gewicht;
+  var w = rnd() * summe;
+  for (i = 0; i < NAECHTE.length; i++){
+    w -= NAECHTE[i].gewicht;
+    if (w <= 0) return NAECHTE[i];
+  }
+  return NAECHTE[NAECHTE.length - 1];
+}
+
+/* ------------------------------------------------------------------- Karte ---
+   Fester Talausschnitt; neun Bestandsfelder an festen Orten. Der Ort bleibt
+   über alle Epochen derselbe — nur was er trägt, wird umgedeutet. */
+var COLS = 9, ROWS = 7, HW = 62, GAP = 2;
+var GRUND = [
+  'BBhffwfhB',
+  'BhffwwfhB',
+  'hffwwfffh',
+  'hfwwffffh',
+  'hffwwfffh',
+  'BhffwwffB',
+  'BBhfwwfhB'
+];
+/* typ A sitzt am Wasser, B im Talboden, C am Hangfuss. */
+var ORTE = [
+  { id:'a1', typ:'A', c:4, r:1 }, { id:'a2', typ:'A', c:3, r:3 }, { id:'a3', typ:'A', c:4, r:5 },
+  { id:'b1', typ:'B', c:2, r:2 }, { id:'b2', typ:'B', c:6, r:3 }, { id:'b3', typ:'B', c:2, r:4 },
+  { id:'c1', typ:'C', c:1, r:1 }, { id:'c2', typ:'C', c:7, r:1 }, { id:'c3', typ:'C', c:6, r:5 }
+];
+var LAGER = { c:1, r:3 };     /* das eigene Feuer — links im Tal */
+var VOLL = 3;                 /* reich=3 · genutzt=2 · dünn=1 · erschöpft=0 */
+
+/* ---------------------------------------------------------------- Zustand --- */
+var S = {
+  ep: P.epoche, runde: 1,
+  felder: [],               /* {id,typ,c,r,stand} */
+  taps: 0, vorrat: 0, hunger: 0, darre: false,
+  entIhr: 0, entMit: 0, verdorben: 0,
+  rIhr: 0, rMit: [],        /* Entnahme der laufenden Runde */
+  nacht: null,              /* {karte, satz} der letzten Nacht */
+  kurve: [], entKurve: [],
+  ordnung: false, vorbei: false,
+  chronik: [],
+  kurven: []                /* je Epoche: {ep,nm,kurve,…} */
+};
+function epoche(){ return EPOCHEN[S.ep - 1]; }
+function speicher(){ return epoche().speicher + (S.darre ? 2 : 0); }
+function standVon(typ){
+  var st = epoche().staende;
+  for (var i = 0; i < st.length; i++) if (st[i].typ === typ) return st[i];
+  return st[0];
+}
+function gesamt(){
+  return S.felder.reduce(function(s, f){ return s + f.stand; }, 0);
+}
+function römisch(n){ return ['','I','II','III','IV','V'][n] || String(n); }
+
+/* Epoche beginnen. Narben wandern mit: was erschöpft endete, beginnt dünn —
+   die Jahrhunderte dazwischen heilen viel, aber nicht alles (P5). */
+function epocheStart(narben){
+  S.runde = 1; S.vorrat = 0; S.hunger = 0; S.darre = false;
+  S.entIhr = 0; S.entMit = 0; S.verdorben = 0;
+  S.kurve = []; S.entKurve = []; S.nacht = null;
+  S.ordnung = false; S.vorbei = false; S.chronik = []; S.rIhr = 0; S.rMit = [];
+  var vernarbt = [];
+  S.felder = ORTE.map(function(o){
+    var alt = narben && narben[o.id];
+    var stand = (alt === 0) ? 1 : VOLL;
+    if (alt === 0) vernarbt.push(standVon(o.typ).nm);
+    return { id:o.id, typ:o.typ, c:o.c, r:o.r, stand:stand };
+  });
+  S.taps = epoche().technik;
+  /* Die Narbenzeile zählt, statt Namen zu wiederholen: „alle drei
+     Fischgründe" liest sich wie ein Befund, „X und X und X" wie ein Fehler. */
+  if (vernarbt.length){
+    var zahl = {}, folge = [];
+    vernarbt.forEach(function(nm){
+      if (!(nm in zahl)){ zahl[nm] = 0; folge.push(nm); }
+      zahl[nm]++;
+    });
+    var teile = folge.map(function(nm){
+      var n = zahl[nm];
+      return (n >= 3 ? 'alle drei ' : n === 2 ? 'zwei ' : '') + '<b>' + nm + '</b>';
+    });
+    var satz = vernarbt.length >= ORTE.length
+      ? '<b>das ganze Tal</b> blieb mager'
+      : teile.join(teile.length > 2 ? ', ' : ' und ') + ' blieb' +
+        (vernarbt.length > 1 ? 'en' : '') + ' mager';
+    S.chronik.push('Die Jahrhunderte haben vieles geheilt — aber ' + satz +
+      '. Narben wandern mit.');
+  }
+  if (S.ep === 5)
+    S.chronik.push('Die Ordnung von einst bindet <b>das Werk</b> nicht.');
+  S.kurve.push(gesamt());
+}
+
+/* ================================================================ Entnahme === */
+function tippe(id){
+  if (S.vorbei) return;
+  var f = null;
+  S.felder.forEach(function(x){ if (x.id === id) f = x; });
+  if (!f) return;
+  if (S.taps <= 0){ SOT.toast('Für heute ist genug getragen.'); return; }
+  if (f.stand <= 0){ SOT.toast('Da ist nichts mehr zu holen.'); return; }
+  if (S.ordnung && f.stand < 2){ SOT.toast('Die Ordnung gilt auch euch: vom Dünnen nimmt niemand.'); return; }
+  f.stand--; S.taps--; S.entIhr++; S.rIhr++;
+  zeichneAlles();
+}
+
+/* Mitnutzer nehmen NACH dem Spieler — sichtbar, unsteuerbar, und jeder von
+   SEINEM FEUER aus (v2, aus `hearth-band`): nicht mehr „das vollste Feld
+   irgendwo", sondern das nächste geeignete. Gleichstand nach Entfernung
+   entscheidet der Bestand — so leert sich zuerst, was nah UND voll ist.
+
+   nachbar: nur vom Reichen (stand ≥ 2) · gier: alles, was noch steht ·
+   macht: immer derselbe Bestandstyp, blind für den Zustand. */
+function mitnutzerZug(){
+  S.rMit = [];
+  epoche().mitnutzer.forEach(function(m){
+    var art = (S.ordnung && m.art === 'gier') ? 'nachbar' : m.art;
+    var wahl = null, wd = 0;
+    S.felder.forEach(function(f){
+      if (f.stand <= 0) return;
+      if (art === 'nachbar' && f.stand < 2) return;
+      if (art === 'macht' && f.typ !== m.ziel) return;
+      var d = SOT.hex.dist(m.feuer, f);
+      if (!wahl || d < wd || (d === wd && f.stand > wahl.stand)){ wahl = f; wd = d; }
+    });
+    if (wahl){
+      /* Die Ordnung ist eine QUOTE, nicht bloss ein Verbot: unter ihr nimmt
+         jeder nur EINE Last je Runde. Das ist der Unterschied zwischen einer
+         Regel, die die Entnahme umleitet, und einer, die sie senkt — nur die
+         zweite kann den Bestand retten (gemessen, siehe README). */
+      var quote = S.ordnung ? 1 : (m.menge || 1);
+      var nimmt = Math.min(quote, wahl.stand);
+      wahl.stand -= nimmt; S.entMit += nimmt;
+      S.rMit.push({ m:m, nahm:standVon(wahl.typ).nm, menge:nimmt, feld:wahl.id });
+    } else {
+      S.rMit.push({ m:m, nahm:null, menge:0, feld:null });
+    }
+  });
+}
+
+/* ============================================================ Rundenschritt ===
+   Die Reihenfolge ist eine Aussage: erst die anderen, dann der Abend
+   (Bedarf, Verderb), dann die Nacht, und ERST DANN wächst etwas nach.
+   Der Frost kann darum die Erneuerung verhindern, ohne eine Sonderregel. */
+function rundeWeiter(){
+  if (S.vorbei) return;
+
+  mitnutzerZug();
+
+  /* Bedarf: erst der heutige Ertrag, dann der Vorrat. */
+  var b = epoche().bedarf;
+  S.vorrat += S.rIhr - b;
+  var hungrig = S.vorrat < 0;
+  if (hungrig){ S.hunger++; S.vorrat = 0; }
+
+  /* Verderb (v2): der Speicher hat eine Grenze. Was darüber liegt, hält
+     die Nacht nicht — Horten ist damit sichtbar sinnlos, ohne dass an der
+     Naturregel gedreht wird. Die Darre hebt die Grenze, nicht den Ertrag. */
+  var verdorben = Math.max(0, S.vorrat - speicher());
+  if (verdorben > 0){ S.vorrat -= verdorben; S.verdorben += verdorben; }
+
+  /* Die Nacht (v2): eine Karte, gesät. Sie läuft vor der Erneuerung. */
+  var karte = naechteWahl();
+  var satz = karte.wirkt();
+  S.nacht = { karte:karte, satz:satz };
+
+  /* Erneuerung — die eine Regel, in jeder Epoche dieselbe:
+     reich/genutzt wächst nach, dünn nur manchmal, erschöpft nie. */
+  var erholt = 0;
+  if (!karte.kein_wachstum){
+    S.felder.forEach(function(f){
+      if (f.stand >= VOLL || f.stand === 0) return;
+      if (f.stand >= 2){ f.stand++; erholt++; }
+      else if (rnd() < 0.5){ f.stand++; erholt++; }
+    });
+  }
+
+  var mitSumme = S.rMit.reduce(function(s, x){ return s + x.menge; }, 0);
+  S.chronik.unshift('<b>R' + S.runde + '</b> — ihr nahmt ' + S.rIhr +
+    (mitSumme ? ' · die anderen nahmen ' + mitSumme : '') +
+    ' · ' + erholt + ' erholt' +
+    (verdorben ? ' · <b>' + verdorben + ' verdorben</b>' : '') +
+    (hungrig ? ' · <b>Hungerwinter</b>' : '') +
+    ' · <i>' + karte.nm + '</i>');
+
+  S.entKurve.push(S.rIhr + mitSumme);
+  S.kurve.push(gesamt());
+  S.rIhr = 0; S.runde++;
+
+  if (S.runde > P.runden){ epochenEnde(); return; }
+  S.taps = epoche().technik;
+  zeichneAlles();
+}
+
+/* Die Darre (v2, aus `hearth-band`s drying rack): der Abend, der etwas
+   Bleibendes herstellt. Sie hebt die Speichergrenze um 2 und kostet 2
+   Vorrat — man muss also etwas übrig haben, um mehr behalten zu können. */
+function darreBauen(){
+  if (S.darre || S.vorbei) return;
+  if (S.vorrat < 2){ SOT.toast('Dafür fehlt der Vorrat — zwei Lasten braucht es.'); return; }
+  S.vorrat -= 2; S.darre = true;
+  S.chronik.unshift('Ihr habt eine <b>Darre</b> gebaut: der Speicher hält jetzt <b>' +
+    speicher() + '</b>. Was bleibt, bleibt länger.');
+  zeichneAlles();
+}
+
+/* Die Allmendordnung (nur Epoche IV, belegt): bindet ALLE an die
+   Nachbar-Regel — vom Dünnen nimmt niemand, auch ihr nicht. Ihr Preis ist
+   nicht Menge, sondern Freiheit: was dünn ist, ist für euch tabu. */
+function ordnungBeschliessen(){
+  if (S.ordnung || !epoche().ordnung) return;
+  S.ordnung = true;
+  S.chronik.unshift('Ihr habt die <b>Allmendordnung</b> beschlossen: vom Dünnen ' +
+    'nimmt niemand mehr — auch ihr nicht.');
+  zeichneAlles();
+}
+
+/* ============================================================== Auswertung === */
+function epochenEnde(){
+  S.vorbei = true;
+  S.kurven.push({ ep:S.ep, nm:epoche().nm, kurve:S.kurve.slice(),
+                  entIhr:S.entIhr, entMit:S.entMit, hunger:S.hunger,
+                  verdorben:S.verdorben, ende:gesamt() });
+  zeichneAlles();
+  /* Im Botlauf geht es von selbst weiter — sonst wäre die Kampagnenkurve
+     (fünf Bilder nebeneinander) nur mit einem Klick erreichbar, und ein
+     Screenshot kann nicht klicken. */
+  if (P.auto && S.ep < 5) setTimeout(naechsteEpoche, 700);
+}
+
+/* Der Epochenschritt: die Narben gehen mit. Ein erschöpftes Feld beginnt
+   die nächste Epoche dünn — dieselbe Stelle, magerer Boden. */
+function naechsteEpoche(){
+  var narben = {};
+  S.felder.forEach(function(f){ narben[f.id] = f.stand; });
+  S.ep++;
+  epocheStart(narben);
+  zeichneAlles();
+  if (P.auto) autoLauf();
+}
+
+function urteil(ende){
+  var q = ende / (ORTE.length * VOLL);
+  if (q >= 0.7) return 'Die Allmende trägt weiter. Wer nach euch kommt, findet, was ihr fandet.';
+  if (q >= 0.4) return 'Die Allmende ist gezeichnet. Es geht — aber es geht von der Substanz.';
+  return 'Wer nach euch kommt, findet leeres Land. Die Rechnung zahlt die nächste Schicht.';
+}
+
+/* Kurvenbild: eine Achse (Bestandseinheiten), Linie = Bestand,
+   dünne Balken = Entnahme je Runde. Identität über direkte Beschriftung
+   in Textfarbe, nie über Farbe allein. */
+function kurvenSVG(k, entk, b, h, nackt){
+  var max = ORTE.length * VOLL, n = k.length;
+  var padL = nackt ? 2 : 26, padB = nackt ? 2 : 14, padT = 6, padR = nackt ? 2 : 62;
+  var iw = b - padL - padR, ih = h - padT - padB;
+  function X(i){ return padL + (n <= 1 ? 0 : i / (n - 1) * iw); }
+  function Y(v){ return padT + (1 - v / max) * ih; }
+  var s = '<svg viewBox="0 0 ' + b + ' ' + h + '" role="img" ' +
+          'aria-label="Bestand und Entnahme über die Runden">';
+  if (!nackt){
+    [0, max / 3, 2 * max / 3, max].forEach(function(v){
+      s += '<line x1="' + padL + '" y1="' + Y(v) + '" x2="' + (b - padR) + '" y2="' + Y(v) +
+           '" stroke="var(--line)" stroke-width="1"/>' +
+           '<text x="' + (padL - 4) + '" y="' + (Y(v) + 3) + '" text-anchor="end" ' +
+           'font-size="8" fill="var(--ink2)" font-family="var(--f-mono)">' + Math.round(v) + '</text>';
+    });
+  }
+  /* Entnahme je Runde: dünner Balken, mittig zwischen Runde i und i+1. */
+  var step = iw / Math.max(1, n - 1), bw = Math.min(10, Math.max(3, step - 2));
+  entk.forEach(function(v, i){
+    if (v <= 0) return;
+    s += '<rect x="' + (X(i) + step / 2 - bw / 2) + '" y="' + Y(v) + '" width="' + bw +
+         '" height="' + (Y(0) - Y(v)) + '" rx="2" fill="var(--ink2)" opacity=".6">' +
+         '<title>Runde ' + (i + 1) + ': ' + v + ' entnommen</title></rect>';
+  });
+  var pts = k.map(function(v, i){ return X(i).toFixed(1) + ',' + Y(v).toFixed(1); }).join(' ');
+  s += '<polyline points="' + pts + '" fill="none" stroke="var(--ember)" ' +
+       'stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  if (!nackt){
+    var lx = X(n - 1) + 4;
+    s += '<text x="' + lx + '" y="' + (Y(k[n - 1]) + 3) + '" font-size="8.5" ' +
+         'fill="var(--ink)" font-family="var(--f-mono)">Bestand</text>';
+    var em = 0; entk.forEach(function(v){ em = Math.max(em, v); });
+    s += '<text x="' + lx + '" y="' + (Y(em) + 3) + '" font-size="8.5" ' +
+         'fill="var(--ink2)" font-family="var(--f-mono)">Entnahme</text>';
+  }
+  return s + '</svg>';
+}
+
+function zeichneAuswertung(){
+  var p = SOT.$('ausw');
+  if (!S.vorbei){ p.classList.add('hid'); return; }
+  p.classList.remove('hid');
+  var ende = gesamt(), max = ORTE.length * VOLL;
+  var h = '<p class="kopf">AUSWERTUNG — EPOCHE ' + römisch(S.ep) + ' · ' + epoche().nm + '</p>' +
+    '<div class="diagramm">' + kurvenSVG(S.kurve, S.entKurve, 560, 130) + '</div>' +
+    '<table><tr><td>Eure Entnahme</td><td>' + S.entIhr + '</td></tr>' +
+    '<tr><td>Entnahme der anderen</td><td>' + S.entMit + '</td></tr>' +
+    '<tr><td>Verdorben im Speicher</td><td>' + S.verdorben + '</td></tr>' +
+    '<tr><td>Bestand am Ende</td><td>' + ende + ' / ' + max + '</td></tr>' +
+    '<tr><td>Hungerwinter</td><td>' + S.hunger + '</td></tr></table>' +
+    '<p class="urteil">' + urteil(ende) + '</p>';
+  if (S.ep < 5){
+    h += '<button class="primary wide" id="naechste">Weiter — ' +
+         EPOCHEN[S.ep].nm + '</button>';
+  } else {
+    h += '<p class="urteil"><b>Die Kampagne, in fünf Kurven.</b> Derselbe Loop, ' +
+         'dieselbe Natur — nur der Druck wuchs.</p><div class="kleinkurven">' +
+      S.kurven.map(function(K){
+        return '<figure>' + kurvenSVG(K.kurve, [], 90, 46, true) +
+               '<figcaption>' + römisch(K.ep) + '</figcaption></figure>';
+      }).join('') + '</div>';
+  }
+  p.innerHTML = h;
+  var nb = SOT.$('naechste');
+  if (nb) nb.onclick = naechsteEpoche;
+}
+
+/* ================================================================== Karte === */
+function fuellung(ch){
+  var T = { h:'--hang', f:'--flach', w:'--river', B:'--hang' };
+  if (ch === 'B') return 'color-mix(in srgb, var(--hang) 72%, var(--ink))';
+  return 'var(' + (T[ch] || '--flach') + ')';
+}
+function zeichneKarte(){
+  var gs = SOT.hex.gridSize(COLS, ROWS, HW, GAP);
+  var svg = '<svg viewBox="0 0 ' + gs.w.toFixed(0) + ' ' + gs.h.toFixed(0) + '" role="img" ' +
+            'aria-label="Talausschnitt mit neun Bestandsfeldern und den Feuern der Mitnutzer; ' +
+            'die Zeichendichte je Feld ist der Bestand">';
+  for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++){
+    var m = SOT.hex.center(c, r, HW, GAP);
+    svg += '<polygon points="' + SOT.hex.points(m.x, m.y, HW) + '" fill="' +
+           fuellung(GRUND[r].charAt(c)) + '" stroke="var(--line)" stroke-width="1" stroke-opacity=".35"/>';
+  }
+  S.felder.forEach(function(f){
+    var m = SOT.hex.center(f.c, f.r, HW, GAP), st = standVon(f.typ);
+    /* Erschöpft: das Feld selbst verblasst — die Karte trägt die Nachricht. */
+    if (f.stand === 0)
+      svg += '<polygon points="' + SOT.hex.points(m.x, m.y, HW) +
+             '" fill="var(--trocken)" opacity=".8"/>';
+    svg += '<polygon points="' + SOT.hex.points(m.x, m.y, HW) +
+           '" fill="transparent" stroke="var(--line)" stroke-width="1.5" data-feld="' + f.id + '">' +
+           '<title>' + st.nm + ' — ' + ['erschöpft','dünn','genutzt','reich'][f.stand] + '</title></polygon>';
+    /* Zeichendichte = Bestand: 3 reich · 2 genutzt · 1 dünn · 0 aus. */
+    var lag = [[[0,0]], [[-9,4],[9,4]], [[0,-8],[-10,7],[10,7]]][f.stand - 1] || [];
+    lag.forEach(function(d){
+      svg += '<g opacity=".9" pointer-events="none">' +
+             SOT.iconSVG(st.ico, m.x + d[0], m.y + d[1], f.stand === 1 ? 15 : 14) + '</g>';
+    });
+    if (f.stand > 0 && S.taps > 0 && !S.vorbei)
+      svg += '<circle class="punkt" cx="' + (m.x + HW * 0.30) + '" cy="' +
+             (m.y - HW * 0.34) + '" r="5"/>';
+  });
+  /* Die Feuer (v2): das eigene und jedes der Mitnutzer, an ihrem Ort. Erst
+     damit ist ablesbar, WARUM ein bestimmtes Feld leer läuft. */
+  function feuer(pos, ico, farbe){
+    var m = SOT.hex.center(pos.c, pos.r, HW, GAP);
+    svg += '<g pointer-events="none" style="color:' + farbe + '">' +
+           SOT.iconSVG(ico, m.x, m.y, 24) + '</g>';
+  }
+  feuer(LAGER, 'lager', 'var(--ember)');
+  epoche().mitnutzer.forEach(function(m){
+    feuer(m.feuer, m.ico, m.art === 'macht' ? 'var(--bad)' : 'var(--ink2)');
+  });
+  svg += '</svg>';
+  var k = SOT.$('karte');
+  k.innerHTML = svg;
+  k.querySelectorAll('[data-feld]').forEach(function(el){
+    el.onclick = function(){ tippe(el.dataset.feld); };
+  });
+}
+
+/* ================================================================== Panes === */
+function balken(n, max, klasse){
+  var h = '<div class="balken">';
+  for (var i = 0; i < max; i++)
+    h += '<i class="' + (i < n ? (klasse || 'an') : '') + '"></i>';
+  return h + '</div>';
+}
+function zeichneLager(){
+  var e = epoche(), sp = speicher();
+  var h =
+    '<div class="lz">' + SOT.icon('lauf') +
+      '<span class="nm">Entnahme heute</span>' + balken(S.taps, e.technik) + '</div>' +
+    '<div class="lz">' + SOT.icon('nahrung') +
+      '<span class="nm">Bedarf am Abend</span><b>' + e.bedarf + '</b></div>' +
+    /* Der Speicher als Reihe: voll heisst „ab hier verdirbt es" — eine
+       Grenze liest man als Balken, nicht als Bruch „3/4". */
+    '<div class="lz' + (S.vorrat === 0 ? ' not' : '') + '">' + SOT.icon('vorrat') +
+      '<span class="nm">Vorrat im Speicher</span>' +
+      balken(S.vorrat, sp, S.vorrat >= sp ? 'voll' : 'an') + '</div>';
+  if (S.darre)
+    h += '<div class="lz">' + SOT.icon('herstellen') +
+         '<span class="nm">Darre</span><b>+2 Speicher</b></div>';
+  if (S.verdorben)
+    h += '<div class="lz not">' + SOT.icon('loeschen') +
+         '<span class="nm">verdorben</span><b>' + S.verdorben + '</b></div>';
+  if (S.hunger)
+    h += '<div class="lz not">' + SOT.icon('frost') +
+         '<span class="nm">Hungerwinter</span><b>' + S.hunger + '</b></div>';
+  SOT.$('lager').innerHTML = h;
+}
+function zeichneNacht(){
+  var p = SOT.$('nacht');
+  if (!S.nacht){ p.innerHTML = '<p class="hint">noch keine Nacht vergangen</p>'; return; }
+  p.innerHTML = '<div class="nacht ' + S.nacht.karte.ton + '">' +
+    SOT.icon(S.nacht.karte.ico) + '<span><b>' + S.nacht.karte.nm + '.</b> ' +
+    S.nacht.satz + '</span></div>';
+}
+function zeichneMitnutzer(){
+  var e = epoche(), h = '';
+  if (!e.mitnutzer.length)
+    h = '<p class="hint">Niemand. Der Bestand wirkt unendlich — noch.</p>';
+  e.mitnutzer.forEach(function(m, i){
+    var tat = S.rMit[i];
+    var gebunden = S.ordnung && m.art === 'gier';
+    h += '<div class="mit' + (m.art === 'macht' ? ' hart' : '') + '">' +
+         SOT.icon(m.ico) +
+         '<div class="nm"><b>' + m.nm + '</b><span>' +
+         (gebunden ? 'an die Ordnung gebunden' : m.satz) + '</span></div>' +
+         '<div class="tat">' + (tat ? (tat.nahm ? 'nahm: ' + tat.nahm : 'fand nichts') : '—') +
+         '</div></div>';
+  });
+  SOT.$('mitnutzer').innerHTML = h;
+}
+function zeichneRechnung(){
+  var e = epoche();
+  var h =
+    '<div class="regel"><div class="zug">stand≥2 → +1</div>' +
+      '<div class="warum">Reiches und Genutztes wächst jede Runde nach.</div></div>' +
+    '<div class="regel"><div class="zug">stand=1 → +1 (50%)</div>' +
+      '<div class="warum">Dünnes erholt sich nur manchmal — der Würfel, nicht ihr.</div></div>' +
+    '<div class="regel"><div class="zug">stand=0 → nie</div>' +
+      '<div class="warum">Erschöpftes kommt in dieser Epoche nicht wieder; in die nächste geht es als Narbe (beginnt dünn).</div></div>' +
+    '<div class="regel"><div class="zug">Speicher ' + speicher() + '</div>' +
+      '<div class="warum">Was darüber liegt, verdirbt über Nacht. Die Darre hebt die Grenze, nicht den Ertrag.</div></div>' +
+    '<div class="regel"><div class="zug">Feuer → nächstes Feld</div>' +
+      '<div class="warum">Jeder Mitnutzer nimmt beim nächsten geeigneten Feld seines Feuers. Darum leert sich, was zwischen zwei Feuern liegt.</div></div>' +
+    '<div class="regel"><div class="zug">Druck: ' + e.technik + '+' +
+      e.mitnutzer.reduce(function(s, m){ return s + (m.menge || 1); }, 0) +
+      ' / Bedarf ' + e.bedarf + '</div>' +
+      '<div class="warum">Was je Epoche wächst: Technik, Mitnutzer, Bedarf. Die Regel der Natur bleibt.</div></div>' +
+    '<div class="regel"><div class="zug">Nacht</div>' +
+      '<div class="warum">' + NAECHTE.map(function(n){ return n.nm; }).join(' · ') +
+      ' — gesät, vor der Erneuerung. Wölfe und Flut lesen den Zustand des Lagers.</div></div>' +
+    '<div class="regel"><div class="zug">Beleg</div><div class="warum">' +
+      e.staende.map(function(s){ return s.nm + ': ' + s.beleg; }).join(' · ') +
+      '. Historisch inspiriert und vereinfacht.</div></div>';
+  SOT.$('rechnung').innerHTML = h;
+}
+function zeichneChronik(){
+  SOT.$('chronik').innerHTML = S.chronik.length
+    ? S.chronik.map(function(z){ return '<p class="chz">' + z + '</p>'; }).join('')
+    : '<p class="hint">noch keine Runde vergangen</p>';
+}
+
+function zeichneAlles(){
+  SOT.$('epLabel').textContent = 'EPOCHE ' + römisch(S.ep) + ' · ' + epoche().nm;
+  SOT.$('rdLabel').textContent = S.vorbei
+    ? 'Epoche zu Ende' : 'Runde ' + S.runde + '/' + P.runden;
+  SOT.$('weiter').disabled = S.vorbei;
+  SOT.$('darre').classList.toggle('hid', S.darre || S.vorbei);
+  SOT.$('darre').disabled = S.vorrat < 2;
+  var ob = SOT.$('ordnung');
+  ob.classList.toggle('hid', !epoche().ordnung || S.ordnung || S.vorbei);
+  SOT.$('hinweis').textContent = S.vorbei
+    ? 'Die Auswertung steht über der Karte.'
+    : (S.taps > 0
+        ? S.taps + ' Entnahme' + (S.taps === 1 ? '' : 'n') + ' übrig — die Punkte zeigen, wo.'
+        : 'Nichts mehr zu entscheiden — nur die Runde kann weiter.');
+  zeichneKarte(); zeichneLager(); zeichneNacht(); zeichneMitnutzer();
+  zeichneRechnung(); zeichneChronik(); zeichneAuswertung();
+}
+
+/* ==================================================================== Bot ===
+   ?auto=gier    nimmt jede Runde das Maximum vom Vollsten (die Tragik)
+   ?auto=mass    nur vom Reichen, nie mehr als der Bedarf braucht (die Einsicht)
+   ?auto=ordnung wie mass, beschliesst aber in Runde 1 die Allmendordnung —
+                 der zweite Durchgang des Fischteich-Experiments, in dem
+                 dieselbe Lage MIT Regel gespielt wird. Nur so lässt sich
+                 messen, ob die Institution etwas trägt oder bloss kostet. */
+function botZug(){
+  var masshaltend = P.auto === 'mass' || P.auto === 'ordnung';
+  if (P.auto === 'ordnung' && !S.ordnung && epoche().ordnung) ordnungBeschliessen();
+  if (masshaltend && !S.darre && S.vorrat >= 2) darreBauen();
+  while (S.taps > 0){
+    var wahl = null, schwelle = masshaltend ? VOLL : (S.ordnung ? 2 : 1);
+    S.felder.forEach(function(f){
+      if (f.stand >= schwelle && (!wahl || f.stand > wahl.stand)) wahl = f;
+    });
+    if (!wahl) break;
+    if (masshaltend && S.rIhr >= epoche().bedarf) break;
+    wahl.stand--; S.taps--; S.entIhr++; S.rIhr++;
+  }
+  rundeWeiter();
+}
+function autoLauf(){
+  if (S.vorbei) return;
+  botZug();
+  if (!S.vorbei) setTimeout(autoLauf, 150);
+}
+
+/* ================================================================== Start === */
+epocheStart(null);
+zeichneAlles();
+SOT.$('weiter').onclick = rundeWeiter;
+SOT.$('darre').onclick = darreBauen;
+SOT.$('ordnung').onclick = ordnungBeschliessen;
+if (P.auto) autoLauf();
+
+SOT.debug(P);
+SOT.regler(P);
+</script>
+</body>
+</html>

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kamera-Labor — Kippwinkel, Drehwinkel, Projektion</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<link rel="stylesheet" href="../kit/sot-hex.css">
+<style>
+  /* Nur was dieser Prototyp allein braucht. Kommt zuletzt, gewinnt darum.
+
+     Werkstatt-Prüfstand, kein Ort der Welt: es geht um die KAMERA, nicht um
+     ein Gelände. Das Hexraster ist nur die Testkarte, an der sich Kippwinkel,
+     Drehwinkel und Projektion ablesen lassen. */
+
+  /* --- Palette: die "neolithische" Warmtönung aus hex-valley.html ----------
+     Keine eigene Farbsprache — dieselben Baukasten-Namen, nur andere Werte,
+     darum färbt es Knöpfe, Reiter, Reglerbrett und Debugstrip gleich mit um.
+     hex-valley malt jede Kachel fest in dieser Palette (Papier-/Lehmtöne,
+     Flussblau, Gras-/Sandgrün); hier tragen dieselben Töne die STUFEN
+     (--river/--ufer/--flach/--kies/--hang/--trocken), damit das Ergebnis
+     nach derselben Fundstelle aussieht statt nur denselben Kippwinkel zu
+     teilen. */
+  :root{
+    --bg:#ece0c8; --panel:#f6efdd; --panel2:#efe4ca;
+    --ink:#3a2f21; --ink2:#7b6a51; --line:#d8c9a8; --bone:#f2e6c4;
+    --shadow:0 2px 10px rgba(60,45,20,.16);
+
+    --ember:#c9752e; --emberglow:rgba(201,117,46,.22); --on-ember:#fff;
+    --glutkern:#fff2d9;
+
+    --good:#3f7a3f; --bad:#a23f30; --warn:#b3862c;
+
+    --river:#4e9fd6; --riverdeep:#3a7fae; --lake:#6fb8dd; --on-river:#173042;
+    --flach:#8dbf68; --ufer:#bcd08f; --hang:#8f8264; --wald:#3f7a3f;
+    --kies:#d8bd7e; --trocken:#a6906a; --brand:#6b4a2b; --rom:#a3543c;
+  }
+
+  .wrap{max-width:1200px;}
+  .lay2{display:grid;grid-template-columns:280px minmax(320px,1fr);gap:16px;align-items:start;}
+  @media(max-width:860px){.lay2{grid-template-columns:1fr;}}
+
+  h3{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);
+     margin:14px 0 6px;font-weight:600;}
+  h3:first-child{margin-top:2px;}
+
+  /* --- Kippwinkel / Drehwinkel: die eigentliche Kamerabedienung ------------ */
+  .stepper{display:flex;align-items:center;gap:6px;}
+  .stepper button{flex:none;font-family:var(--f-mono);font-size:13px;padding:6px 9px;}
+  .stepper .wert{flex:1;text-align:center;font-family:var(--f-mono);font-size:19px;
+                 font-weight:700;font-variant-numeric:tabular-nums;}
+  .stepper .wert small{display:block;font-family:inherit;font-size:9px;font-weight:400;
+                 letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);}
+
+  #distanzfeld label{display:flex;justify-content:space-between;gap:8px;}
+  #distanzfeld label .wert{font-family:var(--f-mono);color:var(--ember);text-transform:none;letter-spacing:0;}
+
+  /* --- Voreinstellungen ----------------------------------------------------- */
+  .voreinst{display:flex;flex-wrap:wrap;gap:5px;}
+  .voreinst button{font-size:10px;padding:5px 8px;}
+
+  /* --- Die Bühne: der Raum, in dem die Karte steht -------------------------- */
+  .buehnewrap{background:linear-gradient(to bottom, var(--panel) 0%, var(--panel) 42%, var(--panel2) 42%, var(--panel2) 100%);
+              border:1px solid var(--line);border-radius:var(--r-md);
+              overflow:hidden;position:relative;height:min(72vh,620px);
+              display:flex;align-items:center;justify-content:center;}
+  .buehne{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
+  .rig{transition:transform .18s ease-out;}
+  .boden{position:absolute;width:220%;height:220%;
+         background-image:
+           repeating-linear-gradient(0deg, var(--line) 0 1px, transparent 1px 42px),
+           repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 42px);
+         opacity:.5;}
+  .map{position:relative;z-index:1;}
+
+  .kennzeichen{position:absolute;top:10px;left:12px;z-index:2;font-family:var(--f-mono);
+               font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);
+               background:var(--panel);border:1px solid var(--line);border-radius:var(--r-sm);
+               padding:4px 8px;pointer-events:none;}
+  .kennzeichen b{color:var(--ink);font-weight:700;}
+
+  .hinweis{margin-top:8px;}
+
+  /* --- Terrain: sieben Höhenstufen, echt extrudiert ------------------------
+     Die Kamera allein zeigt an einer flachen Fläche wenig — erst ein
+     Gelände mit WIRKLICHER Höhe (translateZ, kein gemaltes Relief) macht
+     Kipp- und Drehwinkel lesbar. Jede Stufe hebt .cell um --n Einheiten
+     à --stufe Pixel; preserve-3d muss die ganze Kette tragen, sonst flacht
+     jede Ebene die Tiefe ihrer Kinder wieder ab.
+
+     Die Wand (.wand) ist eine EINZELNE stehende Fläche pro exponierter
+     Kante — kein Stapel flacher Kacheln: die erste Fassung stapelte pro
+     Stufe eine flache Kopie der Hex-Fläche übereinander, und aus flachem
+     Blickwinkel (Drehen um einen Berg, genau der Fall hier) klaffen
+     zwischen den Kacheln Lücken wie ein Lamellenvorhang — eine Fläche ohne
+     eigene Tiefe kann eine Strecke im Raum nicht ausfüllen, nur an einem
+     Punkt stehen. Eine stehende Wand mit echter CSS-`height` hat keine
+     Lücken, in keinem Winkel. Nachbarvergleich (baueWaende) zeichnet sie
+     nur dort, wo der Nachbar niedriger ist, und nur so hoch wie der
+     Unterschied — sonst verschwänden gleich hohe Berge unter eigenen
+     Klippen, und am Kartenrand stünde eine Wand bis auf den Meeresgrund. */
+  .rig, .map, .hexrow, .cell{transform-style:preserve-3d;}
+  .cell{transform:translateZ(calc(var(--n,0) * var(--stufe,0px)));}
+  .wand{position:absolute;transform-origin:50% 0%;width:calc(var(--hexw) / 1.7320508);}
+  /* Sechs Kantenrichtungen (E·SE·SW·W·NW·NE), Mitte aus SOT.hex.EDGE_MID,
+     Drehwinkel = radiale Kantenrichtung − 90° (rotateX kippt die Fläche
+     erst auf die Normalenrichtung 90°/Süden, rotateZ schwenkt von dort). */
+  .wand.E {left:100%;top:50%;   transform:translate(-50%,0) rotateZ(-90deg) rotateX(-90deg);}
+  .wand.SE{left:75%; top:87.5%; transform:translate(-50%,0) rotateZ(-30deg) rotateX(-90deg);}
+  .wand.SW{left:25%; top:87.5%; transform:translate(-50%,0) rotateZ(30deg)  rotateX(-90deg);}
+  .wand.W {left:0%;  top:50%;   transform:translate(-50%,0) rotateZ(90deg)  rotateX(-90deg);}
+  .wand.NW{left:25%; top:12.5%; transform:translate(-50%,0) rotateZ(150deg) rotateX(-90deg);}
+  .wand.NE{left:75%; top:12.5%; transform:translate(-50%,0) rotateZ(210deg) rotateX(-90deg);}
+
+  /* Sonne, Glanz, Kontrast und Schatten sind Parameter (siehe SOT.params
+     unten) — die Farben selbst kommen darum aus JS (wandFarbe/glanzCss/
+     schattenCss), nicht aus fixen Klassen wie in der ersten Fassung. Die
+     Sonne ist eine WELT-Richtung, kein Bildschirm-Winkel — bleibt darum
+     beim Drehen korrekt, anders als hex-valley's fest gemalte Kachel-
+     Schattierung, die nur aus EINER Kamerastellung stimmt.
+
+     z-index:1 auf .glanz/.schatten ist keine Kosmetik: .cell::after (die
+     Geländefläche) hat z-index:auto und gilt als "letztes Kind" der
+     Erzeugten-Inhalt-Reihenfolge — ohne einen EXPLIZITEN Wert läge die
+     Geländefläche darüber und beide Ebenen wären unsichtbar. .glyph aus
+     dem Baukasten steht schon auf z-index:2, darum bleiben Marken über
+     ihrem Schatten. */
+  .glanz{position:absolute;inset:1.5px;z-index:1;pointer-events:none;
+         clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);}
+  body.night .glanz{opacity:.45;}
+  .schatten{position:absolute;left:50%;bottom:14%;width:56%;height:22%;z-index:1;
+            transform:translate(-50%,0);border-radius:50%;pointer-events:none;}
+
+  .h0{--fill:var(--river);--edge:var(--riverdeep);}
+  .h1{--fill:var(--ufer);--edge:var(--hang);}
+  .h2{--fill:var(--flach);--edge:var(--hang);}
+  .h3{--fill:var(--kies);--edge:var(--trocken);}
+  .h4{--fill:var(--hang);--edge:var(--trocken);}
+  .h5{--fill:var(--trocken);--edge:color-mix(in srgb, var(--trocken) 70%, black 25%);}
+  .h6{--fill:color-mix(in srgb, var(--glutkern) 65%, var(--hang) 35%);
+      --edge:color-mix(in srgb, var(--glutkern) 40%, var(--bone) 60%);}
+  .cell.h3::after{background-image:repeating-linear-gradient(135deg,transparent 0 5px,rgba(90,107,100,.14) 5px 7px);}
+  .cell.h4::after{background-image:repeating-linear-gradient(125deg,transparent 0 4px,rgba(60,72,66,.20) 4px 8px);}
+  .cell.h5::after{background-image:repeating-linear-gradient(115deg,transparent 0 3px,rgba(40,48,44,.26) 3px 6px);}
+
+  /* --- Legende -------------------------------------------------------------- */
+  .legende{display:flex;flex-direction:column;gap:4px;margin-top:4px;}
+  .lz2{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ink2);}
+  .lz2 i{width:14px;height:12px;flex:none;border-radius:2px;border:1px solid var(--line);
+         background:var(--fill);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="appbar ruled">
+    <div class="brand">KAMERA-LABOR<small>Kippwinkel · Drehwinkel · Projektion am Hexraster</small></div>
+  </header>
+
+  <p class="note" style="margin:10px 0 14px;">
+    Wie sieht das Hexraster aus jeder Kamerastellung aus? Kippwinkel und
+    Drehwinkel bewegen sich in 5°-Schritten — Pfeiltasten gehen auch. Isometrisch
+    ist die echte Parallelprojektion (keine CSS-<code>perspective</code>), perspektivisch
+    hat einen einstellbaren Fluchtpunkt. Das Testfeld trägt ein Höhenmodell mit
+    sieben Stufen (Wasser bis Eis) — jede Stufe hebt das Feld wirklich an
+    (<code>translateZ</code>), damit Kipp- und Drehwinkel etwas zu zeigen haben.
+  </p>
+
+  <div class="lay2">
+    <div class="pane">
+      <h3>Kippwinkel</h3>
+      <div class="stepper">
+        <button id="kippMinus" title="Pfeil ↑">−5°</button>
+        <div class="wert"><span id="kippWert">40°</span><small>0° Draufsicht · 85° Horizont</small></div>
+        <button id="kippPlus" title="Pfeil ↓">+5°</button>
+      </div>
+
+      <h3>Drehwinkel</h3>
+      <div class="stepper">
+        <button id="drehMinus" title="Pfeil ←">−5°</button>
+        <div class="wert"><span id="drehWert">0°</span><small>Kompass um die Hochachse</small></div>
+        <button id="drehPlus" title="Pfeil →">+5°</button>
+      </div>
+
+      <h3>Projektion</h3>
+      <div class="seg" id="modusSeg">
+        <button data-modus="perspektivisch">Perspektivisch</button>
+        <button data-modus="isometrisch">Isometrisch</button>
+      </div>
+      <div class="field" id="distanzfeld" style="margin-top:8px;">
+        <label><span>Bildweite</span><span class="wert" id="distanzWert"></span></label>
+        <input type="range" id="distanz" min="300" max="2200" step="50">
+        <small class="note">kleiner = stärkerer Fluchtpunkt</small>
+      </div>
+
+      <h3>Voreinstellungen</h3>
+      <div class="voreinst">
+        <button data-preset="draufsicht">Draufsicht</button>
+        <button data-preset="brett">Spielbrett</button>
+        <button data-preset="isometrie">Klass. Isometrie</button>
+        <button data-preset="horizont">Horizont</button>
+      </div>
+
+      <div class="ctrl" style="margin-top:14px;">
+        <button id="reset" class="ghost small">Kamera zurücksetzen</button>
+      </div>
+
+      <h3>Höhenstufen</h3>
+      <div class="legende">
+        <div class="lz2"><i class="h0"></i>Wasser</div>
+        <div class="lz2"><i class="h1"></i>Ufer</div>
+        <div class="lz2"><i class="h2"></i>Grasland</div>
+        <div class="lz2"><i class="h3"></i>Sanfter Hügel</div>
+        <div class="lz2"><i class="h4"></i>Steiler Hügel</div>
+        <div class="lz2"><i class="h5"></i>Berg</div>
+        <div class="lz2"><i class="h6"></i>Eis</div>
+      </div>
+
+      <p class="note hinweis">
+        Testfeld (Grösse, Relief, Sonnenrichtung, Glanz, Kontrast, Schatten)
+        im Reglerbrett rechts — Griff am Rand, oder <code>?regler</code>.
+      </p>
+    </div>
+
+    <div class="buehnewrap">
+      <div class="kennzeichen"><b id="modusKz">Perspektivisch</b> · Kipp <span id="kippKz">40°</span> · Dreh <span id="drehKz">0°</span></div>
+      <div class="buehne" id="buehne">
+        <div class="rig" id="rig">
+          <div class="boden"></div>
+          <div class="map" id="map"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../kit/sot.js"></script>
+<script src="../kit/sot-icons.js"></script>
+<script src="../kit/sot-hex.js"></script>
+<script>
+var P = SOT.params({
+  kipp:    { t:'int', def:40, min:0, max:85, step:5, versteckt:true, help:'Kippwinkel der Kamera — 0° von oben, 85° fast am Horizont' },
+  dreh:    { t:'int', def:0, min:0, max:355, step:5, versteckt:true, help:'Drehwinkel um die Hochachse (Kompass), 0–355°' },
+  modus:   { t:'enum', values:['perspektivisch','isometrisch'], def:'perspektivisch', versteckt:true, help:'Projektion: mit Fluchtpunkt oder echte Parallelprojektion' },
+  distanz: { t:'int', def:900, min:300, max:2200, step:50, versteckt:true, help:'Bildweite (CSS perspective) — nur bei perspektivisch' },
+  cols:    { t:'int', def:11, min:6, max:18, help:'Spalten des Testfelds' },
+  rows:    { t:'int', def:15, min:8, max:24, help:'Zeilen des Testfelds' },
+  seed:    { t:'int', def:1, help:'Zufallssaat des Geländes' },
+  stufe:   { t:'int', def:14, min:0, max:32, step:2, help:'Höhe pro Stufe in Pixel — 0 macht die Karte wieder flach' },
+  luecke:  { t:'int', def:4, min:0, max:20, help:'Abstand zwischen den Feldern in Pixel' },
+  berge:   { t:'int', def:100, min:0, max:200, step:10, help:'Stärke der Gipfelbeulen in % — 0 macht das Testfeld flach' },
+  seen:    { t:'int', def:100, min:0, max:200, step:10, help:'Stärke der Seebeulen in % — 0 lässt Seen weg' },
+  sonne:   { t:'enum', values:['E','SE','SW','W','NW','NE'], def:'NW', help:'Richtung des festen Sonnenlichts (Welt-Kompass, nicht die Kamera)' },
+  glanz:   { t:'int', def:22, min:0, max:60, help:'Stärke des Glanzlichts auf der Kachel-Oberseite' },
+  kontrast:{ t:'int', def:23, min:0, max:45, help:'Licht/Schatten-Spanne der Klippenwände' },
+  schatten:{ t:'int', def:32, min:0, max:70, help:'Stärke des Kontaktschattens unter Marken' }
+});
+
+var buehne = SOT.$('#buehne');
+var rig = SOT.$('#rig');
+var STUFEN = ['h0', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'];   // Wasser … Eis
+
+/* ---------------------------------------------------------------- Höhe ---
+   Ein Höhenwert je Feld aus wenigen Gipfeln (positive Beulen) und ein oder
+   zwei Seen (negative Beulen) über einer Grasland-Grundlinie — Entfernung
+   in HEX-Schritten (SOT.hex.dist), nicht Pixel, damit es zum Raster passt.
+   Kein Perlin-Rauschen, aber genug Streuung für ein glaubwürdiges Relief.
+   bergFaktor/seeFaktor (aus P.berge/P.seen, in %) skalieren die Amplitude
+   — bei 0 trägt die jeweilige Beule nichts mehr bei. */
+function hoeheGenerator(cols, rows, rnd, bergFaktor, seeFaktor) {
+  function beule(n, ampMin, ampMax, radMin, radMax, faktor) {
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      out.push({
+        c: rnd() * cols, r: rnd() * rows,
+        amp: (ampMin + rnd() * (ampMax - ampMin)) * faktor,
+        rad: radMin + rnd() * (radMax - radMin)
+      });
+    }
+    return out;
+  }
+  var gipfel = beule(2 + Math.floor(rnd() * 2), .40, .80, 4, 7, bergFaktor);
+  var seen = beule(1, .35, .55, 2, 3.5, seeFaktor);
+
+  return function (c, r) {
+    var h = .26;
+    gipfel.forEach(function (g) {
+      var d = SOT.hex.dist({ c: c, r: r }, { c: Math.round(g.c), r: Math.round(g.r) });
+      h += g.amp * Math.pow(Math.max(0, 1 - d / g.rad), 1.6);
+    });
+    seen.forEach(function (s) {
+      var d = SOT.hex.dist({ c: c, r: r }, { c: Math.round(s.c), r: Math.round(s.r) });
+      h -= s.amp * Math.pow(Math.max(0, 1 - d / s.rad), 1.6);
+    });
+    h += (rnd() - .5) * .05;
+    return h;
+  };
+}
+// Sieben Stufen (0 Wasser … 6 Eis), Schwellen so gesetzt, dass Wasser/Eis
+// selten bleiben und die drei Mittelstufen den Grossteil des Feldes tragen.
+var SCHWELLEN = [.14, .24, .46, .62, .78, .92];
+function stufeVon(h) {
+  for (var i = 0; i < SCHWELLEN.length; i++) if (h < SCHWELLEN[i]) return i;
+  return SCHWELLEN.length;
+}
+
+/* --------------------------------------------------------- Licht --------
+   Eine feste Sonne aus P.sonne (Welt-Richtung, kein Bildschirm-Winkel) —
+   bleibt darum beim Drehen korrekt, anders als hex-valley's fest gemalte
+   Kachel-Schattierung, die nur aus EINER Kamerastellung stimmt. lit(dir)
+   ist der Kosinus zwischen einer Wandrichtung und der Sonnenrichtung:
+   +1 = direkt zugewandt (hell), −1 = direkt abgewandt (dunkel). */
+var WALL_ANGLE = { E: 0, SE: 60, SW: 120, W: 180, NW: 240, NE: 300 };
+function wandFarbe(dir) {
+  var lit = Math.cos((WALL_ANGLE[dir] - WALL_ANGLE[P.sonne]) * Math.PI / 180);
+  var oben = Math.max(10, Math.min(96, 65 + P.kontrast * lit));
+  var unten = Math.max(6, Math.min(90, oben - 24));
+  return 'linear-gradient(to bottom, color-mix(in srgb, var(--hang) ' + oben.toFixed(1) + '%, black), ' +
+                                     'color-mix(in srgb, var(--hang) ' + unten.toFixed(1) + '%, black))';
+}
+// Dasselbe Licht auf der flachen Kachel-Oberseite: ein weiches Glanzlicht
+// zur sonnenzugewandten Ecke hin (SOT.hex.EDGE_MID), keine Bildschirm-
+// Vignette — wandert also mit, wenn sich die Karte dreht.
+function glanzCss() {
+  var pos = SOT.hex.EDGE_MID[P.sonne];
+  return 'radial-gradient(ellipse 65% 55% at ' + pos[0] + '% ' + pos[1] + '%, ' +
+         'rgba(255,255,255,' + (P.glanz / 100).toFixed(2) + '), transparent 68%)';
+}
+function schattenCss() {
+  return 'radial-gradient(ellipse, rgba(0,0,0,' + (P.schatten / 100).toFixed(2) + '), transparent 72%)';
+}
+
+/* Wände nur an Kanten zu einem NIEDRIGEREN Nachbarn, und nur so hoch wie
+   der Unterschied — eine Karte ausserhalb gilt als Stufe 0 (Meeresgrund),
+   damit der Kartenrand nicht wie eine schwebende Insel wirkt. */
+function baueWaende(cell, c, r, n, stufen, cols, rows, stufePx) {
+  if (n <= 0 || !stufePx) return;
+  SOT.hex.DIRS.forEach(function (dir) {
+    var nb = SOT.hex.neighbor(c, r, dir);
+    var nbH = (nb.c >= 0 && nb.r >= 0 && nb.c < cols && nb.r < rows) ? stufen[nb.r][nb.c] : 0;
+    if (nbH >= n) return;
+    cell.appendChild(SOT.el('div.wand.' + dir, {
+      style: { height: ((n - nbH) * stufePx) + 'px', background: wandFarbe(dir) }
+    }));
+  });
+}
+
+/* ---------------------------------------------------------- Testgelände --- */
+function baueGelaende() {
+  var rnd = SOT.rng(P.seed);
+  var hoehe = hoeheGenerator(P.cols, P.rows, rnd, P.berge / 100, P.seen / 100);
+
+  // Erst die ganze Höhenkarte, dann erst das Raster bauen — die Wände
+  // brauchen die Stufe JEDES Nachbarn, auch die noch ungebauter Zeilen.
+  var stufen = [];
+  for (var r = 0; r < P.rows; r++) {
+    stufen[r] = [];
+    for (var c = 0; c < P.cols; c++) stufen[r][c] = stufeVon(hoehe(c, r));
+  }
+
+  SOT.$('#map').style.setProperty('--stufe', P.stufe + 'px');
+  SOT.$('#map').style.setProperty('--hexgap', P.luecke + 'px');
+  SOT.hex.grid('map', P.cols, P.rows, function (cell, c, r) {
+    var n = stufen[r][c];
+    cell.classList.add(STUFEN[n]);
+    cell.style.setProperty('--n', n);
+    cell.appendChild(SOT.el('div.glanz', { style: { background: glanzCss() } }));
+    baueWaende(cell, c, r, n, stufen, P.cols, P.rows, P.stufe);
+  });
+  SOT.hex.autosize('map', P.cols);
+
+  /* ein paar Marken auf Grasland — die Probe, ob SVG-Icons auch auf einer
+     erhöhten, schräg gesehenen Kachel noch lesbar bleiben. */
+  var plaetze = [];
+  for (var r = 0; r < P.rows; r++) for (var c = 0; c < P.cols; c++) {
+    if (stufen[r][c] === 2) plaetze.push([c, r]);
+  }
+  [plaetze[Math.floor(plaetze.length * .15)], plaetze[Math.floor(plaetze.length * .55)],
+   plaetze[Math.floor(plaetze.length * .85)]].forEach(function (p, i) {
+    if (!p) return;
+    var cell = SOT.hex.cellAt('map', p[0], p[1]);
+    if (!cell) return;
+    cell.appendChild(SOT.el('div.schatten', { style: { background: schattenCss() } }));
+    cell.appendChild(SOT.iconEl(i === 1 ? 'jaeger' : 'lager', 'glyph'));
+  });
+}
+baueGelaende();
+
+/* -------------------------------------------------------------- Kamera ---
+   Reihenfolge zählt: rotateZ (Dreh, um die WELT-Hochachse) aussen,
+   rotateX (Kipp, in der schon gedrehten lokalen Ebene) innen — damit
+   bleibt der Kippwinkel beim Drehen stehen, statt um die eigene Flächen-
+   normale zu kreiseln. */
+function anwenden() {
+  rig.style.transform = 'rotateZ(' + P.dreh + 'deg) rotateX(' + P.kipp + 'deg)';
+  buehne.style.perspective = P.modus === 'perspektivisch' ? (P.distanz + 'px') : 'none';
+
+  SOT.$('#kippWert').textContent = P.kipp + '°';
+  SOT.$('#drehWert').textContent = P.dreh + '°';
+  SOT.$('#kippKz').textContent = P.kipp + '°';
+  SOT.$('#drehKz').textContent = P.dreh + '°';
+  SOT.$('#modusKz').textContent = P.modus === 'perspektivisch' ? 'Perspektivisch' : 'Isometrisch';
+  SOT.$('#distanzWert').textContent = P.distanz + 'px';
+  SOT.$('#distanz').value = P.distanz;
+  SOT.$('#distanzfeld').classList.toggle('hid', P.modus !== 'perspektivisch');
+
+  document.querySelectorAll('#modusSeg button').forEach(function (b) {
+    b.classList.toggle('on', b.dataset.modus === P.modus);
+  });
+}
+
+function kipp(delta) { P.set('kipp', Math.max(0, Math.min(85, P.kipp + delta))); anwenden(); }
+function dreh(delta) { P.set('dreh', ((P.dreh + delta) % 360 + 360) % 360); anwenden(); }
+
+SOT.$('#kippMinus').onclick = function () { kipp(-5); };
+SOT.$('#kippPlus').onclick  = function () { kipp(5); };
+SOT.$('#drehMinus').onclick = function () { dreh(-5); };
+SOT.$('#drehPlus').onclick  = function () { dreh(5); };
+
+document.querySelectorAll('#modusSeg button').forEach(function (b) {
+  b.onclick = function () { P.set('modus', b.dataset.modus); anwenden(); };
+});
+SOT.$('#distanz').oninput = function (e) { P.set('distanz', +e.target.value); anwenden(); };
+
+var PRESETS = {
+  draufsicht: { kipp: 0,  dreh: 0 },
+  brett:      { kipp: 55, dreh: 0 },
+  isometrie:  { kipp: 35, dreh: 45, modus: 'isometrisch' },
+  horizont:   { kipp: 85, dreh: 0 }
+};
+document.querySelectorAll('[data-preset]').forEach(function (b) {
+  b.onclick = function () {
+    var p = PRESETS[b.dataset.preset];
+    Object.keys(p).forEach(function (k) { P.set(k, p[k]); });
+    anwenden();
+  };
+});
+
+SOT.$('#reset').onclick = function () {
+  P.set('kipp', 40); P.set('dreh', 0); P.set('modus', 'perspektivisch'); P.set('distanz', 900);
+  anwenden();
+};
+
+/* Pfeiltasten — nur wenn kein Eingabefeld den Fokus hält. */
+document.addEventListener('keydown', function (e) {
+  var t = document.activeElement, tag = t && t.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  if (e.key === 'ArrowUp')    { kipp(-5); e.preventDefault(); }
+  if (e.key === 'ArrowDown')  { kipp(5);  e.preventDefault(); }
+  if (e.key === 'ArrowLeft')  { dreh(-5); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { dreh(5);  e.preventDefault(); }
+});
+
+anwenden();
+SOT.regler(P, { titel: 'Testfeld' });
+SOT.debug(P);
+</script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Tageszeit-Akzente v1 — drei Tageslichter, die Nacht apart</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<style>
+/* Nur was dieser Prüfstand allein braucht. */
+.wrap{max-width:860px;padding:20px 16px 80px;}
+h1{font-family:var(--f-display);font-weight:800;font-size:26px;margin:6px 0 2px;}
+.sub{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink2);margin-bottom:18px;}
+h2{font-family:var(--f-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink2);margin:26px 0 8px;font-weight:400;}
+
+/* Palettenzeile: Akzent · Schrift auf Akzent · Fläche (12 % im Grund) */
+.pal{display:grid;grid-template-columns:110px 1fr 1fr 1fr;gap:6px;align-items:stretch;margin-bottom:6px;}
+.pal .nm{display:flex;align-items:center;gap:7px;font-family:var(--f-mono);font-size:11px;}
+.pal .nm svg{width:13px;height:13px;}
+.sw{border-radius:8px;padding:9px 10px;font-family:var(--f-mono);font-size:9.5px;line-height:1.35;border:1px solid var(--line);}
+.sw b{display:block;font-size:10.5px;}
+.sw.akzent{background:var(--zeit-akzent);color:var(--sw-on);border-color:transparent;}
+.sw.flaeche{background:color-mix(in srgb,var(--zeit-akzent) 12%,var(--bone));}
+.sw.rand{border-top:3px solid var(--zeit-akzent);background:var(--bone);}
+
+/* Die Karte — dieselbe Anatomie wie in erkundung-v6 (zweite Fundstelle:
+   Baukasten-Kandidat). Der Akzent kommt aus .z-* + .zeitrand des Kits. */
+.karten{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.karte{background:var(--bone);border:1.5px solid var(--line);border-radius:9px;
+  padding:7px 8px 9px;text-align:left;cursor:pointer;font-family:var(--f-ui);
+  display:flex;flex-direction:column;gap:3px;transition:border-color .15s,transform .15s;}
+.karte:hover{border-color:var(--zeit-akzent);transform:translateY(-2px);}
+.karte .art{font-family:var(--f-mono);font-size:7.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--zeit-akzent);}
+.karte .art svg{width:9px;height:9px;vertical-align:-1.5px;}
+.karte .knm{font-family:var(--f-display);font-weight:800;font-size:12.5px;line-height:1.1;color:var(--ink);}
+.karte .kfx{font-size:9.5px;color:var(--ink2);line-height:1.3;}
+.karte .kkost{margin-top:auto;padding-top:5px;font-family:var(--f-mono);font-size:9px;color:var(--ink);}
+
+/* Nachbau der Uhr-Phasenreihe aus erkundung-v6 — hier nimmt die laufende
+   Zelle den LAUFENDEN Ton (--zeit) statt fest ember. */
+.phasenreihe{display:flex;gap:5px;margin:4px 0 10px;}
+.ph{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 2px 6px;
+    border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--ink2);
+    cursor:pointer;transition:all .3s;}
+.ph svg{width:17px;height:17px;display:block;}
+.ph span{font-family:var(--f-mono);font-size:8px;letter-spacing:.09em;text-transform:uppercase;}
+.ph.jetzt{color:var(--zeit);border-color:var(--zeit);background:var(--panel);box-shadow:0 0 9px var(--zeitglow);}
+.ph.jetzt span{font-weight:700;}
+
+.zeile{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.zeile .primary{flex:1;min-width:220px;}
+.hinweis{font-size:11.5px;color:var(--ink2);line-height:1.5;max-width:64ch;}
+.timeline{max-width:340px;}
+.tl-seg{height:8px;border-radius:2px;font-size:0;cursor:default;}
+</style>
+</head>
+<body>
+<button class="modebtn">☾ NACHT</button>
+<div class="wrap">
+  <div class="sub">Prüfstand · Baukasten</div>
+  <h1>Tageszeit-Akzente</h1>
+  <p class="hinweis">Vier Grundtöne, einer je Tageszeit (Art-Direction-Handbuch, Kap. 03).
+  <b>Zwei Ebenen:</b> eine Karte trägt den <i>festen</i> Ton ihrer Tageszeit für immer
+  (<code>.z-morgen</code> … + <code>.zeitrand</code>) — der <i>laufende</i> Ton
+  (<code>SOT.zeit('…')</code> → <code>body[data-zeit]</code>) färbt Phasenknopf und
+  Rundenmarke von selbst, in jedem Prototyp, der das Kit lädt.</p>
+
+  <h2>Die laufende Tageszeit — antippen wechselt</h2>
+  <div class="phasenreihe" id="reihe"></div>
+  <div class="timeline" id="tl"></div>
+  <div class="zeile">
+    <button class="primary" id="btnPhase" onclick="weiter()">Aufbrechen</button>
+    <span class="hinweis" style="flex:2;min-width:200px">Der Knopf ist <code>.primary</code> aus dem Kit —
+    keine eigene Zeile CSS: <code>body[data-zeit] .primary</code> nimmt <code>--zeit</code>.</span>
+  </div>
+
+  <h2>Die drei Tageslichter — und darunter, getrennt: die Nacht</h2>
+  <div id="pals"></div>
+
+  <h2>Karten tragen ihren festen Ton — egal, wie spät es ist</h2>
+  <div class="karten" id="karten"></div>
+  <p class="hinweis" style="margin-top:10px">Wechsle oben die Tageszeit: die Karten bleiben, wie sie
+  sind — nur Knopf und Marke wandern mit. Eine Morgen-Karte am Abend sieht aus wie am Morgen:
+  ihr Akzent sagt, <i>wann sie lebt</i>, nicht wie spät es ist.</p>
+</div>
+
+<script src="../kit/sot.js"></script>
+<script src="../kit/sot-icons.js"></script>
+<script>
+'use strict';
+var P = SOT.params({
+  zeit:  { t:'enum', values:['morgen','mittag','abend','nacht'], def:'morgen', help:'laufende Tageszeit' },
+  night: { t:'flag', help:'Nachtregister' },
+});
+var $=SOT.$, el=SOT.el;
+if(P.night)SOT.night(true);
+document.querySelector('.modebtn').addEventListener('click',function(){
+  this.textContent=SOT.night(undefined,false)?'☀ TAG':'☾ NACHT';render();
+});
+
+var Z=[
+  {k:'morgen',nm:'Morgen', ton:'Morgenrot',      ic:'morgen', beispiel:{art:'Morgen · spielen',    knm:'Späher vorausschicken', kfx:'+1 Sichtweite auf jedem Feld, heute', kost:'−1 Nahrung'}},
+  {k:'mittag',nm:'Mittag', ton:'Hohes Licht',    ic:'sonne',  beispiel:{art:'Mittag · aufs Brett', knm:'Uferlager',             kfx:'+1 Nahrung/Tag',                      kost:'ein Feld am Wasser'}},
+  {k:'abend', nm:'Abend',  ton:'Stilles Wasser', ic:'abend',  beispiel:{art:'Abend · herstellen',  knm:'Trockenfleisch einlagern', kfx:'+1 Vorrat-Karte in die Hand',      kost:'−2 Nahrung'}},
+  {k:'nacht', nm:'Nacht',  ton:'Mondlicht',      ic:'mond',   beispiel:{art:'Nacht · Aufdeckung',  knm:'Etwas umkreist das Lager', kfx:'Schutz ≥ 4 hält es fern',          kost:'der Stamm isst −1'}},
+];
+SOT.zeit(P.zeit);
+
+function weiter(){
+  var i=SOT.zeit.ALLE.indexOf(SOT.zeit());
+  SOT.zeit(SOT.zeit.ALLE[(i+1)%4]);
+  render();
+}
+function hex(tok){
+  return getComputedStyle(document.body).getPropertyValue(tok).trim();
+}
+function render(){
+  var jetzt=SOT.zeit();
+  /* Phasenreihe */
+  var r=SOT.clear($('#reihe'));
+  Z.forEach(function(z){
+    var d=el('div.ph'+(z.k===jetzt?'.jetzt':''),{title:z.nm,onclick:function(){SOT.zeit(z.k);render();}});
+    d.innerHTML=SOT.icon(z.ic)+'<span>'+z.nm+'</span>';
+    r.appendChild(d);
+  });
+  /* Zeitleiste: die Marke nimmt --zeit von selbst */
+  var tl=SOT.clear($('#tl'));
+  for(var i=0;i<10;i++)tl.appendChild(el('div.tl-seg'+(i<3?'.done':'')+(i===3?'.now':'')));
+  /* Knopf-Beschriftung je Tageszeit */
+  $('#btnPhase').textContent={morgen:'Aufbrechen · Mittag beginnen',mittag:'Abend · Ernte einbringen',
+    abend:'Verarbeiten & Nacht anbrechen lassen',nacht:'Den Morgen erwarten'}[jetzt];
+  /* Paletten */
+  var pals=SOT.clear($('#pals'));
+  Z.forEach(function(z){
+    if(z.k==='nacht'){
+      var tr=el('div',{style:{borderTop:'1px dashed var(--line)',margin:'10px 0 8px',paddingTop:'8px',
+        fontFamily:'var(--f-mono)',fontSize:'9.5px',color:'var(--ink2)',letterSpacing:'.1em'},
+        text:'DIE NACHT — eigenes Thema: sie wechselt das ganze Register (body.night); Mondlicht ist ihr Akzent darin.'});
+      pals.appendChild(tr);
+    }
+    var row=el('div.pal.z-'+z.k);
+    row.style.setProperty('--sw-on','var(--on-z-'+z.k+')');
+    row.innerHTML='<div class="nm">'+SOT.icon(z.ic)+'<b>'+z.nm+'</b></div>'
+      +'<div class="sw akzent"><b>'+z.ton+'</b>--z-'+z.k+' '+hex('--z-'+z.k)+'</div>'
+      +'<div class="sw flaeche"><b>Fläche</b>12 % im Grundton</div>'
+      +'<div class="sw rand"><b>Oberkante</b>.zeitrand — 3 px</div>';
+    pals.appendChild(row);
+  });
+  /* Beispielkarten */
+  var ks=SOT.clear($('#karten'));
+  Z.forEach(function(z){
+    var k=el('button.karte.zeitrand.z-'+z.k);
+    k.innerHTML='<span class="art">'+SOT.icon(z.ic)+' '+z.beispiel.art+'</span>'
+      +'<span class="knm">'+z.beispiel.knm+'</span>'
+      +'<span class="kfx">'+z.beispiel.kfx+'</span>'
+      +'<span class="kkost">'+z.beispiel.kost+'</span>';
+    ks.appendChild(k);
+  });
+}
+render();
+SOT.debug(P);
+</script>
+</body>
+</html>

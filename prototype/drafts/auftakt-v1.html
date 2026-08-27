@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auftakt — aus dem Nebel tritt ein Licht</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<link rel="stylesheet" href="../kit/sot-hex.css">
+<style>
+  /* Nur was dieser Prototyp allein braucht. Kommt zuletzt, gewinnt darum.
+     Der Nebel ist aus --bg gemischt und nicht getippt: so trägt er in Tag
+     und Nacht dieselbe Rolle, ohne dass hier eine Farbe steht. */
+  body{--nebel:color-mix(in srgb,var(--bg) 90%,transparent);
+       --nebeldicht:color-mix(in srgb,var(--bg) 97%,transparent);
+       /* dasselbe Gold wie der Orb: das Token lebt sonst nur im .orbfeld,
+          die Kanten brauchen es aber draußen. */
+       --orbgold:color-mix(in srgb,var(--glutkern) 62%,var(--ember));}
+
+  .stage{justify-content:center;gap:0;overflow:hidden;}
+
+  /* --- Szenen: immer nur eine sichtbar, und sie blendet über ------------- */
+  .szene{transition:opacity 1.6s ease,filter 1.6s ease,transform 1.6s ease;}
+  .szene.weg{opacity:0;filter:blur(4px);transform:scale(.985);pointer-events:none;}
+  .szene.kommt{opacity:0;}
+  .szene.da{opacity:1;}
+
+  /* --- Titel: Miniatur der App-Zone, nur damit es etwas zu verlassen gibt - */
+  .titelart{text-align:center;padding:26px 0 10px;}
+  .titelart .kicker{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.24em;
+                    text-transform:uppercase;color:var(--ink2);}
+  .wordmark{font-size:clamp(38px,13vw,58px);letter-spacing:.02em;margin:8px 0 10px;}
+  .titeltag{font-size:12.5px;color:var(--ink2);max-width:24em;margin:0 auto 18px;}
+  .riverline{height:2px;border-radius:2px;margin:0 auto 22px;max-width:180px;
+             background:linear-gradient(90deg,transparent,var(--river),transparent);}
+  .titelzone{display:flex;flex-direction:column;gap:8px;padding:0 6px;}
+  .titelzone button.primary{padding:12px;font-size:14px;}
+  .titelfoot{font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;
+             text-transform:uppercase;color:var(--ink2);text-align:center;margin-top:16px;}
+
+  /* --- Die Nebelbühne ---------------------------------------------------- */
+  /* Schein UND Vignette liegen auf der Bühne, nicht am Feld, und die Bühne
+     schneidet ab: sonst leuchtet der Südschein unter der Vignette hervor und
+     man sieht einen hellen Balken quer über den Bildschirm. */
+  .buehne{position:relative;flex:1;display:grid;place-items:center;min-height:56dvh;
+          overflow:hidden;transition:min-height 1.2s ease;}
+  .stage.eng .buehne{min-height:30dvh;}
+  /* Vignette: der Rand des Sichtbaren. Klickdurchlässig — sonst schluckt sie
+     den Orb (der liegt mit z-index 20 darüber). */
+  .buehne::after{
+    content:'';position:absolute;inset:0;z-index:15;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 46%,transparent 32%,var(--nebeldicht) 84%);
+  }
+  /* Das Licht aus dem Süden, noch bevor der Orb da ist. */
+  .suedschein{
+    position:absolute;left:50%;bottom:0;width:150%;height:62%;z-index:1;
+    transform:translateX(-50%);pointer-events:none;opacity:0;
+    transition:opacity 2.6s ease;
+    background:radial-gradient(ellipse at 50% 100%,var(--emberglow) 0 24%,transparent 68%);
+  }
+  .suedschein.an{opacity:1;}
+  .nebelfeld{position:relative;width:100%;padding:26px 0 34px;display:grid;place-items:center;}
+
+  #map{max-width:300px;z-index:2;
+       transform:translateX(calc((var(--hexw) + var(--hexgap)) * -.25));}
+  .cell.leer{visibility:hidden;}
+  .cell.dunkel{opacity:0;}
+
+  /* Das Wasser als Band im Feld (aus gewaesser-labor-v1, wie erkundung-v3):
+     kein Feld ist „Fluss" — der junge Lauf zieht von Kantenmitte zu
+     Kantenmitte durchs Feld, daneben bleibt Ufer im selben Feld. Farben
+     aus den Wasser-Tokens gemischt, damit Dämmer und Tag mitgehen. */
+  body{--w-kfluss:var(--river);
+       --w-saum:color-mix(in srgb,var(--kies) 72%,var(--bg));}
+  .cell .band{position:absolute;inset:0;z-index:1;pointer-events:none;
+    clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);}
+  .cell .band svg{width:100%;height:100%;display:block;}
+
+  /* Halb im Nebel: die Haube deckt das Feld von oben her zu, unten bleibt
+     Gelände sichtbar. Ein ganz zugedecktes Feld wäre nur ein grauer Fleck —
+     man soll ahnen, dass dort etwas ist. Wo das Licht steht, weicht sie —
+     die Deckkraft schreibt der Orb-Rückruf direkt auf dieses Element.
+     Nicht über eine Custom Property auf der Zelle: die invalidiert den ganzen
+     Teilbaum (Kante, Fläche, Glanz, Haube, Glyph) und das je Bild. */
+  .haube{position:absolute;inset:1.5px;z-index:5;pointer-events:none;
+         clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+         background:linear-gradient(to top,transparent 6%,var(--nebel) 54%,var(--nebeldicht) 100%);
+         will-change:opacity;}
+  .cell.imnebel{opacity:.82;}
+  .cell.beleuchtet{--edge:var(--ember);filter:saturate(1.06) brightness(1.08);}
+
+  /* Der Kantenglanz — das eigentliche „Licht fährt über die Kanten".
+     Er liegt als NORMALES Kind zwischen ::before (Kante) und ::after (Fläche):
+     die Fläche ist 1,5 px eingerückt und deckt ihn darum überall ab außer
+     genau auf dem Kantenband. Kein Maskieren, kein zweites Raster. */
+  #map .cell > .glanz{
+    position:absolute;inset:0;z-index:0;pointer-events:none;
+    clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+    background:var(--orbgold,var(--ember));
+    opacity:0;will-change:opacity;
+  }
+
+  /* Die Marke auf dem Feld: dasselbe Rollenbild wie im Signet, als Box
+     bemessen statt als Schriftgrad — ein Icon sitzt auf keiner Grundlinie. */
+  .marke{width:1.7em;height:1.7em;color:var(--ember);display:flex;
+         align-items:center;justify-content:center;}
+  .marke svg{width:100%;height:100%;display:block;}
+
+  /* Der Ruf gehört unter das Feld, nicht auf das Plättchen — der Orb ist hier
+     nur halb so breit wie das Hexfeld, die Baukasten-Vorgabe zu knapp. */
+  .orb .ruf{top:calc(100% + var(--orbw)*1.9);}
+
+  /* --- Die Wahl: zwei Karten, eine davon --------------------------------- */
+  .wahl{position:relative;z-index:30;padding:0 4px 10px;
+        transform:translateY(22px);opacity:0;
+        transition:opacity 1s ease,transform 1s cubic-bezier(.2,.9,.3,1);}
+  .wahl.da{transform:translateY(0);opacity:1;}
+  .wahl .frage{text-align:center;margin:0 0 12px;}
+  .wahl .frage .tag{font-family:var(--f-mono);font-size:9px;letter-spacing:.16em;
+                    text-transform:uppercase;color:var(--ember);}
+  .wahl .frage h2{margin:5px 0 4px;}
+  .wahl .frage p{font-size:12px;color:var(--ink2);margin:0;}
+  .pfade{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .pfad{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+        padding:12px 11px 11px;text-align:left;cursor:pointer;
+        display:flex;flex-direction:column;gap:7px;
+        transition:border-color .2s,background .2s,transform .3s,opacity .6s;}
+  .pfad:hover{border-color:var(--ember);}
+  .pfad .sig{width:34px;height:34px;color:var(--ember);}
+  .pfad .sig svg{width:100%;height:100%;display:block;}
+  .pfad h3{font-size:15px;}
+  .pfad .satz{font-size:11.5px;color:var(--ink2);line-height:1.45;}
+  .pfad .chips{margin-top:auto;}
+  .pfad.gewaehlt{border-color:var(--ember);background:var(--bone);transform:translateY(-3px);}
+  .pfad.verworfen{opacity:.18;pointer-events:none;}
+
+  /* --- Was danach kommt -------------------------------------------------- */
+  .folge{position:relative;z-index:30;text-align:center;padding:4px 8px 12px;opacity:0;
+         transition:opacity 1.2s ease;}
+  .folge.da{opacity:1;}
+  .folge .tag{font-family:var(--f-mono);font-size:9px;letter-spacing:.16em;
+              text-transform:uppercase;color:var(--ember);}
+  .folge h2{margin:6px 0 6px;}
+  .folge p{font-size:12.5px;color:var(--ink2);max-width:26em;margin:0 auto 12px;}
+  .fuss{font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+        color:var(--ink2);text-align:center;padding:10px 0 4px;}
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+
+  <!-- ------------------------------------------------ Szene 1: der Titel -->
+  <div class="szene" id="szTitel">
+    <div class="titelart">
+      <div class="kicker">Ein Fluss · Zwölftausend Jahre</div>
+      <h1 class="wordmark">STROM<br>LINIEN</h1>
+      <p class="titeltag">Die Geschichte des Alpenrheintals — Plättchen für
+      Plättchen, Nacht für Nacht.</p>
+      <div class="riverline"></div>
+    </div>
+    <div class="titelzone">
+      <button class="primary wide" id="bSpielen">Spielen</button>
+      <div class="frow">
+        <button class="ghost">Regeln</button>
+        <button class="ghost">Über</button>
+      </div>
+      <div class="titelfoot">historisch inspiriert und vereinfacht</div>
+    </div>
+  </div>
+
+  <!-- ---------------------------------------- Szene 2: Nebel, Feld, Licht -->
+  <div class="szene kommt hid" id="szFeld">
+    <div class="buehne">
+      <div class="suedschein" id="suedschein"></div>
+      <div class="nebelfeld" id="nebelfeld">
+        <div class="map tight" id="map"></div>
+      </div>
+    </div>
+
+    <div class="wahl hid" id="wahl">
+      <div class="frage">
+        <div class="tag">Der erste Entschluss</div>
+        <h2>Wovon lebt euer Klan?</h2>
+        <p>Beides lernt ihr später. Der Anfang bestimmt nur, was euch
+        leichter fällt.</p>
+      </div>
+      <div class="pfade" id="pfade"></div>
+    </div>
+
+    <div class="folge hid" id="folge"></div>
+    <div class="fuss">historisch inspiriert und vereinfacht</div>
+  </div>
+
+</div>
+
+<script src="../kit/sot.js"></script>
+<script src="../kit/sot-icons.js"></script>
+<script src="../kit/sot-hex.js"></script>
+<script>
+'use strict';
+var $ = SOT.$, el = SOT.el;
+
+var P = SOT.params({
+  szene:     { t:'enum', values:['titel','feld','orb','wahl','folge'], def:'titel',
+               help:'Direkt in eine Szene springen — ein Screenshot kann nicht klicken' },
+  autostart: { t:'flag', help:'Titel überspringen und den Auftakt sofort spielen' },
+  aus:       { t:'enum', values:['S','N','W','E'], def:'S',
+               help:'Aus welcher Richtung das Licht aus dem Nebel tritt' },
+  bahn:      { t:'enum', values:['kreis','acht','ruhe'], def:'kreis',
+               help:'Bahn des Lichts über dem Blatt (ruhe = steht still)' },
+  pfad:      { t:'enum', values:['jaeger','sammler'], def:'jaeger',
+               help:'Gewählter Pfad für ?szene=folge' },
+  tempo:     { t:'enum', values:['normal','schnell','langsam'], def:'normal',
+               help:'Alle Zeiten des Ablaufs auf einmal skalieren' },
+  tag:       { t:'flag', help:'Tagregister statt Nacht — der Auftakt spielt im Dämmer' },
+  ruf:       { t:'str', def:'berühren', help:'Das Wort unter dem Orb (leer = keins)' },
+  seed:      { t:'int', def:7, help:'Zufallssaat — hier nur für spätere Varianten' }
+});
+if (!P.tag) document.body.classList.add('night');
+SOT.tempo(P.tempo);
+var warte = SOT.warte;
+
+/* ---------------------------------------------------------------- Daten ---
+   Das Blütenblatt: ein Feld und seine sechs Nachbarn. Die Reihenfolge ist
+   die des Baukastens (E · SE · SW · W · NW · NE) — daran hängt, in welcher
+   Folge sich der Nebel lichtet.
+   -------------------------------------------------------------------------- */
+var MITTE = { c:1, r:1 };
+var NACHBARN = SOT.hex.neighbors(MITTE.c, MITTE.r);
+/* Kein Feld ist mehr „Wasser": der junge Lauf zieht als BAND durchs Blatt
+   (aus dem Osten herein, in der Mitte gebogen, nach Südwesten hinaus) —
+   die alten Klassen ufer/water entfallen, das Ufer wohnt im Flussfeld.
+   SE ist die Kiesbank, die so ein Lauf ablagert. */
+var GELAENDE = { E:'flach', SE:'kies', SW:'flach', W:'wald', NW:'hang', NE:'flach' };
+var BAND = { M:{ein:'E',aus:'SW'}, E:{ein:'E',aus:'W'}, SW:{ein:'NE',aus:'SW'} };
+
+/* Das Band: quadratische Kurve Kantenmitte → Feldmitte → Kantenmitte,
+   dieselbe Zeichnung wie in erkundung-v3 — Kandidat für den Baukasten
+   (sot-wasser), jetzt am zweiten Ort. Breite ~9 % der Feldbreite =
+   „kleiner Fluss", lesbar überzeichnet. */
+function bandSVG(band) {
+  function M(d) { var m = SOT.hex.EDGE_MID[d]; return [m[0], m[1] * 1.1547]; }
+  var a = M(band.ein), b = M(band.aus);
+  var d = 'M ' + a[0] + ' ' + a[1].toFixed(1) + ' Q 50 57.7 ' + b[0] + ' ' + b[1].toFixed(1);
+  return '<svg viewBox="0 0 100 115.47" preserveAspectRatio="none">'
+    + '<path d="' + d + '" fill="none" stroke="var(--w-saum)" stroke-width="14.6" stroke-linecap="round"/>'
+    + '<path d="' + d + '" fill="none" stroke="var(--w-kfluss)" stroke-width="9.1" stroke-linecap="round"/>'
+    + '</svg>';
+}
+
+/* Die zwei Wege. Das Signet ist KEINE eigene Zeichnung mehr: es war der
+   Ursprung der Rollenbilder, die jetzt im Baukasten liegen (dort auf den
+   Hausstil normalisiert — hier standen sie in viewBox 32 mit stroke 1.7).
+   Ein Name, ein Zeichen: dasselbe SVG traegt das Signet in der Wahlkarte
+   und die Marke auf dem Feld. */
+var PFADE = [
+  { id:'jaeger', name:'Jäger', ico:'jaeger',
+    satz:'Ihr folgt dem Wild den Fluss hinauf. Fleisch und Fell, wenn die Jagd glückt.',
+    chips:['Fleisch & Fell','Weite Wege','Ertrag schwankt'],
+    folge:'Euer Lager wandert mit dem Wild. Die Fundstellen liegen an den Wechseln — dort, wo die Herden den Fluss queren.' },
+  { id:'sammler', name:'Sammler', ico:'sammlerin',
+    satz:'Ihr kennt die Sträucher, die Wurzeln, die Zeit der Nüsse. Weniger, aber verlässlich.',
+    chips:['Beeren & Wurzeln','Kurze Wege','Ertrag verlässlich'],
+    folge:'Euer Lager bleibt am Ufer. Das Wissen um die Hänge wächst schneller — und mit ihm die Sesshaftigkeit.' }
+];
+
+/* ---------------------------------------------------------------- Aufbau ---*/
+var map = $('#map');
+SOT.hex.grid(map, 3, 3, function (cell, c, r) {
+  if (c === MITTE.c && r === MITTE.r) {
+    cell.classList.add('flach', 'dunkel');
+    cell.appendChild(el('div.glanz'));
+    /* Das Band IST das Wasser — der gemalte Wellenzug von früher entfällt.
+       Der leere Glyph bleibt: nach der Wahl trägt er die Marke des Pfads. */
+    cell.appendChild(el('div.band', { html: bandSVG(BAND.M) }));
+    cell.appendChild(el('div.glyph'));
+    return;
+  }
+  var n = NACHBARN.filter(function (x) { return x.c === c && x.r === r; })[0];
+  if (!n) { cell.classList.add('leer'); return; }   /* die zwei Felder, die das Blatt nicht braucht */
+  cell.classList.add(GELAENDE[n.dir], 'imnebel', 'dunkel');
+  cell.dataset.dir = n.dir;
+  cell.appendChild(el('div.glanz'));
+  if (BAND[n.dir]) cell.appendChild(el('div.band', { html: bandSVG(BAND[n.dir]) }));
+  cell.appendChild(el('div.haube'));
+});
+/* onSize feuert auch, wenn der Behälter erst später sichtbar wird — genau
+   dann stimmen die alten Feldmitten nicht mehr. */
+SOT.hex.autosize(map, 3, { max: 96, onSize: function () { felderMessen(); } });
+
+var pfadeBox = $('#pfade');
+PFADE.forEach(function (p) {
+  pfadeBox.appendChild(el('button.pfad', { data: { pfad: p.id }, onclick: function () { waehle(p); } }, [
+    el('div.sig', { html: SOT.icon(p.ico) }),
+    el('h3', { text: p.name }),
+    el('div.satz', { text: p.satz }),
+    el('div.chips', null, p.chips.map(function (t) { return el('span.chip', { text: t }); }))
+  ]));
+});
+
+/* ---------------------------------------------------------------- Ablauf ---
+   Jede Szene ist von außen erreichbar (?szene=…), darum sind die Schritte
+   einzelne Funktionen und keine eine lange Kette.
+   -------------------------------------------------------------------------- */
+var orb = null;
+
+function zeige(sel) { $(sel).classList.remove('hid'); }
+
+async function titelVerlassen() {
+  var t = $('#szTitel');
+  t.classList.add('weg');
+  await warte(1500);
+  t.classList.add('hid');
+}
+
+async function feldAufdecken(sofort) {
+  zeige('#szFeld');
+  requestAnimationFrame(function () {
+    $('#szFeld').classList.remove('kommt');
+    $('#szFeld').classList.add('da');
+  });
+  var mitte = SOT.hex.cellAt(map, MITTE.c, MITTE.r);
+  if (sofort) {
+    SOT.$$('.cell.dunkel', map).forEach(function (c) { c.classList.remove('dunkel'); });
+    return;
+  }
+  await warte(900);
+  mitte.classList.remove('dunkel');
+  mitte.classList.add('reveal');
+  await warte(700);
+  /* Die Nachbarn treten der Reihe nach aus dem Nebel — nicht alle zugleich:
+     erst dadurch liest sich das Blatt als Ausschnitt einer größeren Welt. */
+  for (var i = 0; i < NACHBARN.length; i++) {
+    var n = NACHBARN[i], cell = SOT.hex.cellAt(map, n.c, n.r);
+    if (!cell) continue;
+    cell.classList.remove('dunkel');
+    cell.classList.add('reveal');
+    await warte(220);
+  }
+  await warte(500);
+}
+
+async function lichtRufen(sofort) {
+  $('#suedschein').classList.add('an');
+  if (!sofort) await warte(1600);
+  var mitte = SOT.hex.cellAt(map, MITTE.c, MITTE.r);
+  var host = $('#nebelfeld');
+  /* Der Orb soll über der MITTE stehen, nicht über der Mitte der Bühne — das
+     Blatt sitzt im Behälter nicht zentriert. Darum gemessen, nicht geraten. */
+  var hr = host.getBoundingClientRect(), mr = mitte.getBoundingClientRect();
+  var dx = Math.round(mr.left + mr.width / 2 - (hr.left + hr.width / 2));
+  var dy = Math.round(mr.top + mr.height / 2 - (hr.top + hr.height / 2));
+  felderMessen(host);
+  orb = SOT.orb(host, {
+    aus: P.aus, dx: dx, dy: dy,
+    w: Math.max(24, Math.round(mr.width * 0.32)),  /* klein: ein Licht, kein Ball */
+    ruf: P.ruf ? P.ruf : null,
+    ein: sofort ? 400 : 2600,
+    nachEin: sofort ? 0 : 700,
+    label: 'Das Licht auf dem Feld berühren',
+    /* Das Licht bleibt nicht stehen: es zieht seine Bahn über dem Blatt und
+       nimmt die Kanten mit, an denen es vorbeikommt. Bahn klein halten —
+       ein Ziel, das davonläuft, ist keine Einladung mehr. */
+    bahn: P.bahn,
+    bahnr: Math.round(mr.width * 0.4),   /* bleibt über dem Feld, das gemeint ist */
+    bahnzeit: 11000,
+    licht: Math.round(mr.width * 1.5),
+    aufLicht: beleuchten
+  });
+  await orb.bereit;
+  beleuchte(mitte);
+  await orb.klick;
+  await wahlZeigen(false);
+}
+
+/* ---- Was das Licht unterwegs berührt --------------------------------------
+   Der Orb meldet seine Mitte (gedrosselt auf ~30 Hz); hier wird daraus je Feld
+   ein Wert 0…1: das Kantenband fängt das Gold, die Nebelhaube weicht.
+
+   Drei Regeln, alle drei gemessen und nicht geraten:
+   (1) Geschrieben wird die Deckkraft der zwei BLÄTTER (.glanz, .haube), nicht
+       eine Custom Property auf der Zelle — die invalidiert den Teilbaum, und
+       genau dort lag rund die Hälfte des Bildbudgets.
+   (2) Quantisiert auf 1/50: unter dieser Stufe sieht das Auge nichts, der
+       Stilbaum aber jede Änderung.
+   (3) Gleiche Werte werden nicht geschrieben. Während der meisten Umlaufzeit
+       ändert sich an den fernen Feldern gar nichts.
+   Die Feldmitten werden gemessen, wenn das Licht kommt — und nach jeder
+   Größenänderung neu, sonst leuchten nach dem Drehen die falschen Kanten.
+   -------------------------------------------------------------------------- */
+var felder = [], lichtWirt = null;
+function felderMessen(host) {
+  lichtWirt = host || lichtWirt;
+  if (!lichtWirt) return;
+  var hb = lichtWirt.getBoundingClientRect();
+  felder = SOT.$$('#map .cell:not(.leer)').map(function (c) {
+    var r = c.getBoundingClientRect();
+    return {
+      glanz: c.querySelector('.glanz'), haube: c.querySelector('.haube'),
+      x: r.left + r.width / 2 - hb.left, y: r.top + r.height / 2 - hb.top, q: -1
+    };
+  });
+}
+window.addEventListener('resize', function () { felderMessen(); });
+
+function beleuchten(x, y, r) {
+  for (var i = 0; i < felder.length; i++) {
+    var f = felder[i], dx = f.x - x, dy = f.y - y;
+    var k = 1 - Math.sqrt(dx * dx + dy * dy) / r;
+    /* Hoch 1,6: der Rand des Lichts soll ausklingen, nicht abbrechen. */
+    k = k <= 0 ? 0 : Math.pow(k, 1.6);
+    var q = Math.round(k * 50) / 50;
+    if (q === f.q) continue;
+    f.q = q;
+    if (f.glanz) f.glanz.style.opacity = (q * 0.95).toFixed(2);
+    if (f.haube) f.haube.style.opacity = (1 - q * 0.8).toFixed(2);
+  }
+}
+
+/* Das Feld unter dem Orb nimmt das Licht an: warmer Aufdruck + Glutkante. */
+function beleuchte(cell) {
+  cell.classList.add('beleuchtet');
+  if (!cell.querySelector('.lay.wash-warm')) cell.insertBefore(el('div.lay.wash-warm'), cell.firstChild);
+}
+
+async function wahlZeigen(sofort) {
+  if (orb) { orb.weg(); orb = null; }
+  beleuchte(SOT.hex.cellAt(map, MITTE.c, MITTE.r));
+  $('#suedschein').classList.add('an');
+  $('#stage').classList.add('eng');
+  if (!sofort) await warte(520);
+  zeige('#wahl');
+  requestAnimationFrame(function () { $('#wahl').classList.add('da'); });
+}
+
+async function waehle(p) {
+  SOT.$$('.pfad').forEach(function (b) {
+    b.classList.add(b.dataset.pfad === p.id ? 'gewaehlt' : 'verworfen');
+  });
+  SOT.toast('Ihr zieht als ' + p.name + ' los.');
+  await warte(900);
+  $('#wahl').classList.remove('da');
+  await warte(900);
+  $('#wahl').classList.add('hid');
+  folgeZeigen(p);
+}
+
+function folgeZeigen(p) {
+  var mitte = SOT.hex.cellAt(map, MITTE.c, MITTE.r);
+  SOT.clear(mitte.querySelector('.glyph')).appendChild(el('span.marke', { html: SOT.icon(p.ico) }));
+  var box = SOT.clear($('#folge'));
+  box.appendChild(el('div.tag', { text: 'Epoche I · Runde 1' }));
+  box.appendChild(el('h2', { text: 'Der Klan der ' + p.name }));
+  box.appendChild(el('p', { text: p.folge }));
+  box.appendChild(el('button.primary', {
+    text: 'Weiter', onclick: function () { SOT.toast('Hier begänne der erste Tag.'); }
+  }));
+  zeige('#folge');
+  requestAnimationFrame(function () { box.classList.add('da'); });
+}
+
+/* -------------------------------------------------------- Einstiegspunkte ---*/
+$('#bSpielen').addEventListener('click', async function () {
+  await titelVerlassen();
+  await feldAufdecken(false);
+  await lichtRufen(false);
+});
+
+(async function start() {
+  var s = (P.autostart && P.szene === 'titel') ? 'feld' : P.szene;
+  if (s === 'titel') return;
+  $('#szTitel').classList.add('hid');
+  if (s === 'feld') { await feldAufdecken(false); await lichtRufen(false); return; }
+  await feldAufdecken(true);
+  if (s === 'orb') { await lichtRufen(true); return; }
+  await wahlZeigen(true);
+  if (s === 'wahl') return;
+  $('#wahl').classList.add('hid');
+  folgeZeigen(PFADE.filter(function (x) { return x.id === P.pfad; })[0]);
+})();
+
+SOT.debug(P);
+</script>
+</body>
+</html>

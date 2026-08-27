@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Gewässer-Labor v4 — Eis, Schmelze und der gerechnete Rhein</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<style>
+/* =====================================================================
+   Gewässer-Labor v4 — vom Gelände zum Fluss, vom Klima zum Wasser.
+   v1 rechnete die Klassen, v2 machte das Band organisch, v3 bewies den
+   Kantenvertrag. v4 dreht die Pipeline um den entscheidenden Schritt
+   weiter: DIE LÄUFE WERDEN NICHT MEHR GESETZT, SIE ENTSTEHEN.
+
+     Gelände   Höhenmodell Chur–Konstanz: echte Gipfel (Calanda 2805,
+               Pizol 2844, Schesaplana 2964, Säntis 2502 …) und echte
+               Seitentäler (Plessur, Landquart, Tamina, Ill) als
+               Korridore — die Zwischenräume gerechnet, nicht vermessen.
+     Klima     EIN Regler: die Jahresmitteltemperatur im Tal. Daraus die
+               Eisgrenze über die Lapse-Rate (6,5 °C/km) — Eis liegt,
+               wo das Jahresmittel unter ~−6 °C fällt.
+     Schmelze  Eiszellen geben Schmelzwasser nach ihrer Sommerwärme ab,
+               eisfreie Zellen Regenabfluss. Alles fliesst der steilsten
+               Nachbarzelle zu (D6), die Bilanz akkumuliert talwärts.
+     Zeichnung Läufe aus der Akkumulation extrahiert (Hauptstrang =
+               grösster Zufluss), dann WÖRTLICH der v3-Renderer:
+               fester Port Kantenmitte · ein Catmull-Rom-Zug je Lauf ·
+               Band als Polygon, b = 6·√Q · Gleithang-Saum · Talweg ·
+               Welt-Rauschen · Schichtregel der Mündung.
+
+   Die Geschichte des Reglers ist die Geschichte des Tals: tiefe Kälte
+   legt das Wasser still (alles Eis, kaum Schmelze) — die ERWÄRMUNG
+   danach ist die Flut (Eis überall, Sommer warm: der Schmelzstrom) —
+   heute ruhig — und heisser wird der Rhein wieder dünner (kein Eis
+   mehr, nur Regen). Geografisch inspiriert und stark vereinfacht:
+   echte Gipfelhöhen und Talböden, Lehrbuch-Klima, keine Simulation.
+   ===================================================================== */
+body{max-width:1500px;margin:0 auto;padding:14px 14px 40px;}
+.legende{font-family:var(--f-mono);font-size:10px;color:var(--ink2);margin-top:6px;
+  display:flex;gap:14px;flex-wrap:wrap;align-items:center;}
+.legende .chip{display:inline-block;width:20px;height:7px;border-radius:4px;
+  vertical-align:middle;margin-right:5px;}
+.legende .punkt{display:inline-block;width:9px;height:9px;border-radius:50%;
+  vertical-align:middle;margin-right:5px;}
+.legende span[data-hl]{cursor:pointer;border-bottom:1px dotted transparent;user-select:none;}
+.legende span[data-hl]:hover,.legende span[data-hl].an{border-bottom-color:var(--ink2);color:var(--ink);}
+.zeiten{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap;}
+.zeiten button{font-size:10px;padding:4px 10px;border-radius:7px;}
+.zeiten button.on{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+header.kopf{margin-bottom:12px;}
+header.kopf h1{font-family:var(--f-disp);font-weight:800;font-size:21px;margin:0;}
+header.kopf .sub{font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink2);margin-top:3px;}
+.regler{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:12px 14px;margin-bottom:12px;}
+.regler .zeile{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.regler label{font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink2);white-space:nowrap;}
+.regler input[type=range]{flex:1;min-width:180px;accent-color:var(--ember);}
+.regler .twert{font-family:var(--f-disp);font-weight:800;font-size:19px;min-width:70px;text-align:right;}
+.hud{font-family:var(--f-mono);font-size:10.5px;color:var(--ink2);line-height:1.7;margin-top:7px;}
+.hud b{color:var(--ink);font-weight:700;}
+.tafel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;}
+.tafel svg{display:block;width:100%;height:auto;background:var(--bg);border-radius:8px;}
+.tafel h2{font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  font-weight:400;color:var(--ink2);margin:0 0 8px;}
+.tafel h2 b{color:var(--ink);font-weight:700;font-size:11.5px;}
+#tafeln.vier{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:900px){#tafeln.vier{grid-template-columns:1fr;}}
+.note{margin-top:12px;font-size:11px;color:var(--ink2);line-height:1.55;}
+</style>
+</head>
+<body>
+<header class="kopf">
+  <h1>Gewässer-Labor v4 — Eis, Schmelze und der gerechnete Rhein</h1>
+  <div class="sub">Chur – Konstanz · echte Gipfel · ein Temperaturregler · die Läufe entstehen aus dem Gelände</div>
+</header>
+
+<div class="regler">
+  <div class="zeile">
+    <label>Jahresmittel im Tal</label>
+    <input type="range" id="tregler" min="-12" max="16" step="1">
+    <div class="twert" id="twert"></div>
+  </div>
+  <div class="hud" id="hud"></div>
+  <div class="legende">
+    <span data-hl="rinnsal"><span class="chip" style="background:var(--w-rinnsal)"></span>Rinnsal</span>
+    <span data-hl="bach"><span class="chip" style="background:var(--w-bach)"></span>Bach</span>
+    <span data-hl="kfluss"><span class="chip" style="background:var(--river)"></span>kleiner Fluss</span>
+    <span data-hl="gfluss"><span class="chip" style="background:var(--riverdeep)"></span>grosser Fluss</span>
+    <span data-hl="quelle"><span class="punkt" style="background:var(--river)"></span>Quelle</span>
+    <span data-hl="gletschertor"><span class="punkt" style="background:color-mix(in srgb,var(--bone) 70%,var(--river))"></span>Gletschertor</span>
+    <span data-hl="eis"><span class="chip" style="background:color-mix(in srgb,var(--bone) 82%,var(--river))"></span>Eis (ewig)</span>
+    <span data-hl="schnee"><span class="chip" style="background:color-mix(in srgb,var(--bone) 55%,var(--bg));outline:1px solid var(--line)"></span>Schnee (saisonal)</span>
+    <span data-hl="schotterflur"><span class="chip" style="background:var(--kies)"></span>Schotterflur</span>
+    <span data-hl="furt"><span class="chip" style="background:color-mix(in srgb,var(--bone) 78%,var(--river))"></span>Furt (bei Niedrigwasser)</span>
+    <span data-hl="ried"><span class="chip" style="background:color-mix(in srgb,var(--river) 13%,var(--flach))"></span>Ried (Mäandergürtel)</span>
+  </div>
+  <div class="zeiten" id="zeiten">
+    <button data-zeit="vier">Alle vier</button>
+    <button data-zeit="fruehling">Frühling</button>
+    <button data-zeit="sommer">Sommer</button>
+    <button data-zeit="herbst">Herbst</button>
+    <button data-zeit="winter">Winter</button>
+  </div>
+</div>
+
+<div id="tafeln"></div>
+
+<p class="note">Höhenmodell aus echten Gipfeln und Talböden, Zwischenräume gerechnet · Eisgrenze über die
+Lapse-Rate 6,5&nbsp;°C/km · Schmelze nach Sommerwärme der Eiszelle, Regenabfluss je eisfreier Zelle ·
+Abfluss über die steilste Nachbarzelle akkumuliert · gezeichnet mit dem Kantenvertrag aus
+<code>gewaesser-labor-v3</code> (fester Port Kantenmitte · ein Zug je Lauf · Schichtregel der Mündung).
+<code>?temp ?seed ?amp ?pinsel ?freq ?hilfe</code>. Geografisch inspiriert und stark vereinfacht.</p>
+
+<script src="../kit/sot.js"></script>
+<script>
+'use strict';
+var P = SOT.params({
+  temp:   { t:'int', def:9, min:-12, max:16, help:'Jahresmitteltemperatur im Tal (°C) — der Regler' },
+  zeit:   { t:'enum', values:['vier','fruehling','sommer','herbst','winter'], def:'vier',
+            help:'alle vier Jahreszeiten nebeneinander — oder eine gross' },
+  nied:   { t:'flag', help:'Niederschlagsschicht einblenden (blauer = nasser)' },
+  hl:     { t:'str', def:'', help:'Legenden-Hervorhebung verriegeln (z. B. ried, furt, gfluss) — ein Screenshot kann nicht hovern' },
+  seed:   { t:'int', def:7,  help:'Weltsaat — Auslenkung und Pinselrauschen' },
+  amp:    { t:'int', def:20, min:0, max:30, help:'Auslenkung der Mittellinie, % der Feldbreite' },
+  pinsel: { t:'int', def:5,  min:0, max:16, help:'Pinsel: Rauschamplitude (0 = aus)' },
+  freq:   { t:'int', def:60, min:10, max:200, help:'Rauschfrequenz ×0,001' }
+});
+SOT.debug(P);
+
+/* ---- Bühne ------------------------------------------------------------ */
+var COLS=30, ROWS=36, HXW=100, HXH=115.47;
+var VB_W=COLS*HXW+HXW/2, VB_H=(ROWS-1)*HXH*0.75+HXH;
+var ZKM2=5.9;                           /* ~Fläche einer Zelle in km² (2,6-km-Hex) */
+function cx(c,r){return (c+(r&1?0.5:0))*HXW+HXW/2;}
+function cy(c,r){return r*HXH*0.75+HXH/2;}
+function ecken(c,r){var x=cx(c,r),y=cy(c,r);
+  return [[x,y-HXH/2],[x+HXW/2,y-HXH/4],[x+HXW/2,y+HXH/4],
+          [x,y+HXH/2],[x-HXW/2,y+HXH/4],[x-HXW/2,y-HXH/4]];}
+function kanteMitte(a,b){return [(cx(a[0],a[1])+cx(b[0],b[1]))/2,(cy(a[0],a[1])+cy(b[0],b[1]))/2];}
+function nachbarn(c,r){
+  var d=(r&1)?[[1,0],[-1,0],[1,-1],[0,-1],[1,1],[0,1]]
+             :[[1,0],[-1,0],[0,-1],[-1,-1],[0,1],[-1,1]];
+  var out=[];
+  d.forEach(function(v){var nc=c+v[0],nr=r+v[1];
+    if(nc>=0&&nc<COLS&&nr>=0&&nr<ROWS)out.push([nc,nr]);});
+  return out;
+}
+function hexDist(a,b){
+  var aq=a[0]-((a[1]-(a[1]&1))>>1),bq=b[0]-((b[1]-(b[1]&1))>>1);
+  var ax=aq,az=a[1],ay=-ax-az,bx=bq,bz=b[1],by=-bx-bz;
+  return Math.max(Math.abs(ax-bx),Math.abs(ay-by),Math.abs(az-bz));
+}
+/* Hex-Linie zwischen zwei Zellen (kubisch gelerpt und gerundet) — daraus
+   werden die Korridore gebaut: Wegpunkte statt handgezählter Ketten,
+   Nachbarschaft garantiert. */
+function hexLine(a,b){
+  function cube(c,r){var q=c-((r-(r&1))>>1);return [q,-q-r,r];}
+  var A=cube(a[0],a[1]),B=cube(b[0],b[1]),N=hexDist(a,b),out=[];
+  for(var i=0;i<=N;i++){
+    var t=N?i/N:0;
+    var x=A[0]+(B[0]-A[0])*t,y=A[1]+(B[1]-A[1])*t,z=A[2]+(B[2]-A[2])*t;
+    var rx=Math.round(x),ry=Math.round(y),rz=Math.round(z);
+    var dx=Math.abs(rx-x),dy=Math.abs(ry-y),dz=Math.abs(rz-z);
+    if(dx>dy&&dx>dz)rx=-ry-rz;else if(dy>dz)ry=-rx-rz;else rz=-rx-ry;
+    out.push([rx+((rz-(rz&1))>>1),rz]);
+  }
+  return out;
+}
+function wegZuPfad(wp){
+  var pfad=[wp[0]];
+  for(var i=1;i<wp.length;i++){
+    var seg=hexLine(wp[i-1],wp[i]);
+    for(var j=1;j<seg.length;j++)pfad.push(seg[j]);
+  }
+  return pfad;
+}
+
+/* ---- Das Gelände: echte Anker, gerechnete Zwischenräume ---------------
+   Korridore = die echten Täler mit echten Bodenhöhen (Talboden Chur 593,
+   Bodensee 396); Gipfel = echte Höhen an ungefähr echter Lage. Jede
+   andere Zelle: Boden des nächsten Korridors + Anstieg mit der Distanz,
+   angehoben von den Gipfelkegeln. */
+/* Korridore als WEGPUNKTE (echter Lauf, vereinfacht), zu Ketten gewandert.
+   Neu in der feinen Auflösung: Frutz, Dornbirner Ach und die Bregenzer
+   Ach — letztere mit EIGENER Mündung in den Bodensee, östlich des Rheins. */
+/* Wegpunkte tragen jetzt ihre BODENHÖHE — das echte Längsprofil: steil
+   oberhalb Landquart, flach gegen den See. Erst dadurch kann die
+   Schotterflur ENTSTEHEN (Gefälle × Breite, unten) statt gesetzt zu
+   werden — ein linearer Boden hätte überall dasselbe Gefälle. */
+var KORRIDORE=[
+  {nm:'Alpenrhein',   wp:[[14,34,593],[13,30,523],[12,26,482],[14,21,455],[16,15,428],[16,11,412],[15,8,403],[14,5,397]]},
+  {nm:'Plessur',      wp:[[20,34,1100],[17,34,800],[14,34,595]]},
+  {nm:'Landquart',    wp:[[22,31,1400],[17,30,860],[13,30,527]]},
+  {nm:'Tamina',       wp:[[6,29,1500],[10,27,860],[12,26,505]]},
+  {nm:'Ill',          wp:[[27,19,1700],[22,17,1050],[18,14,620],[16,13,460]]},
+  {nm:'Frutz',        wp:[[24,12,1300],[19,11,700],[16,11,425]]},
+  {nm:'Dornbirner Ach',wp:[[22,9,900],[18,7,540],[17,5,399]]},
+  {nm:'Bregenzer Ach',wp:[[29,10,1000],[25,7,560],[21,5,398]]}
+];
+KORRIDORE.forEach(function(K){
+  K.pfad=[[K.wp[0][0],K.wp[0][1]]];K.boden=[K.wp[0][2]];
+  for(var i=1;i<K.wp.length;i++){
+    var seg=hexLine([K.wp[i-1][0],K.wp[i-1][1]],[K.wp[i][0],K.wp[i][1]]);
+    for(var j=1;j<seg.length;j++){
+      K.pfad.push(seg[j]);
+      K.boden.push(K.wp[i-1][2]+(K.wp[i][2]-K.wp[i-1][2])*(j/(seg.length-1)));
+    }
+  }
+});
+var HAUPT=KORRIDORE[0].pfad;
+var GIPFEL=[
+  {c:8, r:32, h:2805, nm:'Calanda'},
+  {c:4, r:28, h:2846, nm:'Ringelspitz'},
+  {c:6, r:24, h:2844, nm:'Pizol'},
+  {c:16,r:26, h:2560, nm:'Falknis'},
+  {c:24,r:24, h:2964, nm:'Schesaplana'},
+  {c:4, r:22, h:2306, nm:'Churfirsten'},
+  {c:8, r:20, h:2343, nm:'Alvier'},
+  {c:20,r:20, h:2052, nm:'Drei Schwestern'},
+  {c:8, r:14, h:1794, nm:'Hoher Kasten'},
+  {c:4, r:10, h:2502, nm:'Säntis'},
+  {c:22,r:7,  h:1064, nm:'Pfänder'}
+];
+var ORTE=[
+  {c:14,r:34, nm:'CHUR'},
+  {c:13,r:30, nm:'LANDQUART'},
+  {c:12,r:26, nm:'SARGANS'},
+  {c:15,r:21, nm:'VADUZ'},
+  {c:17,r:13, nm:'FELDKIRCH'},
+  {c:20,r:6,  nm:'BREGENZ'},
+  {c:14,r:2,  nm:'BODENSEE'}
+];
+var see=function(c,r){return r<=4;};
+/* Was von ausserhalb der Karte kommt: der Rhein erreicht Chur schon als
+   Fluss (Vorder-/Hinterrhein, MQ ≈ 90 abzüglich Plessur), Landquart, Ill
+   und Bregenzer Ach bringen ihre Oberläufe mit. Liegt die Eintrittszelle
+   unter Eis, ist auch dieses Wasser gebunden. */
+var ZUZUG=[
+  {c:14,r:34, q:70},                     /* Alpenrhein bei Chur */
+  {c:22,r:31, q:8},                      /* Landquart aus dem Prättigau */
+  {c:27,r:19, q:14},                     /* Ill aus dem Montafon */
+  {c:6, r:29, q:3},                      /* Tamina aus dem Calfeisental */
+  {c:29,r:10, q:10}                      /* Bregenzer Ach aus dem Bregenzerwald */
+];
+/* Feste Geländerauheit (saatunabhängig — die Geografie würfelt nicht):
+   bricht die künstliche Parallel-Entwässerung der glatten Kegelflanken. */
+function drau(c,r){
+  var h=(c|0)*2654435761+(r|0)*40503+12345;
+  h=(h^(h>>>13))>>>0;h=Math.imul(h,1274126177)>>>0;h=(h^(h>>>16))>>>0;
+  return h/4294967296*2-1;
+}
+
+var elev=[];                             /* elev[r*COLS+c], m ü. M. */
+for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
+  if(see(c,r)){elev[r*COLS+c]=396;continue;}
+  var e=1e9,imTal=false;
+  KORRIDORE.forEach(function(K){
+    K.pfad.forEach(function(p,i){
+      var d=hexDist([c,r],p);
+      if(d===0)imTal=true;
+      /* Anstieg gedeckelt: nur ECHTE Gipfel (unten) erreichen die heutige
+         Eisgrenze — sonst vereisen die fiktiven Kartenecken bei +9 °C. */
+      e=Math.min(e,K.boden[i]+Math.min(1900,90*Math.pow(d,1.6)));
+    });
+  });
+  /* Gipfelkegel steil (≈170 m/km — alpin) und NIE über einem Talboden:
+     das Tal ist gemessen, der Kegel nur gerechnet. Ein flacher Kegel
+     hatte Chur unter 965 m begraben und das ganze Untertal zur
+     Senkenkette gemacht. */
+  if(!imTal)GIPFEL.forEach(function(G){
+    e=Math.max(e,G.h-430*hexDist([c,r],[G.c,G.r]));
+  });
+  if(!imTal)e+=drau(c,r)*45;
+  elev[r*COLS+c]=e;
+}
+/* Senken füllen, damit jede Zelle einen Weg zum See hat. */
+for(var pass=0;pass<220;pass++){
+  var still=true;
+  for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++){
+    if(see(c,r))continue;
+    var m=1e9;
+    nachbarn(c,r).forEach(function(n){m=Math.min(m,elev[n[1]*COLS+n[0]]);});
+    if(m>=elev[r*COLS+c]){elev[r*COLS+c]=m+0.7;still=false;}
+  }
+  if(still)break;
+}
+/* Niederschlagsschicht: orographisch und mit Staulage — mehr Regen in
+   der Höhe, und der Norden (Alpstein, Bregenzerwald: Nordstau) ist
+   nasser als das innenalpine Churer Becken. Reale Spanne ~850 mm (Chur)
+   bis ~2000+ mm (Säntis/Bregenzerwald) ≈ Faktor 0,65–1,5 ums Mittel. */
+var PRECIP=[];
+for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++){
+  var eP=elev[r*COLS+c];
+  PRECIP[r*COLS+c]=(0.75+0.55*Math.min(1,Math.max(0,eP-400)/2000))
+                  *(0.8+0.5*(1-r/ROWS));
+}
+
+/* Abflussrichtung: die steilste Nachbarzelle (D6). */
+var ab=[];
+for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++){
+  if(see(c,r)){ab[r*COLS+c]=null;continue;}
+  var best=null,bm=elev[r*COLS+c];
+  nachbarn(c,r).forEach(function(n){
+    var ne=elev[n[1]*COLS+n[0]];
+    if(ne<bm){bm=ne;best=n;}
+  });
+  ab[r*COLS+c]=best;
+}
+var reihenfolge=[];                      /* Landzellen, absteigend nach Höhe */
+for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++)if(!see(c,r))reihenfolge.push([c,r]);
+reihenfolge.sort(function(a,b){return elev[b[1]*COLS+b[0]]-elev[a[1]*COLS+a[0]];});
+
+/* ---- Klima und Wasser: alles hängt an T — und an der Jahreszeit -------
+   Der Alpenrhein ist NIVAL: der Winter legt den Niederschlag als Schnee
+   auf die Höhen (wenig Wasser), Frühling und Sommer geben ihn frei
+   (Hochwasser), der Herbst regnet. Je Saison:
+     0°-Isotherme der Saison = Schneegrenze (Lapse 6,5 °C/km) —
+       darüber liegt Schnee: Niederschlag gespeichert, kaum Abfluss.
+     Schmelzband = was seit der Vorsaison ausgeapert ist (Frühling
+       schmilzt den Winterschnee des Tals, der Sommer den der Höhen).
+     Ewiges Eis (Jahresmittel < −6 °C) schmilzt nach seiner
+       SAISON-Wärme — im Winter gar nicht.
+     Die Zuflüsse von ausserhalb schwanken nival mit.
+   Spezifischer Abfluss ≈ 0,037 m³/s je km² (Alpenrhein: 230/6119) —
+   je 5,9-km²-Zelle also ~0,22. */
+var REGEN=0.2, THR=0.8;
+var SAISON=[
+  {id:'fruehling',nm:'Frühling',off:1,  regen:1.0, zuzug:1.3},
+  {id:'sommer',   nm:'Sommer',  off:10, regen:1.0, zuzug:1.5},
+  {id:'herbst',   nm:'Herbst',  off:2,  regen:1.1, zuzug:0.9},
+  {id:'winter',   nm:'Winter',  off:-10,regen:0.6, zuzug:0.45}
+];
+function klima(T,S){
+  var Hice=400+(T+6)/6.5*1000;           /* ewiges Eis: Jahresmittel */
+  var Ts=T+S.off;                        /* Taltemperatur der Saison */
+  var Hschnee=400+Ts/6.5*1000;           /* 0°-Isotherme der Saison */
+  /* Schneegrenze der Vorsaison: der Frühling apert aus, was der Winter
+     (T−10) beschneite, der Sommer, was der Frühling (T+1) liess. */
+  var HschneeVor=400+(T+(S.id==='sommer'?1:-10))/6.5*1000;
+  var band=(S.id==='fruehling'||S.id==='sommer');
+  var Q=[],ice=[],schnee=[],schmelze=0,iceN=0;
+  for(var i=0;i<COLS*ROWS;i++){Q[i]=0;ice[i]=false;schnee[i]=false;}
+  reihenfolge.forEach(function(p){
+    var i=p[1]*COLS+p[0],e=elev[i],q;
+    if(e>=Hice){
+      ice[i]=true;iceN++;
+      var Tc=Ts-6.5*(e-400)/1000;
+      q=0.13*Math.max(0,Tc);schmelze+=q;
+    }else if(e>=Hschnee){
+      schnee[i]=true;
+      q=REGEN*0.12*PRECIP[i];            /* Schnee speichert */
+    }else{
+      q=REGEN*S.regen*PRECIP[i];
+      /* Ausaperungsband: der Schnee, der hier schmilzt, fiel als
+         Winterniederschlag — die Schneeschmelze trägt die Regenkarte. */
+      if(band&&e>=HschneeVor){var sm2=REGEN*0.55*PRECIP[i];q+=sm2;schmelze+=sm2;}
+    }
+    ZUZUG.forEach(function(Z){
+      if(Z.c===p[0]&&Z.r===p[1]&&!ice[i])q+=Z.q*S.zuzug;
+    });
+    Q[i]+=q;
+    var d=ab[i];
+    if(d)Q[d[1]*COLS+d[0]]+=Q[i];
+  });
+  return {Hice:Hice,Hschnee:Hschnee,Q:Q,ice:ice,schnee:schnee,iceN:iceN,schmelze:schmelze,S:S};
+}
+
+/* ---- Läufe extrahieren: der Hauptstrang ist der grösste Zufluss ------- */
+function laeufe(K){
+  var Q=K.Q,ice=K.ice;
+  var fluss=function(c,r){var i=r*COLS+c;return !see(c,r)&&!ice[i]&&Q[i]>=THR;};
+  var zu=[];                             /* Fluss-Zuflüsse je Zelle */
+  for(var i=0;i<COLS*ROWS;i++)zu[i]=[];
+  for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
+    if(!fluss(c,r))continue;
+    var d=ab[r*COLS+c];
+    if(d)zu[d[1]*COLS+d[0]].push([c,r]);
+  }
+  var runde=[],zuord={},runs=[];
+  /* Mündungen in den See zuerst — von dort den grössten Zufluss aufwärts. */
+  for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++){
+    if(!fluss(c,r))continue;
+    var d=ab[r*COLS+c];
+    if(d&&see(d[0],d[1]))runde.push([c,r,null,null]);
+  }
+  while(runde.length){
+    var start=runde.shift(),pfad=[],cur=[start[0],start[1]];
+    while(cur){
+      pfad.push(cur);zuord[cur.join(',')]=runs.length;
+      var beste=null,bq=-1;
+      zu[cur[1]*COLS+cur[0]].forEach(function(u){
+        if(zuord[u.join(',')]!==undefined)return;
+        var q=Q[u[1]*COLS+u[0]];
+        if(q>bq){bq=q;beste=u;}
+      });
+      cur=beste;
+    }
+    pfad.reverse();                      /* quellwärts → talwärts */
+    runs.push({pfad:pfad,ziel:start[2],zielZelle:start[3],
+               qs:pfad.map(function(p){return Q[p[1]*COLS+p[0]];})});
+    /* alle noch freien Fluss-Zellen, deren Abfluss vergeben ist → Mündungen */
+    for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++){
+      if(!fluss(c,r)||zuord[c+','+r]!==undefined)continue;
+      var dd=ab[r*COLS+c];
+      if(dd&&zuord[dd.join(',')]!==undefined){
+        var schon=runde.some(function(x){return x[0]===c&&x[1]===r;});
+        if(!schon)runde.push([c,r,zuord[dd.join(',')],dd]);
+      }
+    }
+  }
+  /* NICHT filtern: die ziel-Indizes der Nebenläufe zeigen in DIESES
+     Array — ein Filter würde reindizieren und jede Mündung auf den
+     falschen Lauf biegen (der Sternexplosions-Befund). Kurzläufe werden
+     beim Zeichnen übersprungen, behalten aber ihren Platz. */
+  return runs;
+}
+
+/* ---- Der v3-Renderer: Kantenvertrag wörtlich --------------------------- */
+function hash(a,b,c){
+  var h=(a|0)*374761393+(b|0)*668265263+(c|0)*974634013+(P.seed|0)*144665;
+  h=(h^(h>>>13))>>>0;h=Math.imul(h,1274126177)>>>0;h=(h^(h>>>16))>>>0;
+  return h/4294967296*2-1;
+}
+function glatt(t){return t*t*(3-2*t);}
+function rausch(x,y){
+  var ix=Math.floor(x),iy=Math.floor(y),fx=glatt(x-ix),fy=glatt(y-iy);
+  var a=hash(ix,iy,9),b=hash(ix+1,iy,9),cc=hash(ix,iy+1,9),d=hash(ix+1,iy+1,9);
+  return a+(b-a)*fx+(cc-a)*fy+(a-b-cc+d)*fx*fy;
+}
+function pinselW(x,y){
+  if(!P.pinsel)return 0;
+  var f=P.freq/1000;
+  return (rausch(x*f,y*f)+0.5*rausch(x*f*2.3+37,y*f*2.3+11))*P.pinsel;
+}
+function bandBreite(b){
+  var f;
+  if(b<0.5)f=.028; else if(b<5)f=.028+(b-0.5)/4.5*.042;
+  else if(b<10)f=.070+(b-5)/5*.035;
+  else if(b<100)f=.105+Math.log10(b/10)*.100;
+  else f=Math.min(.34,.205+Math.log10(b/100)*.10);
+  return f*HXW;
+}
+/* Vier Klassen wie im v1-Labor: Rinnsal · Bach · kleiner Fluss · grosser
+   Fluss — erst die feine Auflösung macht die unteren zwei sichtbar. */
+var farbe=function(q){var b=6*Math.sqrt(q);
+  return b<2?'var(--w-rinnsal)':b<5?'var(--w-bach)':b<10?'var(--river)':'var(--riverdeep)';};
+var klasseKey=function(q){var b=6*Math.sqrt(q);
+  return b<2?'rinnsal':b<5?'bach':b<10?'kfluss':'gfluss';};
+function crSample(cp,S){
+  var out=[];
+  for(var i=0;i<cp.length-1;i++){
+    var p0=cp[Math.max(0,i-1)],p1=cp[i],p2=cp[i+1],p3=cp[Math.min(cp.length-1,i+2)];
+    for(var s=0;s<S;s++){
+      var t=s/S,t2=t*t,t3=t2*t;
+      out.push({
+        x:.5*(2*p1.x+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*t2+(-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+        y:.5*(2*p1.y+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*t2+(-p0.y+3*p1.y-3*p2.y+p3.y)*t3),
+        q:p1.q+(p2.q-p1.q)*t
+      });
+    }
+  }
+  out.push({x:cp[cp.length-1].x,y:cp[cp.length-1].y,q:cp[cp.length-1].q});
+  for(var j=0;j<out.length;j++){
+    var A=out[Math.max(0,j-1)],B=out[Math.min(out.length-1,j+1)];
+    var dx=B.x-A.x,dy=B.y-A.y,L=Math.hypot(dx,dy)||1;
+    out[j].tx=dx/L;out[j].ty=dy/L;out[j].nx=-dy/L;out[j].ny=dx/L;
+  }
+  for(j=0;j<out.length;j++){
+    var C1=out[Math.max(0,j-2)],C2=out[Math.min(out.length-1,j+2)];
+    out[j].kr=C1.tx*C2.ty-C1.ty*C2.tx;
+  }
+  return out;
+}
+function ribbon(sm,wOf){
+  var L=[],R=[];
+  sm.forEach(function(s){
+    var w=wOf(s),n=pinselW(s.x,s.y);
+    L.push([s.x+s.nx*(w[0]+n),s.y+s.ny*(w[0]+n)]);
+    R.push([s.x-s.nx*(w[1]-n),s.y-s.ny*(w[1]-n)]);
+  });
+  return 'M '+L.map(function(p){return p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' L ')
+       +' L '+R.reverse().map(function(p){return p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' L ')+' Z';
+}
+
+/* Schotterflur-Anteil einer Probe: Nähe zur nächsten verzweigten Zelle. */
+function braidBump(BR,s){
+  if(!BR)return 0;
+  var m=0,R=HXW*0.62;
+  for(var i=0;i<BR.list.length;i++){
+    var d=Math.hypot(s.x-BR.list[i].x,s.y-BR.list[i].y);
+    if(d<R)m=Math.max(m,0.5*(1+Math.cos(Math.PI*d/R)));
+  }
+  return m;
+}
+function wasserZeichnen(K,BR,MG){
+  var runs=laeufe(K),saums=[],koerper=[],proben=[];
+  runs.forEach(function(run,ri){
+    if(run.pfad.length<2)return;         /* Kurzlauf: Platz behalten, nicht zeichnen */
+    var cp=[];
+    /* Durchgangspunkte quer ausgelenkt (Regel 2), Ports fest auf der
+       Kantenmitte (Entscheid), Mündung stromab an den Ziel-Lauf.
+       Im Mäandergürtel entfallen die INNEREN Ports (der Gürtel ist ein
+       Feld im Vertragssinn) und der Durchgangspunkt darf bis in die
+       erlaubte Aue der Nachbarreihe ausholen — Seite wechselt mit dem
+       Kegelzähler: das ist der Mäander. */
+    for(var i=0;i<run.pfad.length;i++){
+      var p=run.pfad[i],key=p.join(',');
+      var mgH=MG&&MG.info[key],mgV=MG&&i>0&&MG.info[run.pfad[i-1].join(',')];
+      if(i>0&&!(mgH&&mgV&&mgH.w>=2&&mgV.w>=2)){
+        var m=kanteMitte(run.pfad[i-1],p);
+        cp.push({x:m[0],y:m[1],q:(run.qs[i-1]+run.qs[i])/2});
+      }
+      var pv=run.pfad[i-1]||p,nx=run.pfad[i+1]||p;
+      var dx=cx(nx[0],nx[1])-cx(pv[0],pv[1]),dy=cy(nx[0],nx[1])-cy(pv[0],pv[1]);
+      var L=Math.hypot(dx,dy)||1,q=run.qs[i];
+      var f=0.55+0.75/(1+q);
+      var off=Math.max(-28,Math.min(28,hash(p[0],p[1],1)*(P.amp/100*HXW)*f));
+      if(mgH&&mgH.w>=2){
+        var sgn=(mgH.k%2?1:-1);
+        var seite=sgn>0?mgH.re:mgH.li;
+        if(seite>0){
+          var mag=Math.min(seite,mgH.w-1)*(0.4+0.35*Math.abs(hash(p[0],p[1],7)))*HXW*0.6;
+          off+=sgn*Math.min(mag,seite*HXW*0.8);
+        }
+      }
+      cp.push({x:cx(p[0],p[1])-dy/L*off,y:cy(p[0],p[1])+dx/L*off,q:q});
+    }
+    var ende=run.pfad[run.pfad.length-1],dAb=ab[ende[1]*COLS+ende[0]];
+    if(run.ziel===null){
+      if(dAb){var m2=kanteMitte(ende,dAb);              /* in den See hinaus */
+        cp.push({x:m2[0],y:m2[1],q:run.qs[run.qs.length-1]});
+        cp.push({x:cx(dAb[0],dAb[1]),y:cy(dAb[0],dAb[1]),q:run.qs[run.qs.length-1]});}
+    }else if(proben[run.ziel]){
+      var Z=proben[run.ziel],zx=cx(run.zielZelle[0],run.zielZelle[1]),zy=cy(run.zielZelle[0],run.zielZelle[1]);
+      var bestJ=0,bestD=1e9;
+      Z.forEach(function(s,j){var d2=(s.x-zx)*(s.x-zx)+(s.y-zy)*(s.y-zy);if(d2<bestD){bestD=d2;bestJ=j;}});
+      var j=Math.min(Z.length-2,bestJ+5),M=Z[j],qe=run.qs[run.qs.length-1];
+      var vor=cp[cp.length-1];
+      var seite=((vor.x-M.x)*M.nx+(vor.y-M.y)*M.ny)>=0?1:-1;
+      cp.push({x:M.x-M.tx*48+M.nx*seite*14,y:M.y-M.ty*48+M.ny*seite*14,q:qe});
+      cp.push({x:M.x,y:M.y,q:qe});
+    }
+    if(cp.length<3)return;
+    var sm=crSample(cp,9);
+    proben[ri]=sm;
+    var wV=function(s){return bandBreite(6*Math.sqrt(s.q));};
+    var endq=run.qs[run.qs.length-1];
+    var saum=ribbon(sm,function(s){
+      var w=wV(s),k=Math.max(-1,Math.min(1,s.kr*26)),g=Math.max(2.5,w*0.5);
+      var weit=1+1.9*braidBump(BR,s);    /* die Schotterflur weitet den Kies */
+      return [(w/2+g*(1+Math.max(0,k)*1.7))*weit,(w/2+g*(1+Math.max(0,-k)*1.7))*weit];
+    });
+    var kKey=klasseKey(endq);
+    saums.push({q:endq,svg:'<path d="'+saum+'" fill="var(--w-saum)" data-hl="'+kKey+'"/>'});
+    var kk='<path d="'+ribbon(sm,function(s){var w=wV(s)*(1-0.45*braidBump(BR,s));return [w/2,w/2];})
+      +'" fill="'+farbe(endq)+'" data-hl="'+kKey+'"/>';
+    if(endq>=1.4)kk+='<path d="'+ribbon(sm,function(s){var w=wV(s)*(1-0.45*braidBump(BR,s))*0.28;return [w/2,w/2];})
+      +'" fill="var(--w-tal)" data-hl="'+kKey+'"/>';
+    /* Schotterflur: je verzweigte Zelle dieses Laufs zwei UNGLEICHE
+       Nebenrinnen, Kiesbänke — und die FURT, wenn das Wasser sie
+       freigibt: begehbar, sobald die Saisonbreite ≤ 80 % der
+       bettbildenden Sommerbreite ist (Niedrigwasser). */
+    if(BR)run.pfad.forEach(function(p){
+      var key=p[0]+','+p[1];
+      if(!BR.set.has(key))return;
+      var zx=cx(p[0],p[1]),zy=cy(p[0],p[1]),bj=0,bd=1e9;
+      sm.forEach(function(s,j){var d2=(s.x-zx)*(s.x-zx)+(s.y-zy)*(s.y-zy);if(d2<bd){bd=d2;bj=j;}});
+      if(bd>HXW*HXW*0.6)return;
+      var a=Math.max(1,bj-6),b2=Math.min(sm.length-2,bj+6);
+      if(b2-a<4)return;
+      var M=sm[bj],w=wV(M);
+      [[24,0.30],[-17,0.19]].forEach(function(arm){
+        var d='M '+sm.slice(a,b2+1).map(function(s,k2){
+          var t=k2/(b2-a),off=Math.sin(Math.PI*t)*arm[0];
+          return (s.x+s.nx*off).toFixed(1)+' '+(s.y+s.ny*off).toFixed(1);
+        }).join(' L ');
+        kk+='<path d="'+d+'" fill="none" stroke="'+farbe(M.q)+'" stroke-width="'+(w*arm[1]).toFixed(1)+'" stroke-linecap="round" data-hl="schotterflur"/>';
+      });
+      var ang=Math.atan2(M.ty,M.tx)*180/Math.PI;
+      [[12,20,5],[-9,14,3.5]].forEach(function(b3){
+        kk+='<ellipse cx="'+(M.x+M.nx*b3[0]).toFixed(1)+'" cy="'+(M.y+M.ny*b3[0]).toFixed(1)
+          +'" rx="'+b3[1]+'" ry="'+b3[2]+'" transform="rotate('+ang.toFixed(1)+' '+(M.x+M.nx*b3[0]).toFixed(1)
+          +' '+(M.y+M.ny*b3[0]).toFixed(1)+')" fill="var(--kies)" stroke="var(--w-saum)" stroke-width="1" data-hl="schotterflur"/>';
+      });
+      var i2=p[1]*COLS+p[0];
+      var offen=6*Math.sqrt(K.Q[i2])<=0.8*6*Math.sqrt(BR.Qs[i2]);
+      if(offen)for(var f=-1;f<=1;f+=2){
+        var fx=M.x+M.tx*f*7,fy=M.y+M.ty*f*7;
+        kk+='<path d="M '+(fx-M.nx*w*0.85).toFixed(1)+' '+(fy-M.ny*w*0.85).toFixed(1)
+          +' L '+(fx+M.nx*w*0.85).toFixed(1)+' '+(fy+M.ny*w*0.85).toFixed(1)
+          +'" stroke="color-mix(in srgb,var(--bone) 78%,var(--river))" stroke-width="3.5" fill="none" data-hl="furt"/>';
+      }
+    });
+    /* Die Quelle: jeder Lauf beginnt sichtbar — am Eisrand als Gletschertor
+       (hell), sonst als Quellauge. ZUZUG-Zellen sind keine Quellen, dort
+       kommt der Fluss nur zur Karte herein. */
+    var kopf=run.pfad[0];
+    var istZuzug=ZUZUG.some(function(Z){return Z.c===kopf[0]&&Z.r===kopf[1];});
+    if(!istZuzug){
+      var eisNah=nachbarn(kopf[0],kopf[1]).some(function(n){return K.ice[n[1]*COLS+n[0]];});
+      var s0=sm[0];
+      kk+='<circle cx="'+s0.x.toFixed(1)+'" cy="'+s0.y.toFixed(1)+'" r="'
+        +Math.max(2.4,bandBreite(6*Math.sqrt(s0.q))*0.9).toFixed(1)
+        +'" fill="'+(eisNah?'color-mix(in srgb,var(--bone) 70%,var(--river))':farbe(s0.q))
+        +'" data-hl="'+(eisNah?'gletschertor':'quelle')+'"/>';
+    }
+    koerper.push({q:endq,svg:kk});
+  });
+  var auf=function(a,b){return a.q-b.q;},sv=function(x){return x.svg;};
+  saums.sort(auf);koerper.sort(auf);
+  return saums.map(sv).join('')+koerper.map(sv).join('');
+}
+
+/* ---- Gelände, Eis, Beschriftung ---------------------------------------- */
+function hoehenFarbe(e){
+  if(e<520) return 'var(--flach)';
+  if(e<800) return 'color-mix(in srgb,var(--flach) 60%,var(--hang))';
+  if(e<1200)return 'var(--hang)';
+  if(e<1800)return 'color-mix(in srgb,var(--hang) 78%,var(--ink))';
+  if(e<2400)return 'color-mix(in srgb,var(--hang) 58%,var(--ink))';
+  return 'color-mix(in srgb,var(--hang) 42%,var(--ink))';
+}
+function polyStr(c,r){return ecken(c,r).map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ');}
+function gelaendeZeichnen(){
+  var h='';
+  for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
+    var fill=see(c,r)?'var(--lake)':hoehenFarbe(elev[r*COLS+c]);
+    h+='<polygon points="'+polyStr(c,r)+'" fill="'+fill+'" stroke="var(--line)" stroke-opacity=".3" stroke-width="1"/>';
+  }
+  return h;
+}
+function eisZeichnen(K){
+  var h='';
+  for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
+    var i=r*COLS+c;
+    if(K.ice[i])
+      h+='<polygon points="'+polyStr(c,r)+'" fill="color-mix(in srgb,var(--bone) 82%,var(--river))" fill-opacity=".92" stroke="color-mix(in srgb,var(--bone) 60%,var(--line))" stroke-width="1" data-hl="eis"/>';
+    else if(K.schnee[i])
+      h+='<polygon points="'+polyStr(c,r)+'" fill="color-mix(in srgb,var(--bone) 55%,var(--bg))" fill-opacity=".55" data-hl="schnee"/>';
+  }
+  return h;
+}
+function textZeichnen(K,klein){
+  var h='';
+  if(!klein)GIPFEL.forEach(function(G){
+    var vereist=K.ice[G.r*COLS+G.c];
+    h+='<text x="'+cx(G.c,G.r)+'" y="'+(cy(G.c,G.r)+7)+'" text-anchor="middle" font-family="var(--f-mono)" font-size="24" fill="'+(vereist?'var(--ink2)':'color-mix(in srgb,var(--bone) 70%,var(--ink2))')+'">'+G.nm+' · '+G.h+'</text>';
+  });
+  ORTE.forEach(function(O){
+    h+='<text x="'+cx(O.c,O.r)+'" y="'+(cy(O.c,O.r)+9)+'" text-anchor="middle" font-family="var(--f-mono)" font-size="'+(klein?44:30)+'" font-weight="700" letter-spacing="3" fill="var(--ink2)">'+O.nm+'</text>';
+  });
+  return h;
+}
+
+/* ---- zusammensetzen und am Regler hängen ------------------------------- */
+var st=document.createElement('style');
+st.textContent=':root,body{--w-rinnsal:color-mix(in srgb,var(--river) 42%,var(--bg));'
+  +'--w-bach:color-mix(in srgb,var(--river) 62%,var(--bg));'
+  +'--w-saum:color-mix(in srgb,var(--kies) 72%,var(--bg));'
+  +'--w-tal:color-mix(in srgb,var(--riverdeep) 72%,var(--ink));}'
+  +'body.night{--w-tal:color-mix(in srgb,var(--riverdeep) 60%,var(--bg));}'
+  +'#brett text{user-select:none;-webkit-user-select:none;pointer-events:none;}';
+document.head.appendChild(st);
+
+var tafeln=document.getElementById('tafeln');
+var GELAENDE=gelaendeZeichnen();
+var CHUR=HAUPT[0],MUND=HAUPT[HAUPT.length-1];
+
+/* Ried/Aue: das Sumpfland des Mäandergürtels — nasses Grün unterm Lauf. */
+function aueZeichnen(MG){
+  var h='';
+  MG.aue.forEach(function(key){
+    var t2=key.split(','),c2=+t2[0],r2=+t2[1];
+    h+='<polygon points="'+polyStr(c2,r2)+'" fill="color-mix(in srgb,var(--river) 13%,var(--flach))" fill-opacity=".85" stroke="color-mix(in srgb,var(--river) 25%,var(--line))" stroke-opacity=".4" stroke-width="1" data-hl="ried"/>';
+  });
+  return h;
+}
+/* Niederschlags-Schleier fürs Auge (?nied): blauer = nasser. */
+function niedZeichnen(){
+  var h='';
+  for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
+    if(see(c,r))continue;
+    var op=Math.max(0,Math.min(0.5,(PRECIP[r*COLS+c]-0.6)*0.55));
+    h+='<polygon points="'+polyStr(c,r)+'" fill="var(--river)" fill-opacity="'+op.toFixed(2)+'"/>';
+  }
+  return h;
+}
+var zeitWahl=P.zeit;                    /* Startwert aus ?zeit, danach die Knöpfe */
+function malen(T){
+  var vier=(zeitWahl==='vier');
+  var zeigen=vier?SAISON:SAISON.filter(function(s){return s.id===zeitWahl;});
+  tafeln.className=vier?'vier':'';
+  /* Die Schotterflur ist GEOMORPHOLOGIE: geformt vom bettbildenden
+     Sommerabfluss, gleich in allen vier Tafeln — verzweigt, wo das
+     Gefälle klein (< 2 m/km) und das Sommerbett breit (≥ 15 m) ist.
+     Nur die FURT wechselt mit der Saison: begehbar bei Niedrigwasser. */
+  var KSom=klima(T,SAISON[1]);
+  /* Flaches, breites Sommerbett teilt sich in ZWEI Regime:
+       1,2–2,0 m/km → Schotterflur (Kies, verzweigt, Furten)
+       < 1,2 m/km  → MÄANDERGÜRTEL: der Fluss wandert durch Ried.
+     Der Gürtel ist ein Kegel: je Folgezelle im flachen Band darf der
+     Lauf eine Nachbarreihe weiter ausholen (1 → 2 → 3 Zellen breit),
+     aber nur, wo die Aue < 8 m über dem Bett liegt — das Gelände
+     entscheidet, wie weit der Sumpf reicht. Im Vertragssinn ist der
+     ganze Gürtel EIN Feld: feste Ports nur an seinem Ein- und Austritt,
+     die inneren Ports entfallen — erst das lässt die Linie schwingen. */
+  var BR={set:new Set(),list:[],Qs:KSom.Q};
+  var MG={info:{},aue:new Set()};
+  var kMap={};
+  reihenfolge.forEach(function(p){
+    var c2=p[0],r2=p[1],i=r2*COLS+c2;
+    if(see(c2,r2)||KSom.ice[i])return;
+    var d=ab[i];if(!d)return;
+    if(6*Math.sqrt(KSom.Q[i])<15)return;
+    /* Nur im TALBODEN: Schotterflur und Ried sind Auen-Phänomene. Ohne
+       diese Schranke wurden ausgefüllte Rausch-Plateaus der Flanken zu
+       „Ried" erklärt — gefunden über die Legenden-Hervorhebung. */
+    if(elev[i]>=650)return;
+    var gef=(elev[i]-elev[d[1]*COLS+d[0]])/2.6;
+    if(gef>=2.0)return;
+    var key=c2+','+r2;
+    if(gef>=1.2){BR.set.add(key);BR.list.push({x:cx(c2,r2),y:cy(c2,r2)});return;}
+    /* Ried: Kegelzähler = längste Ried-Kette oberstrom + 1 */
+    var k=1;
+    nachbarn(c2,r2).forEach(function(n){
+      var na=ab[n[1]*COLS+n[0]];
+      if(na&&na[0]===c2&&na[1]===r2&&kMap[n.join(',')])k=Math.max(k,kMap[n.join(',')]+1);
+    });
+    kMap[key]=k;
+    var w=Math.min(3,k);
+    var dx=cx(d[0],d[1])-cx(c2,r2),dy=cy(d[0],d[1])-cy(c2,r2);
+    var L=Math.hypot(dx,dy)||1,nx2=-dy/L,ny2=dx/L;
+    var li=0,re=0;
+    if(w>=2)nachbarn(c2,r2).forEach(function(n){
+      var proj=(cx(n[0],n[1])-cx(c2,r2))*nx2+(cy(n[0],n[1])-cy(c2,r2))*ny2;
+      if(Math.abs(proj)<HXW*0.3)return;
+      if(see(n[0],n[1])||elev[n[1]*COLS+n[0]]-elev[i]>=8)return;
+      if(proj>0)re++;else li++;
+      MG.aue.add(n.join(','));
+    });
+    MG.info[key]={k:k,w:w,li:Math.min(li,w-1),re:Math.min(re,w-1)};
+    MG.aue.add(key);
+  });
+  var html='',erst=null;
+  zeigen.forEach(function(S){
+    var K=klima(T,S);
+    if(!erst)erst=K;
+    var qC=K.Q[CHUR[1]*COLS+CHUR[0]],qM=K.Q[MUND[1]*COLS+MUND[0]];
+    var offenN=0;
+    BR.set.forEach(function(key){
+      var t2=key.split(','),i2=(+t2[1])*COLS+(+t2[0]);
+      if(6*Math.sqrt(K.Q[i2])<=0.8*6*Math.sqrt(BR.Qs[i2]))offenN++;
+    });
+    html+='<div class="tafel"><h2><b>'+K.S.nm+'</b> · '
+      +'Schmelze '+K.schmelze.toFixed(0)+' m³/s · Chur '+qC.toFixed(0)
+      +' · Mündung '+qM.toFixed(0)+' m³/s'
+      +(BR.set.size?' · Furten '+(offenN?'<b>offen</b> ('+offenN+')':'<b>ertrunken</b>'):'')
+      +(K.iceN&&K.schmelze<1&&qM<10?' — das Wasser liegt still':'')+'</h2>'
+      +'<svg viewBox="0 0 '+VB_W+' '+VB_H+'">'
+      +GELAENDE+(P.nied?niedZeichnen():'')+aueZeichnen(MG)+wasserZeichnen(K,BR,MG)+eisZeichnen(K)+textZeichnen(K,vier)
+      +'</svg></div>';
+  });
+  tafeln.innerHTML=html;
+  document.getElementById('twert').textContent=(T>0?'+':'')+T+' °C';
+  document.getElementById('hud').innerHTML=
+    'Eisgrenze (ewig) <b>'+(erst.Hice<400?'unter dem Tal':Math.round(erst.Hice)+' m ü. M.')+'</b> · '
+    +'Eis <b>'+Math.round(erst.iceN*ZKM2)+' km²</b> · '
+    +'Schotterflur <b>'+Math.round(BR.set.size*ZKM2)+' km²</b> · '
+    +'Ried <b>'+Math.round(MG.aue.size*ZKM2)+' km²</b> — '
+    +'der Schnee wandert mit der Jahreszeit, das Eis nur mit dem Regler, die Furt mit dem Wasserstand';
+}
+var regler=document.getElementById('tregler');
+regler.value=P.temp;
+var malAuftrag=null;
+regler.addEventListener('input',function(){
+  if(malAuftrag)cancelAnimationFrame(malAuftrag);
+  malAuftrag=requestAnimationFrame(function(){malen(+regler.value);malAuftrag=null;});
+});
+
+/* Jahreszeiten-Knöpfe: umschalten ohne Neuladen. */
+var zeitKnoepfe=document.querySelectorAll('#zeiten button');
+function zeitMarkieren(){
+  zeitKnoepfe.forEach(function(b){b.classList.toggle('on',b.dataset.zeit===zeitWahl);});
+}
+zeitKnoepfe.forEach(function(b){
+  b.addEventListener('click',function(){
+    zeitWahl=b.dataset.zeit;
+    zeitMarkieren();
+    malen(+regler.value);
+  });
+});
+zeitMarkieren();
+
+/* Legende: überfahren (oder antippen) hebt die passenden Elemente auf
+   allen Tafeln hervor — alles andere tritt zurück. Ein dynamisches
+   <style> statt Klassen auf tausenden SVG-Knoten. */
+var hlStyle=document.createElement('style');
+document.head.appendChild(hlStyle);
+var hlFest=null;                        /* per Klick verriegelt (Touch) */
+function hlSetzen(k){
+  /* Alles tritt zurück; die Treffer behalten ihre Füllung und bekommen
+     einen Glutring (paint-order legt den Strich HINTER die Füllung). */
+  hlStyle.textContent=k
+    ?'#tafeln svg :is(path,polygon,circle,ellipse,text){opacity:.13}'
+     +'#tafeln svg [data-hl="'+k+'"]{opacity:1;stroke:var(--ember);stroke-width:4px;paint-order:stroke;fill-opacity:1;}'
+    :'';
+}
+document.querySelectorAll('.legende span[data-hl]').forEach(function(sp){
+  var k=sp.dataset.hl;
+  sp.addEventListener('mouseenter',function(){if(!hlFest)hlSetzen(k);});
+  sp.addEventListener('mouseleave',function(){if(!hlFest)hlSetzen(null);});
+  sp.addEventListener('click',function(){
+    hlFest=(hlFest===k)?null:k;
+    document.querySelectorAll('.legende span[data-hl]').forEach(function(s2){
+      s2.classList.toggle('an',s2.dataset.hl===hlFest);
+    });
+    hlSetzen(hlFest||k);
+    if(!hlFest)hlSetzen(null);
+  });
+});
+
+if(P.hl){
+  hlFest=P.hl;hlSetzen(P.hl);
+  document.querySelectorAll('.legende span[data-hl="'+P.hl+'"]').forEach(function(s2){s2.classList.add('an');});
+}
+
+malen(P.temp);
+</script>
+</body>
+</html>

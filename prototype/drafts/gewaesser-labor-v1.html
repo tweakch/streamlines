@@ -118,6 +118,11 @@ header{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;p
 .chip.warn{border-color:var(--bad);color:var(--bad);}
 .chip.good{border-color:var(--good);color:var(--good);}
 .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px;}
+/* Icon in einer Zeile (Merkmal-Chips, Werkzeugknöpfe). Bemisst das SVG, damit
+   es nicht auf der Schriftgrundlinie hängt — dieselbe Rolle wie .ibtn im
+   Baukasten, hier lokal, weil diese Datei sot.css noch nicht lädt. */
+.ibtn{display:inline-flex;width:1.15em;height:1.15em;vertical-align:-.18em;}
+.ibtn svg{width:100%;height:100%;display:block;}
 .tree{font-size:11.5px;line-height:1.75;}
 .tree ul{list-style:none;margin:0;padding-left:13px;border-left:1px dotted var(--line);}
 .tree>ul{padding-left:0;border-left:none;}
@@ -146,6 +151,10 @@ table.t td.n{font-family:'Space Mono',monospace;text-align:right;}
 </style>
 </head>
 <body>
+<!-- Nur der Zeichensatz aus dem Baukasten: Icons sind SVG, immer.
+     Die eigene Palette dieser Datei bleibt bis zum Umbau bestehen. -->
+<script src="../kit/sot.js"></script>
+<script src="../kit/sot-icons.js"></script>
 <div class="stage">
 
   <header>
@@ -154,7 +163,7 @@ table.t td.n{font-family:'Space Mono',monospace;text-align:right;}
       <button id="bMass" class="ghost">Maßstab: lesbar</button>
       <button id="bFlow" class="ghost">Fließrichtung</button>
       <button id="bSeit" class="ghost">Ufer-Seiten</button>
-      <button id="bNight" class="ghost">☾</button>
+      <button id="bNight" class="ghost" title="Tag / Nacht"></button>
       <button id="bPanel" class="ghost">Panel</button>
     </div>
   </header>
@@ -202,6 +211,9 @@ table.t td.n{font-family:'Space Mono',monospace;text-align:right;}
 const Q = new URLSearchParams(location.search);
 const qs = (k,d)=>Q.has(k)?(Q.get(k)===''?true:Q.get(k)):d;
 const qn = (k,d)=>Q.has(k)?parseFloat(Q.get(k)):d;
+
+/* Icon in einer Zeichenkette — Etiketten, Chips, Knöpfe. */
+const ico=n=>`<i class="ibtn">${SOT.icon(n)}</i>`;
 
 /* ---------- Geometrie: pointy-top, odd-r offset (ungerade Reihen rechts) ---- */
 const SQ3=Math.sqrt(3), HEXW=60, HEXH=HEXW*2/SQ3;   /* Modelleinheiten, Zoom über viewBox */
@@ -281,13 +293,13 @@ const BAUM={nm:'Gewässer',kinder:[
 
 /* Merkmale — Orte, an denen ein Lauf sich anders verhält als seine Klasse. */
 const MERKMAL={
-  furt:   {nm:'Furt',        gl:'▨',d:'Flache, breite Stelle — meist in der verzweigten Strecke. Der Ort, an dem man hinüberkommt.'},
-  schnell:{nm:'Stromschnelle',gl:'≋',d:'Steiles Gefälle über Blöcke. Schnell, laut, gefährlich.'},
-  fall:   {nm:'Wasserfall',  gl:'⇊',d:'Absturz über eine Stufe. Weder quer noch längs passierbar.'},
-  klamm:  {nm:'Klamm',       gl:'⋔',d:'Der Fluss hat sich eingeschnitten; die Wände sperren, nicht das Wasser.'},
-  bruecke:{nm:'Brücke',      gl:'╤',d:'Gebauter Übergang. Hebt jede Sperre auf — auch die Klamm.'},
-  steg:   {nm:'Steg',        gl:'┈',d:'Baumstamm oder Bohlen. Nur bis zum kleinen Fluss.'},
-  damm:   {nm:'Damm',        gl:'▬',d:'Sperrt den Lauf und staut ihn zum Stausee auf.'},
+  furt:   {nm:'Furt',        ico:'furt',d:'Flache, breite Stelle — meist in der verzweigten Strecke. Der Ort, an dem man hinüberkommt.'},
+  schnell:{nm:'Stromschnelle',ico:'stromschnelle',d:'Steiles Gefälle über Blöcke. Schnell, laut, gefährlich.'},
+  fall:   {nm:'Wasserfall',  ico:'wasserfall',d:'Absturz über eine Stufe. Weder quer noch längs passierbar.'},
+  klamm:  {nm:'Klamm',       ico:'klamm',d:'Der Fluss hat sich eingeschnitten; die Wände sperren, nicht das Wasser.'},
+  bruecke:{nm:'Brücke',      ico:'bruecke',d:'Gebauter Übergang. Hebt jede Sperre auf — auch die Klamm.'},
+  steg:   {nm:'Steg',        ico:'steg',d:'Baumstamm oder Bohlen. Nur bis zum kleinen Fluss.'},
+  damm:   {nm:'Damm',        ico:'damm',d:'Sperrt den Lauf und staut ihn zum Stausee auf.'},
 };
 
 /* ============================================================================
@@ -1042,7 +1054,9 @@ function render(){
     let x=cxOf(S.wand.c,S.wand.r),y=cyOf(S.wand.c,S.wand.r);
     if(p){let sx=0,sy=0;for(const q of p.poly){sx+=q[0];sy+=q[1];}x=sx/p.poly.length;y=sy/p.poly.length;}
     g9.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5.2" fill="var(--bone)" stroke="var(--ink)" stroke-width="1.4"/>`);
-    g9.push(`<text x="${x.toFixed(1)}" y="${(y+2.6).toFixed(1)}" text-anchor="middle" font-size="7" fill="var(--ink)">☖</text>`);
+    /* Icons sind SVG, auch INNERHALB der Karte: SOT.iconSVG setzt dasselbe
+       Zeichen als verschachteltes <svg> auf Weltkoordinaten. */
+    g9.push(`<g color="var(--ink)">${SOT.iconSVG('mensch',x,y,7.6)}</g>`);
   }
   if(S.sel){
     const cell=S.cells.get(key(S.sel[0],S.sel[1]));
@@ -1166,7 +1180,7 @@ function tabFeld(){
     for(const k in MERKMAL){
       const an=cell.merk[k], ov=(S.mark[key(cell.c,cell.r)]||{});
       const man=(k in ov);
-      h+=`<span class="chip ${an?'on':''}" style="${man?'border-style:dashed':''}" title="${MERKMAL[k].d}">${MERKMAL[k].gl} ${MERKMAL[k].nm}${man?' ·hand':''}</span>`;
+      h+=`<span class="chip ${an?'on':''}" style="${man?'border-style:dashed':''}" title="${MERKMAL[k].d}">${ico(MERKMAL[k].ico)} ${MERKMAL[k].nm}${man?' ·hand':''}</span>`;
     }
     h+=`</div><p class="dim">Abgeleitet aus Gefälle, Tiefe und Flanken — der Stempel <b>Merkmal</b> überschreibt (durchbrochener Rand).</p>`;
   }
@@ -1315,10 +1329,16 @@ function tabWand(){
 /* ============================================================================
    6. WERKZEUGE UND BEDIENUNG
    ============================================================================ */
+/* Werkzeuge: Zeichenname statt Zeichen. Hier standen Emoji neben
+   Symbolzeichen — beides jetzt SVG aus dem Baukasten. */
 const TOOLS=[
-  {id:'inspect',l:'🔍 Feld'},{id:'wand',l:'☖ Mensch'},{id:'lauf',l:'∿ Lauf'},
-  {id:'merk',l:'▨ Merkmal'},{id:'still',l:'○ Stillwasser'},{id:'hoehe',l:'⛰ Höhe'},
-  {id:'del',l:'⌫ Löschen'},
+  {id:'inspect',ic:'lupe',    l:'Feld'},
+  {id:'wand',   ic:'mensch',  l:'Mensch'},
+  {id:'lauf',   ic:'lauf',    l:'Lauf'},
+  {id:'merk',   ic:'stempel', l:'Merkmal'},
+  {id:'still',  ic:'weiher',  l:'Stillwasser'},
+  {id:'hoehe',  ic:'berg',    l:'Höhe'},
+  {id:'del',    ic:'loeschen',l:'Löschen'},
 ];
 const KLEIN_VOR={
   weiher :{ha:0.60,dauer:true, kuenstl:false,nm:'Weiher'},
@@ -1328,7 +1348,7 @@ const KLEIN_VOR={
 };
 function toolsZeichnen(){
   document.getElementById('tools').innerHTML=
-    TOOLS.map(t=>`<button data-tool="${t.id}" class="${S.tool===t.id?'on':''}">${t.l}</button>`).join('')
+    TOOLS.map(t=>`<button data-tool="${t.id}" class="${S.tool===t.id?'on':''}">${ico(t.ic)} ${t.l}</button>`).join('')
     +`<span class="sep"></span><button data-akt="fit" class="ghost">Alles</button>`
     +`<button data-akt="neu" class="ghost">Leere Karte</button>`
     +`<button data-akt="demo" class="ghost">Demokarte</button>`;
@@ -1343,7 +1363,7 @@ function toolsZeichnen(){
     h+=`<span class="sep"></span><span class="mono">${d?d.path.length:0} Felder</span>`
       +`<button data-akt="fertig">Abschließen</button><button data-akt="weg" class="ghost">Verwerfen</button>`;
   }else if(S.tool==='merk'){
-    for(const k in MERKMAL) h+=`<button data-arg="${k}" class="${S.toolArg===k?'on':''}" title="${MERKMAL[k].d}">${MERKMAL[k].gl} ${MERKMAL[k].nm}</button>`;
+    for(const k in MERKMAL) h+=`<button data-arg="${k}" class="${S.toolArg===k?'on':''}" title="${MERKMAL[k].d}">${ico(MERKMAL[k].ico)} ${MERKMAL[k].nm}</button>`;
     h+=`<span class="mono">an → aus → automatisch</span>`;
   }else if(S.tool==='still'){
     h+=`<button data-arg="see" class="${S.toolArg==='see'?'on':''}">See / Fläche</button>`;
@@ -1538,13 +1558,16 @@ document.addEventListener('keydown',e=>{
 const MASSN={lesbar:'lesbar',halb:'halb',echt:'echt'};
 document.getElementById('bMass').onclick=()=>{
   S.mass = S.mass==='lesbar'?'halb':S.mass==='halb'?'echt':'lesbar';
+  nachtKnopf();
   document.getElementById('bMass').textContent='Maßstab: '+MASSN[S.mass];
   if(S.mass==='echt')hinweis('Maßstabsgetreu: alles unter einem Strom verschwindet.');
   render(); panelZeichnen();
 };
 document.getElementById('bFlow').onclick=e=>{S.flow=!S.flow;e.target.classList.toggle('on',S.flow);render();};
 document.getElementById('bSeit').onclick=e=>{S.seiten=!S.seiten;e.target.classList.toggle('on',S.seiten);render();};
-document.getElementById('bNight').onclick=()=>{document.body.classList.toggle('night');render();};
+document.getElementById('bNight').onclick=()=>{document.body.classList.toggle('night');nachtKnopf();render();};
+function nachtKnopf(){document.getElementById('bNight').innerHTML=
+  ico(document.body.classList.contains('night')?'sonne':'mond');}
 document.getElementById('bPanel').onclick=()=>document.getElementById('wrap').classList.toggle('side');
 document.getElementById('bZin').onclick=()=>zoom(1.35,null);
 document.getElementById('bZout').onclick=()=>zoom(1/1.35,null);

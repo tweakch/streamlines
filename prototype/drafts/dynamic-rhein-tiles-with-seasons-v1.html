@@ -1,0 +1,2589 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dynamische Rhein-Tiles mit Jahreszeiten v1</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<style>
+/* =====================================================================
+   dynamic-rhein-tiles-with-seasons-v1 — die Hochzeit zweier Prototypen:
+
+     rhein-tiles-v4        der Canvas-Viewer auf dem ECHTEN Tileset
+                           (Sonny-DTM, OSM-Läufe, Scene-Blitting, Baum,
+                           Pipeline-Steuerung) — bleibt wörtlich erhalten.
+     gewaesser-labor-v4    Eis, Schmelze, Jahreszeiten und der gerechnete
+                           Fluss — bisher auf einem GEBAUTEN Höhenmodell.
+
+   Neu ist die Verbindung: die Klima-Maschine läuft jetzt auf der echten
+   Höhenebene des Tilesets (Ebene 1, 2 km/Hex, im Höhen-Rechteck des DTM).
+   Seen leiten das Wasser durch (eine flache Fläche mit EINEM Ausfluss),
+   frieren zu und werden bei genug Kälte selbst zu Eis; ihr Ufer ist eine
+   gezogene Linie. Was ihr Ufer NICHT tut, ist wandern — das Höhenmodell
+   führt über einem See seine Oberfläche, nicht seinen Grund.
+   Die Läufe entstehen aus dem echten Gelände, wandern mit Temperatur und
+   Jahreszeit, und die STATISCHEN Wasser-Tiles des Tilesets treten dort
+   zurück, wo das dynamische Wasser sie ersetzt. Ausserhalb des DTM
+   (Vorarlberg, Deutschland …) bleibt das gebackene Wasser stehen.
+
+   Werkbank-Register statt eigener Palette: rhein-tiles-v4 war einer der
+   drei Viewer, deretwegen es body.werkbank überhaupt gibt.
+   ===================================================================== */
+html,body{height:100%;overflow:hidden;}
+body{display:flex;flex-direction:column;background:var(--bg);color:var(--ink);
+     font:14px/1.45 var(--f-body);}
+header.kopf{padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel);
+       flex:0 0 auto;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;}
+header.kopf h1{font:600 15px/1.2 var(--f-display);margin:0;}
+header.kopf .sub{color:var(--ink2);font-size:11px;}
+#main{flex:1 1 auto;display:flex;min-height:0;}
+
+/* ---- Baum-Panel ---- */
+#panel{width:312px;flex:0 0 auto;background:var(--panel);border-right:1px solid var(--line);
+       overflow-y:auto;font-size:12.5px;}
+#panel.hide{display:none;}
+.pnlhead{padding:8px 10px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;
+         align-items:center;color:var(--ink2);font-size:11px;text-transform:uppercase;letter-spacing:.04em;}
+.pnlhead button{width:22px;height:22px;padding:0;font-size:12px;line-height:1;}
+#panel details{border-bottom:1px solid var(--line);}
+#panel summary{padding:7px 10px;cursor:pointer;font-weight:600;color:var(--ink);list-style:none;
+               display:flex;justify-content:space-between;align-items:baseline;}
+#panel summary::-webkit-details-marker{display:none;}
+#panel summary::marker{content:'';}
+#panel summary .cnt{color:var(--ink2);font-weight:400;font-size:11px;}
+.flow{list-style:none;padding:0 10px 8px;margin:0;}
+.flow li{padding:5px 8px;margin:3px 0;background:var(--panel2);border-radius:var(--r-sm);border:1px solid var(--line);}
+.flow li .dim{display:block;color:var(--ink2);font-size:10.5px;margin-top:1px;}
+.tree{list-style:none;padding:0 6px 8px;margin:0;}
+.tree li{padding:6px 8px;margin:2px 0;border-radius:var(--r-sm);cursor:pointer;border:1px solid transparent;}
+.tree li:hover{background:var(--panel2);}
+.tree li.sel{background:var(--emberglow);border-color:var(--ember);}
+.tree li b{color:var(--ember);font-weight:600;display:block;font-size:12px;}
+.tree li .dim{color:var(--ink2);font-size:10.5px;}
+.tree li .lic{display:inline-block;margin-top:3px;padding:1px 5px;border-radius:4px;background:var(--bone);
+              color:var(--ink2);font-size:9.5px;}
+.filterlist{list-style:none;padding:4px 6px 8px;margin:0;}
+.filterlist li{padding:3px 8px;border-radius:var(--r-sm);}
+.filterlist label{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;}
+.filterlist input{accent-color:var(--ember);}
+.swatch{width:12px;height:12px;border-radius:3px;flex:0 0 auto;border:1px solid var(--line);}
+.lmshow{padding:6px 10px 2px;border-bottom:1px dashed var(--line);margin-bottom:2px;}
+.lmshow label{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;color:var(--ink2);}
+.lmshow input{accent-color:var(--ember);}
+
+/* ---- Klima & Jahreszeit (aus gewaesser-labor-v4) ---- */
+.klima{padding:6px 10px 10px;font-size:12px;}
+.klima .zeile{display:flex;align-items:center;gap:9px;}
+.klima label{font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+             color:var(--ink2);white-space:nowrap;}
+.klima input[type=range]{flex:1;min-width:100px;}
+.klima .twert{font:700 16px/1 var(--f-display);min-width:56px;text-align:right;color:var(--ink);}
+.zeiten{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;}
+.zeiten button{font-size:10.5px;padding:4px 9px;}
+.zeiten button.on{background:var(--ember);color:var(--on-ember);border-color:var(--ember);}
+.khud{font-family:var(--f-mono);font-size:10px;color:var(--ink2);line-height:1.7;margin-top:7px;}
+.khud b{color:var(--ink);font-weight:700;}
+.legende{font-family:var(--f-mono);font-size:10px;color:var(--ink2);margin-top:7px;
+  display:flex;gap:7px 12px;flex-wrap:wrap;align-items:center;}
+.legende .chip{display:inline-block;width:18px;height:7px;border-radius:4px;
+  vertical-align:middle;margin-right:4px;}
+.legende .punkt{display:inline-block;width:8px;height:8px;border-radius:50%;
+  vertical-align:middle;margin-right:4px;}
+.legende span[data-hl]{cursor:pointer;border-bottom:1px dotted transparent;user-select:none;}
+.legende span[data-hl]:hover,.legende span[data-hl].an{border-bottom-color:var(--ink2);color:var(--ink);}
+.klima .schalter{margin-top:8px;display:flex;flex-direction:column;gap:4px;}
+.klima .schalter label{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;
+  color:var(--ink);text-transform:none;letter-spacing:0;font-family:var(--f-body);}
+.klima .schalter input{accent-color:var(--ember);}
+.klima .aus{color:var(--ink2);font-size:11px;padding:4px 0;}
+.klima .hinweis{color:var(--ink2);font-size:10.5px;margin-top:6px;line-height:1.5;}
+.klima .hinweis b{color:var(--ink);}
+
+/* ---- Region-Werkstatt ---- */
+.region{padding:6px 10px 10px;font-size:12px;}
+.region .row{display:flex;gap:6px;margin:6px 0;}
+.region button{flex:1 1 auto;padding:6px 8px;font-size:12px;}
+.region button.on{background:var(--emberglow);border-color:var(--ember);color:var(--ember);}
+.region .box{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-sm);padding:6px 8px;margin:6px 0;}
+.region .box .lbl{color:var(--ink2);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;}
+.region .box .val{font:12px/1.5 var(--f-mono);color:var(--ink);word-break:break-all;white-space:pre-line;}
+.region .box .val.none{color:var(--ink2);font-style:italic;}
+.region .note{color:var(--ink2);font-size:10.5px;margin-top:5px;}
+.region .note.warn{color:var(--warn);}
+.region .note.bad{color:var(--bad);}
+#srvDot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--bad);margin-right:5px;}
+#srvDot.on{background:var(--good);}
+
+#togglePanel{position:fixed;left:8px;top:8px;z-index:11;display:none;}
+body.panelhidden #togglePanel{display:block;}
+
+#stage{flex:1 1 auto;position:relative;cursor:grab;min-width:0;background:var(--bg);}
+#stage.drag{cursor:grabbing;}
+body.drawmode #stage{cursor:crosshair;}
+canvas{position:absolute;inset:0;width:100%;height:100%;}
+.btns{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px;z-index:10;}
+.btns button{width:34px;height:34px;padding:0;border-radius:var(--r-md);font-size:17px;}
+.btns button.on{background:var(--emberglow);border-color:var(--ember);color:var(--ember);}
+#hud{position:absolute;left:10px;top:10px;z-index:10;background:color-mix(in srgb,var(--panel) 90%,transparent);
+     border:1px solid var(--line);border-radius:var(--r-md);padding:6px 9px;font-size:11px;
+     color:var(--ink2);display:none;white-space:pre-line;}
+body.stats #hud{display:block;}
+#hud b{color:var(--ember);}
+#drawHint{position:absolute;left:50%;transform:translateX(-50%);top:10px;z-index:10;display:none;
+          background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--ember);
+          border-radius:var(--r-md);padding:6px 12px;font-size:11.5px;color:var(--ember);white-space:nowrap;}
+body.drawmode #drawHint{display:block;}
+#inspector{position:absolute;left:10px;right:10px;bottom:10px;max-width:540px;margin:0 auto;z-index:20;
+           background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:10px 12px;
+           box-shadow:var(--shadow);display:none;}
+#inspector.show{display:block;}
+#inspector h2{font:600 14px/1.2 var(--f-display);color:var(--ember);margin:0;}
+#inspector .meta{color:var(--ink2);font-size:11px;margin:2px 0 4px;}
+#inspector p{font-size:12.5px;margin:0;}
+#inspector .klimazeile{font-family:var(--f-mono);font-size:10.5px;color:var(--ink2);margin-top:5px;}
+#inspector .klimazeile b{color:var(--ink);}
+#inspector .x{position:absolute;top:6px;right:10px;color:var(--ink2);cursor:pointer;font-size:16px;}
+footer{position:fixed;right:10px;bottom:6px;color:var(--ink2);font-size:10px;z-index:2;pointer-events:none;opacity:.7;}
+
+/* ---- Modaler Pipeline-Dialog (aus rhein-tiles-v4) ---- */
+#modal{position:fixed;inset:0;z-index:100;background:color-mix(in srgb,var(--bg) 78%,transparent);display:none;
+       align-items:center;justify-content:center;padding:16px;}
+#modal.show{display:flex;}
+.pipsheet{width:min(560px,100%);max-height:100%;overflow:auto;background:var(--panel);border:1px solid var(--line);
+       border-radius:14px;box-shadow:var(--shadow);padding:16px 18px;}
+.pipsheet h2{font:600 16px/1.2 var(--f-display);color:var(--ember);margin:0 0 2px;}
+.pipsheet .sub{color:var(--ink2);font-size:11.5px;margin-bottom:12px;font-family:var(--f-mono);}
+.bar{height:6px;border-radius:3px;background:var(--panel2);overflow:hidden;margin:10px 0;}
+.bar i{display:block;height:100%;width:0;background:var(--ember);transition:width .25s ease;}
+.bar.ok i{background:var(--good);} .bar.bad i{background:var(--bad);}
+.stufen{list-style:none;margin:10px 0;padding:0;}
+.stufen li{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;color:var(--ink2);}
+/* Stufenstand als GEZEICHNETER Kreis (leer / halb / voll), nie als
+   Schriftzeichen — der Fehlerfall nimmt das loeschen-Icon des Kits. */
+.stufen li .ic{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--ink2);
+               flex:0 0 auto;box-sizing:border-box;}
+.stufen li.run{color:var(--ink);}
+.stufen li.run .ic{border-color:var(--ember);background:linear-gradient(90deg,var(--ember) 50%,transparent 50%);}
+.stufen li.ok{color:var(--ink);} .stufen li.ok .ic{border-color:var(--good);background:var(--good);}
+.stufen li.bad{color:var(--ink);}
+.stufen li.bad .ic{border:none;border-radius:0;width:14px;height:14px;color:var(--bad);}
+.stufen li.bad .ic svg{display:block;width:100%;height:100%;}
+.log{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-md);padding:8px 10px;margin-top:8px;
+     max-height:190px;overflow:auto;font:11.5px/1.6 var(--f-mono);color:var(--ink2);
+     white-space:pre-wrap;word-break:break-word;}
+.log .err{color:var(--bad);}
+.msg{margin-top:10px;font-size:12.5px;}
+.msg.ok{color:var(--good);} .msg.bad{color:var(--bad);}
+.pipsheet .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;}
+</style>
+</head>
+<body class="werkbank">
+<header class="kopf">
+  <h1>Dynamische Rhein-Tiles mit Jahreszeiten v1</h1>
+  <div class="sub">Der Viewer aus <b>rhein-tiles-v4</b> (echtes DTM, Pipeline) trifft die Klima-Maschine aus
+  <b>gewaesser-labor-v4</b>: die Läufe entstehen aus der echten Höhenebene und wandern mit Temperatur und Jahreszeit</div>
+  <button id="togglePanel" title="Baum einblenden">☰</button>
+</header>
+<div id="main">
+  <div id="panel">
+    <div class="pnlhead">Pipeline &amp; Klima <button id="pnlClose" title="Baum ausblenden">‹</button></div>
+    <details open>
+      <summary>Klima &amp; Jahreszeit</summary>
+      <div class="klima">
+        <div class="zeile">
+          <label>Jahresmittel</label>
+          <input type="range" id="tregler" min="-12" max="16" step="1">
+          <div class="twert" id="twert"></div>
+        </div>
+        <div class="zeiten" id="zeiten">
+          <button data-zeit="fruehling">Frühling</button>
+          <button data-zeit="sommer">Sommer</button>
+          <button data-zeit="herbst">Herbst</button>
+          <button data-zeit="winter">Winter</button>
+        </div>
+        <div class="khud" id="khud">—</div>
+        <div class="legende" id="legende">
+          <span data-hl="rinnsal"><span class="chip" style="background:color-mix(in srgb,var(--river) 42%,var(--flach))"></span>Rinnsal</span>
+          <span data-hl="bach"><span class="chip" style="background:color-mix(in srgb,var(--river) 62%,var(--flach))"></span>Bach</span>
+          <span data-hl="kfluss"><span class="chip" style="background:var(--river)"></span>kleiner Fluss</span>
+          <span data-hl="gfluss"><span class="chip" style="background:var(--riverdeep)"></span>grosser Fluss</span>
+          <span data-hl="quelle"><span class="punkt" style="background:var(--river)"></span>Quelle</span>
+          <span data-hl="gletschertor"><span class="punkt" style="background:color-mix(in srgb,#F2EDE0 70%,var(--river))"></span>Gletschertor</span>
+          <span data-hl="seeausfluss"><span class="punkt" style="background:color-mix(in srgb,var(--kies) 72%,var(--flach))"></span>Seeausfluss</span>
+          <span data-hl="seezufluss"><span class="punkt" style="background:color-mix(in srgb,var(--kies) 72%,var(--flach))"></span>Seezufluss</span>
+          <span data-hl="see"><span class="chip" style="background:var(--lake)"></span>See</span>
+          <span data-hl="gefroren"><span class="chip" style="background:color-mix(in srgb,#F2EDE0 55%,var(--flach));outline:1px solid var(--line)"></span>zugefroren</span>
+          <span data-hl="eis"><span class="chip" style="background:color-mix(in srgb,#F2EDE0 82%,var(--river))"></span>Eis (ewig)</span>
+          <span data-hl="schnee"><span class="chip" style="background:color-mix(in srgb,#F2EDE0 55%,var(--flach));outline:1px solid var(--line)"></span>Schnee</span>
+          <span data-hl="schotterflur"><span class="chip" style="background:var(--kies)"></span>Schotterflur</span>
+          <span data-hl="furt"><span class="chip" style="background:color-mix(in srgb,#F2EDE0 78%,var(--river))"></span>Furt</span>
+          <span data-hl="ried"><span class="chip" style="background:color-mix(in srgb,var(--river) 13%,var(--flach))"></span>Ried</span>
+          <span data-hl="flussufer"><span class="chip" style="background:color-mix(in srgb,var(--kies) 72%,var(--flach))"></span>Flussufer</span>
+        </div>
+        <div class="schalter">
+          <label><input type="checkbox" id="dynChk" checked> dynamische Gewässer (statische treten zurück)</label>
+          <label><input type="checkbox" id="quellChk" checked> Quellen, Gletschertore und See-Ein/Ausflüsse</label>
+          <label><input type="checkbox" id="niedChk"> Niederschlagsschicht (blauer = nasser)</label>
+        </div>
+        <div class="hinweis">Die <b>Läufe</b> zeichnet die Klima-Maschine ab <b>Ebene 1</b> (2 km/Hex) — auf der Übersicht (10 km/Hex) zeigt die Karte ihre gebackenen, generalisierten Läufe, weil ein 2-km-Lauf über 10-km-Feldern deren Raster sichtbar ignoriert. <b>Eis, Schnee und Ried</b> folgen dagegen immer dem angezeigten Raster.</div>
+        <div class="aus" id="klimaAus" style="display:none">Keine Höhen-Region im Tileset — die Klima-Maschine braucht die DTM-Ebene.</div>
+      </div>
+    </details>
+    <details id="regionDetails">
+      <summary>Höhen-Region <span class="cnt" id="srvState"><span id="srvDot"></span>?</span></summary>
+      <div class="region">
+        <div class="box">
+          <div class="lbl">aktuell im Tileset</div>
+          <div class="val" id="curRegion">—</div>
+        </div>
+        <div class="row">
+          <button id="drawBtn">▭ Gebiet ziehen</button>
+          <button id="clearBtn" disabled>✕</button>
+        </div>
+        <div class="box">
+          <div class="lbl">gezogenes Gebiet</div>
+          <div class="val none" id="newRegion">noch keins — „Gebiet ziehen" und auf der Karte aufziehen</div>
+        </div>
+        <div class="row"><button class="primary" id="runBtn" disabled>Pipeline starten</button></div>
+        <div class="note" id="regionNote">Der Lauf <b>ersetzt</b> die bisherige Höhen-Region.</div>
+      </div>
+    </details>
+    <details>
+      <summary>Pipeline</summary>
+      <ol class="flow">
+        <li>Quellen<span class="dim">fetch/*.mjs → Overpass / Sonny-DTM</span></li>
+        <li>sources/*.json<span class="dim">WGS84, mit Provenienz + Lizenz</span></li>
+        <li>bake.mjs<span class="dim">Hexraster, 3 Ebenen, Kacheln</span></li>
+        <li>Tileset<span class="dim">rhein-tiles-v4.data.js</span></li>
+        <li>Klima-Maschine<span class="dim">im Viewer: Eis · Schnee · Abfluss · Läufe</span></li>
+      </ol>
+    </details>
+    <details>
+      <summary>Terrain-Filter</summary>
+      <ul class="filterlist" id="terrFilter"></ul>
+    </details>
+    <details>
+      <summary>Quellen <span class="cnt" id="srcCnt"></span></summary>
+      <ul class="tree" id="srcTree"></ul>
+    </details>
+    <details>
+      <summary>Ebenen <span class="cnt" id="lvlCnt"></span></summary>
+      <ul class="tree" id="lvlTree"></ul>
+    </details>
+    <details>
+      <summary>Landmarken <span class="cnt" id="lmCnt"></span></summary>
+      <div class="lmshow"><label><input type="checkbox" id="lmShow" checked> auf der Karte anzeigen</label></div>
+      <ul class="tree" id="lmTree"></ul>
+    </details>
+  </div>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div class="btns">
+      <button id="zin">+</button><button id="zout">−</button><button id="zfit" title="Ganze Karte">⤢</button>
+      <button id="drawBtn2" title="Gebiet ziehen">▭</button>
+    </div>
+    <div id="hud"></div>
+    <div id="drawHint">Gebiet aufziehen — Esc bricht ab</div>
+    <div id="inspector"><span class="x" id="inspClose">×</span><h2 id="inspTitle"></h2><div class="meta" id="inspMeta"></div><p id="inspTxt"></p><div class="klimazeile" id="inspKlima"></div></div>
+  </div>
+</div>
+<footer>dynamic-rhein-tiles-with-seasons-v1 · geografisch inspiriert und stark vereinfacht · Höhen: DTM © Sonny (CC BY 4.0)</footer>
+
+<div id="modal">
+  <div class="pipsheet">
+    <h2 id="mdTitle">Pipeline läuft</h2>
+    <div class="sub" id="mdRegion"></div>
+    <div class="bar" id="mdBar"><i></i></div>
+    <ul class="stufen" id="mdStufen"></ul>
+    <div class="log" id="mdLog"></div>
+    <div class="msg" id="mdMsg"></div>
+    <div class="actions">
+      <button id="mdClose">Schliessen</button>
+      <button id="mdReload" class="primary" style="display:none">Tileset neu laden</button>
+    </div>
+  </div>
+</div>
+
+<script src="rhein-tiles-v4.data.js"></script>
+<script src="../kit/sot.js"></script>
+<script src="../kit/sot-icons.js"></script>
+<script>
+'use strict';
+var P=SOT.params({
+  temp:  {t:'int', def:9, min:-12, max:16, help:'Jahresmitteltemperatur im Tal (°C) — der Regler'},
+  zeit:  {t:'enum', values:['fruehling','sommer','herbst','winter'], def:'sommer', help:'Jahreszeit'},
+  wasser:{t:'enum', values:['an','aus'], def:'an', help:'dynamische Gewässer zeichnen (statische treten zurück)'},
+  nied:  {t:'flag', help:'Niederschlagsschicht einblenden'},
+  hl:    {t:'str', def:'', help:'Legenden-Hervorhebung verriegeln (z. B. eis, furt, gfluss)'},
+  thr:   {t:'num', def:0.8, min:0.1, max:20, help:'Zeichen-Schwellwert der Läufe in m³/s'},
+  brennen:{t:'enum', values:['an','aus'], def:'an', help:'Streamburning: die benannten Läufe als fallende Rinne ins Höhenmodell prägen'},
+  brenntiefe:{t:'int', def:6, min:0, max:60, help:'Brenntiefe des Hauptlaufs in m (Nebenläufe 55 %)'},
+  namen: {t:'enum', values:['an','aus'], def:'an', help:'Namen der gerechneten Läufe auf der Karte'},
+  quellen:{t:'enum', values:['an','aus'], def:'an', help:'Quellen, Gletschertore und See-Ein/Ausflüsse als Punkte zeigen'},
+  seespiegel:{t:'int', def:0, min:-300, max:0, help:'Seespiegel um n Meter absenken — zeigt, was der gemessene Grund freigibt'},
+  kies:  {t:'enum', values:['hex','frei'], def:'hex', help:'Kies (Saum + Schotterflur) auf die Felder des Laufs beschneiden — frei = wie zuvor über die Feldgrenze hinaus'},
+  seed:  {t:'int', def:7, help:'Weltsaat — Auslenkung und Pinselrauschen'},
+  amp:   {t:'int', def:20, min:0, max:30, help:'Auslenkung der Mittellinie, % der Feldbreite'},
+  pinsel:{t:'int', def:5, min:0, max:16, help:'Pinsel: Rauschamplitude (0 = aus)'},
+  freq:  {t:'int', def:60, min:10, max:200, help:'Rauschfrequenz ×0,001'},
+  lon:   {t:'num', def:0, help:'Startposition (mit ?lat und ?z)'},
+  lat:   {t:'num', def:0, help:'Startposition'},
+  z:     {t:'num', def:6, help:'Start-Zoom in px/km'},
+  level: {t:'int', def:-1, help:'Anzeige-Ebene erzwingen (0/1/2, −1 = automatisch)'},
+  stats: {t:'flag', help:'Render-Statistik einblenden'},
+  bench: {t:'flag', help:'Schwenk/Zoom-Benchmark beim Start'},
+  marken:{t:'enum', values:['an','aus'], def:'an', help:'Landmarken auf der Karte'},
+  panel: {t:'enum', values:['an','aus'], def:'an', help:'Baum-Panel beim Start'},
+  draw:  {t:'flag', help:'Ziehmodus beim Start an'},
+  bbox:  {t:'str', help:'Gebiet vorbelegen: lonW,latS,lonE,latN'},
+  inspect:{t:'str', help:'Feld-Inspektor öffnen: lon,lat'},
+  select:{t:'str', help:'Baumeintrag wählen: source:<file> | level:<id> | landmark:<index>'},
+  hide:  {t:'list', help:'Terrain ausblenden (Namen oder Indizes, kommasepariert)'},
+  pipeline:{t:'enum', values:['aus','lauf','fertig','fehler'], def:'aus', help:'Pipeline-Dialog als Schaubild ohne echten Lauf'}
+});
+SOT.debug(P);
+
+/* ---- Kit-Tokens für den Canvas auflösen: eine Sonde liest die gerechneten
+   Werte (auch color-mix), der Canvas bekommt fertige rgb()-Strings. ---- */
+var _sonde=document.createElement('span');
+_sonde.style.display='none';document.body.appendChild(_sonde);
+function cssFarbe(expr){_sonde.style.color=expr;return getComputedStyle(_sonde).color;}
+function rgbVon(str){
+  /* getComputedStyle liefert color-mix-Ergebnisse als color(srgb 0..1 …),
+     einfache Farben als rgb(0..255 …) — beide Schreibweisen lesen. */
+  var m=str.match(/[\d.]+/g)||[0,0,0];
+  var v=[+m[0],+m[1],+m[2]];
+  if(/^color\(/.test(str))v=v.map(function(x){return x*255;});
+  return v;
+}
+/* Wichtig: die Karte ist eine PERGAMENT-Karte (die Gelände-Tokens des Tags —
+   das Werkbank-Register überschreibt sie nicht), das Werkzeug drumherum ist
+   dunkel. Der helle Knochen-Ton für Eis/Schnee kommt fest aus der Tagespalette,
+   weil --bone im Werkbank-Register ins Dunkle kippt. */
+var BONE_TAG='#F2EDE0';
+var F={
+  flach:cssFarbe('var(--flach)'), ufer:cssFarbe('var(--ufer)'), hang:cssFarbe('var(--hang)'),
+  river:cssFarbe('var(--river)'), riverdeep:cssFarbe('var(--riverdeep)'), lake:cssFarbe('var(--lake)'),
+  kies:cssFarbe('var(--kies)'), ink:cssFarbe('var(--ink)'), ember:cssFarbe('var(--ember)'),
+  good:cssFarbe('var(--good)'), bad:cssFarbe('var(--bad)'), ink2:cssFarbe('var(--ink2)'),
+  panel:cssFarbe('var(--panel)'), bg:cssFarbe('var(--bg)'), onRiver:cssFarbe('var(--on-river)'),
+  wRinnsal:cssFarbe('color-mix(in srgb,var(--river) 42%,var(--flach))'),
+  wBach:cssFarbe('color-mix(in srgb,var(--river) 62%,var(--flach))'),
+  wSaum:cssFarbe('color-mix(in srgb,var(--kies) 72%,var(--flach))'),
+  wTal:cssFarbe('color-mix(in srgb,var(--riverdeep) 72%,#22302C)'),
+  eis:cssFarbe('color-mix(in srgb,'+BONE_TAG+' 82%,var(--river))'),
+  eisRand:cssFarbe('color-mix(in srgb,'+BONE_TAG+' 60%,var(--line))'),
+  schnee:cssFarbe('color-mix(in srgb,'+BONE_TAG+' 55%,var(--flach))'),
+  ried:cssFarbe('color-mix(in srgb,var(--river) 13%,var(--flach))'),
+  furt:cssFarbe('color-mix(in srgb,'+BONE_TAG+' 78%,var(--river))'),
+  tor:cssFarbe('color-mix(in srgb,'+BONE_TAG+' 70%,var(--river))')
+};
+
+/* ============================================================
+   Tileset-Zugriff und Viewer — wörtlich aus rhein-tiles-v4,
+   Farben auf Kit-Tokens umgezogen.
+   ============================================================ */
+const TS=window.RHEIN_TILESET;
+const SQRT3=Math.sqrt(3);
+const XMAX=TS.cfg.lonSpan*TS.cfg.kmx, YMAX=TS.cfg.latSpan*TS.cfg.kmy;
+const TERRNAME=['Flachland','Ufer','Bergland','Fluss','See','Nordsee','Nebenlauf','Hang'];
+const SECCOL={alpen:'#8fd6c8',bodensee:'#6fb7e8',hoch:'#7ec97f',ober:'#e8c46f',
+              mittel:'#e8896f',nieder:'#c78fe8',delta:'#8fa2e8'};
+const SECIDS=['',...TS.sections.map(s=>s.id)];
+const SECBYID=Object.fromEntries(TS.sections.map(s=>[s.id,s]));
+const hiddenTerr=new Set();
+let showLandmarks=P.marken!=='aus';
+
+/* Terrain-Palette aus den Kit-Tokens (Pergament-Karte). */
+const TERRCOL=[F.flach,F.ufer,cssFarbe('color-mix(in srgb,var(--hang) 55%,#22302C)'),
+               F.river,F.lake,F.riverdeep,F.wBach,F.hang];
+/* Schummerung bergwärts Richtung TAGES-Tinte: --ink ist im Werkbank-
+   Register hell — damit gemischt sähe jeder Gipfel aus wie Schnee. */
+const TERRRGB=TERRCOL.map(rgbVon), INKRGB=rgbVon(cssFarbe('#22302C'));
+const colorCache=new Map();
+function colorOf(t,s,eBucket){
+  const key=t===3?4096+s:(t<<8)|eBucket;
+  let c=colorCache.get(key);if(c)return c;
+  let rgb;
+  if(t===3&&s){const sc=rgbVon(SECCOL[SECIDS[s]]);const rv=TERRRGB[3];rgb=sc.map((v,i)=>v*0.4+rv[i]*0.6);}
+  else rgb=[...TERRRGB[t]];
+  if(eBucket&&t!==3&&t!==4&&t!==5&&t!==6){ /* Höhenschummerung: bergwärts Richtung Tinte */
+    const m=eBucket*16*25+200;
+    const a=0.04+0.30*Math.min(1,Math.max(0,(m-450)/2600));
+    rgb=rgb.map((v,i)=>v*(1-a)+INKRGB[i]*a);
+  }
+  c='rgb('+rgb.map(v=>Math.round(v)).join(',')+')';
+  colorCache.set(key,c);return c;
+}
+
+const cache=new Map();let decoded=0;
+function tileOf(L,tx,ty){
+  const key=L.id+':'+tx+','+ty;
+  if(cache.has(key))return cache.get(key);
+  const raw=L.tiles[tx+','+ty];
+  let v=null;
+  if(raw){
+    const dec=b64=>Uint8Array.from(atob(b64),ch=>ch.charCodeAt(0));
+    v={t:dec(raw.t),s:dec(raw.s),e:raw.e?dec(raw.e):null,b:raw.b?dec(raw.b):null};decoded++;
+  }
+  cache.set(key,v);return v;
+}
+function cellData(L,c,r){
+  if(c<0||r<0||c>=L.cols||r>=L.rows)return null;
+  const tile=tileOf(L,Math.floor(c/L.tile),Math.floor(r/L.tile));
+  if(!tile)return{t:0,s:0,e:0,b:null};
+  const i=(r%L.tile)*L.tile+(c%L.tile);
+  /* b = gemessener Seegrund in 5-m-Stufen ab −200 m; 0 heisst „unbekannt". */
+  const bb=tile.b?tile.b[i]:0;
+  return{t:tile.t[i],s:tile.s[i],e:tile.e?tile.e[i]:0,b:bb?bb*5-200:null};
+}
+
+const axialOf=(c,r)=>c-((r-(r&1))/2);
+const kmOfLonLat=(lon,lat)=>[(lon-TS.cfg.lon0)*TS.cfg.kmx,(TS.cfg.lat1-lat)*TS.cfg.kmy];
+const lonLatOfKm=(x,y)=>[TS.cfg.lon0+x/TS.cfg.kmx,TS.cfg.lat1-y/TS.cfg.kmy];
+const centerKm=(c,r,s)=>[s*SQRT3*(axialOf(c,r)+r/2),s*1.5*r];
+function cellAtKm(x,y,s){
+  const q=((SQRT3/3)*x-y/3)/s,r=((2/3)*y)/s;
+  let rx=Math.round(q),ry=Math.round(-q-r),rz=Math.round(r);
+  const dx=Math.abs(rx-q),dy=Math.abs(ry-(-q-r)),dz=Math.abs(rz-r);
+  if(dx>dy&&dx>dz)rx=-ry-rz;else if(!(dy>dz))rz=-rx-ry;
+  return[rx+((rz-(rz&1))/2),rz];
+}
+const CORN=Array.from({length:6},(_,i)=>{const a=Math.PI/180*(60*i-30);return[Math.cos(a),Math.sin(a)];});
+
+/* ---- Uferlinie auf dem ANGEZEIGTEN Raster ------------------------------
+   Die Randkanten der Wasserfelder werden zu Ringen verkettet und weich
+   gezogen — gerechnet direkt in Scene-Pixeln, weil die Felder hier schon
+   in Pixeln liegen. Dadurch ist das Ufer immer so fein wie die Ebene, die
+   man gerade sieht: auf Ebene 2 aus 0,4-km-Feldern statt aus den 2-km-
+   Feldern der Klima-Ebene.
+   CORN läuft bei 0 rechts oben; Kante k (Ecke k→k+1) blickt damit auf
+   [E, SE, SW, W, NW, NE]. */
+const KANTE_DIR=[
+  {g:[1,0],  u:[1,0]},    /* E  */
+  {g:[0,1],  u:[1,1]},    /* SE */
+  {g:[-1,1], u:[0,1]},    /* SW */
+  {g:[-1,0], u:[-1,0]},   /* W  */
+  {g:[-1,-1],u:[0,-1]},   /* NW */
+  {g:[0,-1], u:[1,-1]},   /* NE */
+];
+function uferPfade(zellen,rad){
+  const drin=new Map();
+  for(const z of zellen)drin.set(z[0]+','+z[1],z[4]);
+  const schl=(x,y)=>((x*4)|0)+','+((y*4)|0);
+  const vor=new Map(), art=new Map();
+  for(const[c,r,px,py,frost]of zellen){
+    for(let k=0;k<6;k++){
+      const d=(r&1)?KANTE_DIR[k].u:KANTE_DIR[k].g;
+      if(drin.has((c+d[0])+','+(r+d[1])))continue;
+      const a=[px+CORN[k][0]*rad,py+CORN[k][1]*rad];
+      const b=[px+CORN[(k+1)%6][0]*rad,py+CORN[(k+1)%6][1]*rad];
+      vor.set(schl(a[0],a[1]),b);
+      art.set(schl(a[0],a[1]),frost);
+    }
+  }
+  const offen=[],frost=[],weg=new Set();
+  for(const start of vor.keys()){
+    if(weg.has(start))continue;
+    const ring=[];let cur=start,istFrost=0,schutz=0;
+    while(cur&&!weg.has(cur)&&schutz++<60000){
+      weg.add(cur);
+      istFrost=art.get(cur)||istFrost;
+      const nx=vor.get(cur);
+      if(!nx)break;
+      ring.push(nx);
+      cur=schl(nx[0],nx[1]);
+    }
+    if(ring.length>=6)(istFrost?frost:offen).push(ring);
+  }
+  const bauen=(ringe)=>{
+    if(!ringe.length)return null;
+    const p=new Path2D();
+    for(const ring of ringe){
+      const g2=chaikin(ring,3);
+      p.moveTo(g2[0][0],g2[0][1]);
+      for(let i=1;i<g2.length;i++)p.lineTo(g2[i][0],g2[i][1]);
+      p.closePath();
+    }
+    return p;
+  };
+  return{offen:bauen(offen),frost:bauen(frost)};
+}
+
+/* ---- Viewport & Scene ---- */
+const stage=document.getElementById('stage'),cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let zoom=1,ox=0,oy=0;
+const forcedLevel=P.level>=0?P.level:null;
+const scene={cv:document.createElement('canvas'),ctx:null,ox:0,oy:0,wKm:0,hKm:0,zoom:0,levelId:-1,valid:false};
+scene.ctx=scene.cv.getContext('2d');
+const stats={refills:0,refillMs:0,frameMs:0,cells:0};
+
+function pickLevel(){
+  if(forcedLevel!=null)return TS.levels[forcedLevel]??TS.levels[0];
+  const cx=ox+stage.clientWidth/(2*zoom),cy=oy+stage.clientHeight/(2*zoom);
+  for(let i=TS.levels.length-1;i>=0;i--){
+    const L=TS.levels[i];
+    if(zoom*L.hexKm<9)continue;
+    if(L.regionKm&&!(cx>=L.regionKm[0]&&cx<=L.regionKm[2]&&cy>=L.regionKm[1]&&cy<=L.regionKm[3]))continue;
+    return L;
+  }
+  return TS.levels[0];
+}
+function fit(){
+  zoom=Math.min(stage.clientWidth/XMAX,stage.clientHeight/YMAX);
+  ox=-(stage.clientWidth/zoom-XMAX)/2;oy=-(stage.clientHeight/zoom-YMAX)/2;
+}
+
+function refillScene(L,dpr,margin=0.5){
+  const t0=performance.now();
+  const vwKm=stage.clientWidth/zoom,vhKm=stage.clientHeight/zoom;
+  scene.ox=ox-vwKm*margin;scene.oy=oy-vhKm*margin;
+  scene.wKm=vwKm*(1+2*margin);scene.hKm=vhKm*(1+2*margin);
+  const pxW=Math.ceil(scene.wKm*zoom*dpr),pxH=Math.ceil(scene.hKm*zoom*dpr);
+  if(scene.cv.width!==pxW||scene.cv.height!==pxH){scene.cv.width=pxW;scene.cv.height=pxH;}
+  const g=scene.ctx;
+  g.setTransform(1,0,0,1,0,0);
+  g.fillStyle=TERRCOL[0];g.fillRect(0,0,pxW,pxH);
+  const s=L.hexKm/SQRT3,rad=s*zoom*dpr;
+  const r0=Math.max(0,Math.floor(scene.oy/(s*1.5))-1),
+        r1=Math.min(L.rows-1,Math.ceil((scene.oy+scene.hKm)/(s*1.5))+1),
+        c0=Math.max(0,Math.floor(scene.ox/(s*SQRT3))-1),
+        c1=Math.min(L.cols-1,Math.ceil((scene.ox+scene.wKm)/(s*SQRT3))+1);
+  const batches=new Map();let n=0;
+  const dynAn=dynOn&&SIM.ok&&DYN.mask;
+  /* ZWEI Arten dynamischer Schicht, und sie gehorchen verschiedenen Regeln:
+
+     Die LÄUFE sind Vektor-Geometrie, abgeleitet aus dem 2-km-Raster der
+     Klima-Ebene. Auf einer GRÖBEREN Anzeigeebene (Ebene 0, 10 km/Hex) liegt
+     dieses feine Geschlängel über einem fünfmal gröberen Raster und ignoriert
+     sichtbar dessen Felder — „die Läufe passen nicht ins Raster". Auf der
+     Übersicht sind die gebackenen, generalisierten Läufe ohnehin die bessere
+     Auskunft. Also: Vektorläufe erst ab der Klima-Ebene abwärts, und nur dort
+     treten die statischen Läufe für sie zurück.
+
+     Die FLÄCHEN (Eis, Schnee, Ried, Niederschlag) sind dagegen Feld-Aussagen.
+     Sie werden je ANGEZEIGTEM Feld einmal an der Klima-Ebene abgefragt und in
+     dessen eigener Sechseckform gezeichnet — damit sitzen sie in jedem Raster
+     passgenau, von der Übersicht bis in die feinste Ebene. */
+  const vektorAn=dynAn&&L.hexKm<=SIM.W+1e-9;
+  const flaechen=dynAn?new Map():null;
+  const seeZellen=[];                    /* [c,r,px,py,gefroren] im Anzeigeraster */
+  /* Je Ebene einmal bauen und behalten (~350 ms) — VOR der Zellschleife,
+     weil die Schleife auf der feinen Ebene den Flussraum braucht, den
+     wasserOps dort mitbaut. Der Regler leert den Vorrat wieder. */
+  if(vektorAn&&DYN.K&&DYN.opsEbene!==L.id){
+    if(!DYN.opsVorrat[L.id]){
+      const tOps=performance.now();
+      DYN.opsVorrat[L.id]=wasserOps(DYN.K,DYN.BR,DYN.MG,L);
+      SIM.opsMs=performance.now()-tOps;
+    }
+    DYN.ops=DYN.opsVorrat[L.id];
+    DYN.opsEbene=L.id;SIM.opsN=DYN.ops.length;
+  }
+  const feinFuss=vektorAn&&L.hexKm<SIM.W-1e-9&&DYN.fuss;
+  const hexAdd=(store,key,px,py)=>{
+    let p=store.get(key);if(!p){p=new Path2D();store.set(key,p);}
+    p.moveTo(px+CORN[0][0]*rad,py+CORN[0][1]*rad);
+    for(let i=1;i<6;i++)p.lineTo(px+CORN[i][0]*rad,py+CORN[i][1]*rad);
+    p.closePath();
+  };
+  for(let r=r0;r<=r1;r++){
+    const[,cy0]=centerKm(0,r,s);
+    const py=(cy0-scene.oy)*zoom*dpr;
+    for(let c=c0;c<=c1;c++){
+      const d=cellData(L,c,r);if(!d)continue;
+      if(hiddenTerr.has(d.t))continue;
+      if(!d.t&&!d.s&&!d.e)continue;
+      const xm=centerKm(c,r,s)[0];
+      const px=(xm-scene.ox)*zoom*dpr;
+      const si=dynAn?simIdxAtKm(xm,cy0):-1;
+      /* gedeckt = die Klima-Maschine weiss über dieses Feld Bescheid
+         (echte Höhendaten, kein erfundenes Ausland). */
+      const gedeckt=si>=0&&SIM.valid[si]&&!SIM.synth[si];
+      /* Der SEE wird auf DIESEM Raster entschieden: liegt der Grund dieses
+         Feldes unter dem Spiegel seines Sees, ist es Wasser (und kommt in
+         die Uferverfolgung), sonst ist es trockengefallener Seeboden. Auf
+         Ebene 2 heisst das eine Uferlinie aus 0,4-km-Feldern statt aus
+         2-km-Feldern der Klima-Ebene. */
+      let wasser=false,trocken=false;
+      if(vektorAn&&gedeckt&&d.t===4){
+        const li=SIM.lakeId[si], S2=li>=0&&DYN.seen?DYN.seen[li]:null;
+        if(S2&&!S2.eis){
+          const grund=d.b!=null?d.b:(S2.Lk.grund.get(si));
+          if(grund==null||grund<S2.spiegel){wasser=true;seeZellen.push([c,r,px,py,S2.gefroren?1:0]);}
+          else trocken=true;
+        }
+      }
+      if(!(vektorAn&&gedeckt&&(d.t===3||d.t===6))&&!wasser){
+        n++;
+        /* Trockengefallener Seeboden bekommt seinen eigenen Ton — sonst
+           sähe ein gesunkener Spiegel aus wie gewachsenes Land. */
+        hexAdd(batches,trocken?F.trocken:colorOf(d.t,d.s,d.e>>4),px,py);
+      }
+      if(gedeckt){
+        const m=DYN.mask[si];
+        if(m&1)hexAdd(flaechen,'eis',px,py);
+        else if(m&2)hexAdd(flaechen,'schnee',px,py);
+        if(m&4)hexAdd(flaechen,'ried',px,py);
+        if(niedOn&&!SIM.see[si]){
+          const op=Math.round(Math.max(0,Math.min(0.5,(SIM.PRECIP[si]-0.6)*0.55))*10)/10;
+          if(op>0)hexAdd(flaechen,'nied:'+op,px,py);
+        }
+      }
+      /* Der FLUSSRAUM auf der feinen Ebene: je Plättchen steht fest, ob das
+         Wasser wirklich hindurchfliesst (x) oder ob es Ufer ist (b) —
+         dieselben Karten, gegen die auch der Inspektor fragt. */
+      if(feinFuss&&d.t!==4&&d.t!==5){
+        const fk=r*L.cols+c;
+        const fw2=DYN.fuss.wasser.get(fk);
+        if(fw2)hexAdd(flaechen,'fluss:'+RANGKEY[fw2.g],px,py);
+        else if(DYN.fuss.ufer.has(fk))hexAdd(flaechen,'flussufer',px,py);
+      }
+    }
+  }
+  for(const[col,p]of batches){g.fillStyle=col;g.fill(p);}
+  const seePfade=seeZellen.length?uferPfade(seeZellen,rad):null;
+  /* Die dynamischen Schichten wandern MIT in die Scene: Schwenken blittet
+     danach alles zusammen, statt tausende Pfade pro Frame zu füllen. */
+  if(dynAn)zeichneDynamik(g,dpr,flaechen,vektorAn,seePfade);
+  scene.zoom=zoom;scene.levelId=L.id;scene.valid=true;
+  stats.refills++;stats.refillMs=performance.now()-t0;stats.cells=n;stats.batches=batches.size;
+}
+
+let pending=false,fullT=null,wantFull=false;
+function requestRender(){if(!pending){pending=true;requestAnimationFrame(frame);}}
+function scheduleFullRefill(){
+  clearTimeout(fullT);
+  fullT=setTimeout(()=>{wantFull=true;requestRender();},180);
+}
+function frame(){
+  pending=false;
+  const t0=performance.now();
+  const dpr=devicePixelRatio||1;
+  if(cv.width!==stage.clientWidth*dpr||cv.height!==stage.clientHeight*dpr){
+    cv.width=stage.clientWidth*dpr;cv.height=stage.clientHeight*dpr;scene.valid=false;
+  }
+  const L=pickLevel();
+  const vwKm=stage.clientWidth/zoom,vhKm=stage.clientHeight/zoom;
+  if(!scene.valid||scene.levelId!==L.id||scene.zoom!==zoom||
+     ox<scene.ox||oy<scene.oy||ox+vwKm>scene.ox+scene.wKm||oy+vhKm>scene.oy+scene.hKm){
+    refillScene(L,dpr,0.12);scheduleFullRefill();wantFull=false;
+  } else if(wantFull){
+    refillScene(L,dpr,0.5);wantFull=false;
+  }
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle=TERRCOL[0];ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.drawImage(scene.cv,Math.round((scene.ox-ox)*zoom*dpr),Math.round((scene.oy-oy)*zoom*dpr));
+  drawOverlay(L,dpr);
+  stats.frameMs=performance.now()-t0;
+  updateHud(L);
+}
+function drawOverlay(L,dpr){
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(selected)drawSelection();
+  drawRegionBoxes();
+  zeichneFlussnamen(L);
+  if(!showLandmarks)return;
+  ctx.font='10px "Instrument Sans",system-ui,sans-serif';ctx.textAlign='center';
+  for(const lm of TS.landmarks){
+    if(lm.detail&&L.id===0)continue;
+    const[x,y]=kmOfLonLat(lm.lon,lm.lat);
+    const px=(x-ox)*zoom,py=(y-oy)*zoom;
+    if(px<-40||py<-20||px>stage.clientWidth+40||py>stage.clientHeight+20)continue;
+    ctx.fillStyle=F.ember;ctx.beginPath();ctx.arc(px,py,2.2,0,7);ctx.fill();
+    ctx.fillStyle=F.onRiver;ctx.shadowColor=F.flach;ctx.shadowBlur=4;
+    ctx.fillText(lm.name,px,py+(lm.dy?14:-6));ctx.shadowBlur=0;
+  }
+}
+/* ---- Flussnamen: aus den gebackenen Ketten, gesetzt an die Stelle des
+   grössten Abflusses je Name (dort ist der Fluss am breitesten und der
+   Name am wenigsten im Weg). Nur ab der Klima-Ebene, wo auch die
+   gerechneten Läufe gezeichnet werden. ---- */
+function zeichneFlussnamen(L){
+  if(P.namen==='aus'||!SIM.ok||!DYN.K||!dynOn)return;
+  if(!(L.hexKm<=SIM.W+1e-9))return;
+  const beste=new Map();
+  for(let i=0;i<SIM.N;i++){
+    const nm=SIM.namen[i];
+    if(!nm||SIM.synth[i]||SIM.see[i])continue;
+    const q=DYN.K.Q[i];
+    if(q<P.thr)continue;
+    const b=beste.get(nm);
+    if(!b||q>b.q)beste.set(nm,{q:q,i:i});
+  }
+  if(!beste.size)return;
+  ctx.save();
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const[nm,b]of beste){
+    const c=b.i%SIM.DC,r=(b.i/SIM.DC)|0;
+    const[wx,wy]=centerKm(SIM.C0+c,SIM.R0+r,SIM.s);
+    const px=(wx-ox)*zoom,py=(wy-oy)*zoom;
+    if(px<-60||py<-20||px>stage.clientWidth+60||py>stage.clientHeight+20)continue;
+    const gross=b.q>=60;
+    ctx.font=(gross?'600 12px ':'11px ')+'"Instrument Sans",system-ui,sans-serif';
+    ctx.lineWidth=3;ctx.strokeStyle=F.flach;ctx.strokeText(nm,px,py-9);
+    ctx.fillStyle=gross?F.onRiver:F.ink2;ctx.fillText(nm,px,py-9);
+  }
+  ctx.restore();
+}
+function drawSelection(){
+  ctx.save();
+  if(selected.bboxKm){
+    const[x0,y0,x1,y1]=selected.bboxKm;
+    const px0=(x0-ox)*zoom,py0=(y0-oy)*zoom,px1=(x1-ox)*zoom,py1=(y1-oy)*zoom;
+    ctx.fillStyle='rgba(201,111,46,.14)';ctx.fillRect(px0,py0,px1-px0,py1-py0);
+    ctx.strokeStyle=F.ember;ctx.lineWidth=2;ctx.setLineDash([7,5]);
+    ctx.strokeRect(px0,py0,px1-px0,py1-py0);
+  } else if(selected.zelle){
+    /* Das gewählte Feld selbst — man muss sehen, was man angetippt hat.
+       Bei einem gerechneten Lauf ist das Feld das KLIMA-Feld (2 km): dort
+       entsteht der Fluss, und die Auswahl soll nicht feiner tun als das
+       Modell ist. */
+    const[zx,zy,hexKm]=selected.zelle, s2=hexKm/SQRT3;
+    ctx.beginPath();
+    for(let i=0;i<6;i++){
+      const px=(zx+CORN[i][0]*s2-ox)*zoom, py=(zy+CORN[i][1]*s2-oy)*zoom;
+      if(i)ctx.lineTo(px,py);else ctx.moveTo(px,py);
+    }
+    ctx.closePath();
+    ctx.fillStyle='rgba(201,111,46,.16)';ctx.fill();
+    ctx.strokeStyle=F.ember;ctx.lineWidth=2.5;ctx.setLineDash([]);ctx.stroke();
+    /* Wasserkanten des gewählten Plättchens: dort tritt das Wasser ein und
+       aus (Rinnsal: genau zwei Kantenmitten), bzw. dort liegt die Bauseite
+       eines Ufer-Plättchens. */
+    if(selected.kanten&&selected.kanten.length){
+      ctx.strokeStyle=F.riverdeep;ctx.lineWidth=5;ctx.lineCap='round';
+      for(const k of selected.kanten){
+        ctx.beginPath();
+        ctx.moveTo((zx+CORN[k][0]*s2-ox)*zoom,(zy+CORN[k][1]*s2-oy)*zoom);
+        ctx.lineTo((zx+CORN[(k+1)%6][0]*s2-ox)*zoom,(zy+CORN[(k+1)%6][1]*s2-oy)*zoom);
+        ctx.stroke();
+      }
+    }
+  } else if(selected.pointKm){
+    const[x,y]=selected.pointKm;
+    const px=(x-ox)*zoom,py=(y-oy)*zoom;
+    ctx.strokeStyle=F.ember;ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.arc(px,py,12,0,7);ctx.stroke();
+    ctx.fillStyle=F.ember;ctx.beginPath();ctx.arc(px,py,3.5,0,7);ctx.fill();
+  }
+  ctx.restore();
+}
+function updateHud(L){
+  document.getElementById('hud').innerHTML=
+    `Ebene <b>${L.id}</b> (${L.hexKm} km/Hex, ${(zoom*L.hexKm).toFixed(1)} px)\n`+
+    `Frame: <b>${stats.frameMs.toFixed(1)} ms</b> · letzter Refill: ${stats.refillMs.toFixed(1)} ms `+
+    `(${stats.cells} Zellen, ${stats.batches??0} Farb-Batches, insgesamt ${stats.refills}×)\n`+
+    `dekodiert: ${decoded} Kacheln · Sim: ${SIM.ok?SIM.DC+'×'+SIM.DR+' Zellen, Rechnung '+SIM.rechnenMs.toFixed(0)+' ms, '+SIM.opsN+' Ops in '+(SIM.opsMs||0).toFixed(0)+' ms'+(DYN.fuss?' · Flussraum '+DYN.fuss.wasser.size+' Wasser + '+DYN.fuss.ufer.size+' Ufer':'')+' · Läufe '+(dynOn&&L.hexKm<=SIM.W+1e-9?'gezeichnet':'gebacken (Ebene zu grob)'):'aus'}`+
+    (benchTxt?'\n'+benchTxt:'');
+}
+
+/* ============================================================
+   Die Klima-Maschine — gewaesser-labor-v4, umgezogen auf die
+   echte Höhenebene des Tilesets (Ebene 1, 2 km/Hex, im
+   Höhen-Rechteck des DTM).
+
+   Alles Innere rechnet in LOKALEN Einheiten (HXW = 100 je Feld,
+   wie im Labor) auf einem lokalen Ausschnittsgitter; eine affine
+   Abbildung bringt die fertige Geometrie in km-Weltkoordinaten.
+   Dadurch bleiben Renderer und Konstanten des Labors wörtlich.
+   ============================================================ */
+const SIM={ok:false};
+(function bauSim(){
+  const L1=TS.levels.find(L=>L.hexKm===2)||TS.levels[1];
+  const dtm=TS.levels.find(L=>L.regionKm);
+  if(!L1||!dtm)return;
+  const W=L1.hexKm, s=W/SQRT3, rowH=1.5*s;
+  const[x0,y0,x1,y1]=dtm.regionKm;
+  let C0=Math.max(0,Math.floor(x0/W)-1), C1=Math.min(L1.cols-1,Math.ceil(x1/W)+1);
+  let R0=Math.max(0,Math.floor(y0/rowH)-1), R1=Math.min(L1.rows-1,Math.ceil(y1/rowH)+1);
+  if(R0&1)R0--;                       /* Parität: lokal gerade = global gerade */
+  const DC=C1-C0+1, DR=R1-R0+1, N=DC*DR;
+  const elev=new Float64Array(N), valid=new Uint8Array(N), synth=new Uint8Array(N),
+        see=new Uint8Array(N), terr=new Uint8Array(N);
+  /* Der GEMESSENE Seegrund (swissBATHY3D), NaN wo keiner vorliegt. */
+  const bett=new Float64Array(N).fill(NaN);
+  /* Feste Geländerauheit (saatunabhängig): bricht die 25-m-Stufen der
+     gebackenen Höhen-Buckets, sonst entwässern Plateaus wie ein Kamm. */
+  function drau(c,r){
+    var h=(c|0)*2654435761+(r|0)*40503+12345;
+    h=(h^(h>>>13))>>>0;h=Math.imul(h,1274126177)>>>0;h=(h^(h>>>16))>>>0;
+    return h/4294967296*2-1;
+  }
+  for(let r=0;r<DR;r++)for(let c=0;c<DC;c++){
+    const i=r*DC+c, d=cellData(L1,C0+c,R0+r);
+    if(!d)continue;
+    terr[i]=d.t;
+    if(d.b!=null)bett[i]=d.b;
+    if(d.t===4||d.t===5){see[i]=1;valid[i]=1;elev[i]=d.e?d.e*25:NaN;continue;}
+    if(d.e>0){valid[i]=1;elev[i]=d.e*25+drau(C0+c,R0+r)*7;}
+  }
+  /* Seen ohne Höhenwert: der tiefste gültige Nachbar minus 1. */
+  for(let i=0;i<N;i++)if(see[i]&&!(elev[i]>=0)){
+    let m=1e9;
+    nachbarnIdx(i).forEach(n=>{if(valid[n]&&elev[n]<m&&!Number.isNaN(elev[n]))m=elev[n];});
+    elev[i]=m<1e9?m-1:396;
+  }
+  /* ---- Streamburning: die BENANNTEN Läufe ins Höhenmodell prägen --------
+     Das Tileset kennt den Hauptlauf (L.path, nach km geordnet) und die
+     benannten Nebenläufe (L.branches: Aare, Reuss, Limmat, Linth, Seez,
+     Sihl …) je als lückenlose, geordnete Zellkette. Auf einem 2-km-Raster
+     ist eine Zellhöhe ein Mittel über Talboden UND Flanke; ein 300 m
+     breites Flussbett verschwindet darin. Der gerechnete Lauf wandert
+     dann aus dem echten Bett, und flussabwärts kann die Zellhöhe sogar
+     wieder ansteigen. Deshalb wird die bekannte Geometrie als streng
+     fallende Rinne eingeprägt — in der Hydrologie der übliche Schritt,
+     bevor man auf grobem Raster Abfluss rechnet. Gemessen entscheidend
+     ist nicht die TIEFE (6 m wirkt wie 40 m), sondern dass es nie
+     bergauf geht. Seen bleiben dabei flach: sie sind keine Rinne. */
+  const gebrannt=new Uint8Array(N);
+  const idxOf=(c,r)=>{const lc=c-C0,lr=r-R0;
+    return(lc<0||lr<0||lc>=DC||lr>=DR)?-1:lr*DC+lc;};
+  function brenne(cells,tief,neig){
+    let prev=Infinity;
+    for(const cr of cells){
+      const i=idxOf(cr[0],cr[1]);
+      if(i<0){prev=Infinity;continue;}      /* ausserhalb: Kette neu ansetzen */
+      if(see[i]){prev=Math.min(prev,elev[i]);continue;}
+      let e=valid[i]?elev[i]-tief:prev-neig;
+      if(!(e<prev-neig))e=prev-neig;        /* niemals bergauf */
+      if(!isFinite(e))continue;
+      elev[i]=e;valid[i]=1;gebrannt[i]=1;prev=e;
+    }
+  }
+  if(P.brennen!=='aus'){
+    brenne(L1.path.map(q=>[q[0],q[1]]),P.brenntiefe,1.0);
+    for(const b of L1.branches){
+      const cs=b.cells,a=idxOf(cs[0][0],cs[0][1]),z=idxOf(cs[cs.length-1][0],cs[cs.length-1][1]);
+      const ha=a>=0&&valid[a]?elev[a]:Infinity, hz=z>=0&&valid[z]?elev[z]:Infinity;
+      brenne(ha<hz?cs.slice().reverse():cs,P.brenntiefe*0.55,0.8);   /* abwärts = bergab */
+    }
+  }
+  /* Lücken füllen (Vorarlberg, Deutschland …): ansteigende Dilatation —
+     das erfundene Ausland liegt HÖHER als die letzte echte Zelle, damit
+     kein Wasser hinein „entkommt". Es regnet dort auch nicht (synth). */
+  let wieder=true,guard=0;
+  while(wieder&&guard++<500){
+    wieder=false;
+    for(let i=0;i<N;i++){
+      if(valid[i])continue;
+      let m=1e9;
+      nachbarnIdx(i).forEach(n=>{if(valid[n]&&elev[n]<m)m=elev[n];});
+      if(m<1e9){elev[i]=m+8+Math.abs(drau(i%DC,(i/DC)|0))*4;valid[i]=1;synth[i]=1;wieder=true;}
+    }
+  }
+  /* ---- Seen als EIN Wasserkörper ---------------------------------------
+     Vorher war jeder See ein Auslass: was hineinfloss, verliess die
+     Rechnung. Der Alpenrhein endete damit im Bodensee, und der Rhein
+     unterhalb begann wieder bei null — die Aare bekam ihre Seen nicht,
+     der Rhein bei Basel führte 23 statt 1030 m³/s. Ein See ist aber kein
+     Loch, sondern eine flache Fläche mit EINEM Ausfluss: alles Zufliessende
+     sammelt sich und tritt dort wieder aus. */
+  const lakeId=new Int32Array(N).fill(-1), lakes=[];
+  for(let i=0;i<N;i++){
+    if(!see[i]||lakeId[i]>=0||terr[i]===5)continue;   /* Nordsee bleibt terminal */
+    const id=lakes.length,stack=[i],cells=[];lakeId[i]=id;
+    while(stack.length){
+      const j=stack.pop();cells.push(j);
+      nachbarnIdx(j).forEach(n=>{
+        if(see[n]&&terr[n]!==5&&lakeId[n]<0){lakeId[n]=id;stack.push(n);}});
+    }
+    lakes.push({cells:cells,out:-1,von:-1});
+  }
+  /* Ufer sammeln; wer der Ausfluss wird, entscheidet sich weiter unten —
+     ein gebranntes Flussfeld hat Vorrang vor der blossen Tiefe, denn der
+     Bodensee tritt bei Konstanz aus, nicht am tiefsten Uferpunkt. */
+  lakes.forEach(Lk=>{
+    const ufer=new Map();
+    Lk.cells.forEach(j=>nachbarnIdx(j).forEach(n=>{
+      if(!valid[n]||see[n]||ufer.has(n))return;
+      ufer.set(n,j);
+    }));
+    Lk.ufer=[...ufer.entries()].sort((a,b)=>
+      (gebrannt[b[0]]-gebrannt[a[0]])||(elev[a[0]]-elev[b[0]]));
+  });
+  const outlet=new Uint8Array(N);
+  for(let r=0;r<DR;r++)for(let c=0;c<DC;c++){
+    const i=r*DC+c;
+    if(!valid[i])continue;
+    /* Ein See ist NIE Randauslass: sonst entkommt der Bodensee über die
+       Zuschnittkante nach Norden, statt durch Konstanz abzufliessen. */
+    if(terr[i]===5||((c===0||c===DC-1||r===0||r===DR-1)&&!see[i]))outlet[i]=1;
+  }
+  /* Senken füllen: Priority-Flood von den Auslässen her — jede Zelle
+     bekommt einen monoton fallenden Weg zu einem Auslass. */
+  const welev=new Float64Array(N), done=new Uint8Array(N);
+  const hIdx=new Int32Array(N), hKey=new Float64Array(N);let hN=0;
+  function hPush(i,k){
+    let j=hN++;hIdx[j]=i;hKey[j]=k;
+    while(j>0){const p=(j-1)>>1;if(hKey[p]<=hKey[j])break;
+      const ti=hIdx[p],tk=hKey[p];hIdx[p]=hIdx[j];hKey[p]=hKey[j];hIdx[j]=ti;hKey[j]=tk;j=p;}
+  }
+  function hPop(){
+    const i=hIdx[0],k=hKey[0];hN--;
+    if(hN>0){hIdx[0]=hIdx[hN];hKey[0]=hKey[hN];
+      let j=0;
+      for(;;){let l=2*j+1,r2=l+1,m=j;
+        if(l<hN&&hKey[l]<hKey[m])m=l;
+        if(r2<hN&&hKey[r2]<hKey[m])m=r2;
+        if(m===j)break;
+        const ti=hIdx[m],tk=hKey[m];hIdx[m]=hIdx[j];hKey[m]=hKey[j];hIdx[j]=ti;hKey[j]=tk;j=m;}
+    }
+    return[i,k];
+  }
+  for(let i=0;i<N;i++)if(outlet[i]&&valid[i]){welev[i]=elev[i];done[i]=1;hPush(i,elev[i]);}
+  while(hN>0){
+    const[i,k]=hPop();
+    nachbarnIdx(i).forEach(n=>{
+      if(done[n]||!valid[n])return;
+      welev[n]=Math.max(elev[n],k+0.15);done[n]=1;hPush(n,welev[n]);
+    });
+  }
+  /* Ausfluss je See: das erste Ufer, DAS SELBST EINEN ABFLUSS HAT (gebrannte
+     Flussfelder zuerst, dann nach Tiefe). Nur „das tiefste Ufer" zu nehmen
+     trifft sonst eine Senke — der See leitet in eine Zelle, die nirgendwo
+     hin kann, und der Strang endet. Gemessen: so riss der Hochrhein drei
+     Felder hinter Konstanz ab, weil ein winziger Weiher dieselbe Uferzelle
+     beanspruchte. Findet sich gar kein Ufer mit Abfluss, ist der See
+     abflusslos und wird selbst zum Auslass. */
+  lakes.forEach(Lk=>{
+    for(const[cand,von]of Lk.ufer){
+      let hat=outlet[cand];
+      if(!hat)nachbarnIdx(cand).forEach(n=>{
+        if(valid[n]&&lakeId[n]!==lakeId[von]&&welev[n]<welev[cand])hat=true;});
+      if(hat){Lk.out=cand;Lk.von=von;return;}
+    }
+    Lk.cells.forEach(j=>{outlet[j]=1;});
+  });
+  /* Seespiegel staffeln, BEVOR die Richtungen fallen: jede Seezelle bekommt
+     welev knapp über dem Ausfluss, ansteigend mit der Entfernung zu ihm.
+     Damit bleibt „absteigend nach welev" eine gültige topologische
+     Reihenfolge für die Akkumulation, und der See läuft flach aus. */
+  const seeTiefe=new Int32Array(N);
+  lakes.forEach(Lk=>{
+    if(Lk.out<0||Lk.von<0)return;
+    seeTiefe[Lk.von]=1;welev[Lk.von]=welev[Lk.out]+0.01;
+    let front=[Lk.von];
+    while(front.length){
+      const nx=[];
+      front.forEach(j=>nachbarnIdx(j).forEach(n=>{
+        if(lakeId[n]!==lakeId[Lk.von]||seeTiefe[n])return;
+        seeTiefe[n]=seeTiefe[j]+1;welev[n]=welev[Lk.out]+0.01*seeTiefe[n];nx.push(n);
+      }));
+      front=nx;
+    }
+  });
+  /* Abflussrichtung: die steilste (tiefste) Nachbarzelle — D6. */
+  const ab=new Int32Array(N).fill(-1);
+  for(let i=0;i<N;i++){
+    if(!valid[i]||outlet[i]||lakeId[i]>=0)continue;
+    let best=-1,bm=welev[i];
+    nachbarnIdx(i).forEach(n=>{if(valid[n]&&welev[n]<bm){bm=welev[n];best=n;}});
+    ab[i]=best;
+  }
+  /* Im See läuft alles dem Ausfluss zu — und der Ausfluss NICHT zurück in
+     seinen eigenen See (sonst kreist das Wasser zwischen Ufer und Fläche). */
+  const seeZu=new Uint8Array(N);            /* Zuflüsse in einen See */
+  lakes.forEach(Lk=>{
+    if(Lk.out<0||Lk.von<0)return;
+    ab[Lk.von]=Lk.out;
+    Lk.cells.forEach(j=>{
+      if(j===Lk.von)return;
+      let best=-1,bm=Infinity;
+      nachbarnIdx(j).forEach(n=>{
+        if(lakeId[n]===lakeId[j]&&seeTiefe[n]&&seeTiefe[n]<seeTiefe[j]&&welev[n]<bm){bm=welev[n];best=n;}});
+      ab[j]=best>=0?best:Lk.von;
+    });
+    let bo=-1,bm2=welev[Lk.out];
+    nachbarnIdx(Lk.out).forEach(n=>{
+      if(!valid[n]||lakeId[n]===lakeId[Lk.von])return;
+      if(welev[n]<bm2){bm2=welev[n];bo=n;}});
+    if(!outlet[Lk.out]&&bo>=0)ab[Lk.out]=bo;
+  });
+  /* ---- Seegeometrie: Fläche, Spiegel, GRUND ------------------------------
+     Das Höhenmodell ist ein GELÄNDEmodell — über einem See führt es die
+     Wasseroberfläche, nicht den Grund. Deshalb liegt der Grund jetzt als
+     eigene Quelle daneben: swissBATHY3D von swisstopo, in der Pipeline auf
+     dasselbe Raster abgetastet wie das Gelände (kind „tiefe", Kanal `b`).
+     Damit ist die Wanne GEMESSEN statt erfunden, und ein fallender Spiegel
+     legt wirklich etwas frei — vorher hätte er nichts freigelegt, weil der
+     „Grund" die Oberfläche war. Wo keine Messung vorliegt (Seen ausserhalb
+     der Schweizer Aufnahme), bleibt die alte gerechnete Wanne als Notnagel:
+     Tiefe wächst mit dem Abstand zum Ufer. Welcher Fall gilt, sagt der
+     Inspektor je See — erfunden und gemessen dürfen nicht gleich aussehen. */
+  const zellKm2=W*W*Math.sqrt(3)/2;
+  lakes.forEach(Lk=>{
+    Lk.km2=Lk.cells.length*zellKm2;
+    Lk.spiegel=Math.min(...Lk.cells.map(j=>elev[j]));
+    /* Abstand zum Ufer (Ringe von aussen nach innen) — für den Notnagel */
+    const dist=new Map();let front=[];
+    Lk.cells.forEach(j=>{
+      let randnah=false;
+      nachbarnIdx(j).forEach(n=>{if(lakeId[n]!==lakeId[j])randnah=true;});
+      if(randnah){dist.set(j,1);front.push(j);}
+    });
+    let tief=1;
+    while(front.length){
+      const nx=[];tief++;
+      front.forEach(j=>nachbarnIdx(j).forEach(n=>{
+        if(lakeId[n]===lakeId[j]&&!dist.has(n)){dist.set(n,tief);nx.push(n);}}));
+      front=nx;
+    }
+    const dmax=Math.max(1,tief-1);
+    let nGemessen=0,tiefster=Infinity;
+    Lk.cells.forEach(j=>{if(!Number.isNaN(bett[j])){nGemessen++;if(bett[j]<tiefster)tiefster=bett[j];}});
+    Lk.gemessen=nGemessen/Lk.cells.length;
+    Lk.tmax=nGemessen?Lk.spiegel-tiefster:Math.min(320,10.8*Math.sqrt(Lk.km2));
+    Lk.grund=new Map();
+    Lk.cells.forEach(j=>{
+      if(!Number.isNaN(bett[j])){Lk.grund.set(j,bett[j]);return;}
+      const t=(dist.get(j)||1)/dmax;
+      Lk.grund.set(j,Lk.spiegel-Lk.tmax*Math.sin(Math.PI/2*Math.min(1,t)));
+    });
+  });
+  const reihenfolge=[];
+  for(let i=0;i<N;i++)if(valid[i])reihenfolge.push(i);   /* Seen fliessen mit */
+  reihenfolge.sort((a,b)=>welev[b]-welev[a]);
+  /* Zuflüsse markieren: Landzelle, die in einen See entwässert. */
+  for(let i=0;i<N;i++){
+    const d=ab[i];
+    if(d>=0&&lakeId[d]>=0&&lakeId[i]<0&&!synth[i])seeZu[i]=1;
+  }
+  /* Niederschlag: orographisch × Staulage (Norden nasser als innenalpin). */
+  const PRECIP=new Float32Array(N);
+  for(let r=0;r<DR;r++)for(let c=0;c<DC;c++){
+    const i=r*DC+c;
+    PRECIP[i]=(0.75+0.55*Math.min(1,Math.max(0,elev[i]-400)/2600))
+             *(0.85+0.35*(1-r/DR));
+  }
+  SIM.ok=true;
+  SIM.L1=L1;SIM.W=W;SIM.s=s;SIM.C0=C0;SIM.R0=R0;SIM.DC=DC;SIM.DR=DR;SIM.N=N;
+  SIM.elev=elev;SIM.welev=welev;SIM.valid=valid;SIM.synth=synth;SIM.see=see;SIM.terr=terr;
+  SIM.outlet=outlet;SIM.ab=ab;SIM.reihenfolge=reihenfolge;SIM.PRECIP=PRECIP;SIM.drau=drau;
+  SIM.lakes=lakes;SIM.lakeId=lakeId;SIM.seeZu=seeZu;SIM.gebrannt=gebrannt;
+  /* ---- Namen: die gerechneten Läufe erben sie aus den gebackenen Daten ---
+     Das Tileset kennt Aare, Reuss, Limmat, Linth, Seez, Sihl und den
+     Hauptlauf je als benannte Zellkette. Damit muss niemand von Hand
+     Landmarken setzen: welcher Fluss hier fliesst, steht schon in den
+     Quellen — der Rechnung fehlte bloss der Blick darauf. */
+  const namen=new Array(N).fill(null);
+  for(const b of L1.branches)for(const cr of b.cells){
+    const i=idxOf(cr[0],cr[1]);
+    if(i>=0&&!namen[i])namen[i]=b.name;
+  }
+  for(const q of L1.path){
+    const i=idxOf(q[0],q[1]);
+    if(i>=0)namen[i]='Rhein';               /* Hauptlauf gewinnt */
+  }
+  SIM.namen=namen;
+  const[XA,YA]=centerKm(C0,R0,s);
+  SIM.XA=XA;SIM.YA=YA;SIM.KML=W/100;      /* lokale Einheit → km */
+  SIM.rechnenMs=0;SIM.opsN=0;SIM.opsMs=0;
+
+  function nachbarnIdx(i){
+    const c=i%DC,r=(i/DC)|0;
+    const d=(r&1)?[[1,0],[-1,0],[1,-1],[0,-1],[1,1],[0,1]]
+               :[[1,0],[-1,0],[0,-1],[-1,-1],[0,1],[-1,1]];
+    const out=[];
+    for(const v of d){const nc=c+v[0],nr=r+v[1];
+      if(nc>=0&&nc<DC&&nr>=0&&nr<DR)out.push(nr*DC+nc);}
+    return out;
+  }
+  SIM.nachbarnIdx=nachbarnIdx;
+})();
+function simIdxAtKm(x,y){
+  if(!SIM.ok)return -1;
+  const[gc,gr]=cellAtKm(x,y,SIM.s);
+  const c=gc-SIM.C0,r=gr-SIM.R0;
+  if(c<0||r<0||c>=SIM.DC||r>=SIM.DR)return -1;
+  return r*SIM.DC+c;
+}
+
+/* ---- lokale Geometrie des Labors (HXW = 100) ---- */
+var HXW=100,HXH=115.47;
+function lcx(c,r){return (c+(r&1?0.5:0))*HXW+HXW/2;}
+function lcy(c,r){return r*HXH*0.75+HXH/2;}
+function lkanteMitte(a,b){return [(lcx(a[0],a[1])+lcx(b[0],b[1]))/2,(lcy(a[0],a[1])+lcy(b[0],b[1]))/2];}
+function lnachbarn(c,r){
+  var d=(r&1)?[[1,0],[-1,0],[1,-1],[0,-1],[1,1],[0,1]]
+             :[[1,0],[-1,0],[0,-1],[-1,-1],[0,1],[-1,1]];
+  var out=[];
+  d.forEach(function(v){var nc=c+v[0],nr=r+v[1];
+    if(nc>=0&&nc<SIM.DC&&nr>=0&&nr<SIM.DR)out.push([nc,nr]);});
+  return out;
+}
+var ZKM2=3.46;                          /* km² je 2-km-Hex */
+
+/* ---- Klima und Wasser: alles hängt an T und der Jahreszeit (Labor v4).
+   Spezifischer Abfluss wie dort kalibriert, umgerechnet auf die 3,46-km²-
+   Zelle. Zuflüsse von ausserhalb gibt es nicht mehr: das Rechteck umfasst
+   das ganze Schweizer Einzugsgebiet — der Rhein entsteht an der Quelle. ---- */
+var REGEN=0.117, MELT=0.076;
+var SAISON=[
+  {id:'fruehling',nm:'Frühling',off:1,  regen:1.0},
+  {id:'sommer',   nm:'Sommer',  off:10, regen:1.0},
+  {id:'herbst',   nm:'Herbst',  off:2,  regen:1.1},
+  {id:'winter',   nm:'Winter',  off:-10,regen:0.6}
+];
+function klima(T,S){
+  var N=SIM.N,elev=SIM.elev,see=SIM.see,synth=SIM.synth,ab=SIM.ab,PRECIP=SIM.PRECIP;
+  var Hice=400+(T+6)/6.5*1000;
+  var Ts=T+S.off;
+  var Hschnee=400+Ts/6.5*1000;
+  var HschneeVor=400+(T+(S.id==='sommer'?1:-10))/6.5*1000;
+  var band=(S.id==='fruehling'||S.id==='sommer');
+  var Q=new Float64Array(N),ice=new Uint8Array(N),schnee=new Uint8Array(N),schmelze=0,iceN=0;
+  SIM.reihenfolge.forEach(function(i){
+    var e=elev[i],q=0;
+    if(synth[i]){q=0;}                   /* das erfundene Ausland regnet nicht */
+    /* Der See kommt NACH der Eisprüfung: sinkt die Eisgrenze unter seinen
+       Spiegel, ist der See kein See mehr, sondern Eis. Vorher stand der
+       See-Zweig davor — und der Bodensee blieb selbst bei −12 °C offenes
+       Wasser mitten im Eisschild. */
+    else if(e>=Hice){
+      ice[i]=1;iceN++;
+      var Tc=Ts-6.5*(e-400)/1000;
+      q=MELT*Math.max(0,Tc);schmelze+=q;
+    }else if(see[i]){q=REGEN*S.regen*PRECIP[i];}  /* auf den See regnet es auch */
+    else if(e>=Hschnee){
+      schnee[i]=1;
+      q=REGEN*0.12*PRECIP[i];
+    }else{
+      q=REGEN*S.regen*PRECIP[i];
+      if(band&&e>=HschneeVor){var sm2=REGEN*0.55*PRECIP[i];q+=sm2;schmelze+=sm2;}
+    }
+    Q[i]+=q;
+    var d=ab[i];
+    if(d>=0)Q[d]+=Q[i];
+  });
+  return {Hice:Hice,Hschnee:Hschnee,Q:Q,ice:ice,schnee:schnee,iceN:iceN,schmelze:schmelze,S:S};
+}
+
+/* ---- Läufe extrahieren: der Hauptstrang ist der grösste Zufluss.
+   NICHT filtern — die ziel-Indizes zeigen in dieses Array (der
+   Sternexplosions-Befund aus dem Labor). ---- */
+function laeufe(K){
+  var N=SIM.N,DC=SIM.DC,see=SIM.see,ab=SIM.ab,Q=K.Q,ice=K.ice,THR=P.thr;
+  /* Synthetische Zellen (die Dilatation ausserhalb des DTM) führen zwar
+     Wasser weiter, werden aber NIE gezeichnet: ein Lauf endet sichtbar
+     dort, wo die Daten enden — sonst zieht sich ein Geisterfluss die
+     Nahtlinie des Höhen-Rechtecks entlang. */
+  var istFluss=new Uint8Array(N);
+  var flussList=[];
+  for(var i=0;i<N;i++)if(SIM.valid[i]&&!SIM.synth[i]&&!see[i]&&!ice[i]&&Q[i]>=THR){istFluss[i]=1;flussList.push(i);}
+  var zu={};
+  flussList.forEach(function(i){
+    var d=ab[i];
+    if(d>=0){if(!zu[d])zu[d]=[];zu[d].push(i);}
+  });
+  var runde=[],zuord=new Int32Array(N).fill(-1),runs=[];
+  flussList.forEach(function(i){
+    var d=ab[i];
+    if(d<0||see[d]||SIM.synth[d])runde.push([i,null,-1]);   /* [Zellindex, zielRun, zielZelle] */
+  });
+  while(runde.length){
+    var start=runde.shift(),pfad=[],cur=start[0];
+    while(cur>=0){
+      pfad.push([cur%DC,(cur/DC)|0]);zuord[cur]=runs.length;
+      var beste=-1,bq=-1;
+      (zu[cur]||[]).forEach(function(u){
+        if(zuord[u]>=0)return;
+        if(Q[u]>bq){bq=Q[u];beste=u;}
+      });
+      cur=beste;
+    }
+    pfad.reverse();
+    runs.push({pfad:pfad,ziel:start[1],zielZelle:start[2],
+               qs:pfad.map(function(p){return Q[p[1]*DC+p[0]];})});
+    flussList.forEach(function(i){
+      if(zuord[i]>=0)return;
+      var dd=ab[i];
+      if(dd>=0&&zuord[dd]>=0){
+        var schon=runde.some(function(x){return x[0]===i;});
+        if(!schon)runde.push([i,zuord[dd],dd]);
+      }
+    });
+  }
+  return runs;
+}
+
+/* ---- Der v3-Renderer, wörtlich — nur die Ausgabe ist Path2D statt SVG ---- */
+function hash(a,b,c){
+  var h=(a|0)*374761393+(b|0)*668265263+(c|0)*974634013+(P.seed|0)*144665;
+  h=(h^(h>>>13))>>>0;h=Math.imul(h,1274126177)>>>0;h=(h^(h>>>16))>>>0;
+  return h/4294967296*2-1;
+}
+function glatt(t){return t*t*(3-2*t);}
+function rausch(x,y){
+  var ix=Math.floor(x),iy=Math.floor(y),fx=glatt(x-ix),fy=glatt(y-iy);
+  var a=hash(ix,iy,9),b=hash(ix+1,iy,9),cc=hash(ix,iy+1,9),d=hash(ix+1,iy+1,9);
+  return a+(b-a)*fx+(cc-a)*fy+(a-b-cc+d)*fx*fy;
+}
+function pinselW(x,y){
+  if(!P.pinsel)return 0;
+  var f=P.freq/1000;
+  return (rausch(x*f,y*f)+0.5*rausch(x*f*2.3+37,y*f*2.3+11))*P.pinsel;
+}
+function bandBreite(b){
+  var f;
+  if(b<0.5)f=.028; else if(b<5)f=.028+(b-0.5)/4.5*.042;
+  else if(b<10)f=.070+(b-5)/5*.035;
+  else if(b<100)f=.105+Math.log10(b/10)*.100;
+  else f=Math.min(.34,.205+Math.log10(b/100)*.10);
+  return f*HXW;
+}
+/* Vier Klassen wie im Labor, aber auf die grosse Karte kalibriert: das
+   Labor nannte alles über ~3 m³/s einen grossen Fluss — hier fliessen
+   Aare (560) und Rhein (1000). Die Grenzen sind Abfluss, nicht Breite. */
+var farbe=function(q){
+  return q<2?F.wRinnsal:q<10?F.wBach:q<60?F.river:F.riverdeep;};
+var klasseKey=function(q){
+  return q<2?'rinnsal':q<10?'bach':q<60?'kfluss':'gfluss';};
+var klasseName=function(q){
+  return q<2?'Rinnsal':q<10?'Bach':q<60?'kleiner Fluss':'grosser Fluss';};
+function crSample(cp,S){
+  var out=[];
+  for(var i=0;i<cp.length-1;i++){
+    var p0=cp[Math.max(0,i-1)],p1=cp[i],p2=cp[i+1],p3=cp[Math.min(cp.length-1,i+2)];
+    for(var s=0;s<S;s++){
+      var t=s/S,t2=t*t,t3=t2*t;
+      out.push({
+        x:.5*(2*p1.x+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*t2+(-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+        y:.5*(2*p1.y+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*t2+(-p0.y+3*p1.y-3*p2.y+p3.y)*t3),
+        q:p1.q+(p2.q-p1.q)*t
+      });
+    }
+  }
+  out.push({x:cp[cp.length-1].x,y:cp[cp.length-1].y,q:cp[cp.length-1].q});
+  for(var j=0;j<out.length;j++){
+    var A=out[Math.max(0,j-1)],B=out[Math.min(out.length-1,j+1)];
+    var dx=B.x-A.x,dy=B.y-A.y,L=Math.hypot(dx,dy)||1;
+    out[j].tx=dx/L;out[j].ty=dy/L;out[j].nx=-dy/L;out[j].ny=dx/L;
+  }
+  for(j=0;j<out.length;j++){
+    var C1=out[Math.max(0,j-2)],C2=out[Math.min(out.length-1,j+2)];
+    out[j].kr=C1.tx*C2.ty-C1.ty*C2.tx;
+  }
+  return out;
+}
+function ribbon(sm,wOf){
+  var L=[],R=[];
+  sm.forEach(function(s){
+    var w=wOf(s),n=pinselW(s.x,s.y);
+    L.push([s.x+s.nx*(w[0]+n),s.y+s.ny*(w[0]+n)]);
+    R.push([s.x-s.nx*(w[1]-n),s.y-s.ny*(w[1]-n)]);
+  });
+  return 'M '+L.map(function(p){return p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' L ')
+       +' L '+R.reverse().map(function(p){return p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' L ')+' Z';
+}
+function braidBump(BR,s){
+  if(!BR)return 0;
+  var m=0,R=HXW*0.62;
+  for(var i=0;i<BR.list.length;i++){
+    var d=Math.hypot(s.x-BR.list[i].x,s.y-BR.list[i].y);
+    if(d<R)m=Math.max(m,0.5*(1+Math.cos(Math.PI*d/R)));
+  }
+  return m;
+}
+
+/* ---- Hexgeometrie in lokalen Einheiten (Ecken, Weichzeichner) ---------
+   Das Ufer selbst wird in Scene-Pixeln gezogen (uferPfade); hier bleibt,
+   was die Läufe brauchen: die Ecken eines Feldes für den Kies-Beschnitt
+   und Chaikin zum Weichziehen. ---- */
+function eckenLokal(c,r){
+  var x=lcx(c,r),y=lcy(c,r);
+  return [[x,y-HXH/2],[x+HXW/2,y-HXH/4],[x+HXW/2,y+HXH/4],
+          [x,y+HXH/2],[x-HXW/2,y+HXH/4],[x-HXW/2,y-HXH/4]];
+}
+function chaikin(ring,runden){
+  for(var p=0;p<runden;p++){
+    var out=[];
+    for(var i=0;i<ring.length;i++){
+      var a=ring[i],b=ring[(i+1)%ring.length];
+      out.push([a[0]*0.75+b[0]*0.25,a[1]*0.75+b[1]*0.25]);
+      out.push([a[0]*0.25+b[0]*0.75,a[1]*0.25+b[1]*0.75]);
+    }
+    ring=out;
+  }
+  return ring;
+}
+/* ---- Der Kies bleibt im Feld ------------------------------------------
+   Saum und Schotterflur sind breiter als das Wasser: bei einem grossen
+   Fluss wird der Saum über 60 Einheiten breit, das Feld ist 100 breit —
+   der Kies lief also regelmässig ins Nachbarfeld hinaus, das mit diesem
+   Fluss nichts zu tun hat. Im Spiel ist das Plättchen die Einheit: was
+   ein Feld an Kies trägt, gehört zu DIESEM Feld. Darum ein Beschnitt aus
+   der Vereinigung genau der Felder, durch die der Lauf zieht. Das Wasser
+   selbst wird NICHT beschnitten — es liegt ohnehin innerhalb, und ein
+   abgeschnittener Fluss wäre kein Fluss mehr. */
+function hexVereinigung(cells){
+  var p=new Path2D();
+  cells.forEach(function(z){
+    var e=eckenLokal(z[0],z[1]);
+    p.moveTo(e[0][0],e[0][1]);
+    for(var k=1;k<6;k++)p.lineTo(e[k][0],e[k][1]);
+    p.closePath();
+  });
+  return p;
+}
+
+/* ---- Der Flussraum: der Lauf als PLÄTTCHEN-Gegenstand -------------------
+   Auf der feinen Ebene ist der Fluss nicht nur Zeichnung, sondern ein
+   Korridor aus Plättchen — die Spielentscheidung: Rinnsal und Bach sind
+   EIN Plättchen breit (das Wasser tritt an den Kantenmitten ein und aus),
+   der kleine Fluss ist DREI Plättchen breit, der grosse FÜNF, jeweils mit
+   einem Ufer-Ring (b) darum, der Puffer und Ausrichtung ist: an ihm
+   richten sich einmündende Läufe aus, und auf ihm steht, wer am Wasser
+   bauen will. Benachbarte Abschnitte teilen sich ihre Ufer — der Korridor
+   ist die VEREINIGUNG der Stempel entlang der gezeichneten Mittellinie,
+   Wasser schlägt Ufer, die grössere Klasse die kleinere. Damit ist je
+   Plättchen entscheidbar: fliesst hier wirklich Wasser durch? ---- */
+var RANGKEY=['rinnsal','bach','kfluss','gfluss'];
+var RANGNAME=['Rinnsal','Bach','kleiner Fluss','grosser Fluss'];
+var BAU=['Fischplatz','Steg · Fischwehr','Mühle · Steg · Anlegestelle','Hafen · Wehr · Fähre'];
+function fussRang(q){return q<2?0:q<10?1:q<60?2:3;}
+/* Hex-Scheibe mit Radius R um (c,r), odd-r — als Zellschlüssel r*cols+c. */
+function scheibeZellen(c,r,R,cols,rows,out){
+  var q0=c-((r-(r&1))>>1);
+  for(var dq=-R;dq<=R;dq++){
+    for(var dr=Math.max(-R,-dq-R);dr<=Math.min(R,-dq+R);dr++){
+      var rr=r+dr;
+      if(rr<0||rr>=rows)continue;
+      var cc=q0+dq+((rr-(rr&1))>>1);
+      if(cc>=0&&cc<cols)out.push(rr*cols+cc);
+    }
+  }
+  return out;
+}
+/* Die Mittellinie eines Laufs (die geglätteten Proben, MIT ihren
+   Auslenkungen) in Stempel auf dem Anzeigeraster übersetzen. */
+function fussSpur(fuss,sm,nm,L){
+  var sF=L.hexKm/SQRT3, cols=L.cols, rows=L.rows;
+  var schritt=L.hexKm*0.45;              /* km zwischen Stempeln: < Inkreis */
+  function stempel(x,y,q){
+    var cr=cellAtKm(x,y,sF);
+    if(cr[0]<0||cr[1]<0||cr[0]>=cols||cr[1]>=rows)return;
+    /* Der Name kommt von der Klima-Zelle UNTER dem Stempel, nicht vom Lauf:
+       der Hauptstrang entspringt im Hinterrhein-Tal und hiesse sonst bis
+       zum Bodensee „Hinterrhein“. */
+    var siH=simIdxAtKm(x,y);
+    var nmH=(siH>=0&&SIM.namen[siH])||nm;
+    var g=fussRang(q), R=g>=3?2:g>=2?1:0;
+    scheibeZellen(cr[0],cr[1],R,cols,rows,[]).forEach(function(k){
+      var alt=fuss.wasser.get(k);
+      if(!alt||g>alt.g||(g===alt.g&&q>alt.q))fuss.wasser.set(k,{g:g,q:q,nm:nmH||(alt?alt.nm:null)});
+      else if(nmH&&!alt.nm)alt.nm=nmH;
+      fuss.ufer.delete(k);               /* Wasser schlägt Ufer */
+    });
+    if(R>=1)scheibeZellen(cr[0],cr[1],R+1,cols,rows,[]).forEach(function(k){
+      if(fuss.wasser.has(k))return;
+      var alt=fuss.ufer.get(k);
+      if(!alt||g>alt.g)fuss.ufer.set(k,{g:g,nm:nmH||(alt?alt.nm:null)});
+    });
+  }
+  var vx=null,vy=null;
+  for(var i=0;i<sm.length;i++){
+    var wx=SIM.XA+(sm[i].x-50)*SIM.KML, wy=SIM.YA+(sm[i].y-HXH/2)*SIM.KML;
+    if(vx===null)stempel(wx,wy,sm[i].q);
+    else{
+      var d2=Math.hypot(wx-vx,wy-vy), n2=Math.max(1,Math.ceil(d2/schritt));
+      for(var t2=1;t2<=n2;t2++)stempel(vx+(wx-vx)*t2/n2,vy+(wy-vy)*t2/n2,sm[i].q);
+    }
+    vx=wx;vy=wy;
+  }
+}
+/* Welche Kanten eines Plättchens an Wasser grenzen (Kante k = Ecke k→k+1). */
+function fussKanten(c,r,L,wasserMap){
+  var out=[];
+  for(var k=0;k<6;k++){
+    var d=(r&1)?KANTE_DIR[k].u:KANTE_DIR[k].g;
+    var nc=c+d[0],nr=r+d[1];
+    if(nc<0||nr<0||nc>=L.cols||nr>=L.rows)continue;
+    if(wasserMap.has(nr*L.cols+nc))out.push(k);
+  }
+  return out;
+}
+
+/* ---- Ops: gefüllte/gestrichene Path2D in lokalen Einheiten ---- */
+function opPfad(arr,d,fill,hl){arr.push({p:new Path2D(d),f:fill,hl:hl});}
+function opStrich(arr,d,col,w,hl){arr.push({p:new Path2D(d),s:col,w:w,hl:hl});}
+function opKreis(arr,x,y,r,fill,hl){var p=new Path2D();p.arc(x,y,r,0,6.2832);arr.push({p:p,f:fill,hl:hl});}
+function opEllipse(arr,x,y,rx,ry,deg,fill,sCol,sw,hl){
+  var p=new Path2D();p.ellipse(x,y,rx,ry,deg*Math.PI/180,0,6.2832);
+  arr.push({p:p,f:fill,s:sCol,w:sw,hl:hl});
+}
+
+function wasserOps(K,BR,MG,EBENE){
+  var DC=SIM.DC,ab=SIM.ab,see=SIM.see;
+  /* ---- Der Massstab der Zeichnung ---------------------------------------
+     Die Laufgeometrie entsteht auf der Klima-Ebene (2 km/Feld), und alle
+     Breiten dieses Renderers sind Bruchteile EINES solchen Feldes. Auf
+     Ebene 2 sind die Felder aber fünfmal kleiner — das Band behielt seine
+     Kilometer und wurde damit zur Flut, die über die kleinen Plättchen
+     schwappte. Also: die Karten-Breite schrumpft mit der angezeigten
+     Feldgrösse, aber nie unter die WAHRE Breite des Flusses. Auf der
+     Klima-Ebene ändert sich dadurch nichts (dort ist die Übertreibung
+     immer die grössere Zahl), auf Ebene 2 zeichnet sich der Rhein mit
+     seinen echten ~200 m statt mit 470. Eine Karte übertreibt schmale
+     Gewässer, damit man sie sieht — je näher man herangeht, desto weniger
+     muss sie das.
+     Der Parameter heisst EBENE, nicht L: der wörtlich übernommene
+     v3-Renderer deklariert im Laufinneren `var L=Math.hypot(...)`, und
+     `var` gilt für die GANZE Funktion — ein Parameter namens L wäre ab da
+     eine Zahl (gemessen: der Flussraum blieb still leer, weil L.cols
+     undefined war, während skala oben noch den echten Wert sah). */
+  /* Nicht linear, sondern über die Wurzel: linear geschrumpft (×0,2 auf
+     Ebene 2) wird die Limmat zum Haarstrich und die Karte verliert genau
+     die Lesbarkeit, für die die Übertreibung da ist. Mit der Wurzel (×0,45)
+     landen grosse Flüsse ohnehin auf ihrer wahren Breite — der Rhein bei
+     Basel rechnet 210 m gegen echte ~200 —, und die kleinen bleiben
+     sichtbar. Das ist die übliche Antwort der Kartografie: Zeichengrösse
+     wächst mit der Wurzel des Massstabs, nicht mit ihm. */
+  var skala=Math.min(1,Math.sqrt((EBENE?EBENE.hexKm:SIM.W)/SIM.W));
+  var jeKm=100/SIM.W;                    /* lokale Einheiten je Kilometer */
+  /* Auf der feinen Ebene entsteht nebenbei der FLUSSRAUM (s. o.). */
+  var fuss=(EBENE&&EBENE.hexKm<SIM.W-1e-9)?{wasser:new Map(),ufer:new Map()}:null;
+  var wLokal=function(q){
+    var b=6*Math.sqrt(q);                /* Breite in Metern */
+    return Math.max(b/1000*jeKm,bandBreite(b)*skala);
+  };
+  var runs=laeufe(K),saums=[],koerper=[],talwege=[],proben=[];
+  /* Welche Felder ein gerechneter Lauf belegt — der Inspektor braucht das,
+     damit ein Flussfeld als FLUSS ansprechbar ist und nicht als das
+     Gelände, das darunter liegt. Nur gezeichnete Läufe zählen. */
+  DYN.istLauf=new Uint8Array(SIM.N);
+  DYN.laufName=new Array(SIM.N).fill(null);
+  runs.forEach(function(run,ri){
+    if(run.pfad.length<2)return;
+    run.pfad.forEach(function(p){
+      var i2=p[1]*DC+p[0];
+      DYN.istLauf[i2]=1;
+      if(!DYN.laufName[i2])DYN.laufName[i2]=SIM.namen[i2]||null;
+    });
+    var cp=[];
+    for(var i=0;i<run.pfad.length;i++){
+      var p=run.pfad[i],key=p.join(',');
+      var mgH=MG&&MG.info[key],mgV=MG&&i>0&&MG.info[run.pfad[i-1].join(',')];
+      if(i>0&&!(mgH&&mgV&&mgH.w>=2&&mgV.w>=2)){
+        var m=lkanteMitte(run.pfad[i-1],p);
+        cp.push({x:m[0],y:m[1],q:(run.qs[i-1]+run.qs[i])/2});
+      }
+      var pv=run.pfad[i-1]||p,nx=run.pfad[i+1]||p;
+      var dx=lcx(nx[0],nx[1])-lcx(pv[0],pv[1]),dy=lcy(nx[0],nx[1])-lcy(pv[0],pv[1]);
+      var L=Math.hypot(dx,dy)||1,q=run.qs[i];
+      var f=0.55+0.75/(1+q);
+      var off=Math.max(-28,Math.min(28,hash(p[0],p[1],1)*(P.amp/100*HXW)*f));
+      if(mgH&&mgH.w>=2){
+        var sgn=(mgH.k%2?1:-1);
+        var seite=sgn>0?mgH.re:mgH.li;
+        if(seite>0){
+          var mag=Math.min(seite,mgH.w-1)*(0.4+0.35*Math.abs(hash(p[0],p[1],7)))*HXW*0.6;
+          off+=sgn*Math.min(mag,seite*HXW*0.8);
+        }
+      }
+      cp.push({x:lcx(p[0],p[1])-dy/L*off,y:lcy(p[0],p[1])+dx/L*off,q:q});
+    }
+    var ende=run.pfad[run.pfad.length-1],endeI=ende[1]*DC+ende[0],dAb=ab[endeI];
+    if(run.ziel===null){
+      if(dAb>=0&&see[dAb]){var dp=[dAb%DC,(dAb/DC)|0];   /* nur in den See hinaus, nie ins Datenlose */
+        var m2=lkanteMitte(ende,dp);
+        cp.push({x:m2[0],y:m2[1],q:run.qs[run.qs.length-1]});
+        cp.push({x:lcx(dp[0],dp[1]),y:lcy(dp[0],dp[1]),q:run.qs[run.qs.length-1]});}
+    }else if(proben[run.ziel]){
+      var zp=[run.zielZelle%DC,(run.zielZelle/DC)|0];
+      var Z=proben[run.ziel],zx=lcx(zp[0],zp[1]),zy=lcy(zp[0],zp[1]);
+      var bestJ=0,bestD=1e9;
+      Z.forEach(function(s,j){var d2=(s.x-zx)*(s.x-zx)+(s.y-zy)*(s.y-zy);if(d2<bestD){bestD=d2;bestJ=j;}});
+      var j=Math.min(Z.length-2,bestJ+5),M=Z[j],qe=run.qs[run.qs.length-1];
+      var vor=cp[cp.length-1];
+      var seite=((vor.x-M.x)*M.nx+(vor.y-M.y)*M.ny)>=0?1:-1;
+      cp.push({x:M.x-M.tx*48+M.nx*seite*14,y:M.y-M.ty*48+M.ny*seite*14,q:qe});
+      cp.push({x:M.x,y:M.y,q:qe});
+    }
+    if(cp.length<3)return;
+    var sm=crSample(cp,9);
+    proben[ri]=sm;
+    if(fuss){
+      var nmRun=null;
+      for(var pi=0;pi<run.pfad.length&&!nmRun;pi++)
+        nmRun=SIM.namen[run.pfad[pi][1]*DC+run.pfad[pi][0]];
+      fussSpur(fuss,sm,nmRun,EBENE);
+    }
+    var wV=function(s){return wLokal(s.q);};
+    var endq=run.qs[run.qs.length-1];
+    var saum=ribbon(sm,function(s){
+      var w=wV(s),k=Math.max(-1,Math.min(1,s.kr*26)),g=Math.max(2.5*skala,w*0.5);
+      var weit=1+1.9*braidBump(BR,s);
+      return [(w/2+g*(1+Math.max(0,k)*1.7))*weit,(w/2+g*(1+Math.max(0,-k)*1.7))*weit];
+    });
+    var kKey=klasseKey(endq);
+    var so=[];opPfad(so,saum,F.wSaum,kKey);
+    saums.push({q:endq,ops:so});
+    /* Beschnitt auf die Felder dieses Laufs — die Mündungszelle kommt dazu,
+       damit der Saum nicht eine Zelle vor dem See endet. */
+    var kiesClip=null;
+    if(P.kies!=='frei'){
+      var clipZellen=run.pfad.slice();
+      if(dAb>=0&&see[dAb])clipZellen.push([dAb%DC,(dAb/DC)|0]);
+      kiesClip=hexVereinigung(clipZellen);
+      so.forEach(function(o){o.clip=kiesClip;});
+    }
+    var ko=[],tw=[];
+    opPfad(ko,ribbon(sm,function(s){var w=wV(s)*(1-0.45*braidBump(BR,s));return [w/2,w/2];}),farbe(endq),kKey);
+    /* Der Talweg — das dunkle Innenband — bekommt eine EIGENE Schicht.
+       Damit gilt die Schichtregel der Mündung eine Stufe tiefer: erst alle
+       Säume, dann alle Wasserkörper, dann alle Talwege. Vorher schnitt der
+       breite Körper des Hauptstroms den Nebenfluss genau dort ab, wo dieser
+       einmünden wollte — ein harter Rand quer über den Zufluss. Jetzt läuft
+       der Talweg des Kleinen über den Körper des Grossen bis an dessen
+       Talweg heran: die beiden Fäden treffen sich, die Mündung liest sich
+       als Übergang statt als Abbruch. Dieselbe Lösung wie seinerzeit beim
+       Saum, nur eine Lage weiter innen. */
+    if(endq>=1.4)opPfad(tw,ribbon(sm,function(s){var w=wV(s)*(1-0.45*braidBump(BR,s))*0.28;return [w/2,w/2];}),F.wTal,kKey);
+    /* Schotterflur je verzweigter Zelle dieses Laufs: zwei ungleiche
+       Nebenrinnen, Kiesbänke — und die Furt, wenn die Saisonbreite
+       ≤ 80 % der bettbildenden Sommerbreite fällt. */
+    if(BR)run.pfad.forEach(function(p){
+      var key=p[0]+','+p[1];
+      if(!BR.set.has(key))return;
+      var zx=lcx(p[0],p[1]),zy=lcy(p[0],p[1]),bj=0,bd=1e9;
+      sm.forEach(function(s,j){var d2=(s.x-zx)*(s.x-zx)+(s.y-zy)*(s.y-zy);if(d2<bd){bd=d2;bj=j;}});
+      if(bd>HXW*HXW*0.6)return;
+      var a=Math.max(1,bj-6),b2=Math.min(sm.length-2,bj+6);
+      if(b2-a<4)return;
+      var M=sm[bj],w=wV(M);
+      [[24*skala,0.30],[-17*skala,0.19]].forEach(function(arm){
+        var d='M '+sm.slice(a,b2+1).map(function(s,k2){
+          var t=k2/(b2-a),off=Math.sin(Math.PI*t)*arm[0];
+          return (s.x+s.nx*off).toFixed(1)+' '+(s.y+s.ny*off).toFixed(1);
+        }).join(' L ');
+        opStrich(ko,d,farbe(M.q),w*arm[1],'schotterflur');
+      });
+      var ang=Math.atan2(M.ty,M.tx)*180/Math.PI;
+      [[12*skala,20*skala,5*skala],[-9*skala,14*skala,3.5*skala]].forEach(function(b3){
+        opEllipse(ko,M.x+M.nx*b3[0],M.y+M.ny*b3[0],b3[1],b3[2],ang,F.kies,F.wSaum,1,'schotterflur');
+      });
+      var i2=p[1]*DC+p[0];
+      var offen=6*Math.sqrt(K.Q[i2])<=0.8*6*Math.sqrt(BR.Qs[i2]);
+      if(offen)for(var f2=-1;f2<=1;f2+=2){
+        var fx=M.x+M.tx*f2*7*skala,fy=M.y+M.ty*f2*7*skala;
+        opStrich(ko,'M '+(fx-M.nx*w*0.85).toFixed(1)+' '+(fy-M.ny*w*0.85).toFixed(1)
+          +' L '+(fx+M.nx*w*0.85).toFixed(1)+' '+(fy+M.ny*w*0.85).toFixed(1),F.furt,Math.max(1,3.5*skala),'furt');
+      }
+    });
+    /* Der Anfang eines Laufs: Quelle, Gletschertor — oder SEEAUSFLUSS.
+       Ein Fluss, der einen See verlässt, entspringt nicht: er tritt aus.
+       Ohne diese Unterscheidung stand am Bodensee bei Konstanz ein
+       Quellauge, aus dem unvermittelt 370 m³/s hervorgingen. */
+    var kopf=run.pfad[0],kopfI=kopf[1]*DC+kopf[0];
+    var ausSee=lnachbarn(kopf[0],kopf[1]).some(function(n){
+      return SIM.lakeId[n[1]*DC+n[0]]>=0;});
+    var eisNah=lnachbarn(kopf[0],kopf[1]).some(function(n){return K.ice[n[1]*DC+n[0]];});
+    var s0=sm[0];
+    if(!quellenAn){ /* Quellen abgeschaltet — auch Gletschertor und Seeausfluss */ }
+    else if(ausSee){
+      /* Zwei Ringe statt eines Auges: das Wasser kommt aus der Fläche. */
+      opKreis(ko,s0.x,s0.y,Math.max(3.4*skala,wLokal(s0.q)*1.15),F.wSaum,'seeausfluss');
+      opKreis(ko,s0.x,s0.y,Math.max(1.8*skala,wLokal(s0.q)*0.6),farbe(s0.q),'seeausfluss');
+    }else{
+      opKreis(ko,s0.x,s0.y,Math.max(2.4*skala,wLokal(s0.q)*0.9),
+        eisNah?F.tor:farbe(s0.q),eisNah?'gletschertor':'quelle');
+    }
+    /* Und das Gegenstück: wo ein Lauf in einen See mündet, ein Zufluss-Zeichen. */
+    var fussI=ende[1]*DC+ende[0];
+    if(quellenAn&&SIM.seeZu[fussI]&&sm.length>2){
+      var sE=sm[sm.length-1];
+      opKreis(ko,sE.x,sE.y,Math.max(2.6*skala,wLokal(sE.q)*0.75),F.wSaum,'seezufluss');
+    }
+    /* Die Schotterflur gehört zum Kies: Kiesbänke und Nebenrinnen werden
+       auf dieselben Felder beschnitten. Wasserkörper, Talweg, Quelle und
+       Furt bleiben frei. */
+    if(kiesClip)ko.forEach(function(o){if(o.hl==='schotterflur')o.clip=kiesClip;});
+    koerper.push({q:endq,ops:ko});
+    if(tw.length)talwege.push({q:endq,ops:tw});
+  });
+  var auf=function(a,b){return a.q-b.q;};
+  saums.sort(auf);koerper.sort(auf);talwege.sort(auf);
+  var out=[];
+  [saums,koerper,talwege].forEach(function(schicht){
+    schicht.forEach(function(x){out.push.apply(out,x.ops);});
+  });
+  if(fuss)DYN.fuss=fuss;
+  return out;
+}
+
+/* ---- Schotterflur/Mäandergürtel aus dem bettbildenden Sommerbett
+   (Geomorphologie: gleich in allen Jahreszeiten). Talboden-Schranke
+   wie im Labor (< 650 m) — Auen-Phänomene, keine Flanken-Plateaus. ---- */
+function bettformen(KSom){
+  var DC=SIM.DC,elev=SIM.elev,welev=SIM.welev,see=SIM.see,ab=SIM.ab;
+  var BR={set:new Set(),list:[],Qs:KSom.Q};
+  var MG={info:{},aue:new Set()};
+  var kMap={};
+  SIM.reihenfolge.forEach(function(i){
+    var c2=i%DC,r2=(i/DC)|0;
+    if(see[i]||KSom.ice[i]||SIM.synth[i])return;
+    var d=ab[i];if(d<0)return;
+    if(6*Math.sqrt(KSom.Q[i])<15)return;
+    if(elev[i]>=650)return;
+    var gef=(welev[i]-welev[d])/SIM.W;   /* m je km, echte Zellweite */
+    if(gef>=2.0)return;
+    var key=c2+','+r2;
+    if(gef>=1.2){BR.set.add(key);BR.list.push({x:lcx(c2,r2),y:lcy(c2,r2)});return;}
+    /* Mäandergürtel nur unter GROSSEN Flüssen (Sommerbett ≥ 60 m). Auf dem
+       ganzen Mittelland ist das Gefälle klein, und mit der 15-m-Schranke
+       erklärte die Rechnung 3300 km² zu Ried — halb Flachland als Sumpf.
+       Eine Talaue macht erst ein Fluss, der sie auch überschwemmt. */
+    if(6*Math.sqrt(KSom.Q[i])<60)return;
+    var k=1;
+    lnachbarn(c2,r2).forEach(function(n){
+      var ni=n[1]*DC+n[0],na=ab[ni];
+      if(na===i&&kMap[n.join(',')])k=Math.max(k,kMap[n.join(',')]+1);
+    });
+    kMap[key]=k;
+    var w=Math.min(3,k);
+    var dp=[d%DC,(d/DC)|0];
+    var dx=lcx(dp[0],dp[1])-lcx(c2,r2),dy=lcy(dp[0],dp[1])-lcy(c2,r2);
+    var L=Math.hypot(dx,dy)||1,nx2=-dy/L,ny2=dx/L;
+    var li=0,re=0;
+    if(w>=2)lnachbarn(c2,r2).forEach(function(n){
+      var proj=(lcx(n[0],n[1])-lcx(c2,r2))*nx2+(lcy(n[0],n[1])-lcy(c2,r2))*ny2;
+      if(Math.abs(proj)<HXW*0.3)return;
+      var ni=n[1]*DC+n[0];
+      if(see[ni]||elev[ni]-elev[i]>=8)return;
+      if(proj>0)re++;else li++;
+      MG.aue.add(n.join(','));
+    });
+    MG.info[key]={k:k,w:w,li:Math.min(li,w-1),re:Math.min(re,w-1)};
+    MG.aue.add(key);
+  });
+  return{BR:BR,MG:MG};
+}
+
+/* ---- die dynamischen Schichten je (T, Jahreszeit) ---- */
+var DYN={ops:[],opsEbene:-1,opsVorrat:{},mask:null,K:null,BR:null,MG:null};
+var dynOn=P.wasser!=='aus';
+var quellenAn=P.quellen!=='aus';
+var niedOn=P.nied;
+var hlAktiv=P.hl||null,hlFest=P.hl||null;
+function rechnen(){
+  if(!SIM.ok)return;
+  var t0=performance.now();
+  var T=tempWert;
+  var KSom=klima(T,SAISON[1]);
+  var bf=bettformen(KSom);
+  var S=SAISON.find(function(s){return s.id===zeitWahl;})||SAISON[1];
+  var K=(S.id==='sommer')?KSom:klima(T,S);
+  DYN.K=K;DYN.BR=bf.BR;DYN.MG=bf.MG;
+  /* Die Ops entstehen erst beim Zeichnen — sie hängen an der
+     angezeigten Ebene (Massstab der Breiten). */
+  DYN.opsEbene=-1;DYN.ops=[];DYN.opsVorrat={};DYN.fuss=null;
+  /* Die Flächen als MASKE über den Klima-Zellen, nicht als fertige Pfade:
+     welches Sechseck sie bekommen, entscheidet erst das Zeichnen anhand
+     der angezeigten Ebene (1 = Eis · 2 = Schnee · 4 = Ried). */
+  var mask=new Uint8Array(SIM.N);
+  for(var i=0;i<SIM.N;i++){
+    if(SIM.synth[i])continue;
+    if(K.ice[i])mask[i]|=1;
+    else if(K.schnee[i])mask[i]|=2;
+  }
+  bf.MG.aue.forEach(function(k){
+    var t2=k.split(','),i2=(+t2[1])*SIM.DC+(+t2[0]);
+    if(i2>=0&&i2<SIM.N)mask[i2]|=4;
+  });
+  DYN.mask=mask;
+  seenRechnen(K,T);
+  SIM.rechnenMs=performance.now()-t0;
+  SIM.opsN=DYN.ops.length;
+  hudKlima(K,bf.BR,bf.MG);
+  scene.valid=false;
+  requestRender();
+}
+/* Pegel: echte Messstellen mit ihrem Jahresmittel (MQ) als Prüfstein —
+   ein Modell, das seine Zahlen nicht neben die gemessenen stellt, kann
+   beliebig danebenliegen, ohne dass es auffällt. */
+var PEGEL=[
+  {nm:'Chur',        lon:9.53, lat:46.85, mq:90},
+  {nm:'Bodensee-Ausfluss',lon:9.10,lat:47.67,mq:370},
+  {nm:'Rheinfall',   lon:8.62, lat:47.68, mq:380},
+  {nm:'Aare',        fluss:'Aare',           mq:560},
+  {nm:'Reuss',       fluss:'Reuss',          mq:140},
+  {nm:'Basel',       lon:7.59, lat:47.56, mq:1030}
+];
+/* Ein Pegel AM ORT trifft am Zusammenfluss den falschen Fluss: die Sonde
+   bei der Aare-Mündung mass den Rhein DANACH (1051 statt 560). Wo ein
+   Name vorliegt, wird darum entlang des benannten Laufs gemessen — sein
+   grösster Abfluss ist per Definition der an der Mündung. */
+function pegelQ(K,p){
+  if(p.fluss){
+    var q2=0;
+    for(var i=0;i<SIM.N;i++)if(SIM.namen[i]===p.fluss&&K.Q[i]>q2)q2=K.Q[i];
+    return q2;
+  }
+  var i0=simIdxAtKm.apply(null,kmOfLonLat(p.lon,p.lat));
+  if(i0<0)return 0;
+  var c=i0%SIM.DC,r=(i0/SIM.DC)|0,q=0,R=1;
+  for(var dr=-R;dr<=R;dr++)for(var dc=-R;dc<=R;dc++){
+    var cc=c+dc,rr=r+dr;
+    if(cc<0||rr<0||cc>=SIM.DC||rr>=SIM.DR)continue;
+    q=Math.max(q,K.Q[rr*SIM.DC+cc]);
+  }
+  return q;
+}
+function seenText(){
+  if(!DYN.seen)return '';
+  var offen=0,frost=0,eis=0,flaeche=0,gefallen=0;
+  DYN.seen.forEach(function(S2){
+    if(S2.eis)eis++;
+    else if(S2.gefroren)frost++;
+    else offen++;
+    flaeche+=S2.zellen.length*ZKM2;
+    if(S2.gefallen>1)gefallen++;
+  });
+  var gem=0;
+  DYN.seen.forEach(function(S2){if(S2.Lk.gemessen>0.5)gem++;});
+  return 'Seen <b>'+offen+'</b> offen · <b>'+frost+'</b> zugefroren · <b>'+eis+'</b> unter Eis'
+    +' · Wasserfläche '+Math.round(flaeche)+' km²'
+    +' · Grund gemessen bei <b>'+gem+'</b> (swissBATHY3D)'
+    +(P.seespiegel?' · Spiegel von Hand −'+(-P.seespiegel)+' m':'')
+    +(gefallen?' · '+gefallen+' abgesunken':'');
+}
+function hudKlima(K,BR,MG){
+  var offenN=0;
+  BR.set.forEach(function(key){
+    var t2=key.split(','),i2=(+t2[1])*SIM.DC+(+t2[0]);
+    if(6*Math.sqrt(K.Q[i2])<=0.8*6*Math.sqrt(BR.Qs[i2]))offenN++;
+  });
+  var zeilen=PEGEL.map(function(p){
+    var q=pegelQ(K,p);
+    return p.nm+' <b>'+q.toFixed(0)+'</b><span style="opacity:.6">/'+p.mq+'</span>';
+  }).join(' · ');
+  document.getElementById('khud').innerHTML=
+    '<b>'+K.S.nm+'</b> · Eisgrenze <b>'+(K.Hice<400?'unter dem Tal':Math.round(K.Hice)+' m')+'</b>'
+    +' · Eis <b>'+Math.round(K.iceN*ZKM2)+' km²</b> · Schmelze '+K.schmelze.toFixed(0)+' m³/s<br>'
+    +'Pegel m³/s (gerechnet/MQ echt): '+zeilen
+    +(BR.set.size?'<br>Furten '+(offenN?'<b>offen</b> ('+offenN+')':'<b>ertrunken</b>'):'<br>')
+    +' · Schotterflur '+Math.round(BR.set.size*ZKM2)+' km² · Ried '+Math.round(MG.aue.size*ZKM2)+' km²'
+    +'<br>'+seenText();
+}
+
+/* ---- Was mit den Seen je Klima und Jahreszeit geschieht ----------------
+   Drei Zustände, und nur der erste ist der gewohnte:
+     WASSER    offener See, Spiegel an der Schwelle.
+     GEFROREN  zugefroren — die Seegfrörni. Ob ein See zugeht, hängt nicht
+               nur an der Kälte, sondern an seiner MASSE: ein flacher
+               Weiher friert fast jeden Winter, der Bodensee 1573 und 1963.
+               Die Trägheit kommt aus der (gerechneten) Tiefe. Das Eis
+               liegt oben auf; darunter fliesst das Wasser weiter.
+     EIS       die Eisgrenze ist unter den Spiegel gesunken — dann ist der
+               See kein See mehr. Im Hochglazial füllte der Rheingletscher
+               die Bodenseewanne; die Uferlinie verschwindet ganz.
+   Der Spiegel selbst steht an der Schwelle, solange Zufluss > Verdunstung
+   — was fast immer gilt. Nur ein abflussloser See fällt trocken; dann
+   zieht sich das Ufer in die gerechnete Wanne zurück. */
+function seenRechnen(K,T){
+  var jahr=31.5e6;                                   /* s pro Jahr */
+  var rate=Math.max(0.15,0.45+0.055*(T+K.S.off*0.25));  /* m/Jahr Verdunstung */
+  DYN.seen=[];
+  SIM.lakes.forEach(function(Lk){
+    var eis=Lk.cells.some(function(j){return K.ice[j];});
+    var zu=K.Q[Lk.von>=0?Lk.von:Lk.cells[0]]||0;
+    var verd=Lk.km2*1e6*rate/jahr;
+    var spiegel=Lk.spiegel;
+    if(!eis&&zu<verd){
+      /* Abflusslos und zu trocken: so weit absenken, bis die verbleibende
+         Fläche gerade noch verdunstet, was hereinkommt. */
+      for(var s=1;s<=24;s++){
+        var probe=Lk.spiegel-Lk.tmax*(s/24);
+        var flaeche=0;
+        Lk.cells.forEach(function(j){if(Lk.grund.get(j)<probe)flaeche+=Lk.km2/Lk.cells.length;});
+        if(flaeche*1e6*rate/jahr<=zu){spiegel=probe;break;}
+        spiegel=probe;
+      }
+    }
+    spiegel+=P.seespiegel;              /* Hand am Spiegel (Erkundung) */
+    var zellen=eis?[]:Lk.cells.filter(function(j){return Lk.grund.get(j)<spiegel;});
+    /* Zugefroren: Saisonwärme am Spiegel gegen die Trägheit der Masse. */
+    var Tc=T+K.S.off-6.5*(Lk.spiegel-400)/1000;
+    var schwelle=-1-Lk.tmax/60;
+    DYN.seen.push({Lk:Lk,eis:eis,gefroren:!eis&&Tc<schwelle,
+      spiegel:spiegel,gefallen:Lk.spiegel-spiegel,zellen:zellen,zu:zu,verd:verd});
+  });
+  /* Die Uferlinie selbst entsteht NICHT hier: sie wird beim Zeichnen auf dem
+     jeweils ANGEZEIGTEN Raster gezogen (siehe refillScene). Auf der
+     Klima-Ebene wäre sie sonst 2 km grob und läge auf Ebene 2 als
+     Treppenkante über fünfmal feinerem Gelände. Hier fällt nur, was je See
+     gilt: Zustand und Spiegel. */
+}
+
+/* ---- die dynamischen Schichten in die Scene zeichnen ----
+   Flächen liegen fertig in Scene-Pixeln (sie folgen dem angezeigten
+   Raster), die Läufe in lokalen Einheiten unter eigener Abbildung. ---- */
+function zeichneDynamik(g,dpr,flaechen,vektorAn,seePfade){
+  g.save();
+  g.setTransform(1,0,0,1,0,0);
+  if(hlAktiv){                          /* die Karte tritt zurück, Treffer bleiben */
+    g.globalAlpha=0.62;g.fillStyle=F.bg;
+    g.fillRect(0,0,scene.cv.width,scene.cv.height);
+    g.globalAlpha=1;
+  }
+  /* ringW = 0 → kein Glutring. Ein Ring um JEDE Zelle einer Fläche liest
+     sich als Wabengitter; dass eine Fläche der Treffer ist, sagt schon der
+     Kontrast zum abgeblendeten Rest. Bei den Läufen dagegen ist der Ring
+     genau richtig: er zeichnet eine Linie nach. */
+  function malen(p,fill,alpha,hl,strich,sw,ringW){
+    if(!p)return;
+    var treffer=!hlAktiv||hl===hlAktiv;
+    g.globalAlpha=alpha*(treffer?1:0.13);
+    if(fill){g.fillStyle=fill;g.fill(p);}
+    if(strich){g.strokeStyle=strich;g.lineWidth=sw;g.stroke(p);}
+    if(hlAktiv&&treffer&&hl&&ringW>0){g.strokeStyle=F.ember;g.lineWidth=ringW;g.stroke(p);}
+  }
+  flaechen.forEach(function(p,key){
+    if(key.slice(0,5)==='nied:')malen(p,F.river,+key.slice(5),null);
+  });
+  malen(flaechen.get('ried'),F.ried,0.85,'ried',null,0,0);
+  /* Flussraum als Plättchen-Schicht: Ufer zuerst, Wasser darüber, das
+     gezeichnete Band zuletzt — das Band ist die Kunst, die Plättchen sind
+     das Spiel. */
+  malen(flaechen.get('flussufer'),F.wSaum,0.55,'flussufer',null,0,0);
+  malen(flaechen.get('fluss:rinnsal'),F.wRinnsal,0.5,'rinnsal',null,0,0);
+  malen(flaechen.get('fluss:bach'),F.wBach,0.5,'bach',null,0,0);
+  malen(flaechen.get('fluss:kfluss'),F.river,0.45,'kfluss',null,0,0);
+  malen(flaechen.get('fluss:gfluss'),F.riverdeep,0.4,'gfluss',null,0,0);
+  /* Seen UNTER die Läufe, damit der Fluss sichtbar einmündet. Das Ufer ist
+     ein eigener Strich in Gerätepixeln — es liegt schon im Scene-Raster. */
+  if(seePfade){
+    const uw=Math.max(1,1.4*dpr);
+    malen(seePfade.offen,F.lake,1,'see',F.wSaum,uw,2.5*dpr);
+    malen(seePfade.frost,F.schnee,0.95,'gefroren',F.eisRand,uw,2.5*dpr);
+  }
+  if(vektorAn){
+    var a=zoom*dpr*SIM.KML;
+    g.save();
+    g.setTransform(a,0,0,a,
+      (SIM.XA-50*SIM.KML-scene.ox)*zoom*dpr,
+      (SIM.YA-(HXH/2)*SIM.KML-scene.oy)*zoom*dpr);
+    g.lineCap='round';g.lineJoin='round';
+    DYN.ops.forEach(function(op){
+      if(op.clip){g.save();g.clip(op.clip);}
+      malen(op.p,op.f,1,op.hl,op.s,op.w,3*dpr/a);
+      if(op.clip)g.restore();
+    });
+    g.restore();
+  }
+  malen(flaechen.get('schnee'),F.schnee,0.55,'schnee',null,0,0);
+  /* Eis OHNE Umriss je Zelle: ein zusammenhängendes Eisfeld bekam sonst
+     ein Wabengitter eingezeichnet — im Hochglazial die ganze Karte. Ein
+     Eisschild ist eine Fläche, kein Raster. */
+  malen(flaechen.get('eis'),F.eis,0.92,'eis',null,0,0);
+  g.globalAlpha=1;
+  g.restore();
+}
+
+/* ---- Klima-Bedienung ---- */
+var tempWert=P.temp, zeitWahl=P.zeit;
+var regler=document.getElementById('tregler');
+regler.value=tempWert;
+function tempAnzeigen(){document.getElementById('twert').textContent=(tempWert>0?'+':'')+tempWert+' °C';}
+var rechnenAuftrag=null;
+regler.addEventListener('input',function(){
+  tempWert=+regler.value;tempAnzeigen();
+  if(rechnenAuftrag)cancelAnimationFrame(rechnenAuftrag);
+  rechnenAuftrag=requestAnimationFrame(function(){rechnen();rechnenAuftrag=null;});
+});
+var zeitKnoepfe=document.querySelectorAll('#zeiten button');
+function zeitMarkieren(){
+  zeitKnoepfe.forEach(function(b){b.classList.toggle('on',b.dataset.zeit===zeitWahl);});
+}
+zeitKnoepfe.forEach(function(b){
+  b.addEventListener('click',function(){
+    zeitWahl=b.dataset.zeit;zeitMarkieren();rechnen();
+  });
+});
+document.getElementById('dynChk').checked=dynOn;
+document.getElementById('dynChk').addEventListener('change',function(e){
+  dynOn=e.target.checked;scene.valid=false;requestRender();
+});
+document.getElementById('quellChk').checked=quellenAn;
+document.getElementById('quellChk').addEventListener('change',function(e){
+  /* Die Punkte stecken in den Lauf-Ops — der Vorrat je Ebene muss weg,
+     sonst zeichnet die Karte den alten Stand weiter. */
+  quellenAn=e.target.checked;
+  DYN.opsVorrat={};DYN.opsEbene=-1;DYN.fuss=null;
+  scene.valid=false;requestRender();
+});
+document.getElementById('niedChk').checked=niedOn;
+document.getElementById('niedChk').addEventListener('change',function(e){
+  /* Der Schleier ist reine Anzeige — die Rechnung ändert er nicht. */
+  niedOn=e.target.checked;scene.valid=false;requestRender();
+});
+/* Legende: überfahren oder antippen hebt die Klasse hervor — auf dem
+   Canvas heisst das: die Karte tritt zurück, die Treffer-Ops bleiben. */
+function hlSetzen(k){
+  hlAktiv=k;scene.valid=false;requestRender();
+}
+document.querySelectorAll('.legende span[data-hl]').forEach(function(sp){
+  var k=sp.dataset.hl;
+  sp.addEventListener('mouseenter',function(){if(!hlFest)hlSetzen(k);});
+  sp.addEventListener('mouseleave',function(){if(!hlFest)hlSetzen(null);});
+  sp.addEventListener('click',function(){
+    hlFest=(hlFest===k)?null:k;
+    document.querySelectorAll('.legende span[data-hl]').forEach(function(s2){
+      s2.classList.toggle('an',s2.dataset.hl===hlFest);
+    });
+    hlSetzen(hlFest);
+  });
+});
+if(P.hl)document.querySelectorAll('.legende span[data-hl="'+P.hl+'"]').forEach(function(s2){s2.classList.add('an');});
+if(!SIM.ok){
+  document.getElementById('klimaAus').style.display='';
+  document.getElementById('dynChk').disabled=true;
+}
+
+/* ============================================================
+   Region-Werkstatt + Pipeline — wörtlich aus rhein-tiles-v4
+   ============================================================ */
+const dtmLevel=TS.levels.find(L=>L.regionKm)||null;
+let curRegionKm=dtmLevel?dtmLevel.regionKm.slice():null;
+let drawMode=false;
+let newBoxKm=null;
+let dragBoxKm=null;
+let serverOk=false;
+
+const el=id=>document.getElementById(id);
+const kmBox=b=>[Math.min(b[0],b[2]),Math.min(b[1],b[3]),Math.max(b[0],b[2]),Math.max(b[1],b[3])];
+function regionOfKm(b){
+  const[x0,y0,x1,y1]=kmBox(b);
+  const[lonW,latN]=lonLatOfKm(x0,y0),[lonE,latS]=lonLatOfKm(x1,y1);
+  return{lonW,lonE,latS,latN};
+}
+function rasterAbschaetzung(r,spacing=200){
+  const latMid=(r.latS+r.latN)/2;
+  const dLat=spacing/110600,dLon=spacing/(111320*Math.cos(latMid*Math.PI/180));
+  return{cols:Math.round((r.lonE-r.lonW)/dLon)+1,rows:Math.round((r.latN-r.latS)/dLat)+1};
+}
+const fmtRegion=r=>`${r.lonW.toFixed(3)}–${r.lonE.toFixed(3)}°O\n${r.latS.toFixed(3)}–${r.latN.toFixed(3)}°N`;
+
+function drawRegionBoxes(){
+  const rect=(b,stroke,fill,dash)=>{
+    const[x0,y0,x1,y1]=kmBox(b);
+    const px0=(x0-ox)*zoom,py0=(y0-oy)*zoom,px1=(x1-ox)*zoom,py1=(y1-oy)*zoom;
+    ctx.save();
+    if(fill){ctx.fillStyle=fill;ctx.fillRect(px0,py0,px1-px0,py1-py0);}
+    ctx.strokeStyle=stroke;ctx.lineWidth=1.5;ctx.setLineDash(dash);
+    ctx.strokeRect(px0,py0,px1-px0,py1-py0);
+    ctx.restore();
+    return[px0,py0,px1,py1];
+  };
+  if(curRegionKm&&(drawMode||newBoxKm))rect(curRegionKm,F.ink2,null,[3,4]);
+  const box=dragBoxKm||newBoxKm;
+  if(!box)return;
+  const[px0,py0,px1,py1]=rect(box,F.good,'rgba(120,190,130,.12)',[]);
+  const[x0,y0,x1,y1]=kmBox(box);
+  const r=regionOfKm(box),g=rasterAbschaetzung(r);
+  ctx.save();
+  ctx.font='11px "Space Mono",monospace';ctx.textAlign='center';
+  ctx.fillStyle=F.panel;
+  const txt=`${(x1-x0).toFixed(1)} × ${(y1-y0).toFixed(1)} km · ${g.cols}×${g.rows} Punkte`;
+  const w=ctx.measureText(txt).width+12;
+  const mx=(px0+px1)/2,my=Math.min(py0,py1)-8;
+  ctx.fillRect(mx-w/2,my-14,w,18);
+  ctx.fillStyle=g.cols*g.rows>4e6?F.bad:F.good;
+  ctx.fillText(txt,mx,my);
+  ctx.restore();
+}
+
+function setDrawMode(on){
+  drawMode=on;
+  document.body.classList.toggle('drawmode',on);
+  el('drawBtn').classList.toggle('on',on);
+  el('drawBtn2').classList.toggle('on',on);
+  el('drawBtn').textContent=on?'▭ Ziehen aktiv':'▭ Gebiet ziehen';
+  requestRender();
+}
+function setNewBox(b){
+  newBoxKm=b?kmBox(b):null;
+  const box=el('newRegion');
+  el('clearBtn').disabled=!newBoxKm;
+  if(!newBoxKm){
+    box.classList.add('none');
+    box.textContent='noch keins — „Gebiet ziehen" und auf der Karte aufziehen';
+    el('runBtn').disabled=true;
+    el('regionNote').className='note';
+    el('regionNote').innerHTML='Der Lauf <b>ersetzt</b> die bisherige Höhen-Region.';
+  }else{
+    const r=regionOfKm(newBoxKm),g=rasterAbschaetzung(r);
+    const[x0,y0,x1,y1]=newBoxKm;
+    box.classList.remove('none');
+    box.textContent=fmtRegion(r)+`\n${(x1-x0).toFixed(1)} × ${(y1-y0).toFixed(1)} km · ${g.cols}×${g.rows}`;
+    const zuGross=g.cols*g.rows>4e6;
+    el('runBtn').disabled=!serverOk||zuGross;
+    const n=el('regionNote');
+    if(zuGross){n.className='note bad';n.textContent=`Zu gross: ${(g.cols*g.rows/1e6).toFixed(1)} Mio. Rasterpunkte (max 4 Mio.). Kleineres Gebiet ziehen.`;}
+    else if(!serverOk){n.className='note warn';n.innerHTML='Kein Pipeline-Server: <code>node pipeline/serve.mjs</code> starten und den Viewer über <code>127.0.0.1</code> öffnen.';}
+    else{n.className='note';n.innerHTML='Der Lauf <b>ersetzt</b> die bisherige Höhen-Region.';}
+  }
+  requestRender();
+}
+el('drawBtn').onclick=()=>setDrawMode(!drawMode);
+el('drawBtn2').onclick=()=>{
+  setDrawMode(!drawMode);
+  el('panel').classList.remove('hide');document.body.classList.remove('panelhidden');
+  el('regionDetails').open=true;
+};
+el('clearBtn').onclick=()=>setNewBox(null);
+addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  if(el('modal').classList.contains('show')&&!laufAktiv)schliesseModal();
+  else if(drawMode){setDrawMode(false);dragBoxKm=null;requestRender();}
+});
+
+async function pruefeServer(){
+  const dot=el('srvDot'),txt=el('srvState');
+  if(!location.protocol.startsWith('http')){
+    serverOk=false;dot.classList.remove('on');
+    txt.innerHTML='<span id="srvDot"></span>file://';
+    return;
+  }
+  try{
+    const res=await fetch('/api/region',{cache:'no-store'});
+    if(!res.ok)throw new Error(res.status);
+    const j=await res.json();
+    serverOk=true;
+    el('srvDot').classList.add('on');
+    txt.innerHTML='<span id="srvDot" class="on"></span>bereit';
+    if(j.region){
+      const r=j.region;
+      el('curRegion').textContent=fmtRegion(r)+`\n${r.cols}×${r.rows} Punkte · ${r.spacing} m`;
+      curRegionKm=[...kmOfLonLat(r.lonW,r.latN),...kmOfLonLat(r.lonE,r.latS)];
+    }
+  }catch{
+    serverOk=false;
+    el('srvDot').classList.remove('on');
+    txt.innerHTML='<span id="srvDot"></span>offline';
+  }
+  if(newBoxKm)setNewBox(newBoxKm);
+}
+function zeigeRegionAusTileset(){
+  if(!curRegionKm){el('curRegion').textContent='keine Höhen-Region im Tileset';return;}
+  const r=regionOfKm(curRegionKm);
+  el('curRegion').textContent=fmtRegion(r)+'\n(aus dem Tileset)';
+}
+
+let laufAktiv=false;
+const STUFEN_FALLBACK=[{id:'dtm',label:'Höhendaten zuschneiden'},{id:'bake',label:'Tileset backen'}];
+function modalAufbauen(region,stufen){
+  el('mdTitle').textContent='Pipeline läuft';
+  el('mdRegion').textContent=region?fmtRegion(region).replace('\n',' · '):'';
+  el('mdBar').className='bar';el('mdBar').firstElementChild.style.width='0%';
+  el('mdLog').textContent='';
+  el('mdMsg').className='msg';el('mdMsg').textContent='';
+  el('mdReload').style.display='none';
+  el('mdClose').disabled=true;
+  const ul=el('mdStufen');ul.innerHTML='';
+  for(const s of stufen){
+    const li=document.createElement('li');
+    li.dataset.id=s.id;
+    li.innerHTML=`<span class="ic"></span><span>${s.label}</span>`;
+    ul.appendChild(li);
+  }
+  el('modal').classList.add('show');
+}
+function stufeSetzen(id,zustand){
+  const li=el('mdStufen').querySelector(`li[data-id="${id}"]`);
+  if(!li)return;
+  li.className=zustand;
+  li.querySelector('.ic').innerHTML=(zustand==='bad'&&SOT.icon)?SOT.icon('loeschen'):'';
+}
+function logZeile(text,fehler){
+  const log=el('mdLog');
+  const span=document.createElement('span');
+  if(fehler)span.className='err';
+  span.textContent=text+'\n';
+  log.appendChild(span);
+  log.scrollTop=log.scrollHeight;
+}
+function fortschritt(anteil,klasse){
+  el('mdBar').className='bar'+(klasse?' '+klasse:'');
+  el('mdBar').firstElementChild.style.width=Math.round(anteil*100)+'%';
+}
+function schliesseModal(){el('modal').classList.remove('show');}
+el('mdClose').onclick=()=>{if(!laufAktiv)schliesseModal();};
+el('mdReload').onclick=()=>location.reload();
+
+async function starteLauf(){
+  if(laufAktiv||!newBoxKm)return;
+  const region=regionOfKm(newBoxKm);
+  laufAktiv=true;
+  setDrawMode(false);
+  el('runBtn').disabled=true;
+  modalAufbauen(region,STUFEN_FALLBACK);
+  let stufenGesamt=STUFEN_FALLBACK.length,fertigeStufen=0,okEnde=false;
+  try{
+    const res=await fetch('/api/pipeline/run',{
+      method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({...region,spacing:200}),
+    });
+    if(!res.ok){
+      let m=`HTTP ${res.status}`;
+      try{m=(await res.json()).fehler||m;}catch{}
+      throw new Error(m);
+    }
+    const reader=res.body.getReader(),dec=new TextDecoder();
+    let rest='';
+    for(;;){
+      const{value,done}=await reader.read();
+      if(done)break;
+      const teile=(rest+dec.decode(value,{stream:true})).split('\n');
+      rest=teile.pop();
+      for(const zeile of teile){
+        if(!zeile.trim())continue;
+        let ev;try{ev=JSON.parse(zeile);}catch{continue;}
+        if(ev.type==='start'&&ev.stufen?.length){
+          stufenGesamt=ev.stufen.length;
+          modalAufbauen(ev.region,ev.stufen);
+        }else if(ev.type==='stufe'){
+          stufeSetzen(ev.id,'run');
+          fortschritt((ev.index+0.15)/ev.gesamt);
+        }else if(ev.type==='stufeFertig'){
+          stufeSetzen(ev.id,'ok');fertigeStufen=ev.index+1;
+          fortschritt(fertigeStufen/ev.gesamt);
+        }else if(ev.type==='log'){
+          logZeile(ev.zeile,ev.kanal==='err');
+        }else if(ev.type==='fehler'){
+          if(ev.stufe)stufeSetzen(ev.stufe,'bad');
+          logZeile(ev.message,true);
+          el('mdMsg').className='msg bad';el('mdMsg').textContent=ev.message;
+        }else if(ev.type==='fertig'){
+          okEnde=!!ev.ok;
+        }
+      }
+    }
+  }catch(err){
+    logZeile(String(err.message||err),true);
+    el('mdMsg').className='msg bad';
+    el('mdMsg').textContent='Pipeline nicht erreichbar: '+(err.message||err);
+  }finally{
+    laufAktiv=false;
+    el('mdClose').disabled=false;
+    el('runBtn').disabled=!serverOk||!newBoxKm;
+    el('mdTitle').textContent=okEnde?'Pipeline fertig':'Pipeline abgebrochen';
+    fortschritt(1,okEnde?'ok':'bad');
+    if(okEnde){
+      el('mdMsg').className='msg ok';
+      el('mdMsg').textContent='Neues Tileset geschrieben. Neu laden zeigt das gerechnete Gebiet — die Klima-Maschine rechnet dann darauf.';
+      el('mdReload').style.display='';
+      pruefeServer();
+    }else if(!el('mdMsg').textContent){
+      el('mdMsg').className='msg bad';
+      el('mdMsg').textContent='Der Lauf wurde nicht abgeschlossen — Ausgabe oben prüfen.';
+    }
+  }
+}
+el('runBtn').onclick=starteLauf;
+
+/* ---- Baumansicht ---- */
+let selected=null;
+function clearSelection(schliessen){
+  selected=null;
+  document.querySelectorAll('.tree li.sel').forEach(el=>el.classList.remove('sel'));
+  if(schliessen!==false)insp.classList.remove('show');
+}
+function applySelect(li,sel,fly){
+  const already=li.classList.contains('sel');
+  clearSelection();
+  if(already)return false;
+  li.classList.add('sel');selected=sel;fly();return true;
+}
+function selectBox(li,bboxKm){return applySelect(li,{bboxKm},()=>flyToKm(bboxKm));}
+function selectPoint(li,pointKm){return applySelect(li,{pointKm},()=>flyToPoint(pointKm));}
+function flyToKm(b){
+  const[x0,y0,x1,y1]=b,pad=1.3;
+  const w=Math.max(0.6,(x1-x0))*pad,h=Math.max(0.6,(y1-y0))*pad;
+  const cx=(x0+x1)/2,cy=(y0+y1)/2;
+  zoom=Math.max(0.3,Math.min(140,Math.min(stage.clientWidth/w,stage.clientHeight/h)));
+  ox=cx-stage.clientWidth/(2*zoom);oy=cy-stage.clientHeight/(2*zoom);
+}
+function flyToPoint(p,z=14){
+  zoom=Math.max(0.3,Math.min(140,z));
+  ox=p[0]-stage.clientWidth/(2*zoom);oy=p[1]-stage.clientHeight/(2*zoom);
+}
+function showInfo(title,meta,txt,klima2){
+  document.getElementById('inspTitle').textContent=title;
+  document.getElementById('inspMeta').textContent=meta;
+  document.getElementById('inspTxt').textContent=txt;
+  document.getElementById('inspKlima').innerHTML=klima2||'';
+  document.getElementById('inspector').classList.add('show');
+}
+function buildTrees(){
+  const srcTree=document.getElementById('srcTree');
+  document.getElementById('srcCnt').textContent='('+TS.provenance.length+')';
+  for(const p of TS.provenance){
+    const li=document.createElement('li');
+    li.dataset.file=p.file;
+    const kindTxt=p.kind==='hoehen'?'Höhenraster':(p.kinds||[]).join(', ');
+    li.innerHTML=`<b>${p.file}</b><span class="dim">${p.quelle||''}${p.count?' · '+p.count+' Feature(s)':''}${kindTxt?' · '+kindTxt:''}</span>`+
+      (p.lizenz?`<span class="lic">${p.lizenz}</span>`:'');
+    li.onclick=()=>{
+      const on=selectBox(li,p.bboxKm);requestRender();
+      if(on)showInfo(p.file,
+        [p.lizenz,p.stand?'Stand '+p.stand:null,p.count?p.count+' Feature(s)':null,
+         p.bbox?p.bbox.map(v=>v.toFixed(2)).join(', ')+'°':null].filter(Boolean).join(' · '),
+        p.beschreibung||'');
+    };
+    srcTree.appendChild(li);
+  }
+  const lvlTree=document.getElementById('lvlTree');
+  document.getElementById('lvlCnt').textContent='('+TS.levels.length+')';
+  for(const L of TS.levels){
+    const li=document.createElement('li');
+    li.dataset.level=String(L.id);
+    const tiles=Object.keys(L.tiles).length;
+    li.innerHTML=`<b>Ebene ${L.id} · ${L.hexKm} km/Hex</b><span class="dim">${L.cols}×${L.rows} Zellen · ${tiles} Kacheln · `+
+      (L.regionKm?'regional':'global')+(SIM.ok&&L===SIM.L1?' · Klima-Ebene':'')+`</span>`;
+    const box=L.regionKm||[0,0,XMAX,YMAX];
+    li.onclick=()=>{
+      const on=selectBox(li,box);requestRender();
+      if(on)showInfo('Ebene '+L.id+' ('+L.hexKm+' km/Hex)',
+        L.cols+'×'+L.rows+' Zellen · '+tiles+' Kacheln behalten',
+        L.regionKm?'Regional gegated — Kacheln kommen nur innerhalb dieser Box (dort liegen Höhendaten aus dem DTM); der Viewer schaltet nur um, wenn die Blickmitte darin liegt. Die Box kommt aus der Höhenquelle — mit „Gebiet ziehen" lässt sie sich neu rechnen.':
+        (SIM.ok&&L===SIM.L1?'Auf dieser Ebene rechnet die Klima-Maschine: Eis, Schnee, Abfluss und die Läufe entstehen aus ihren Höhenwerten im Höhen-Rechteck.':
+                   'Global — aus der feinsten Ebene aggregiert (Mehrheit fürs Terrain, Mittel für die Höhe).'));
+    };
+    lvlTree.appendChild(li);
+  }
+}
+function buildTerrFilter(){
+  const ul=document.getElementById('terrFilter');
+  TERRNAME.forEach((name,i)=>{
+    const li=document.createElement('li');
+    li.innerHTML=`<label><input type="checkbox" data-t="${i}" checked>
+      <span class="swatch" style="background:${TERRCOL[i]}"></span>${name}</label>`;
+    ul.appendChild(li);
+  });
+  ul.addEventListener('change',e=>{
+    const t=+e.target.dataset.t;
+    if(e.target.checked)hiddenTerr.delete(t);else hiddenTerr.add(t);
+    scene.valid=false;requestRender();
+  });
+}
+function buildLandmarkTree(){
+  const ul=document.getElementById('lmTree');
+  document.getElementById('lmCnt').textContent='('+TS.landmarks.length+')';
+  TS.landmarks.forEach((lm,i)=>{
+    const li=document.createElement('li');
+    li.dataset.lm=String(i);
+    li.innerHTML=`<b>${lm.name}</b><span class="dim">${lm.detail?'nur Ebene 1/2':'alle Ebenen'} · ${lm.lon.toFixed(2)}°, ${lm.lat.toFixed(2)}°</span>`;
+    li.onclick=()=>{
+      const on=selectPoint(li,kmOfLonLat(lm.lon,lm.lat));requestRender();
+      if(on)showInfo(lm.name,lm.detail?'Detail-Landmarke (nur Ebene 1/2)':'alle Ebenen',lm.note||'');
+    };
+    ul.appendChild(li);
+  });
+  document.getElementById('lmShow').addEventListener('change',e=>{
+    showLandmarks=e.target.checked;requestRender();
+  });
+}
+document.getElementById('togglePanel').onclick=()=>{
+  document.getElementById('panel').classList.remove('hide');
+  document.body.classList.remove('panelhidden');
+};
+document.getElementById('pnlClose').onclick=()=>{
+  document.getElementById('panel').classList.add('hide');
+  document.body.classList.add('panelhidden');
+};
+
+/* ---- Interaktion ---- */
+let drag=null,moved=false;
+const stagePos=e=>{const b=stage.getBoundingClientRect();return[e.clientX-b.left,e.clientY-b.top];};
+const kmAtPointer=e=>{const[px,py]=stagePos(e);return[ox+px/zoom,oy+py/zoom];};
+stage.addEventListener('pointerdown',e=>{
+  stage.setPointerCapture(e.pointerId);moved=false;
+  if(drawMode){
+    const[x,y]=kmAtPointer(e);
+    dragBoxKm=[x,y,x,y];drag=null;requestRender();
+    return;
+  }
+  drag={x:e.clientX,y:e.clientY};stage.classList.add('drag');
+});
+stage.addEventListener('pointermove',e=>{
+  if(dragBoxKm){
+    const[x,y]=kmAtPointer(e);
+    dragBoxKm[2]=x;dragBoxKm[3]=y;moved=true;requestRender();
+    return;
+  }
+  if(!drag)return;
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  if(Math.abs(dx)+Math.abs(dy)>3)moved=true;
+  ox-=dx/zoom;oy-=dy/zoom;drag={x:e.clientX,y:e.clientY};requestRender();
+});
+stage.addEventListener('pointerup',e=>{
+  if(dragBoxKm){
+    const b=kmBox(dragBoxKm);dragBoxKm=null;
+    if(b[2]-b[0]<0.5||b[3]-b[1]<0.5){requestRender();return;}
+    setNewBox(b);setDrawMode(false);
+    return;
+  }
+  stage.classList.remove('drag');drag=null;
+  if(!moved){const[px,py]=stagePos(e);inspectAt(px,py);}
+});
+function zoomAt(f,cx,cy){
+  const wx=ox+cx/zoom,wy=oy+cy/zoom;
+  zoom=Math.max(0.3,Math.min(140,zoom*f));
+  ox=wx-cx/zoom;oy=wy-cy/zoom;requestRender();
+}
+stage.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.deltaY<0?1.25:0.8,e.clientX-stage.getBoundingClientRect().left,e.clientY-stage.getBoundingClientRect().top);},{passive:false});
+document.getElementById('zin').onclick=()=>zoomAt(1.4,stage.clientWidth/2,stage.clientHeight/2);
+document.getElementById('zout').onclick=()=>zoomAt(1/1.4,stage.clientWidth/2,stage.clientHeight/2);
+document.getElementById('zfit').onclick=()=>{fit();requestRender();};
+addEventListener('resize',()=>requestRender());
+
+/* ---- Inspektor: Tileset-Daten + Klima der Zelle ---- */
+const insp=document.getElementById('inspector');
+document.getElementById('inspClose').onclick=()=>insp.classList.remove('show');
+function inspectAt(px,py){
+  clearSelection(false);
+  const L=pickLevel(),s=L.hexKm/SQRT3;
+  const xkm=ox+px/zoom,ykm=oy+py/zoom;
+  const[c,r]=cellAtKm(xkm,ykm,s);
+  const d=cellData(L,c,r);if(!d)return;
+  const lm=TS.landmarks.find(lm=>{
+    const[lc,lr]=cellAtKm(...kmOfLonLat(lm.lon,lm.lat),s);return lc===c&&lr===r;});
+  const br=L.branches.find(b=>b.cells.some(([bc,brr])=>bc===c&&brr===r));
+  const pathCell=L.path.find(([pc,pr])=>pc===c&&pr===r);
+  const sec=d.s?SECBYID[SECIDS[d.s]]:null;
+  /* ---- Ist das ein GERECHNETES Flussfeld? --------------------------------
+     Dann ist es ein Feld eigener Art und nicht das Gelände, das darunter
+     liegt: wer auf den Rhein tippt, will den Rhein ansprechen und nicht
+     „Bergland". Der Lauf entsteht auf der Klima-Ebene, darum ist auch das
+     angesprochene Feld deren Feld — die Auswahl tut nicht feiner, als das
+     Modell rechnet. */
+  const si=simIdxAtKm(xkm,ykm);
+  const sc=si>=0?si%SIM.DC:0, sr=si>=0?(si/SIM.DC)|0:0;
+  const zc=centerKm(c,r,s);
+  /* Gewählt ist IMMER das angezeigte Plättchen. */
+  selected={zelle:[zc[0],zc[1],L.hexKm]};
+  /* Auf der Klima-Ebene ist ein Flussfeld das Rechenfeld selbst; auf der
+     feinen Ebene fragt der Inspektor den FLUSSRAUM: je Plättchen steht in
+     zwei Karten, ob Wasser wirklich hindurchfliesst (x) oder ob es Ufer
+     ist (b). Kein Geometrie-Raten mehr — dieselben Karten, die auch
+     gezeichnet werden. */
+  let dynFluss=false, fw=null, fu=null;
+  const fein=L.hexKm<SIM.W-1e-9;
+  if(SIM.ok&&DYN.K&&dynOn){
+    if(!fein&&L.hexKm<=SIM.W+1e-9&&si>=0&&DYN.istLauf&&DYN.istLauf[si])dynFluss=true;
+    if(fein&&DYN.fuss&&d.t!==4&&d.t!==5){
+      const fk=r*L.cols+c;
+      fw=DYN.fuss.wasser.get(fk)||null;
+      fu=fw?null:(DYN.fuss.ufer.get(fk)||null);
+      /* Die Kanten zum Wasser leuchten mit der Auswahl auf: beim
+         Wasser-Plättchen sind es Ein- und Austritt (beim Rinnsal genau
+         die zwei Kantenmitten), beim Ufer-Plättchen die Bauseite. */
+      if(fw||fu)selected.kanten=fussKanten(c,r,L,DYN.fuss.wasser);
+    }
+  }
+  requestRender();
+  if(fw||fu){
+    const g2=(fw||fu).g, nm2=(fw||fu).nm;
+    const kn=selected.kanten?selected.kanten.length:0;
+    if(fw){
+      document.getElementById('inspTitle').textContent=nm2||RANGNAME[g2];
+      document.getElementById('inspMeta').textContent=
+        ['Flussraum · Wasser',RANGNAME[g2],'Ebene '+L.id+' · ('+c+','+r+')',
+         d.e?'≈ '+(d.e*25)+' m ü. M.':null,'darunter: '+TERRNAME[d.t]].filter(Boolean).join(' · ');
+      document.getElementById('inspTxt').textContent=
+        'Hier fliesst das Wasser wirklich durch — das Plättchen gehört zum Flussraum'
+        +(nm2?' der/des '+nm2:'')+'. '
+        +(kn>=6?'Es liegt mitten im Strom, rundum Wasser'
+               :'Ein- und Austritt liegen an den markierten Kanten')
+        +(g2>=2?'; der Raum ist '+(g2>=3?'fünf':'drei')+' Plättchen breit, sein Saum ist das Flussufer.':'.');
+      document.getElementById('inspKlima').innerHTML=
+        DYN.K.S.nm+' · Abfluss <b>'+fw.q.toFixed(1)+' m³/s</b>'
+        +' · Wasser an <b>'+kn+'</b> von 6 Kanten'
+        +(si>=0?' · gerechnet auf Klima-Feld ('+sc+','+sr+')':'');
+    }else{
+      document.getElementById('inspTitle').textContent='Flussufer';
+      document.getElementById('inspMeta').textContent=
+        ['am '+RANGNAME[g2]+(nm2?' ('+nm2+')':''),'Ebene '+L.id+' · ('+c+','+r+')',
+         d.e?'≈ '+(d.e*25)+' m ü. M.':null,'darunter: '+TERRNAME[d.t]].filter(Boolean).join(' · ');
+      document.getElementById('inspTxt').textContent=
+        'Der Saum des Flussraums — Puffer und Ausrichtung: an ihm richten sich '
+        +'einmündende Läufe aus, und auf ihm steht, wer am Wasser bauen will, '
+        +'ohne im Wasser zu stehen. Benachbarte Flussabschnitte teilen sich ihr Ufer.';
+      document.getElementById('inspKlima').innerHTML=
+        'Wasser an <b>'+kn+'</b> von 6 Kanten · gut für: <b>'+BAU[g2]+'</b>';
+    }
+    insp.classList.add('show');
+    return;
+  }
+  if(dynFluss){
+    const K=DYN.K, q=K.Q[si], nm=DYN.laufName[si]||SIM.namen[si];
+    document.getElementById('inspTitle').textContent=nm?nm:klasseName(q);
+    document.getElementById('inspMeta').textContent=
+      ['Fluss (gerechnet)',nm?klasseName(q):null,
+       'Ebene '+L.id+' · ('+c+','+r+')',
+       d.e?'≈ '+(d.e*25)+' m ü. M.':null,
+       'darunter: '+TERRNAME[d.t]].filter(Boolean).join(' · ');
+    document.getElementById('inspTxt').textContent=
+      'Dieses Feld führt Wasser, weil die Klima-Maschine es so gerechnet hat: '
+      +'Niederschlag und Schmelze der Felder oberhalb sammeln sich hier zu '
+      +q.toFixed(1)+' m³/s. Der Lauf ist kein gebackenes Plättchen — er wandert '
+      +'mit Temperatur und Jahreszeit, und bei genug Kälte verschwindet er ganz.';
+    let kz2=K.S.nm+' · Abfluss <b>'+q.toFixed(1)+' m³/s</b> ('+klasseName(q)+')';
+    const Tc2=tempWert+K.S.off-6.5*(SIM.elev[si]-400)/1000;
+    kz2+=' · hier <b>'+Tc2.toFixed(1)+' °C</b>';
+    kz2+=' · gerechnet auf Klima-Feld ('+sc+','+sr+')';
+    if(SIM.gebrannt&&SIM.gebrannt[si])kz2+=' · Lauf aus den gebackenen Daten eingeprägt';
+    document.getElementById('inspKlima').innerHTML=kz2;
+    insp.classList.add('show');
+    return;
+  }
+  document.getElementById('inspTitle').textContent=
+    lm?lm.name:br&&d.t===6?br.name+' ('+br.art+')':TERRNAME[d.t];
+  document.getElementById('inspMeta').textContent=
+    [sec?'Abschnitt: '+sec.name:null,
+     pathCell?'≈ km '+pathCell[2]+' ab der Quelle':null,
+     d.e?'≈ '+(d.e*25)+' m ü. M.':null,
+     'Ebene '+L.id+' · ('+c+','+r+')'].filter(Boolean).join(' · ');
+  document.getElementById('inspTxt').textContent=
+    lm?lm.note:
+    br&&d.t===6?(br.note??'Ein Nebenlauf im Einzugsgebiet des Rheins.'):
+    sec?sec.txt:
+    d.t===2?'Bergland — der Fluss sucht sich seinen Weg darum herum oder hindurch.':
+    d.t===7?'Hang — geneigtes Land über dem Talboden (aus dem Höhenmodell abgeleitet).':
+    d.t===5?'Die Nordsee — hier endet die Reise des Rheins.':
+    d.t===4?'Ein See: eine flache Fläche mit einem Ausfluss. Er sammelt, was ihm zufliesst, und gibt es dort wieder ab — bei genug Kälte friert er zu, bei sehr viel Kälte wird er zu Eis.':
+    'Offenes Land im Einzugsgebiet des Rheins.';
+  /* Klima-Zeile: was die Maschine über diese Stelle weiss */
+  let kz='';
+  if(SIM.ok&&DYN.K&&si>=0&&SIM.valid[si]&&!SIM.synth[si]){
+    const K=DYN.K;
+    const Tc=tempWert+K.S.off-6.5*(SIM.elev[si]-400)/1000;
+    const q=K.Q[si];
+    if(SIM.namen[si])kz='<b>'+SIM.namen[si]+'</b> · ';
+    kz+=K.S.nm+' hier <b>'+Tc.toFixed(1)+' °C</b>';
+    if(SIM.see[si]){
+      const li=SIM.lakeId[si], Lk=li>=0?SIM.lakes[li]:null;
+      const S2=li>=0&&DYN.seen?DYN.seen[li]:null;
+      kz+=' · <b>'+(S2?(S2.eis?'unter Eis':S2.gefroren?'zugefroren':'offener See'):'See')+'</b>';
+      if(Lk)kz+=' ('+Math.round(Lk.km2)+' km², bis <b>'+Math.round(Lk.tmax)+' m</b> tief, Grund '
+        +(Lk.gemessen>0.5?'<b>gemessen</b> (swissBATHY3D)':Lk.gemessen>0?'teils gemessen':'gerechnet')
+        +(Lk.out<0?', abflusslos':'')+')';
+      if(S2&&S2.gefallen>1)kz+=' · Spiegel <b>−'+S2.gefallen.toFixed(0)+' m</b>';
+      if(S2)kz+=' · Zufluss '+S2.zu.toFixed(0)+' gegen Verdunstung '+S2.verd.toFixed(1)+' m³/s';
+    }
+    else if(K.ice[si])kz+=' · <b>ewiges Eis</b>';
+    else if(K.schnee[si])kz+=' · <b>Schnee</b> (Niederschlag gespeichert)';
+    if(!SIM.see[si]&&q>=0.2)kz+=' · Abfluss <b>'+q.toFixed(1)+' m³/s</b>'+(q>=P.thr&&!K.ice[si]?' ('+klasseName(q)+')':'');
+  }
+  document.getElementById('inspKlima').innerHTML=kz;
+  insp.classList.add('show');
+}
+
+/* ---- Bench (?bench) ---- */
+let benchTxt='';
+function runBench(){
+  const pan=[],zm=[];
+  for(let i=0;i<60;i++){ox+=(i<30?6:-6)/zoom;const t=performance.now();frame();pan.push(performance.now()-t);}
+  for(let i=0;i<12;i++){const f=i%2?1.15:1/1.15;
+    const wx=ox+stage.clientWidth/(2*zoom),wy=oy+stage.clientHeight/(2*zoom);
+    zoom=Math.max(0.3,Math.min(140,zoom*f));
+    ox=wx-stage.clientWidth/(2*zoom);oy=wy-stage.clientHeight/(2*zoom);
+    const t=performance.now();frame();zm.push(performance.now()-t);}
+  const avg=a=>(a.reduce((x,y)=>x+y,0)/a.length).toFixed(2);
+  const max=a=>Math.max(...a).toFixed(1);
+  benchTxt=`<b>Bench</b> · Schwenk: Ø ${avg(pan)} ms (max ${max(pan)}) · Zoom: Ø ${avg(zm)} ms (max ${max(zm)})`;
+  frame();
+}
+
+function applyHideParam(){
+  if(!P.hide)return;
+  for(const tok of P.hide){
+    let i=Number(tok);
+    if(!Number.isInteger(i))i=TERRNAME.findIndex(n=>n.toLowerCase()===tok.toLowerCase());
+    if(i<0||i>=TERRNAME.length)continue;
+    hiddenTerr.add(i);
+    const cb=document.querySelector('#terrFilter input[data-t="'+i+'"]');
+    if(cb)cb.checked=false;
+  }
+}
+/* ---- Modal-Schaubilder für Screenshots (?pipeline=lauf|fertig|fehler) ---- */
+function demoModal(art){
+  const region=newBoxKm?regionOfKm(newBoxKm):{lonW:9.42,lonE:9.72,latS:46.82,latN:47.12};
+  modalAufbauen(region,STUFEN_FALLBACK);
+  logZeile('Region viewer: 9.42–9.72°O, 46.82–47.12°N · 200 m Raster');
+  logZeile('Fenster: Pixel [5411,1180]–[5893,1852] (482×672)');
+  if(art==='lauf'){
+    stufeSetzen('dtm','ok');stufeSetzen('bake','run');fortschritt(0.55);
+    logZeile('Raster: 114×166 (200 m) · 18924 Werte, 0 NoData (0.0 %) · Höhe 431–2914 m');
+    logZeile('geschrieben: pipeline/sources/sonny-dtm-ch50.grid.json (38 KB)');
+    logZeile('Höhenregion aus 1 Quelle(n): 9.42–9.72°O, 46.82–47.12°N');
+    el('mdClose').disabled=true;
+    return;
+  }
+  el('mdClose').disabled=false;
+  if(art==='fehler'){
+    stufeSetzen('dtm','bad');fortschritt(1,'bad');
+    el('mdTitle').textContent='Pipeline abgebrochen';
+    logZeile('Region liegt ausserhalb des Höhenmodells — das DTM deckt nur die Schweiz ab.',true);
+    logZeile('Die bisherige Höhenquelle bleibt unverändert.',true);
+    el('mdMsg').className='msg bad';
+    el('mdMsg').textContent='Höhendaten zuschneiden: Abbruch mit Code 1';
+    return;
+  }
+  stufeSetzen('dtm','ok');
+  logZeile('Raster: 114×166 (200 m) · 18924 Werte, 0 NoData (0.0 %) · Höhe 431–2914 m');
+  {
+    stufeSetzen('bake','ok');fortschritt(1,'ok');
+    el('mdTitle').textContent='Pipeline fertig';
+    logZeile('Ebene 2 (0.4 km/Hex): 1128×1885 Zellen, 21 Kacheln behalten, 2103 übersprungen, 118 ms');
+    logZeile('geschrieben: prototype/drafts/rhein-tiles-v4.data.js (394 KB)');
+    el('mdMsg').className='msg ok';
+    el('mdMsg').textContent='Neues Tileset geschrieben. Neu laden zeigt das gerechnete Gebiet.';
+    el('mdReload').style.display='';
+  }
+}
+
+/* ---- Start ---- */
+document.body.classList.toggle('stats',P.stats||P.bench);
+buildTerrFilter();
+buildTrees();
+buildLandmarkTree();
+applyHideParam();
+zeigeRegionAusTileset();
+if(P.panel==='aus'){document.getElementById('panel').classList.add('hide');document.body.classList.add('panelhidden');}
+fit();
+if(P.lon&&P.lat){
+  zoom=P.z;
+  const[x,y]=kmOfLonLat(P.lon,P.lat);
+  ox=x-stage.clientWidth/(2*zoom);oy=y-stage.clientHeight/(2*zoom);
+}
+if(P.bbox){
+  const[lonW,latS,lonE,latN]=P.bbox.split(',').map(Number);
+  if([lonW,latS,lonE,latN].every(Number.isFinite))
+    setNewBox([...kmOfLonLat(lonW,latN),...kmOfLonLat(lonE,latS)]);
+}
+if(P.draw)setDrawMode(true);
+tempAnzeigen();
+zeitMarkieren();
+rechnen();                              /* rechnet auch, wenn SIM fehlt: no-op */
+frame();
+if(P.inspect){
+  const[lon,lat]=P.inspect.split(',').map(Number);
+  const[x,y]=kmOfLonLat(lon,lat);
+  inspectAt((x-ox)*zoom,(y-oy)*zoom);
+}
+if(P.select){
+  const[kind,val]=P.select.split(':');
+  const li=kind==='source'?document.querySelector('#srcTree li[data-file="'+val+'"]')
+           :kind==='level'?document.querySelector('#lvlTree li[data-level="'+val+'"]')
+           :kind==='landmark'?document.querySelector('#lmTree li[data-lm="'+val+'"]'):null;
+  if(li)li.click();
+}
+pruefeServer();
+if(P.pipeline!=='aus')demoModal(P.pipeline);
+if(P.bench)runBench();
+</script>
+</body>
+</html>

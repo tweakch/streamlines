@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gefüge — die Kette, die zurückschlägt</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<style>
+  /* Nur was dieser Prototyp allein braucht. Kommt zuletzt, gewinnt darum.
+
+     Das ist ein Werkzeug, kein Ort der Welt — darum das Werkbank-Register.
+     Was der Spieler später sehen würde, ist genau ein Kasten (die Grabung);
+     alles andere hier ist Designer-Sicht auf ein Modell, das im Spiel
+     unsichtbar bliebe. */
+
+  .wrap{max-width:1080px;}
+  .zwei{display:grid;gap:12px;grid-template-columns:1fr;}
+  @media(min-width:900px){ .zwei{grid-template-columns:1fr 380px;align-items:start;} }
+
+  /* --- Die Karte ---------------------------------------------------------- */
+  .karte{background:var(--panel2);border:1px solid var(--line);
+         border-radius:var(--r-md);overflow:hidden;position:relative;}
+  .karte svg{display:block;width:100%;height:auto;}
+
+  /* --- Die Arten: drei Stufen, keine Zahl -------------------------------- */
+  .art{display:flex;align-items:center;gap:10px;padding:7px 0;
+       border-bottom:1px solid var(--line);}
+  .art:last-child{border-bottom:0;}
+  .art > svg{flex:none;width:22px;height:22px;color:var(--ink);}
+  .art.fort > svg{opacity:.25;}
+  .art .nm{flex:1;min-width:0;}
+  .art .nm b{display:block;font-size:12.5px;line-height:1.2;}
+  .art .nm span{font-family:var(--f-mono);font-size:9px;letter-spacing:.1em;
+                text-transform:uppercase;color:var(--ink2);}
+  /* Die Stufe ist eine Treppe aus drei Balken — reich · dünn · fort.
+     Kein Zähler: P1 verbietet Buchhaltung, und „2 von 3 Hirschen" wäre
+     genau das. Drei Balken liest man, ohne zu rechnen. */
+  .stufe{display:flex;gap:3px;flex:none;}
+  .stufe i{width:7px;height:16px;border-radius:2px;background:var(--line);}
+  .stufe i.an{background:var(--ember);}
+  .stufe i.an.knapp{background:var(--warn);}
+  .art .tun{display:flex;gap:4px;flex:none;}
+
+  /* --- Die Kette: die Kanten des Modells --------------------------------- */
+  .kante{display:grid;grid-template-columns:auto 1fr;gap:8px;padding:6px 0;
+         border-bottom:1px solid var(--line);font-size:11.5px;}
+  .kante:last-child{border-bottom:0;}
+  .kante .zug{font-family:var(--f-mono);font-size:10px;white-space:nowrap;
+              color:var(--ink2);}
+  .kante .warum{color:var(--ink2);font-size:11px;line-height:1.45;}
+  .kante.scharf{background:var(--bone);}
+  .kante.scharf .zug{color:var(--ember);}
+  .kante.unterwegs .zug{color:var(--warn);}
+  .kante.sperre .zug{color:var(--bad);}
+
+  /* --- Die Grabung: das EINZIGE, was der Spieler je sähe ----------------- */
+  /* Dieselbe Form wie in namen-v1: eigene Schrift, linker Rand, nie ohne
+     ihre Marke. Wenn sie in einem dritten Draft wieder so aussieht, ist
+     sie ein Kandidat für den Baukasten. */
+  .grabung{font-family:var(--f-mono);font-size:11px;line-height:1.65;
+           color:var(--ink2);border-left:2px solid var(--line);
+           padding:2px 0 2px 10px;display:flex;gap:8px;align-items:flex-start;}
+  .grabung > svg{flex:none;width:13px;height:13px;margin-top:3px;opacity:.7;}
+  .grabung b{color:var(--ink);font-weight:400;}
+  .grabung.leer{opacity:.45;}
+  .grabung ul{margin:4px 0 0;padding-left:14px;}
+  .grabung li{margin:2px 0;}
+
+  .epzeile{display:flex;align-items:center;gap:10px;justify-content:space-between;}
+  .epzeile .ep{font-family:var(--f-display);font-weight:800;font-size:14px;
+               letter-spacing:.1em;}
+  .budget{font-family:var(--f-mono);font-size:10px;color:var(--ink2);}
+  h3{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.14em;
+     text-transform:uppercase;color:var(--ink2);font-weight:400;margin:0 0 6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="appbar ruled">
+    <div class="brand">GEFÜGE<small>Werkstatt-Prüfstand · trophische Kette</small></div>
+    <div class="epzeile" style="gap:14px">
+      <span class="ep" id="epLabel">EPOCHE I</span>
+      <span class="budget" id="budget">2 Eingriffe</span>
+    </div>
+  </header>
+
+  <div class="zwei">
+
+    <div>
+      <div class="karte" id="karte"></div>
+
+      <div class="pane" style="margin-top:12px">
+        <h3>Was die Schicht später hergibt</h3>
+        <div id="grabung"></div>
+      </div>
+
+      <div class="pane" style="margin-top:12px">
+        <h3>Chronik</h3>
+        <div id="chronik"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="pane">
+        <h3>Das Gefüge</h3>
+        <div id="arten"></div>
+      </div>
+
+      <div class="pane" style="margin-top:12px">
+        <button class="primary wide" id="weiter">Epoche weiter</button>
+        <p class="hint" style="margin-top:8px" id="hinweis"></p>
+      </div>
+
+      <div class="pane" style="margin-top:12px">
+        <h3>Die Kette <span class="hint">(im Spiel unsichtbar)</span></h3>
+        <div id="kette"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="../kit/sot.js"></script>
+<script src="../kit/sot-icons.js"></script>
+<script src="../kit/sot-hex.js"></script>
+<script>
+/* ===========================================================================
+   Gefüge — Prüfstand für die trophische Kette.
+
+   Die Frage: kann man einen Yellowstone-Effekt nachstellen, OHNE ein
+   Ökosystem zu simulieren? (kernpfeiler.md: keine Geschichtssimulation,
+   keine Zähler-Buchhaltung.)
+
+   Die Antwort, die hier geprüft wird: ja — als **verzögerte Kante mit
+   Sperre**, nicht als Modell.
+
+     · Jede Art hat DREI Stufen: reich · dünn · fort. Keine Zahl.
+     · Ein Eingriff wirkt sofort und sichtbar (P1: der Punkt sagt seinen Preis).
+     · Die FOLGE wirkt eine Epoche später und wird NICHT angekündigt.
+     · Der Weg zurück ist länger als der Weg hin (Verzug 2 statt 1) …
+     · … und hinter einer SPERRE: ohne Biber schneidet sich der Bach ein,
+       und dann hilft auch der Wolf nicht mehr. Kein Undo-Knopf.
+     · Erzählt wird die Kette erst hinterher, und nur von der Ausgrabung.
+
+   Was das Spiel dem Spieler NIE zeigt: diese Datei rechts. Er sieht die
+   Karte, seine Eingriffe, und Epochen später einen Fund.
+   ========================================================================= */
+
+var P = SOT.params({
+  epoche: { t:'int', def:1, min:1, max:5, help:'Startepoche I–V' },
+  jagd:   { t:'list', def:[], help:'Arten, die zu Beginn eine Stufe verlieren: wolf,biber,…' },
+  aus:    { t:'list', def:[], help:'Arten, die zu Beginn ganz fort sind: wolf,…' },
+  auto:   { t:'flag', help:'alle Epochen von selbst durchlaufen' },
+  spiel:  { t:'flag', help:'Spielregister statt Werkbank (zum Beurteilen des Tons)' }
+});
+if (!P.spiel) document.body.classList.add('werkbank');
+
+/* ------------------------------------------------------------------- Arten ---
+   Sechs Arten, die im Alpenrheintal des Mesolithikums plausibel sind und
+   für die der Zeichensatz schon Zeichnungen hat. Rolle statt Wert: der
+   Spieler soll „Baumeister" lesen, nicht „Nutzwert 3".
+
+   `start` ist die Ausgangslage — und sie ist ausdrücklich NICHT „alles
+   reich". Der Rothirsch startet auf `dünn`, weil ihn der Wolf dort hält:
+   das ist das Gleichgewicht, aus dem heraus gespielt wird. Startete er
+   reich, frässe er die Weiden auch ohne jeden Eingriff des Spielers weg —
+   ein Modell, das von selbst kippt, kann nicht zeigen, was der Spieler
+   angerichtet hat. */
+var ARTEN = [
+  { id:'wolf',   nm:'Wolf',         ico:'wolf',   rolle:'Beutegreifer', start:2 },
+  { id:'hirsch', nm:'Rothirsch',    ico:'hirsch', rolle:'Weidegänger',  start:1 },
+  { id:'weide',  nm:'Auenweiden',   ico:'birke',  rolle:'Ufergehölz',   start:2 },
+  { id:'biber',  nm:'Biber',        ico:'biber',  rolle:'Baumeister',   start:2 },
+  { id:'fisch',  nm:'Fischgründe',  ico:'fisch',  rolle:'Ertrag',       start:2 },
+  { id:'rohr',   nm:'Röhricht',     ico:'rohr',   rolle:'Sumpfsaum',    start:2 }
+];
+var STUFE = ['fort','dünn','reich'];   /* 0 · 1 · 2 */
+
+/* ------------------------------------------------------------------ Kette ---
+   Deklarative Kanten. `wenn` ist eine Bedingung über die Stufen (mit `&`),
+   `wirkt` eine Stufenänderung, `verzug` die Zahl der Epochen bis dahin.
+
+   Zwei Dinge sind hier bewusst asymmetrisch, weil sie es in der Natur auch
+   sind: der Verlust läuft in EINER Epoche durch, die Erholung braucht ZWEI —
+   und die Erholungskante verlangt einen Restbestand (`>=1`). Eine Art, die
+   ganz fort ist, kommt von selbst nicht zurück. Nur die Wiederansiedlung
+   setzt sie von 0 auf 1 und schärft die Kante wieder. */
+var KETTE = [
+  { wenn:'wolf<=1',              wirkt:'hirsch+1', verzug:1,
+    warum:'Ohne Beutegreifer stehen die Herden ruhig im Talboden, statt zu ziehen.' },
+  { wenn:'hirsch>=2',            wirkt:'weide-1',  verzug:1,
+    warum:'Was am Ufer nachwächst, wird abgefressen, bevor es Holz wird.' },
+  { wenn:'weide<=1',             wirkt:'biber-1',  verzug:1,
+    warum:'Kein Weidenholz, kein Damm.' },
+  { wenn:'biber<=0',             wirkt:'fisch-1',  verzug:1,
+    warum:'Ohne Dämme läuft das Wasser schnell ab; die Weiher fallen trocken.' },
+  { wenn:'biber<=0',             wirkt:'rohr-1',   verzug:1,
+    warum:'Der Sumpfsaum lebt vom Stauwasser.' },
+
+  { wenn:'wolf>=2',              wirkt:'hirsch-1', verzug:1, nichtUnter:1,
+    warum:'Die Herden weichen wieder in die Höhe aus und ziehen weiter.' },
+  { wenn:'hirsch<=1 & weide>=1', wirkt:'weide+1',  verzug:2,
+    warum:'Junge Weiden kommen durch — aber nur, wo noch Wurzelstock steht.' },
+  { wenn:'weide>=1 & biber>=1',  wirkt:'biber+1',  verzug:2,
+    warum:'Wo Weiden stehen und ein Paar überlebt hat, wächst die Kolonie nach.' },
+  { wenn:'biber>=1',             wirkt:'fisch+1',  verzug:2,
+    warum:'Stauwasser wird wieder zum Kinderzimmer der Fische.' },
+  { wenn:'biber>=1',             wirkt:'rohr+1',   verzug:2,
+    warum:'Wo das Wasser steht, kommt das Ried zurück.' }
+];
+
+/* ----------------------------------------------------------------- Sperren ---
+   Die eigentliche Pointe. Eine Sperre ist eine Obergrenze, die gilt,
+   solange etwas anderes fehlt — der Grund, warum „Wolf zurück" nicht
+   reicht. Genau das ist der belegte Teil der Yellowstone-Debatte: wo der
+   Bach sich eingeschnitten hat, ist der Grundwasserspiegel weg, und dann
+   wächst am Ufer nichts mehr nach, egal wie wenig gefressen wird. */
+var SPERREN = [
+  { solange:'biber<=0', deckel:{ weide:1 },
+    warum:'Ohne Dämme schneidet sich der Bach ein; der Grundwasserspiegel '+
+          'liegt zu tief für Auenwald. Der Wolf allein hebt ihn nicht.' }
+];
+
+/* ---------------------------------------------------------------- Zustand --- */
+var S = {
+  ep: 1,
+  stufen: {},                 /* id → 0..2 */
+  wartend: [],                /* {wirkt, faellig, warum} */
+  eingriffe: 2,
+  chronik: []                 /* [{ep, zeilen:[…]}] — die einzige Quelle */
+};
+
+/* Chronik-Zeilen hängen an ihrer Epoche, nicht an einem Zwischenspeicher.
+   (Vorher gab es beides, und der Epochenschritt hat den Zwischenspeicher
+   geleert, bevor die Eingriffe des Spielers gebucht waren.) */
+function eintrag(ep){
+  for (var i = 0; i < S.chronik.length; i++) if (S.chronik[i].ep === ep) return S.chronik[i];
+  var e = { ep:ep, zeilen:[] };
+  S.chronik.push(e);
+  return e;
+}
+function zeile(txt){ eintrag(S.ep).zeilen.push(txt); }
+function zeilenJetzt(){
+  for (var i = 0; i < S.chronik.length; i++) if (S.chronik[i].ep === S.ep) return S.chronik[i].zeilen;
+  return [];
+}
+ARTEN.forEach(function(a){ S.stufen[a.id] = a.start; });
+
+/* ------------------------------------------------------ Bedingungen lesen --- */
+function pruefe(ausdruck){
+  return ausdruck.split('&').every(function(teil){
+    var m = /^\s*(\w+)(<=|>=)(\d)\s*$/.exec(teil);
+    if (!m) { console.warn('[gefüge] Bedingung unlesbar: ' + teil); return false; }
+    var v = S.stufen[m[1]];
+    return m[2] === '<=' ? v <= +m[3] : v >= +m[3];
+  });
+}
+function zerlege(wirkt){
+  var m = /^\s*(\w+)([+-])(\d)\s*$/.exec(wirkt);
+  return { art:m[1], d:(m[2] === '-' ? -1 : 1) * +m[3] };
+}
+function nameVon(id){
+  for (var i = 0; i < ARTEN.length; i++) if (ARTEN[i].id === id) return ARTEN[i].nm;
+  return id;
+}
+
+/* ------------------------------------------------------------ Stufen setzen --- */
+function setze(id, wert){
+  S.stufen[id] = Math.max(0, Math.min(2, wert));
+}
+/* Sperren anwenden: sie kappen nach oben, jedes Mal, wenn sich etwas ändert. */
+function sperrenAnwenden(){
+  SPERREN.forEach(function(sp){
+    if (!pruefe(sp.solange)) return;
+    Object.keys(sp.deckel).forEach(function(id){
+      if (S.stufen[id] > sp.deckel[id]){
+        S.stufen[id] = sp.deckel[id];
+        zeile('<b>'+nameVon(id)+'</b> kommt nicht über „'+
+              STUFE[sp.deckel[id]]+'" hinaus — '+sp.warum);
+      }
+    });
+  });
+}
+
+/* =========================================================== Epochenschritt === */
+function epocheWeiter(){
+  S.ep++;
+
+  /* 1. Fällige Folgen einlösen — sie kommen ohne Ankündigung. */
+  var faellig = S.wartend.filter(function(w){ return w.faellig <= S.ep; });
+  S.wartend = S.wartend.filter(function(w){ return w.faellig > S.ep; });
+
+  /* Erst je Art aufrechnen, dann buchen. Ohne das landen in derselben
+     Schicht ein „+1" und ein „−1" auf dieselbe Art (Erholungskante scharf
+     geworden, während der Frassdruck schon lief) und die Chronik meldet
+     „dünn → reich" und „reich → dünn" untereinander. Netto ist nicht nur
+     lesbarer, es ist auch die ehrlichere Aussage: in dieser Schicht hat
+     sich nichts bewegt. */
+  var netto = {};
+  faellig.forEach(function(w){
+    var z = zerlege(w.wirkt);
+    var n = netto[z.art] || (netto[z.art] = { d:0, gruende:[], schranke:undefined });
+    n.d += z.d;
+    n.gruende.push(w.warum);
+    if (w.nichtUnter !== undefined) n.schranke = w.nichtUnter;
+  });
+  Object.keys(netto).forEach(function(art){
+    var n = netto[art], vor = S.stufen[art];
+    if (n.d === 0){
+      zeile('<b>'+nameVon(art)+'</b> hält sich: '+STUFE[vor]+
+            ' — Frassdruck und Nachwuchs heben sich auf.');
+      return;
+    }
+    var ziel = vor + (n.d > 0 ? 1 : -1);      /* eine Stufe je Schicht, nie mehr */
+    if (n.schranke !== undefined && ziel < n.schranke) return;
+    setze(art, ziel);
+    if (S.stufen[art] === vor) return;
+    zeile('<b>'+nameVon(art)+'</b>: '+STUFE[vor]+' → <b>'+
+          STUFE[S.stufen[art]]+'</b> — '+n.gruende[0]);
+  });
+
+  sperrenAnwenden();
+
+  /* 2. Neue Kanten schärfen. Doppelte Vormerkung derselben Wirkung wird
+        übersprungen, sonst stapeln sich Effekte über die Epochen. */
+  KETTE.forEach(function(k){
+    if (!pruefe(k.wenn)) return;
+    var z = zerlege(k.wirkt);
+    if (z.d < 0 && S.stufen[z.art] <= 0) return;
+    if (z.d > 0 && S.stufen[z.art] >= 2) return;
+    if (S.wartend.some(function(w){ return w.wirkt === k.wirkt; })) return;
+    S.wartend.push({ wirkt:k.wirkt, faellig:S.ep + k.verzug,
+                     warum:k.warum, nichtUnter:k.nichtUnter });
+  });
+
+  S.eingriffe = 2;
+  zeichneAlles();
+}
+
+/* ============================================================== Eingriffe === */
+function eingriff(id, d){
+  if (S.eingriffe <= 0){ SOT.toast('Keine Eingriffe mehr in dieser Epoche.'); return; }
+  var vor = S.stufen[id];
+  setze(id, vor + d);
+  if (S.stufen[id] === vor){ SOT.toast('Da ist nichts mehr zu holen.'); return; }
+  S.eingriffe--;
+  zeile('Ihr habt <b>' + nameVon(id) + '</b> ' +
+        (d < 0 ? 'bejagt' : 'wieder angesiedelt') + ': ' + STUFE[vor] +
+        ' → <b>' + STUFE[S.stufen[id]] + '</b>.');
+  sperrenAnwenden();
+  zeichneAlles();
+}
+
+/* ================================================================== Karte === */
+var COLS = 9, ROWS = 7, HW = 62, GAP = 2;
+/* W Auenwald · P Weiher · r Röhricht · F Furt — diese vier hängen am Gefüge,
+   der Rest ist Fels und Talboden und ändert sich nicht. */
+var GRUND = [
+  'BBhwWfhBB',
+  'BhPwWffhB',
+  'hffwWfffh',
+  'hfkFrfffh',
+  'hffLwfffh',
+  'BhfPwWffh',
+  'BBhfwWfhB'
+];
+function wandel(ch){
+  var w = S.stufen.weide, b = S.stufen.biber, r = S.stufen.rohr;
+  if (ch === 'W') return w === 2 ? 'W' : w === 1 ? 'L' : 't';
+  if (ch === 'P') return b === 2 ? 'P' : b === 1 ? 'r' : 'k';
+  if (ch === 'r') return r === 2 ? 'r' : r === 1 ? 'L' : 't';
+  /* Ohne Dämme schneidet sich der Fluss ein: die Furt ist keine mehr. */
+  if (ch === 'F') return b === 0 ? 'w' : 'F';
+  return ch;
+}
+function fuellung(ch){
+  if (ch === 'B') return 'color-mix(in srgb, var(--hang) 72%, var(--ink))';
+  if (ch === 'r') return 'color-mix(in srgb, var(--wald) 55%, var(--kies))';
+  var T = { h:'--hang', f:'--flach', W:'--wald', w:'--river', F:'--riverdeep',
+            k:'--kies', L:'--ufer', P:'--lake', t:'--trocken' };
+  return 'var(' + (T[ch] || '--flach') + ')';
+}
+function zeichneKarte(){
+  var gs = SOT.hex.gridSize(COLS, ROWS, HW, GAP);
+  var svg = '<svg viewBox="0 0 '+gs.w.toFixed(0)+' '+gs.h.toFixed(0)+'" role="img" '+
+            'aria-label="Talausschnitt: Auenwald, Weiher, Furt und Röhricht ändern sich mit dem Gefüge">';
+  for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++){
+    var ch = wandel(GRUND[r].charAt(c)), m = SOT.hex.center(c, r, HW, GAP);
+    svg += '<polygon points="'+SOT.hex.points(m.x, m.y, HW)+'" fill="'+fuellung(ch)+
+           '" stroke="var(--line)" stroke-width="1" stroke-opacity=".35"/>';
+  }
+  /* Zeichen dort, wo das Gefüge sichtbar wird — sie verschwinden mit der Sache. */
+  function zeichen(c, r, name){
+    var m = SOT.hex.center(c, r, HW, GAP);
+    svg += '<g opacity=".85">' + SOT.iconSVG(name, m.x, m.y, 22) + '</g>';
+  }
+  if (S.stufen.biber > 0){ zeichen(2, 1, 'damm'); zeichen(3, 5, 'weiher'); }
+  if (S.stufen.rohr  > 0)  zeichen(4, 3, 'rohr');
+  if (S.stufen.hirsch > 0) zeichen(6, 2, 'hirsch');
+  if (S.stufen.wolf  > 0)  zeichen(1, 5, 'wolf');
+  if (S.stufen.fisch > 0)  zeichen(4, 4, 'fisch');
+  if (S.stufen.biber > 0)  zeichen(3, 3, 'furt');
+  svg += '</svg>';
+  SOT.$('karte').innerHTML = svg;
+}
+
+/* ================================================================== Panes === */
+function zeichneArten(){
+  var h = '';
+  ARTEN.forEach(function(a){
+    var v = S.stufen[a.id];
+    var balken = '';
+    for (var i = 0; i < 2; i++)
+      balken += '<i class="'+(i < v ? 'an' + (v === 1 ? ' knapp' : '') : '')+'"></i>';
+    h += '<div class="art'+(v === 0 ? ' fort' : '')+'">'+
+           SOT.icon(a.ico)+
+           '<div class="nm"><b>'+a.nm+'</b><span>'+a.rolle+' · '+STUFE[v]+'</span></div>'+
+           '<div class="stufe">'+balken+'</div>'+
+           '<div class="tun">'+
+             '<button class="small" data-jagd="'+a.id+'"'+(v <= 0 ? ' disabled' : '')+'>bejagen</button>'+
+             '<button class="small" data-an="'+a.id+'"'+(v >= 2 ? ' disabled' : '')+'>ansiedeln</button>'+
+           '</div>'+
+         '</div>';
+  });
+  SOT.$('arten').innerHTML = h;
+  SOT.$('arten').querySelectorAll('[data-jagd]').forEach(function(b){
+    b.onclick = function(){ eingriff(b.dataset.jagd, -1); };
+  });
+  SOT.$('arten').querySelectorAll('[data-an]').forEach(function(b){
+    b.onclick = function(){ eingriff(b.dataset.an, +1); };
+  });
+}
+
+function zeichneKette(){
+  var h = '';
+  KETTE.forEach(function(k){
+    var scharf = pruefe(k.wenn);
+    var unterwegs = S.wartend.some(function(w){ return w.wirkt === k.wirkt; });
+    h += '<div class="kante'+(unterwegs ? ' unterwegs' : scharf ? ' scharf' : '')+'">'+
+           '<div class="zug">'+k.wenn+' → '+k.wirkt+'<br>+'+k.verzug+' Ep.'+
+             (unterwegs ? ' ⟳' : '')+'</div>'+
+           '<div class="warum">'+k.warum+'</div>'+
+         '</div>';
+  });
+  SPERREN.forEach(function(sp){
+    var an = pruefe(sp.solange);
+    h += '<div class="kante sperre'+(an ? ' scharf' : '')+'">'+
+           '<div class="zug">SPERRE<br>'+sp.solange+'</div>'+
+           '<div class="warum">'+sp.warum+'</div>'+
+         '</div>';
+  });
+  SOT.$('kette').innerHTML = h;
+}
+
+function zeichneGrabung(){
+  var p = SOT.$('grabung'), zn = zeilenJetzt();
+  if (!zn.length){
+    p.innerHTML = '<div class="grabung leer">'+SOT.icon('beleg')+
+                  '<span>diese Schicht gibt nichts Neues her</span></div>';
+    return;
+  }
+  p.innerHTML = '<div class="grabung">'+SOT.icon('beleg')+'<span>'+
+                '<b>Schicht '+römisch(S.ep)+'.</b> Pollen, Hölzer und Knochen '+
+                'dieser Lage zeigen:<ul><li>'+zn.join('</li><li>')+
+                '</li></ul></span></div>';
+}
+
+function zeichneChronik(){
+  if (!S.chronik.length){
+    SOT.$('chronik').innerHTML = '<p class="hint">noch keine Epoche vergangen</p>';
+    return;
+  }
+  SOT.$('chronik').innerHTML = S.chronik.map(function(e){
+    return '<p style="font-size:11.5px;line-height:1.5;margin:6px 0">'+
+           '<b>'+römisch(e.ep)+'</b> — '+
+           (e.zeilen.length ? e.zeilen.join(' · ') : 'nichts Auffälliges')+'</p>';
+  }).join('');
+}
+
+function römisch(n){ return ['','I','II','III','IV','V','VI','VII'][n] || String(n); }
+
+function zeichneAlles(){
+  SOT.$('epLabel').textContent = 'EPOCHE ' + römisch(S.ep);
+  SOT.$('budget').textContent = S.eingriffe + ' Eingriff' + (S.eingriffe === 1 ? '' : 'e');
+  SOT.$('weiter').disabled = S.ep >= 5;
+  SOT.$('hinweis').textContent = S.ep >= 5
+    ? 'Ende der Kampagne. Was jetzt fehlt, fehlt.'
+    : S.wartend.length + ' Folge(n) unterwegs — der Spieler sieht davon nichts.';
+  zeichneKarte(); zeichneArten(); zeichneKette();
+  zeichneGrabung(); zeichneChronik();
+}
+
+/* ================================================================== Start === */
+P.aus.forEach(function(id){ if (id in S.stufen) S.stufen[id] = 0; });
+P.jagd.forEach(function(id){ if (id in S.stufen) setze(id, S.stufen[id] - 1); });
+sperrenAnwenden();
+while (S.ep < P.epoche) epocheWeiter();
+S.eingriffe = 2;
+zeichneAlles();
+
+SOT.$('weiter').onclick = epocheWeiter;
+
+if (P.auto){
+  (function lauf(){
+    if (S.ep >= 5) return;
+    epocheWeiter();
+    setTimeout(lauf, 1200);
+  })();
+}
+
+SOT.debug(P);
+/* Reglerbrett ohne eigenen Rückruf: jede Änderung schreibt die URL und lädt
+   neu — dieser Prototyp baut sein Gefüge beim Start, das genügt ihm. */
+SOT.regler(P);
+</script>
+</body>
+</html>

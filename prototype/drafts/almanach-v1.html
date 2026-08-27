@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Almanach — was im Tal lebt, liegt und gebaut wird</title>
+<!--
+  ALMANACH v1 — der Inhaltskatalog des Spiels, als erkundbares Nachschlagewerk.
+  Jeder Eintrag: Darstellung (Hex/Karte/Glyphe), Belegstatus, was er gibt,
+  WO und WANN er zu finden ist — und „Der Zug": der Satz, der aus den Daten
+  folgt („das Lager am Waldrand, der Jäger am Hang → +2 und die Fährte").
+  Später zweimal portiert: Datentabellen → app/src/stromlinien/data/,
+  Ansicht → In-Game-Almanach (Einträge öffnen sich durch Begegnung, P3).
+-->
+<link rel="stylesheet" href="../kit/sot.css">
+<style>
+  /* Nur was dieser Prototyp allein braucht. */
+  .intro{margin:10px 0 14px;}
+  .gtitle{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+          color:var(--ink2);margin:18px 0 8px;display:flex;align-items:center;gap:8px;}
+  .gtitle::after{content:"";flex:1;height:1px;background:var(--line);}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:10px;}
+  /* Alles lesbar ohne Klick: der Eintrag IST die Karteikarte. */
+  .eintrag{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-md);
+           padding:14px;display:flex;gap:14px;align-items:flex-start;}
+  .eintrag .etext{flex:1;min-width:0;}
+  .eintrag .kopf{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+  .eintrag .kopf b{font-size:14px;line-height:1.2;}
+  .eintrag .sub{display:block;font-size:11px;color:var(--ink2);margin:2px 0 6px;}
+  .eintrag .txt{font-size:12px;line-height:1.5;margin:0 0 8px;}
+  .eintrag .kv{font-size:11px;}
+  .eintrag .kv b{text-align:right;}
+  .eintrag .chips{margin-top:8px;}
+  .eintrag.blitz{outline:2px solid var(--ember);outline-offset:2px;}
+  /* Hexfeld: pointy-top, Farbe über Token (--tc) */
+  .hexon{width:56px;height:64px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+         background:var(--tc,var(--tile));display:flex;align-items:center;justify-content:center;
+         color:var(--hc,var(--ink));flex-shrink:0;position:relative;}
+  .hexon svg{width:32px;height:32px;}
+  /* .mark trägt das SVG des Vorkommens/Merkmals im Hexfeld. Bemessen als
+     BOX (nicht font-size): ein Icon sitzt auf keiner Grundlinie. */
+  .hexon .mark{position:relative;width:26px;height:26px;display:flex;
+               align-items:center;justify-content:center;}
+  .hexon .mark svg{width:100%;height:100%;display:block;}
+  .hexon .mark.leer{font-size:22px;line-height:1;}
+  /* Gewässer: das Band im Feld — der Eintrag wird als das Ding selbst
+     gerendert, und das Ding ist LAND mit Wasser hindurch (gewaesser-labor,
+     erkundung-v3). Klassenfarben aus den Wasser-Tokens gemischt. */
+  body{--w-bach:color-mix(in srgb,var(--river) 62%,var(--bg));
+       --w-kfluss:var(--river);
+       --w-gfluss:var(--riverdeep);
+       --w-saum:color-mix(in srgb,var(--kies) 72%,var(--bg));}
+  .hexon .bandv{position:absolute;inset:0;width:100%;height:100%;}
+  /* Spielkarte: das Rechteck */
+  .spielkarte{width:76px;aspect-ratio:5/7;border:1.5px solid var(--line);border-radius:8px;
+              background:var(--bone);display:flex;flex-direction:column;align-items:center;
+              justify-content:center;gap:4px;padding:6px 4px;flex-shrink:0;position:relative;}
+  .spielkarte svg{width:30px;height:30px;color:var(--ink);}
+  .spielkarte .kart{font-family:var(--f-mono);font-size:7px;letter-spacing:.1em;
+                    text-transform:uppercase;color:var(--ink2);}
+  .spielkarte .kch{width:30px;height:30px;display:flex;align-items:center;justify-content:center;}
+  .spielkarte .kch svg{width:100%;height:100%;display:block;}
+  .spielkarte .kch.leer{font-size:24px;line-height:1;}
+  .spielkarte.n{background:var(--panel2);border-color:var(--ink2);}
+  /* Mensch: der Kreis */
+  .wesen{width:64px;height:64px;border-radius:50%;border:1.5px solid var(--line);
+         background:var(--bone);display:flex;align-items:center;justify-content:center;
+         font-size:28px;flex-shrink:0;}
+  .wesen svg{width:34px;height:34px;color:var(--ink);}
+  .wesen>svg{width:34px;height:34px;}
+  /* Flora: das Fünfeck */
+  .pent{width:60px;height:58px;clip-path:polygon(50% 0,100% 38%,82% 100%,18% 100%,0 38%);
+        background:var(--wald);color:var(--ink);display:flex;align-items:center;
+        justify-content:center;flex-shrink:0;}
+  .pent svg{width:32px;height:32px;margin-top:4px;}
+  /* Fauna: das Quadrat */
+  .quad{width:56px;height:56px;border-radius:4px;background:var(--kies);color:var(--ink);
+        display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .quad svg{width:34px;height:34px;}
+  /* Nebel des Unbegegneten (?nebel) */
+  .eintrag.unbegegnet{opacity:.5;}
+  .eintrag.unbegegnet .hexon,.eintrag.unbegegnet .pent,.eintrag.unbegegnet .quad{
+    background:var(--tile);color:var(--tileink);}
+  .eintrag.unbegegnet .mark.leer{font-size:22px;}
+  .zug{border-left:3px solid var(--ember);background:var(--emberglow);
+       border-radius:0 var(--r-sm) var(--r-sm) 0;padding:8px 11px;margin:8px 0 0;font-size:12px;line-height:1.5;}
+  .zug::before{content:"DER ZUG";display:block;font-family:var(--f-mono);font-size:9px;
+               letter-spacing:.14em;color:var(--ember);margin-bottom:3px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="appbar ruled">
+    <div class="brand">ALMANACH<small>was im Tal lebt, liegt und gebaut wird</small></div>
+    <div class="year"><b>Epoche I</b><span>Mesolithikum</span></div>
+  </header>
+
+  <p class="dim small intro">Der Inhaltskatalog des Spiels. Jeder Eintrag trägt seinen
+  <b>Belegstatus</b> und seinen <b>Zug</b> — den Satz, der aus <i>wo</i>, <i>wann</i> und
+  <i>wer</i> folgt. Alles historisch inspiriert und vereinfacht.</p>
+
+  <div class="tabs" id="tabs">
+    <button data-tab="gelaende">Gelände &amp; Plättchen</button>
+    <button data-tab="karten">Karten</button>
+    <button data-tab="menschen">Menschen</button>
+    <button data-tab="flora">Flora</button>
+    <button data-tab="fauna">Fauna</button>
+  </div>
+  <div class="pane" data-tab="gelaende" id="p-gelaende"></div>
+  <div class="pane hid" data-tab="karten" id="p-karten"></div>
+  <div class="pane hid" data-tab="menschen" id="p-menschen"></div>
+  <div class="pane hid" data-tab="flora" id="p-flora"></div>
+  <div class="pane hid" data-tab="fauna" id="p-fauna"></div>
+</div>
+
+<script src="../kit/sot.js"></script>
+<script src="../kit/sot-icons.js"></script>
+<script>
+/* ================= ZEICHEN =================
+   Alle Zeichen kommen aus kit/sot-icons.js — SOT.icon(name). Die lokale
+   Tabelle (23 Zeichnungen) stand byte-gleich in vier weiteren Dateien.
+
+   **Icons sind SVG, immer.** Dieser Katalog hat mit einem Dutzend
+   Schriftzeichen als Marken angefangen; sie sind alle zu Zeichnungen
+   geworden. Der lehrreichste Fall war das Schuhwerk: sein Zeichen lag
+   ausserhalb der Basic Multilingual Plane und fiel darum auf jedem zweiten
+   Gerät auf ein Ersatzkästchen zurück — ein Icon, das auf halben Geräten
+   nicht existiert, ist kein Icon.
+
+   Marken IM Fliesstext schreiben sich als {name} und werden von t() zu
+   einem SVG expandiert — so bleibt der Datentext lesbar. */
+const beleg2txt={belegt:'belegt',wahrscheinlich:'wahrscheinlich',rekonstruiert:'rekonstruiert',erfunden:'frei erfunden'};
+
+/* ================= DATEN =================
+   Ein Eintrag: id · nm · sub (eine Zeile) · beleg · Darstellung (hex/karte/wesen)
+   · kv (wo/wann/gibt …) · txt (Beschreibung) · zug (der Satz, der aus den Daten
+   folgt) · links (ids — die Querverweise, aus denen Kombinationen werden). */
+const A={
+
+gelaende:[
+ {id:'flach',nm:'Flachland',sub:'Schritt 1 · trägt das meiste',beleg:'belegt',hex:{t:'flach'},
+  kv:[['Ausdauer-Schritt','1'],['trägt','Uferlager · Hochterrasse · Feuerstein-Schlagstelle'],['Sicht','offen — der Blick läuft durch']],
+  txt:'Der Talboden zwischen den Armen des jungen Rheins: Schotter, Aue, offene Flächen. Hier wird gelegt, gegangen und gelagert.',
+  zug:'Offenes Land ist Weg und Bühne zugleich — das Wild scheut es, der Mensch braucht es.',links:['rothirsch','lager']},
+ {id:'auenwald',nm:'Auenwald',sub:'Gelände · was auf dem Talboden wächst',beleg:'belegt',hex:{t:'wald',g:'wald'},
+  kv:[['Ausdauer-Schritt','1'],['trägt','Holzplatz'],['Bewuchs','Hasel · Birke · Ulme · Beeren am Rand'],['sein Rand','das beste Revier des Tals']],
+  txt:'Weiden, Erlen und Ulmen der Aue. Er wird nicht gelegt — er steht schon da: auf zwei Kilometern im Feld <b>ist</b> Bewuchs Gelände. Die einzelnen Pflanzen sind Flora (eigener Reiter), der Auenwald ist ihr Ort.',
+  zug:'Der Waldrand — Auenwald an Flachland — ist die beste Zeile des Tals: die Sammlerin holt die Hasel, der Hirsch äst in der Dämmerung, beides am selben Feld.',links:['hasel','rothirsch','holzplatz']},
+ {id:'hang',nm:'Hang',sub:'Schritt 2 · nur der Jäger steigt',beleg:'belegt',hex:{t:'hang'},
+  kv:[['Ausdauer-Schritt','2 — aus dem Stand nur der Jäger {jaeger}'],['Sicht von oben','4 statt 2'],['oben liegen','die Vorkommen {silex} {ocker} {quarz}']],
+  txt:'Die erste Stufe über dem Tal. Der Aufstieg kostet — aber von oben reicht der Blick doppelt so weit, und dort liegt, was unten fehlt.',
+  zug:'Der Hang ist die Risikoleiter des Jägers: weiter gehen, mehr sehen, mehr heimbringen — oder umkehren.',links:['jaeger','silex','hoehle','steinbock']},
+ {id:'berg',nm:'Berg',sub:'sperrt Weg und Blick',beleg:'belegt',hex:{t:'berg',ico:'silex'},
+  kv:[['begehbar','nein'],['Sicht','wird gesehen, nicht durchschaut']],
+  txt:'Die Grate über dem Tal. Man sieht sie von überall — und kennt doch nichts hinter ihnen.',
+  zug:'Bergland wird gesehen, aber nicht durchschaut: der Nebel des Ungespielten trägt die Form der Grate.'},
+],
+
+/* Gewässer: die Klasse wird GERECHNET, nicht gemalt (gewaesser-labor-v1,
+   gespielt in erkundung-v3): Abflussbilanz über den Laufgraph, Breite
+   b = 6·√Q, Klasse aus der Breite. Das Wasser fließt als Band von
+   Kantenmitte zu Kantenmitte DURCH das Feld — daneben bleibt Ufer. */
+gewaesser:[
+ {id:'ufer',nm:'Ufer',sub:'wohnt im Flussfeld — kein eigenes Gelände mehr',beleg:'belegt',
+  hex:{t:'flach',band:{ein:'NE',aus:'SW',b:9,farbe:'--w-kfluss'}},
+  kv:[['Ausdauer-Schritt','1 — das Feld ist Land, das Wasser nur ein Band'],['trägt','Fischgrund · Uferlager'],['teilt','k Wasserkanten → k Ufer-Sektoren; links bleibt links']],
+  txt:'Ein Feld ist ein Kilometer breit, der junge Rhein 47 Meter: das Ufer ist kein eigener Streifen mehr, sondern der Rest des Flussfelds — je Seite Hunderte Meter Land. Wer „am Fluss" steht, steht IM Flussfeld, auf einem seiner Ufer-Sektoren.',
+  zug:'Das Ufer ist der Rest: erst wer ans ANDERE Ufer will, zahlt das Wasser — dasselbe Feld ist Lagerplatz und Grenze zugleich.',links:['lager','fisch','fluss','forelle']},
+ {id:'quelle',nm:'Quelle',sub:'wo ein Lauf beginnt — meist am Hang',beleg:'belegt',
+  hex:{t:'hang',band:{aus:'SE',b:4.5,farbe:'--w-bach',quelle:true}},
+  kv:[['wo','Hang und Bergfuß — wo das Wasser aus dem Fels tritt'],['gibt','sicheres Trinkwasser · den Anfang eines Bachs'],['besonders','ein Strahl, kein Trenner']],
+  txt:'Hier tritt das Wasser ins Tal. Eine Quelle hat nur einen Wasserstrahl im Feld — sie zerschneidet nichts.',
+  zug:'Eine Quelle trennt nichts: um sie geht man herum — Wasser beginnt als Nachbar, nicht als Grenze.',links:['bach','hang']},
+ {id:'bach',nm:'Bach',sub:'0,5 – 5 m · überall zu durchwaten',beleg:'belegt',
+  hex:{t:'flach',band:{ein:'E',aus:'W',b:4.5,farbe:'--w-bach'}},
+  kv:[['Breite','0,5 – 5 m (b = 6·√Q)'],['queren','überall — −1 Ausdauer'],['gibt','Trinkwasser · kleine Fischgründe']],
+  txt:'Ständig wasserführend, von jedem zu durchwaten. Die Bäche der Hänge sammeln das Tal ein und tragen es dem Rhein zu.',
+  zug:'Bach + Bach = kleiner Fluss ist keine Regel, sondern ein Ergebnis: wo zwei sich treffen, heißt das Wasser von selbst anders.',links:['quelle','kfluss','biberdamm']},
+ {id:'kfluss',nm:'kleiner Fluss',sub:'5 – 10 m · nass bis zur Brust',beleg:'belegt',
+  hex:{t:'flach',band:{ein:'E',aus:'SW',b:9,farbe:'--w-kfluss'}},
+  kv:[['Breite','5 – 10 m'],['queren','an flachen Stellen — −2 Ausdauer'],['trägt','Fischgrund']],
+  txt:'Durchwatbar, aber nicht beiläufig: wer hindurch will, wird nass und braucht danach ein Feuer.',
+  zug:'−2 Ausdauer fürs Waten: wer trocken bleiben will, folgt dem Lauf — und lernt dabei die Furten kennen.',links:['bach','fluss','forelle']},
+ {id:'fluss',nm:'grosser Fluss — der junge Rhein',sub:'ab 10 m · ohne Boot eine Grenze',beleg:'belegt',
+  hex:{t:'flach',band:{ein:'NE',aus:'SW',b:14,farbe:'--w-gfluss'}},
+  kv:[['Breite','ab 10 m — der junge Rhein führt hier ~24 m'],['queren','nur an der Furt (oder mit Boot)'],['trägt','Fischgrund · Uferlager auf dem Ufer-Sektor'],['mit Einbaum','Wasser wird billiger als Land']],
+  txt:'Der junge Alpenrhein: kiesig, launisch, wandernd. Er ernährt, wer ihn lesen kann — und teilt das Tal für alle, die kein Boot haben. Seine Breite ist gerechnet, nicht gemalt: b = 6·√Q, und jeder Zufluss macht ihn sichtbar breiter.',
+  zug:'Ohne Boot eine Grenze: der junge Rhein teilt das Tal in links und rechts — und macht die Furt zum wertvollsten Ort der Karte.',links:['furt','aue','k_einbaum','fisch']},
+ {id:'strom',nm:'Strom',sub:'warum es hier keinen gibt',beleg:'belegt',
+  hex:{t:'flach',band:{ein:'NE',aus:'SW',b:22,farbe:'--w-gfluss'}},
+  kv:[['Regel','Strom heißt nur, wessen Wasser das Meer erreicht'],['hier','der Alpenrhein endet im Bodensee — er bleibt grosser Fluss']],
+  txt:'Über 100 m breit und mit Mündung ins Meer — das ist ein Strom. Der Rhein wird einer, aber erst hinter dem See: im Tal dieser Epoche gibt es keinen.',
+  zug:'Der Name ist eine Prüfung ans Meer: was im Bodensee endet, bleibt ein grosser Fluss — die Systematik lügt nicht, auch nicht aus Ehrgeiz.',links:['fluss','see']},
+ {id:'aue',nm:'Schotterflur — die verzweigte Strecke',sub:'wo der Fluss sich in Rinnen teilt',beleg:'belegt',
+  hex:{t:'kies',band:{ein:'NE',aus:'SW',b:9,farbe:'--w-kfluss',rinnen:3}},
+  kv:[['wo','flache, breite Talböden — der Lauf teilt sich in drei Rinnen'],['daneben','Gelände „Aue": Kies im Grünen, wandert mit jedem Hochwasser'],['besonders','dasselbe Wasser auf dreifacher Breite — flach']],
+  txt:'Der Alpenrhein war über weite Strecken ein verzweigter Wildfluss: Rinnen, Kiesbänke, Inseln, nach jedem Hochwasser neu gemischt. Im Spiel entsteht das Gelände Aue neben jeder verzweigten Strecke von selbst.',
+  zug:'Verzweigt verteilt sich dasselbe Wasser auf die dreifache Breite und wird flach: die Schotterflur ist der Geburtsort der Furten.',links:['furt','kies','fluss']},
+ {id:'furt',nm:'Furt',sub:'ein Ort, keine Schwelle',beleg:'belegt',
+  hex:{t:'kies',band:{ein:'NE',aus:'SW',b:9,farbe:'--w-kfluss',rinnen:3,furt:true}},
+  kv:[['Ausdauer','−1 — der billigste Weg ans andere Ufer'],['wo','die flachste Stelle einer Strecke, fast immer in der Schotterflur'],['historisch','die Furten des Alpenrheins lagen genau dort (Schaan, Tardis)'],['Verbund','wirkt über die Furt hinweg']],
+  txt:'Flaches Wasser über Kies. Die Furt wird nicht gesetzt, sie ERGIBT sich: dort, wo der verzweigte Lauf am flachsten ist. Auch das Wild kennt sie — alles, was hinüber muss, muss hier durch.',
+  zug:'Die Furt ist ein Ort, keine Schwelle: das flachste Feld seiner Strecke — und wo alles queren muss, wartet der Jäger.',links:['aue','fluss','jaeger','rothirsch']},
+ {id:'see',nm:'See',sub:'flaches Wasser, stilles Ufer',beleg:'belegt',hex:{t:'see'},
+  kv:[['Stillgewässer','dauerhaft · über 1 ha — sonst wäre es ein Weiher'],['trägt','Fischgrund · später Pfahlbau'],['im Winter','Wasservögel rasten hier']],
+  txt:'Bodensee und die stillen Buchten: flaches, warmes Wasser. Später stehen hier Häuser auf Pfählen.',
+  zug:'Die magere Zeit hat ein eigenes Revier: im Winter liegen die Wintergäste auf dem See.',links:['stockente','pfahl','weiher']},
+ {id:'weiher',nm:'Weiher & Tümpel',sub:'die kleinen Stillen',beleg:'belegt',
+  hex:{t:'flach',ico:'weiher'},
+  kv:[['Weiher','dauerhaft, flach, bis 1 ha — bis zum Grund durchlichtet'],['Tümpel','temporär — fällt im Sommer trocken'],['gibt','Rohrkolben im Ried · Enten · Biberrevier']],
+  txt:'Zwischen Pfütze und See liegt eine ganze Systematik: Fläche mal Dauerhaftigkeit entscheidet den Namen. Für den Stamm zählt nur eines davon verlässlich — der Weiher bleibt auch im August Wasser.',
+  zug:'Dauerhaft oder nicht, das ist die Klasse: wer plant, plant mit dem Weiher — der Tümpel ist im Sommer nur eine Erinnerung.',links:['rohrkolben','biberdamm','see']},
+ {id:'kies',nm:'Kiesbank',sub:'was der Fluss bringt, bleibt hier liegen',beleg:'belegt',hex:{t:'kies'},
+  kv:[['nach Hochwasser','legt der Fluss neuen Kies frei'],['Funde','was von weit her kommt, strandet hier']],
+  txt:'Die Bänke des verzweigten Flusses wandern mit jedem Hochwasser. Was der Fluss mitnimmt, legt er hier wieder hin.',
+  zug:'Ein Fund im Kies gehört niemandem — bis ihn jemand aufhebt.',links:['n_kies','aue']},
+],
+
+plaettchen:[
+ {id:'fisch',nm:'Fischgrund',sub:'+1 Nahrung/Tag',beleg:'belegt',hex:{t:'fluss',g:'fisch'},
+  kv:[['Ertrag','+1 Nahrung/Tag'],['liegt auf','Fluss · Ufer · See'],['Verbund','Fangplatz: neben Lager/Pfahlbau +1 Nahrung/Tag']],
+  txt:'Reusen und Speerplätze an guter Stelle — der Fluss ernährt, wer ihn lesen kann.',
+  zug:'Der Fischgrund an der guten Stelle, das Uferlager daneben: der Verbund Fangplatz zahlt verlässlich — die Sammlerin bewirtschaftet ihn.',links:['sammlerin','forelle','lager']},
+ {id:'lager',nm:'Uferlager',sub:'+1 Nahrung/Tag · das Herz des Stamms',beleg:'belegt',hex:{t:'ufer',g:'lager'},
+  kv:[['Ertrag','+1 Nahrung/Tag'],['liegt auf','Flachland am Wasser'],['nachts','hier wird geprüft, was der Tag gebaut hat']],
+  txt:'Feuerstelle, Zelte, Vorräte — das Herz des Stamms, auf festem Grund am Wasser.',
+  zug:'Das Lager dort bauen, wo Auenwald an Flachland grenzt: der Waldrand ist die Speisekammer — und die Nacht liest, was darin liegt.',links:['rothirsch','hasel','n_wolf']},
+ {id:'holzplatz',nm:'Holzplatz',sub:'+1 Material/Tag — auf Auenwald',beleg:'rekonstruiert',hex:{t:'wald',g:'holz'},
+  kv:[['Ertrag','+1 Material/Tag'],['liegt auf','Auenwald — sonst kein laufender Ertrag'],['Verbund','neben Lager/Pfahlbau +1 Material/Tag'],['wer','Sammlerin {sammlerin} bewirtschaftet ihn']],
+  txt:'Schlagplatz, Trockengestell, Bastgrube: der Ort, an dem aus stehendem Wald tragbares Material wird. Der Wald ist Gelände — gebaut wird die <i>Nutzung</i>.',
+  zug:'Ort vor Bau, derselbe Satz wie beim Feuerstein: Wald ohne Holzplatz ist Kulisse, Holzplatz ohne Wald ein Haufen Werkzeug.',links:['auenwald','flint','sammlerin']},
+ {id:'terrasse',nm:'Hochterrasse',sub:'+1 Schutz',beleg:'wahrscheinlich',hex:{t:'flach',g:'terrasse'},
+  kv:[['Ertrag','+1 Schutz'],['liegt auf','Flachland · Hang'],['Verbund','Höhlenlager + Hochterrasse: +1 Schutz (einmalig)']],
+  txt:'Erhöhter Rastplatz mit Weitblick — wer oben sitzt, wird nicht überrascht. (Der <i>Name</i> ist geologisch: eine Hochterrasse ist eine Flussterrasse, also Gelände. Gebaut wird der Rastplatz darauf — dasselbe Paar wie Höhle/Höhlenlager, noch nicht getrennt.)',
+  zug:'Wer die Terrasse an das Höhlenlager baut, macht aus zwei Zufluchten eine Stellung.',links:['hoehlenlager','hoehle']},
+ {id:'hoehlenlager',nm:'Höhlenlager',sub:'+2 Schutz — in einer gefundenen Höhle',beleg:'belegt',hex:{t:'hang',g:'hoehle'},
+  kv:[['Ertrag','+2 Schutz'],['liegt auf','eine gefundene Höhle {hoehle} am Hang'],['Verbund','Höhlenlager + Hochterrasse: +1 Schutz (einmalig)']],
+  txt:'Feuerstelle im Windschatten des Fels, Felle auf dem Boden, Vorräte trocken. Nicht die Höhle wird gebaut — das Lager darin.',
+  zug:'Die Höhle findet man beim Aufstieg, das Lager baut man hinein: zwei Hälften einer Regel, die das Spiel überall wiederholt.',links:['hoehle','terrasse','jaeger']},
+ {id:'flint',nm:'Feuerstein-Schlagstelle',sub:'+1 Material — auf der Silexader',beleg:'belegt',hex:{t:'hang',g:'flint'},
+  kv:[['Ertrag','+1 Material/Tag auf Silexader, sonst keiner'],['liegt auf','Hang · Flachland'],['Bedingung','ohne Silex kein Werkzeug']],
+  txt:'Eine Schlagstelle: hier wird Silex zu Klingen. Auf der Ader liefert sie dauerhaft — daneben ist sie nur ein Haufen Steine.',
+  zug:'Erst die Ader finden ({silex}, oben am Hang), dann die Schlagstelle darauf bauen: Ort vor Bau — das Tal belohnt, wer hinschaut.',links:['silex','v_werkzeug']},
+ {id:'pfahl',nm:'Pfahlbau',sub:'−3 Material · +1 Nahrung/Tag · +1 Schutz',beleg:'belegt',hex:{t:'see',g:'pfahl'},
+  kv:[['Kosten','3 Material'],['Ertrag','+1 Nahrung/Tag · +1 Schutz'],['liegt auf','See · Seeufer'],['Verbund','zwei Pfahlbauten: ein Dorf — +1 Kultur'],['Zeit','Übergang zu Epoche II (ab ~4300 v. Chr.)']],
+  txt:'Ein Haus auf Pfählen im flachen Wasser — die neue Bauweise vom See. Ihre Hölzer sind Jahrtausende später aufs Jahr genau datierbar. Heute UNESCO-Welterbe.',
+  zug:'Der Pfahlbau steht über der Flut: die Bauweise besteht die Probe, die das Ufer versenkt — und wird als Fundstelle zurückschauen.',links:['see','n_kies']},
+],
+
+vorkommen:[
+ {id:'silex',nm:'Silexader',sub:'{silex} · +1 Material — die Bedingung für Werkzeug',beleg:'belegt',hex:{t:'hang',ico:'silex'},
+  kv:[['gibt','+1 Material'],['wo','oben am Hang'],['wer','wer dort steht, bringt es am Abend heim']],
+  txt:'Feuerstein in der Felsbank. Wer ihn schlägt, hat Klingen — und wer Klingen hat, hat Werkzeug.',
+  zug:'Ohne Silex gibt es keine Werkzeuge: der erste Aufstieg des Spiels hat einen Namen.',links:['flint','v_werkzeug','hang']},
+ {id:'ocker',nm:'Ockergrube',sub:'{ocker} · +1 Kultur',beleg:'belegt',hex:{t:'hang',ico:'ocker'},
+  kv:[['gibt','+1 Kultur'],['wo','Hang']],
+  txt:'Roter Ocker, mit Wasser zu Farbe gerieben. Die ältesten Zeichen des Tals sind damit gemalt.',
+  zug:'Farbe ist das erste, was bleibt: Ocker füttert das Schnitzwerk — und die Zeichen ziehen Fremde ans Feuer.',links:['v_schnitz','n_fremde']},
+ {id:'quarz',nm:'Bergkristall',sub:'{quarz} · +1 Material · +1 Kultur',beleg:'belegt',hex:{t:'berg',ico:'quarz'},
+  kv:[['gibt','+1 Material · +1 Kultur'],['wo','hoch am Hang, an der Berggrenze']],
+  txt:'Klarer Kristall aus den Klüften — schneidet wie Silex und glänzt wie nichts sonst. Abbauplätze hoch in den Alpen sind belegt.',
+  zug:'Der weiteste Weg des Tals lohnt doppelt: Werkzeug und Staunen aus demselben Stein.',links:['hang','jaeger']},
+ {id:'hoehle',nm:'Höhle',sub:'{hoehle} · Merkmal des Hangs — gefunden, nicht gelegt',beleg:'belegt',hex:{t:'hang',ico:'hoehle'},
+  kv:[['gibt','Schutz — den ältesten des Tals'],['wo','Hang; nur wer hinaufsteigt, findet sie'],['nutzbar','wenn das Höhlenlager darin steht']],
+  txt:'Fels über dem Kopf. Eine Höhle wird nicht gebaut und nicht gelegt — sie liegt da, seit die Gletscher weg sind, und wartet, dass jemand den Hang hochgeht.',
+  zug:'Schutz liegt oben, und nur dort: wer die Höhle will, zahlt den Aufstieg — dieselbe Regel wie beim Silex.',links:['hang','hoehlenlager','jaeger']},
+ /* Merkmale der Läufe — Orte, an denen ein Gewässer sich anders verhält
+    als seine Klasse. Sie werden ABGELEITET (Gefälle, Flanken, Tiefe),
+    nicht gesetzt — gewaesser-labor-v1. In erkundung-v3 kommt nur die
+    Furt vor (das Spielfeld hat kein Steilgelände am Wasser); die drei
+    hier warten auf die Karte, die sie braucht. */
+ {id:'wasserfall',nm:'Wasserfall',sub:'{wasserfall} · Absturz über eine Stufe',beleg:'belegt',
+  hex:{t:'hang',ico:'wasserfall',band:{ein:'NE',aus:'SW',b:6,farbe:'--w-bach'}},
+  kv:[['entsteht','ab 120 m Gefälle je Kilometer'],['queren','✕ — weder quer noch längs'],['wo','wo Seitenbäche über die Talstufe fallen']],
+  txt:'Wo ein Hängetal in den Trog des Gletschers mündet, stürzt sein Bach. Kein Übergang, in keiner Richtung — aber ein Ort, den jeder im Tal kennt.',
+  zug:'Der Wasserfall wird nicht gemalt, er folgt aus dem Gefälle: die Karte erzeugt ihre Wahrzeichen selbst.',links:['hang','bach']},
+ {id:'stromschnelle',nm:'Stromschnelle',sub:'{stromschnelle} · schnell, laut, gefährlich',beleg:'belegt',
+  hex:{t:'flach',ico:'stromschnelle',band:{ein:'NE',aus:'SW',b:9,farbe:'--w-kfluss'}},
+  kv:[['entsteht','ab 55 m Gefälle je Kilometer'],['queren','−5 Ausdauer · nur halbe Überlebenschance'],['warum','nicht die Tiefe reisst um, sondern Tiefe mal Geschwindigkeit']],
+  txt:'Steiles Gefälle über Blöcke. Ein knietiefer Wildbach ist gefährlicher als ein hüfttiefer, träger Fluss — die Schnelle ist diese Wahrheit als Ort.',
+  zug:'Die Schnelle ist der Preis der Abkürzung: wer sie zahlt, hatte es eilig — und vielleicht recht.',links:['fluss','wasserfall']},
+ {id:'klamm',nm:'Klamm',sub:'{klamm} · die Wände sperren, nicht das Wasser',beleg:'belegt',
+  hex:{t:'berg',ico:'klamm',band:{ein:'NE',aus:'SW',b:5,farbe:'--w-bach'}},
+  kv:[['entsteht','wo der Lauf sich tief in den Fels geschnitten hat'],['queren','✕ — und auch längs führt kein Weg hindurch'],['besonders','ein Bach mit Bergen als Ufer']],
+  txt:'Der Fluss hat sich eingeschnitten; die Flanken stehen hundert und mehr Meter über dem Bett. Das Wasser wäre zu durchwaten — an die Wände kommt niemand.',
+  zug:'Nicht das Wasser sperrt, die Wände: eine Klamm ist ein Bach, dem das Gebirge die Ufer gestohlen hat.',links:['berg','bach']},
+ {id:'biberdamm',nm:'Biberdamm',sub:'{damm} · der Damm, den niemand baute',beleg:'belegt',
+  hex:{t:'flach',ico:'damm',band:{ein:'E',aus:'W',b:4.5,farbe:'--w-bach'}},
+  kv:[['entsteht','wo der Biber einen Bach staut'],['macht','aus Fliesswasser stilles Wasser — einen Weiher'],['gibt','Fischgrund und Entenrevier, gratis']],
+  txt:'Der einzige Damm der Epoche I. Was im Gewässer-Labor der Menschendamm ist (flussaufwärts fluten bis zum Stauziel), macht hier der Biber im Kleinen — und das Tal spielt mit.',
+  zug:'Wo der Biber staut, wird aus dem Bach stilles Wasser: ein Fischgrund, den niemand gebaut hat.',links:['biber','weiher','bach']},
+],
+
+karten:[
+ {id:'k_rute',nm:'Wünschelrute',sub:'Ausrüstung · „Zum Wasser >"',beleg:'erfunden',karte:{g:'rute',stapel:'Ausrüstung'},
+  kv:[['Wirkung','ein Wirkungspunkt {beleg}: zieht die Person ein Feld Richtung Wasser'],['Rahmen','wirkt, weil sie geglaubt wird (ANI)'],['Schicksal','erlischt, wenn der Deutungsrahmen zu RAT wechselt']],
+  txt:'Frühneuzeitlich belegt (Bergbau, 15./16. Jh.) — mesolithisch frei erfunden. Sie darf falsch sein, weil sie geglaubt wird: Epoche I prüft sie nicht.',
+  zug:'Ausrüstung, die durch Mentalitätswandel erlischt statt durch Verschleiss — die Regel, die dieses Spiel von einem Aufbauspiel unterscheidet.'},
+ {id:'k_einbaum',nm:'Einbaum',sub:'Ausrüstung · Wasser wird billiger als Land',beleg:'belegt',karte:{g:'einbaum',stapel:'Ausrüstung'},
+  kv:[['Wirkung','Flussfelder kosten weniger als Landfelder'],['Träger','Sammlerin {sammlerin} (ihre Reichweiten-Schiene: Pfade · Träger · Boot)'],['Beleg','älteste Einbäume ~8000 v. Chr.']],
+  txt:'Ein ausgebrannter, ausgeschlagener Stamm. Das älteste Boot der Welt ist so alt wie diese Epoche.',
+  zug:'Wasser wird billiger als Land — von da an folgt die bekannte Welt dem Fluss. Der Einbaum ist der Formgeber der Karte.',links:['fluss','sammlerin']},
+ {id:'k_hund',nm:'Hund',sub:'Ausrüstung · der erste Verbündete',beleg:'belegt',karte:{g:'hund',stapel:'Ausrüstung'},
+  kv:[['Wirkung','+1 Reichweite des Jägers · warnt in der Nacht'],['Beleg','domestiziert lange vor dieser Epoche']],
+  txt:'Kein Werkzeug, sondern ein Gefährte: er läuft voraus, stellt das Wild und knurrt, bevor das Feuer kleiner wird.',
+  zug:'Gegen die Bache und gegen die Nacht: der Hund zählt zweimal — am Tag beim Jäger, im Dunkeln beim Lager.',links:['jaeger','wildschwein','n_wolf']},
+ {id:'k_bogen',nm:'Bogen',sub:'Ausrüstung · Reichweite aus Ulmenholz',beleg:'belegt',karte:{g:'bogen',stapel:'Ausrüstung'},
+  kv:[['Wirkung','Jagd auf ein Nachbarfeld — der Jäger muss nicht mehr heran'],['braucht','Ulmenholz · Birkenpech · Sehne'],['Beleg','mesolithische Bögen aus Ulme erhalten']],
+  txt:'Ein Stab, der einen Winter lang trocknet, und eine Sehne aus Tier: die grösste Reichweite, die diese Epoche kennt.',
+  zug:'Der Bogen ist die Reichweite des Jägers, in einen Baum vorausbezahlt — gefällt wird er ein Jahr vor dem Schuss.',links:['ulme','birke','jaeger']},
+ {id:'r_wegzehrung',nm:'Wegzehrung',sub:'Dämmerung · −1 Nahrung → +1 Ausdauer heute',beleg:'rekonstruiert',karte:{g:'morgen',stapel:'Rüstwahl'},
+  kv:[['Kosten','−1 Nahrung'],['Lohn','+1 Ausdauer, nur heute']],
+  txt:'Wer weit gehen will, isst vorher. Die Dämmerung fragt: was nimmst du mit?',
+  zug:'Der weite Tag wird am Morgen gekauft — Wegzehrung ist die Ausdauer, die man isst.'},
+ {id:'r_spaeher',nm:'Späher',sub:'Dämmerung · −1 Nahrung → +1 Sichtweite heute',beleg:'rekonstruiert',karte:{g:'morgen',stapel:'Rüstwahl'},
+  kv:[['Kosten','−1 Nahrung'],['Lohn','+1 Sichtweite, nur heute']],
+  txt:'Einer geht voraus und kommt mit Wissen zurück statt mit Beute.',
+  zug:'Sehen ist billiger als gehen: der Späher kauft Karte, ohne Schritte zu zahlen.'},
+ {id:'r_rast',nm:'Rasttag',sub:'Dämmerung · +2 Nahrung, niemand geht',beleg:'rekonstruiert',karte:{g:'morgen',stapel:'Rüstwahl'},
+  kv:[['Kosten','ein Tag'],['Lohn','+2 Nahrung — dafür geht niemand']],
+  txt:'Flicken, räuchern, erzählen. Auch das Nichtstun ist eine Entscheidung mit Preis.',
+  zug:'Der Rasttag ist die einzige Karte, die Zeit gegen Vorrat tauscht — und der Prüfstein, ob Zeit etwas wert ist.'},
+ {id:'v_werkzeug',nm:'Werkzeug schlagen',sub:'Abend · −2 Material → +2 Schutz, dauerhaft',beleg:'belegt',karte:{g:'flint',stapel:'Verwandlung'},
+  kv:[['Kosten','−2 Material'],['Lohn','+2 Schutz, dauerhaft'],['Bedingung','braucht Silex — hol es am Hang']],
+  txt:'Klingen, Schaber, Spitzen: aus Silex, Birkenpech und Holz. Die erste Verwandlung, die bleibt.',
+  zug:'Silex vom Hang, Pech von der Birke, Holz aus der Aue: ein Werkzeug ist drei Wege, an einem Abend zusammengesetzt.',links:['silex','birke','auenwald']},
+ {id:'v_schuh',nm:'Schuhwerk',sub:'Abend · −2 Material → +1 Ausdauer, für immer',beleg:'rekonstruiert',karte:{g:'schuh',stapel:'Verwandlung'},
+  kv:[['Kosten','−2 Material'],['Lohn','+1 Ausdauer, für immer'],['je Person','einmal']],
+  txt:'Fell, Bast und Sehnen. Direkte Funde fehlen dieser Epoche — aber Füsse, die das Tal durchmassen, hatten etwas an sich.',
+  zug:'Schuhwerk ist die Schleife, die sich selbst antreibt: mehr Reichweite heute, mehr Ertrag morgen, wieder mehr Reichweite. Gutes Laufen kauft besseres Laufen.'},
+ {id:'v_vorrat',nm:'Trockenfleisch',sub:'Abend · −2 Nahrung → +1 Vorrat',beleg:'rekonstruiert',karte:{g:'vorrat',stapel:'Verwandlung'},
+  kv:[['Kosten','−2 Nahrung'],['Lohn','+1 Vorrat — fängt genau eine Hungernacht'],['geplant','Vorrat zieht Besucher an (die Waage)']],
+  txt:'Über dem Rauch wird der gute Tag haltbar. Aber ein volles Lager riecht weit.',
+  zug:'Der Vorrat fängt die Hungernacht — und ruft die anderen: was du hast, entscheidet, wer kommt.',links:['n_wolf','n_fremde']},
+ {id:'v_schnitz',nm:'Schnitzwerk & Zeichen',sub:'Abend · −1 Material −1 Nahrung → +1 Kultur',beleg:'belegt',karte:{g:'spur',stapel:'Verwandlung'},
+  kv:[['Kosten','−1 Material · −1 Nahrung'],['Lohn','+1 Kultur'],['später','was geschnitzt wurde, wird gefunden']],
+  txt:'Ritzungen, Anhänger, ein Zeichen am Fels. Der Spieler sammelt keine Punkte — er hinterlässt Belege.',
+  zug:'Die Trophäe wird nicht den Zeitgenossen gezeigt, sondern der Archäologie: was du schnitzt, schaut am Epochenende zurück.',links:['ocker','n_fremde']},
+ {id:'n_wolf',nm:'Etwas umkreist das Lager',sub:'Nacht · Gewicht 22',beleg:'rekonstruiert',karte:{g:'wolf',stapel:'Nachtkarte',n:1},
+  kv:[['prüft','Schutz ≥ 4'],['hält','nichts verloren'],['hält nicht','−2 Nahrung'],['geplant','Schwelle wächst mit dem Vorrat (die Waage)']],
+  txt:'Zweige brechen. Augen im Dunkeln. Der Hund knurrt, das Feuer wird kleiner.',
+  zug:'Die Nacht liest deinen Zustand: Wälle, Feuer und der Jäger halten es fern — ein voller Rauchspeicher zieht es an.',links:['wolfstier','v_vorrat','jaeger']},
+ {id:'n_frost',nm:'Frost kriecht ins Lager',sub:'Nacht · Gewicht 16',beleg:'belegt',karte:{g:'frost',stapel:'Nachtkarte',n:1},
+  kv:[['prüft','Material ≥ 3'],['hält','−1 Material (verbrannt)'],['hält nicht','−2 Nahrung']],
+  txt:'Der Atem gefriert an den Fellen. Wer Holz hat, verbrennt es. Wer keins hat, friert.',
+  zug:'Gegen den Frost zählt der Auenwald doppelt: Material ist im Winter gespeicherte Wärme.',links:['auenwald','holzplatz']},
+ {id:'n_stille',nm:'Stille',sub:'Nacht · Gewicht 18',beleg:'erfunden',karte:{g:'stille',stapel:'Nachtkarte',n:1},
+  kv:[['Wirkung','nichts geschieht']],
+  txt:'Nur der Fluss spricht. Die Sterne stehen so klar, dass die Ältesten Geschichten in sie hineinlesen.',
+  zug:'Manchmal ist das das grösste Geschenk — und die Pause, die der Furcht ihren Takt gibt.'},
+ {id:'n_wild',nm:'Das Wild zieht weiter',sub:'Nacht · Gewicht 16',beleg:'belegt',karte:{g:'hirsch',stapel:'Nachtkarte',n:1},
+  kv:[['Wirkung','Rudel ziehen heute 2 Felder statt 1']],
+  txt:'Im Morgengrauen ist die Fährte kalt. Die Rudel wechseln das Tal, wie sie es immer taten.',
+  zug:'Wer gestern die Fährte vom Hang geholt hat, weiss trotzdem, wohin — Wissen überlebt die Nacht.',links:['rothirsch','jaeger']},
+ {id:'n_fremde',nm:'Fremde am Feuer',sub:'Nacht · Gewicht 14',beleg:'wahrscheinlich',karte:{g:'fremde',stapel:'Nachtkarte',n:1},
+  kv:[['Wirkung','morgen ein zusätzliches Plättchen'],['geplant','wahrscheinlicher, je mehr Zeichen geschnitzt sind']],
+  txt:'Eine kleine Gruppe bittet um Platz am Feuer. Sie kennen Stellen, die ihr nicht kennt.',
+  zug:'Kultur zieht Menschen an: die Zeichen am Fels sind eine Einladung, die man nicht zurücknehmen kann.',links:['v_schnitz']},
+ {id:'n_kies',nm:'Ein Fund im Kies',sub:'Nacht · Gewicht 14',beleg:'wahrscheinlich',karte:{g:'fundkies',stapel:'Nachtkarte',n:1},
+  kv:[['Wirkung','+1 Kultur']],
+  txt:'Bernstein, glatt wie Wasser. Er kommt von weit her — jemand hat ihn hierher getragen.',
+  zug:'Das Tal war nie allein: was im Kies liegt, erzählt von Wegen, die keiner von euch je ging.',links:['kies']},
+],
+
+menschen:[
+ {id:'sammlerin',nm:'Sammlerin',sub:'Talboden · verlässlich · bewirtschaftet',beleg:'belegt',wesen:{g:'sammlerin'},
+  kv:[['Ausdauer','1'],['stark','bewirtschaftet ihr Plättchen: +1 Ertrag auf Wald, Feuerstein, Fischgrund, Lager'],
+      ['schwach','der Hang: aus dem Stand kommt sie nicht hinauf'],['Reichweite wächst über','Pfade · Träger · Boot'],
+      ['Risikoachse','Besitz — ihr Ertrag füllt das Lager, und die Nacht liest das Lager'],
+      ['ihre Frage ans Gelände','was trägt dieses Feld, Tag für Tag?']],
+  txt:'Beeren & Wurzeln, kurze Wege, verlässlicher Ertrag. Sie ist der Boden des Stamms: was sie holt, ist planbar — Hasel, Fisch, Rohrkolben, das bewirtschaftete Plättchen. In Wahrheit die Hälfte, die den Stamm trägt.',
+  zug:'Die Sammlerin ist der Motor der Anhäufung: ihr verlässlicher Ertrag wird Vorrat, und Vorrat ruft die Nacht. Ohne die Waage wäre sie ein Gewinnknopf — mit ihr die spannendste Figur des Spiels.',links:['hasel','fisch','k_einbaum','n_wolf']},
+ {id:'jaeger',nm:'Jäger',sub:'Höhe · schwankend · Schutz',beleg:'belegt',wesen:{g:'jaeger'},
+  kv:[['Ausdauer','2'],['stark','einziger, der aus dem Stand den Hang steigt · Sicht 4 von oben · +2 Schutz, solange er im Tal steht'],
+      ['schwach','Ertrag schwankt: gute Tage und leere'],['Reichweite wächst über','Schuhwerk · Späher · Hund'],
+      ['Risikoachse','Entfernung — weiter gehen, mehr sehen; irgendwann: draussen bleiben'],
+      ['seine Frage ans Gelände','was sehe ich von hier — und was sieht mich?']],
+  txt:'Fleisch & Fell, weite Wege, Ertrag schwankt. Er teilt sich das Tal mit der Sammlerin von selbst: sie den Talboden, er die Höhe.',
+  zug:'Vom Hang aus bringt die Jagd +2 Nahrung und die Fährte statt +1 im Tal: gute Aufstellung wird bezahlt, nicht blosse Anwesenheit.',links:['rothirsch','steinbock','hang','k_bogen']},
+],
+
+flora:[
+ {id:'hasel',nm:'Hasel',sub:'Nahrung, die sich lagern lässt',beleg:'belegt',wesen:{g:'hasel'},
+  kv:[['gibt','Nahrung · lagerbar (zählt als Vorrat)'],['wo','Waldrand — wo Auenwald an Flachland grenzt'],['wann','Spätsommer bis Herbst'],['wer','Sammlerin {sammlerin}']],
+  txt:'Die Haselzeit: nach der Eiszeit überzieht die Hasel das Tal, und ihre Schalen liegen zu Bergen in den Rastplätzen dieser Epoche. Das verlässlichste Kalorienpaket des Mesolithikums.',
+  zug:'Die Sammlerin bewirtschaftet den Auenwald am Flachlandrand: Haselnüsse sind der Herbst, der den Winter fängt — Vorrat ohne Feuer.',links:['sammlerin','auenwald','v_vorrat']},
+ {id:'beere',nm:'Beeren',sub:'sofortige Nahrung, kleine Mengen',beleg:'wahrscheinlich',wesen:{g:'beere'},
+  kv:[['gibt','Nahrung · sofort, nicht lagerbar'],['wo','Lichtungen · Brandflächen · Ufer'],['wann','Sommer'],['wer','Sammlerin {sammlerin}']],
+  txt:'Him-, Brom-, Erdbeere auf jeder Lichtung. Archäologisch fast unsichtbar — Beeren hinterlassen keine Schalenberge —, aber kein Sommer verzichtete darauf.',
+  zug:'Wo Feuer war, wächst die Beere: die Brandfläche von gestern ist die Speisekammer von übermorgen.',links:['sammlerin']},
+ {id:'rohrkolben',nm:'Rohrkolben',sub:'Wurzelstärke und Flechtwerk',beleg:'wahrscheinlich',wesen:{g:'rohr'},
+  kv:[['gibt','Nahrung (Wurzelstock) · Material (Flechtwerk, Matten)'],['wo','Ried — stilles Wasser am See'],['wann','Wurzeln im Winterhalbjahr'],['wer','Sammlerin {sammlerin}']],
+  txt:'Das Ried ist ein Lagerhaus: stärkereiche Wurzelstöcke, Blätter für Matten und Körbe, Kolbenwolle für Zunder.',
+  zug:'Wenn das Tal nichts gibt, gibt das Ried: die Wurzel im Winterschlamm ist die Nahrung der mageren Zeit.',links:['see','sammlerin']},
+ {id:'birke',nm:'Birke',sub:'Birkenpech — der älteste Klebstoff',beleg:'belegt',wesen:{g:'birke'},
+  kv:[['gibt','Material · Birkenpech (schäftet jede Klinge)'],['wo','Pionierbaum — Flachland, Brandflächen'],['wann','Rinde im Frühjahr'],['wer','beide']],
+  txt:'Aus geschwelter Rinde wird Pech: der älteste Kunststoff der Menschheit, lange vor dieser Epoche erfunden. Ohne ihn hält keine Spitze am Schaft.',
+  zug:'Ohne Birkenpech hält keine Klinge am Schaft — der Baum ist der stille Teil jedes Werkzeugs.',links:['v_werkzeug','k_bogen']},
+ {id:'ulme',nm:'Ulme',sub:'das Bogenholz',beleg:'belegt',wesen:{g:'ulme'},
+  kv:[['gibt','Material · Bogenholz'],['wo','Auenwald, tiefe Lagen'],['wann','gefällt im Winter, ein Jahr getrocknet'],['wer','Jäger {jaeger}']],
+  txt:'Die erhaltenen Bögen dieser Epoche sind aus Ulme geschnitzt — zäh, elastisch, geduldig.',
+  zug:'Der Bogen ist die Reichweite des Jägers, in einen Baum vorausbezahlt: gefällt ein Jahr vor dem ersten Schuss.',links:['k_bogen','jaeger','auenwald']},
+],
+
+fauna:[
+ {id:'rothirsch',nm:'Rothirsch',sub:'die Hauptbeute des Tals',beleg:'belegt',wesen:{g:'hirsch'},
+  kv:[['gibt','Fleisch · Fell · Geweih (Werkzeug!)'],['wo','Waldrand — äst, wo Wald an offenes Land grenzt'],['wann','Dämmerung'],['Verhalten','Rudel zieht jede Nacht ein Feld · scheut offenes Land'],
+      ['Jagd','Jäger im Nachbarfeld +1 Nahrung · vom Hang mit Blick darauf +2 und die Fährte']],
+  txt:'Das häufigste Beutetier der Rastplätze dieser Epoche — und mehr als Fleisch: aus der Geweihstange werden Harpunen, Fassungen, Hacken.',
+  zug:'Das Lager dort bauen, wo Auenwald an Flachland grenzt, und den Jäger auf den Hang mit Blick aufs Rudel stellen: +2 Nahrung und die Fährte — gute Aufstellung wird bezahlt, nicht Anwesenheit.',links:['jaeger','auenwald','lager','hang']},
+ {id:'wildschwein',nm:'Wildschwein',sub:'Fleisch und Fett — wehrt sich',beleg:'belegt',wesen:{g:'schwein'},
+  kv:[['gibt','Fleisch · Fett (Wintervorrat) · Hauer'],['wo','Auenwald, dichtes Unterholz'],['wann','Tag, im Dickicht'],['Verhalten','flieht nicht — die Bache greift an'],
+      ['Jagd','ohne Hund und Bogen riskiert der Jäger mehr, als er holt']],
+  txt:'Der gefährlichste Nachbar der Aue. Fett ist der Winterspeicher, den Beeren nie füllen — aber die Bache verteidigt die Frischlinge.',
+  zug:'Fleisch und Fett für den Winter, aber die Bache wehrt sich: mit Hund und Bogen ist es Jagd, ohne beides ein Tausch.',links:['k_hund','k_bogen','auenwald']},
+ {id:'steinbock',nm:'Steinbock',sub:'die Beute der Höhe',beleg:'belegt',wesen:{g:'steinbock'},
+  kv:[['gibt','Fleisch · Horn · Fell'],['wo','Hang und Berggrenze — Jagdlager hoch über dem Tal sind belegt'],['wann','Sommer, wenn der Schnee die Grate freigibt'],
+      ['Jagd','nur der Jäger — der Aufstieg kostet 2, und niemand sonst steigt aus dem Stand']],
+  txt:'Mesolithische Jäger stiegen nachweislich in die Hochlagen — ihre Rastplätze liegen weit über dem Tal. Der Steinbock war der Grund.',
+  zug:'Nur der Jäger steigt aus dem Stand auf den Hang: der Steinbock ist der Lohn dafür, dass jemand die Höhe gelernt hat — die oberste Sprosse der Risikoleiter.',links:['jaeger','hang','quarz']},
+ {id:'biber',nm:'Biber',sub:'baut das Gelände um',beleg:'belegt',wesen:{g:'biber'},
+  kv:[['gibt','Fell (das dichteste des Tals) · Zähne (Schnitzwerkzeug)'],['wo','stille Arme, Auen'],['wann','Dämmerung am Wasser'],['Verhalten','staut Bäche — macht aus Fliesswasser stilles Wasser']],
+  txt:'Der einzige Nachbar, der wie der Mensch das Tal umbaut. Biberzahn-Werkzeuge liegen in den Fundstellen; sein Fell übersteht jeden Winter.',
+  zug:'Wo der Biber staut, wird aus dem Bach stilles Wasser: ein Fischgrund, den niemand gebaut hat — das Gelände spielt mit.',links:['fisch','ufer','biberdamm']},
+ {id:'forelle',nm:'Seeforelle',sub:'der verlässliche Fang',beleg:'wahrscheinlich',wesen:{g:'fisch'},
+  kv:[['gibt','Nahrung · verlässlich'],['wo','Fischgrund — Mündungen, Kolke, Seeausfluss'],['wann','Laichzug im Herbst: dann in Mengen'],['Fang','Reuse und Speer — die Sammlerin bewirtschaftet den Grund']],
+  txt:'Fischgräten überdauern schlecht, doch die Plätze sprechen: Reusenstellen an Mündungen, immer wieder besucht. Im Herbst steigt die Seeforelle in die Zuflüsse.',
+  zug:'Der Laichzug ist ein Termin: wer im Herbst den Fischgrund an der Mündung hält, erntet den Fluss wie ein Feld.',links:['fisch','sammlerin','fluss']},
+ {id:'stockente',nm:'Wasservögel',sub:'die Wintergäste',beleg:'wahrscheinlich',wesen:{g:'ente'},
+  kv:[['gibt','Nahrung · Federn (Befiederung, Wärme)'],['wo','See und stille Buchten'],['wann','Winter — wenn der Norden zufriert, rasten sie hier'],['Fang','vom Ufer und vom Einbaum']],
+  txt:'Der Bodensee friert selten — darum sammeln sich die Enten und Gänse des Nordens hier, genau dann, wenn das Tal am wenigsten gibt.',
+  zug:'Die magere Zeit hat ein eigenes Revier: im Winter liegen die Wintergäste auf dem See — der Einbaum wird zur Winterwaffe.',links:['see','k_einbaum']},
+ {id:'wolfstier',nm:'Wolf',sub:'der Besucher der Nacht',beleg:'belegt',wesen:{g:'wolf'},
+  kv:[['gibt','nichts — er nimmt'],['wo','ums Lager, jenseits des Feuerscheins'],['wann','Nacht'],['Verhalten','prüft das Lager: Schutz ≥ 4 hält ihn fern'],['geplant','je voller der Rauchspeicher, desto näher der Kreis (die Waage)']],
+  txt:'Derselbe, aus dem der Hund wurde — die zwei Enden einer Geschichte teilen sich das Tal. Er frisst keine Menschen; er holt, was offen liegt.',
+  zug:'Die Nacht liest deinen Zustand: was du hast, entscheidet, wer kommt. Der Wolf ist diese Regel auf vier Beinen.',links:['n_wolf','k_hund','v_vorrat']},
+],
+};
+
+/* ================= PARAMS & NEBEL ================= */
+const P=SOT.params({
+  typ:    {t:'enum',values:['gelaende','karten','menschen','flora','fauna'],def:'gelaende',help:'geöffneter Reiter'},
+  eintrag:{help:'zum Eintrag springen (id, z. B. rothirsch)'},
+  nebel:  {t:'flag',help:'Nebel des Unbegegneten: nur begegnete Einträge sind lesbar (In-Game-Vorschau, P3)'},
+});
+const BEGEGNET=new Set(['flach','ufer','fluss','lager','auenwald','sammlerin','jaeger','hasel','rothirsch']);
+const alle={},tabVon={};
+const FORM={menschen:'wesen',flora:'pent',fauna:'quad'};
+Object.keys(A).forEach(sek=>A[sek].forEach(e=>{
+  alle[e.id]=e;
+  e.form=e.hex?'hex':e.karte?'karte':FORM[sek];
+  tabVon[e.id]=(sek==='plaettchen'||sek==='vorkommen'||sek==='gewaesser')?'gelaende':sek;
+}));
+const sichtbar=e=>!P.nebel||BEGEGNET.has(e.id);
+
+/* ================= DARSTELLUNG =================
+   Formsprache: Hex = Land · Rechteck = Karte · Kreis = Mensch ·
+   Fünfeck = Flora · Quadrat = Fauna. */
+/* Das Wasserband im Eintrag — dieselbe Zeichnung wie erkundung-v3 und
+   auftakt-v1 (Baukasten-Kandidat sot-wasser): Kantenmitte → Feldmitte →
+   Kantenmitte, Breite und Farbe je Klasse; rinnen:3 für die verzweigte
+   Strecke, quelle/muendung für Läufe, die im Feld beginnen oder enden. */
+const EDGEM={E:[100,57.7],W:[0,57.7],NE:[75,14.4],NW:[25,14.4],SE:[75,101],SW:[25,101]};
+function bandSVG(b){
+  const C=[50,57.7], a=b.ein?EDGEM[b.ein]:null, z=b.aus?EDGEM[b.aus]:null;
+  const w=b.b||9, farbe='var('+(b.farbe||'--w-kfluss')+')';
+  function pfad(off){
+    if(!a)return 'M '+C[0]+' '+C[1]+' L '+z[0]+' '+z[1];
+    if(!z)return 'M '+a[0]+' '+a[1]+' L '+C[0]+' '+C[1];
+    let cx=C[0],cy=C[1];
+    if(off){const dx=z[0]-a[0],dy=z[1]-a[1],L=Math.hypot(dx,dy)||1;cx+=-dy/L*off;cy+=dx/L*off;}
+    return 'M '+a[0]+' '+a[1]+' Q '+cx+' '+cy+' '+z[0]+' '+z[1];
+  }
+  let h='<path d="'+pfad(0)+'" fill="none" stroke="var(--w-saum)" stroke-width="'+(w+Math.max(3,w*.6)*(b.rinnen?2.6:1))+'" stroke-linecap="round"/>';
+  if(b.rinnen)for(const off of [-18,0,18])
+    h+='<path d="'+pfad(off)+'" fill="none" stroke="'+farbe+'" stroke-width="'+(w*.45).toFixed(1)+'" stroke-linecap="round"/>';
+  else h+='<path d="'+pfad(0)+'" fill="none" stroke="'+farbe+'" stroke-width="'+w+'" stroke-linecap="round"/>';
+  if(b.quelle)h+='<circle cx="50" cy="57.7" r="'+Math.max(4,w*.9)+'" fill="'+farbe+'"/>';
+  if(b.furt)for(let i=-1;i<=1;i++)
+    h+='<line x1="'+(50+i*8-0)+'" y1="'+(57.7-(b.rinnen?24:w*.9))+'" x2="'+(50+i*8)+'" y2="'+(57.7+(b.rinnen?24:w*.9))+'" stroke="var(--bone)" stroke-width="3" stroke-linecap="round"/>';
+  return '<svg class="bandv" viewBox="0 0 100 115.47" preserveAspectRatio="none">'+h+'</svg>';
+}
+/* Jeder Eintrag wird als das Ding selbst gezeichnet — und jedes Zeichen ist
+   ein SVG aus dem Baukasten. Frueher gab es hier zwei Wege: `g` fuer eine
+   Zeichnung, `mark`/`ch` fuer ein Schriftzeichen. Der zweite ist weg; die
+   Marke im Hexfeld (`ico`) ist jetzt derselbe Aufruf wie alles andere. */
+function visual(e){
+  if(e.form==='hex'){
+    const zeichen=e.hex.g||e.hex.ico;
+    const glyph=zeichen?'<span class="mark">'+SOT.icon(zeichen)+'</span>':'';
+    const wasser=['fluss','see'].includes(e.hex.t);
+    const band=e.hex.band?bandSVG(e.hex.band):'';
+    return '<div class="hexon" style="--tc:var(--'+({fluss:'river',see:'lake',berg:'trocken'}[e.hex.t]||e.hex.t)+');--hc:var(--'+(wasser?'on-river':'ink')+')">'+band+glyph+'</div>';}
+  if(e.form==='karte')
+    return '<div class="spielkarte'+(e.karte.n?' n':'')+'"><span class="kart">'+e.karte.stapel+'</span>'
+      +'<span class="kch">'+SOT.icon(e.karte.g)+'</span></div>';
+  return '<div class="'+e.form+'">'+SOT.icon(e.wesen.g)+'</div>';
+}
+/* Der unbegegnete Eintrag: die Silhouette der FORM, ohne das Ding darin.
+   Das Fragezeichen ist Schrift und darf es sein — es ist kein Icon, sondern
+   die Abwesenheit eines Icons. */
+function silhouette(e){
+  const leer='<span class="mark leer">?</span>';
+  if(e.form==='karte')return '<div class="spielkarte"><span class="kch leer">?</span></div>';
+  return '<div class="'+(e.form==='hex'?'hexon':e.form)+'">'+leer+'</div>';
+}
+/* ico(name) — ein Icon in einer Zeichenkette; .ibtn bemisst das SVG.
+   t(text) — expandiert {name} zu diesem Icon. So bleibt der DATENTEXT lesbar
+   („Sammlerin {sammlerin}") statt eingeklebtes SVG zu tragen, und die Regel
+   „Icons sind SVG" gilt trotzdem bis in die Fliesstexte der Karteikarten.
+   Ein unbekanntes {wort} bleibt unangetastet stehen — Fliesstext in
+   geschweiften Klammern soll nicht stillschweigend verschwinden. */
+const ico=n=>'<i class="ibtn">'+SOT.icon(n)+'</i>';
+const t=s=>String(s==null?'':s).replace(/\{([a-z]+)\}/g,(m,n)=>SOT.hasIcon(n)?ico(n):m);
+
+function kachel(e){
+  if(!sichtbar(e))return '<div class="eintrag unbegegnet" id="e-'+e.id+'">'+silhouette(e)+
+    '<div class="etext"><div class="kopf"><b>· · ·</b><span class="pill">unbegegnet</span></div>'+
+    '<span class="sub">Noch nicht begegnet — geh hin.</span></div></div>';
+  let h='<div class="eintrag" id="e-'+e.id+'">'+visual(e)+'<div class="etext">';
+  h+='<div class="kopf"><b>'+e.nm+'</b><span class="pill '+e.beleg+'">'+beleg2txt[e.beleg]+'</span></div>';
+  h+='<span class="sub">'+t(e.sub)+'</span>';
+  h+='<p class="txt">'+t(e.txt)+'</p>';
+  (e.kv||[]).forEach(p=>{h+='<div class="kv"><span>'+p[0]+'</span><b>'+t(p[1])+'</b></div>';});
+  if(e.zug)h+='<div class="zug">'+t(e.zug)+'</div>';
+  if(e.links&&e.links.length){h+='<div class="chips">'+e.links.map(id=>{
+    const z=alle[id];return z?'<span class="chip on" data-go="'+id+'">'+z.nm+'</span>':'';}).join('')+'</div>';}
+  return h+'</div></div>';
+}
+function gruppe(titel,list){return '<div class="gtitle">'+titel+'</div><div class="grid">'+list.map(kachel).join('')+'</div>';}
+
+document.getElementById('p-gelaende').innerHTML=
+  gruppe('Gelände — was das Tal vorgibt (nicht gelegt, sondern da)',A.gelaende)+
+  gruppe('Gewässer — das Band im Feld; die Klasse wird gerechnet, nicht gemalt',A.gewaesser)+
+  gruppe('Plättchen — was der Mensch dazu baut',A.plaettchen)+
+  gruppe('Was das Land birgt — Vorkommen und Merkmale',A.vorkommen);
+document.getElementById('p-karten').innerHTML=
+  '<p class="dim small">Drei Stapel hat Epoche I: <b>Mensch</b> (→ Reiter Menschen) · <b>Ausrüstung</b> · <b>Land</b> (→ Reiter Gelände &amp; Plättchen). Dazu die Wahlen der Dämmerung und des Abends — und der Nachtstapel, der niemanden fragt.</p>'+
+  gruppe('Ausrüstung — was einer trägt',A.karten.filter(e=>e.karte.stapel==='Ausrüstung'))+
+  gruppe('Dämmerung — die Rüstwahl (eine je Tag)',A.karten.filter(e=>e.karte.stapel==='Rüstwahl'))+
+  gruppe('Abend — die Verwandlung (eine je Abend)',A.karten.filter(e=>e.karte.stapel==='Verwandlung'))+
+  gruppe('Nacht — der Stapel, der dich liest',A.karten.filter(e=>e.karte.stapel==='Nachtkarte'));
+document.getElementById('p-menschen').innerHTML=
+  '<p class="dim small">Zwei Personenarten kennt Epoche I — keine Klassen: „Beides lernt ihr später. Der Anfang bestimmt nur, was euch leichter fällt." Sie teilen sich das Tal von selbst: sie den Talboden, er die Höhe.</p>'+
+  gruppe('Menschen',A.menschen);
+document.getElementById('p-flora').innerHTML=
+  '<p class="dim small">Das Revier der Sammlerin — verlässlich, planbar, mit Terminen im Jahr. Bisher als „+1 Ertrag" abstrahiert; hier bekommt der Ertrag Namen. Ihr Ort ist der <b>Auenwald</b> — der steht als Gelände im ersten Reiter, denn auf zwei Kilometern im Feld ist Bewuchs Gelände.</p>'+
+  gruppe('Flora',A.flora);
+document.getElementById('p-fauna').innerHTML=
+  '<p class="dim small">Das Revier des Jägers — schwankend, wandernd, mit Aufstellung zu bezahlen. Jedes Tier trägt sein <i>wo</i>, <i>wann</i> und sein Verhalten.</p>'+
+  gruppe('Fauna',A.fauna);
+
+/* ================= QUERVERWEISE (springen statt blättern) ================= */
+const reiter=SOT.tabs('#tabs');
+function springe(id){
+  const e=alle[id];if(!e)return;
+  reiter.select(tabVon[id]);
+  const el=document.getElementById('e-'+id);if(!el)return;
+  el.scrollIntoView({block:'center'});
+  el.classList.add('blitz');setTimeout(()=>el.classList.remove('blitz'),1600);
+}
+document.addEventListener('click',ev=>{
+  const c=ev.target.closest('[data-go]');if(c)springe(c.dataset.go);
+});
+
+/* ================= START ================= */
+reiter.select(P.typ);
+if(P.eintrag&&alle[P.eintrag])springe(P.eintrag);
+SOT.debug(P);
+</script>
+</body>
+</html>

@@ -1,0 +1,2634 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plättchen-Pfade — die Arena</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<style>
+/* ============================================================================
+   Plättchen-Pfade v1 — die ARENA
+
+   Ziel dieses Labors (später): Plättchen bekommen PFADE, die sich über die
+   Kanten verbinden. Dieser erste Durchgang baut davon NICHTS — er baut nur den
+   Ort, an dem sich das prüfen lässt:
+
+     · ein einzelnes Plättchen in der Mitte
+     · „+" und „−" legen einen Ring drumherum bzw. nehmen ihn weg
+     · ein Klick wählt ein Plättchen, dann gibt ihm die Sortenliste seine Sorte
+     · ein HÖHENFELD hebt und senkt die Plättchen; die Minikarte oben links
+       zeigt es als Graukeil und ist zugleich die zweite Hand am Raster
+     · eine QUELLE auf einem Plättchen, und der Lauf wird GERECHNET: nie
+       bergauf, kürzester Weg, zum tiefsten erreichbaren Punkt
+     · SENKEN werden gefüllt, und wo eine gespeiste Pfanne überläuft, steht ein
+       SEE — der Lauf quert ihn und geht am Überlauf weiter
+     · eine Quelle SCHÜTTET eine Menge; sie summiert sich talwärts, das Band
+       wird breiter (Bach → Strom), und eine Pfanne ohne Zufluss bleibt trocken
+
+   Zweiter Durchgang: das Höhenfeld. Es ist der Punkt, an dem die Arena aufhört,
+   ein Haufen gleich hoher Steine zu sein — und er ist billig, weil ein Feld
+   eine reine FUNKTION von (c,r) ist und kein Speicher. Sieben Felder (flach ·
+   Nord–Süd · West–Ost · Kuppe · Senke · Kamm · Rauschen), ein Hub in Stufen,
+   und dieselbe Funktion beantwortet beides: was die Kachel bekommt und was die
+   Minikarte malt. Es gibt keine zweite Wahrheit fürs Bild.
+
+   Warum überhaupt eine eigene Arena, wenn `diorama-labor-v1` schon eine Karte
+   zeichnet? Weil dort ein ganzes TAL steht: gerechnete Höhen, geroutetes
+   Wasser, Nebel, zwei Klane, Leute. Für die Frage „passen zwei Pfade an ihrer
+   gemeinsamen Kante zusammen?" ist das alles Beiwerk, und Beiwerk verdeckt
+   Fehler. Hier gibt es darum genau zwei veränderliche Dinge — die ZAHL der
+   Plättchen und die SORTE eines Plättchens. Alles andere ist Bild.
+
+   ÜBERNOMMEN aus `diorama-labor-v1.html`, absichtlich unverändert (das ist der
+   Bauweise-Befund, auf dem dieses Labor aufsetzt, keine Neuerfindung):
+
+     · `Bauplan` — alles wird in FLACHE Felder geschrieben und am Ende zu je
+       einer Geometrie verschmolzen; Flächennormalen selbst gerechnet, damit
+       ist die Facettierung eingebaut und `flatShading` unnötig.
+     · Die Kachel — Deckfläche auf eingezogenem Ring (Fase), Flanke in zwei
+       Bändern, Kontaktverschattung IN DIE ECKENFARBEN gebacken (kein SSAO:
+       das liegt in `examples/jsm`, also ausserhalb des Kerns).
+     · Die Palette als CSS-Tokens, beim Aufbau aus dem berechneten Stil
+       zurückgelesen — darum drehen `?night` und die Tageszeit die Welt mit,
+       und es steht kein `#hex` im JS.
+     · Orthografische Kamera, VSM-Schatten (`PCFSoftShadowMap` ist in r185
+       abgekündigt und fällt still auf PCF zurück), Nachbearbeitung aus dem
+       Kern allein — vier Durchgänge als `RawShaderMaterial`, kein
+       `EffectComposer`.
+     · Zeigen über das HÖHENFELD statt über einen Netzschnitt: der erste
+       Treffer auf dem Netz ist in der Schrägsicht die FLANKE der Kachel davor,
+       man landet also systematisch auf dem Plättchen VOR dem gemeinten.
+     · Die Umlaufrichtung der Ecken (fallender Winkel) — siehe dort.
+
+   WEGGELASSEN, jedes Mal aus demselben Grund (die Arena soll die Pfade prüfen,
+   nicht das Tal): Talachse, Wasserrouting, Nebel und Hebung, Klane, Leute,
+   Wetter, Wolke.
+
+   Die Höhe kommt hier aus ZWEI Quellen, die sich addieren, und die Trennung
+   ist der Grund, warum man beide beurteilen kann:
+
+     · das HÖHENFELD — eine Funktion über dem Raster, sieben zur Wahl,
+       Ausschlag `?hub=` in Stufen. Das ist die Landschaft.
+     · die SORTE — Hochebene +2, Felsig +1, Kiesbank −1 Stufen. Das ist die
+       Eigenschaft des Plättchens, unabhängig davon, wo es liegt.
+
+   Jeder Hebel ist einzeln abschaltbar (`?hub=0` · `?stufen=0`), also einzeln
+   messbar; vermischt wäre nicht mehr zu sagen, wovon eine Stufe kommt. Beides
+   dient derselben Sache: der Kontaktverschattung, die die Kachelbauweise
+   überhaupt sehenswert macht — und einem Anlass für Pfade, die klettern.
+
+   ---------------------------------------------------------------------------
+   Was als NÄCHSTES hierhin kommt (und deshalb noch nicht drin ist)
+
+   Ein Pfad wird an KANTEN hängen, nicht an Feldern — das ist im Projekt schon
+   entschieden: `gewaesser-labor-v4` und das Diorama setzen ihre Ports auf die
+   KANTENMITTEN. Das Diorama hält dazu einen Griff fest, der für Pfade genauso
+   gilt: die Kante eines Sechsecks steht senkrecht auf der Verbindung ihrer
+   beiden Feldmitten, also muss die Tangente am Port auf genau diese Verbindung
+   gesetzt werden — dann kommen beide Nachbarn mit derselben Tangentenrichtung
+   an, und die Naht ist glatt, obwohl jedes Plättchen für sich rechnet. Der
+   Port braucht darum keine Registratur (reine Funktion der zwei Feldmitten).
+   Die Kachel-ECKEN taugen dafür NICHT: die sind je Plättchen einzeln
+   geschrumpft und verzogen, die Nachbarn wären sich nicht einig.
+
+   Hier steht deshalb noch kein `kanten`-Feld im Datenmodell. Ein leeres Feld
+   „für später" beweist nichts und veraltet, bevor es benutzt wird.
+
+   Der LAUF einer Quelle (Abschnitt 5b) ist der erste Pfad dieses Labors, und er
+   geht bewusst durch die FELDMITTEN, nicht über die Kanten: gefragt war der
+   Weg, nicht das Gewässer. Wenn die Pfade kommen, wird derselbe Weg über die
+   Kantenmitten gezeichnet — die Feldfolge, die hier herauskommt, ist genau die
+   Eingabe dafür.
+   ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+   Die Diorama-Palette — Tokens, nicht Konstanten im JS. Übernommen aus
+   `diorama-labor-v1`; Wasser, Wetter, Volk und Nebel sind herausgefallen,
+   weil es hier nichts zu färben haben.
+   --------------------------------------------------------------------------- */
+:root{
+  /* Gras — fünf benachbarte Töne. Die Streuung je Ecke macht das Gemalte. */
+  --d-gras-1:#6F9D32; --d-gras-2:#78A83A; --d-gras-3:#86BD63;
+  --d-gras-4:#66952F; --d-gras-5:#8BAE45;
+  /* Wiese (dunkler, kurzgrasig) · Waldboden · Hochebene (heller, lichter) */
+  --d-wiese-1:#5E8F31; --d-wiese-2:#6B9B38; --d-wiese-3:#7EB65B;
+  --d-wald-boden-1:#4F7C2E; --d-wald-boden-2:#5C8A36; --d-wald-boden-3:#69973C;
+  --d-hoch-1:#8EC468; --d-hoch-2:#9ACF74; --d-hoch-3:#7FB65C;
+  /* Flanken und Erde — die Seitenwände tragen die halbe Bildwirkung */
+  --d-flanke:#4D7C3A; --d-erde:#6B5236; --d-erde-tief:#42301D;
+  --d-strata:#9AA0A0;
+  /* Fels */
+  --d-fels-1:#B6BABB; --d-fels-2:#8F9394; --d-fels-3:#CFD2D3;
+  /* Sand und Kies */
+  --d-sand-1:#DDC98F; --d-sand-2:#CDB67E; --d-sand-3:#C2AB73;
+  --d-sand-flanke:#AD9662;
+  /* Wasser — nie tief, immer gemalt. Zwei Töne genügen: der Spiegel EINES Sees
+     liegt auf einer Höhe, die Farbe unterscheidet nur, wie tief darunter der
+     Boden liegt. */
+  --d-wasser:#4E9FD6; --d-wasser-tief:#2E6E9E;
+  /* Bewuchs */
+  --d-nadel-1:#2E6B39; --d-nadel-2:#367A41; --d-nadel-3:#3F8B4A; --d-nadel-4:#4D9C56;
+  --d-stamm:#6B4A2B; --d-busch:#4D9C56; --d-beere:#C8383C;
+  /* Bühne: das Papier, der Bodenschatten, die drei Lichter */
+  --d-papier:#ECE0C8; --d-boden:#B7A079;
+  --d-sonne:#FFF3DE; --d-fuell:#BFD7FF; --d-rueck:#7E9A55;
+  /* Bildstimmung: Lichter warm, Schatten kühl */
+  --d-warm:#FFF0DC; --d-kuehl:#D6E2FF;
+  /* Die Minikarte ist ein MESSGERÄT, kein Bild: sie zeigt das Höhenfeld als
+     Graukeil, hoch = hell. Zwei eigene Tokens, weil `--ink`/`--bone` in der
+     Nacht ihre Rollen tauschen — dann läge unten plötzlich das Helle, und der
+     Keil würde seine Aussage umdrehen, ohne dass jemand etwas geändert hat. */
+  --mm-tief:#26302B; --mm-hoch:#F6F1E4; --mm-gitter:#8E9A92;
+}
+/* Nacht ist eine Spielmechanik, keine Vorliebe — die Welt kippt mit. */
+body.night{
+  --d-gras-1:#2A4426; --d-gras-2:#2F4B2A; --d-gras-3:#37542F;
+  --d-gras-4:#264020; --d-gras-5:#33502D;
+  --d-wiese-1:#243D21; --d-wiese-2:#294526; --d-wiese-3:#2F4C2A;
+  --d-wald-boden-1:#1E3A1D; --d-wald-boden-2:#234121; --d-wald-boden-3:#284826;
+  --d-hoch-1:#3B5A33; --d-hoch-2:#436439; --d-hoch-3:#35522E;
+  --d-flanke:#1E3320; --d-erde:#2C2318; --d-erde-tief:#191309;
+  --d-strata:#404849;
+  --d-fels-1:#4A5254; --d-fels-2:#3A4143; --d-fels-3:#5A6365;
+  --d-sand-1:#5B5138; --d-sand-2:#524931; --d-sand-3:#48402B;
+  --d-sand-flanke:#3C3524;
+  --d-wasser:#1E4C74; --d-wasser-tief:#123049;
+  --d-nadel-1:#13301C; --d-nadel-2:#173821; --d-nadel-3:#1C4126; --d-nadel-4:#22492C;
+  --d-stamm:#241A10; --d-busch:#1E4426; --d-beere:#5E1D22;
+  --d-papier:#0F1A22; --d-boden:#070C10;
+  --d-sonne:#B8CBF0; --d-fuell:#4E6C96; --d-rueck:#20301F;
+  --d-warm:#FFE6C0; --d-kuehl:#C3D4FF;
+  --mm-tief:#0A1016; --mm-hoch:#C9D6DD; --mm-gitter:#3A4C56;
+}
+/* Tageszeiten drehen nur die Lichtfarben — das Gelände bleibt es selbst. */
+body[data-zeit=morgen]{ --d-sonne:#FFD9C0; --d-fuell:#CFDCFF; --d-warm:#FFE2C4; }
+body[data-zeit=abend] { --d-sonne:#FFCB93; --d-fuell:#B9CBF5; --d-warm:#FFDDAF; }
+
+/* ------------------------------------------------------------------ Bühne ---*/
+html,body{height:100%;}
+body{overflow:hidden;}
+.app{height:100dvh;display:flex;flex-direction:column;
+     padding:10px 12px 12px;max-width:1400px;margin:0 auto;box-sizing:border-box;}
+.app > header.appbar{flex:0 0 auto;}
+
+#buehne{position:relative;flex:1 1 auto;min-height:0;border-radius:var(--r-lg);
+        overflow:hidden;background:var(--d-papier);border:1px solid var(--line);}
+#gl{display:block;width:100%;height:100%;cursor:grab;}
+#gl.ziel{cursor:pointer;}
+/* NACH `.ziel`: beim Ziehen gewinnt die Faust, egal was darunter liegt. */
+#gl.zieht{cursor:grabbing;}
+
+/* Alles, was über der Welt liegt, ist HTML — scharf in jeder Auflösung. Das
+   ist dieselbe Entscheidung wie im Diorama: three.js macht die Miniaturwelt,
+   die Bedienung macht der Baukasten. */
+.hud{position:absolute;inset:0;pointer-events:none;display:flex;padding:10px;gap:8px;}
+/* Ein Container ist LUFT — Luft fängt keine Klicks. Stünde hier
+   `.hud > *{pointer-events:auto}`, läge ein unsichtbarer Kasten über der halben
+   Bühne und schluckte jeden Klick, bevor er die Leinwand erreicht. */
+.hud, .hud .links, .hud .rechts, .hud .fuss, .hud .chips{pointer-events:none;}
+.hud .stempel, .hud .chip, .hud .pane{pointer-events:auto;}
+.hud .links{display:flex;flex-direction:column;gap:8px;align-items:flex-start;
+            flex:1;min-width:0;}
+.hud .rechts{display:flex;flex-direction:column;gap:8px;align-items:stretch;
+             width:196px;flex:none;overflow-y:auto;max-height:100%;}
+.hud .fuss{margin-top:auto;}
+.hud .chip{background:color-mix(in srgb,var(--panel) 84%,transparent);backdrop-filter:blur(3px);}
+.hud .chip svg{width:12px;height:12px;}
+.hud .pane{background:color-mix(in srgb,var(--panel) 92%,transparent);
+           backdrop-filter:blur(3px);padding:9px 10px;}
+
+.stempel{font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;
+         text-transform:uppercase;color:var(--ink2);
+         background:color-mix(in srgb,var(--panel) 80%,transparent);
+         border:1px solid var(--line);border-radius:var(--r-pill);padding:4px 9px;
+         backdrop-filter:blur(3px);white-space:nowrap;}
+
+/* --------------------------------------------------------- Die zwei Bretter ---
+   „Ringe" verändert die WELT, „Plättchen" verändert EIN Stück davon. Sie stehen
+   darum getrennt und nicht als zwei Reihen einer Karte: das eine gilt immer,
+   das andere nur, solange etwas gewählt ist.
+   --------------------------------------------------------------------------- */
+.blabel{font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;
+        text-transform:uppercase;color:var(--ink2);display:flex;align-items:center;gap:6px;}
+.blabel .co{margin-left:auto;color:var(--ember);letter-spacing:.06em;}
+.zaehler{display:flex;align-items:center;gap:6px;margin-top:7px;}
+.zaehler button{width:32px;padding:3px 0;font-size:16px;line-height:1.2;flex:none;}
+.zaehler b{flex:1;text-align:center;font-family:var(--f-mono);font-size:19px;
+           font-variant-numeric:tabular-nums;}
+.bnote{font-size:9.5px;color:var(--ink2);margin-top:6px;line-height:1.45;}
+.bnote b{color:var(--ink);font-family:var(--f-mono);}
+.werkzeug{display:flex;gap:5px;margin-top:8px;}
+.werkzeug button{flex:1;}
+
+/* ------------------------------------------------------------ Die Minikarte ---
+   Aufsicht auf das Raster, jedes Sechseck in seinem Höhenwert eingefärbt. Sie
+   ist kein zweites Bild der Welt, sondern die ANSICHT DER QUELLE: das Feld ist
+   ein Grauwert je Feld, und genau den zeigt sie. Deshalb SVG und nicht ein
+   zweiter three-Durchgang — ein Messgerät muss scharf sein, in jeder
+   Auflösung, und es soll nichts von Licht, Bewuchs oder Kamera wissen.
+
+   Sie ist zugleich ANFASSBAR: ein Tipp darin wählt das Plättchen. Bei Ring 6
+   ist ein Sechseck in der Schrägsicht hinter Bäumen ein winziges Ziel, hier
+   liegt es offen.
+   --------------------------------------------------------------------------- */
+#minikarte{width:206px;}
+#mmsvg{display:block;width:100%;height:auto;margin-top:7px;
+       background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-sm);}
+#mmsvg polygon{stroke:var(--mm-gitter);stroke-width:0.6;stroke-opacity:.35;cursor:pointer;}
+#mmsvg polygon:hover{stroke:var(--ember);stroke-width:2;stroke-opacity:1;}
+#mmsvg polygon.hov{stroke:var(--ink2);stroke-width:1.6;stroke-opacity:.9;}
+#mmsvg polygon.sel{stroke:var(--ember);stroke-width:2.4;stroke-opacity:1;}
+/* Pfanne ohne Zufluss: hier STÜNDE ein See, wenn Wasser ankäme. */
+#mmsvg polygon.pfanne{stroke:var(--d-wasser);stroke-width:1.4;stroke-opacity:.85;
+                      stroke-dasharray:2 1.6;}
+/* Der gerechnete Lauf. Nicht anfassbar (`pointer-events:none`) — sonst läge
+   eine Linie über den Sechsecken und schluckte den Klick, mit dem man das
+   Plättchen darunter wählen will. */
+#mmsvg .mmlauf{fill:none;stroke:var(--river);stroke-width:2.6;
+               stroke-linejoin:round;stroke-linecap:round;pointer-events:none;}
+#mmsvg .mmquelle{fill:var(--river);stroke:var(--bone);stroke-width:1;pointer-events:none;}
+/* Die Mündung ist offen, die Senke ist gestrichelt: „hier ist Schluss, aber
+   nicht am tiefsten Punkt" ist eine andere Auskunft als „angekommen". */
+#mmsvg .mmziel{fill:none;stroke:var(--river);stroke-width:2;pointer-events:none;}
+#mmsvg .mmziel.senke{stroke:var(--warn);stroke-dasharray:2.4 2;}
+/* Die Feldliste als Chips: sieben Felder passen in zwei Reihen, und ein Chip
+   sagt „eines von vielen" — ein Knopf sähe aus wie eine Handlung. */
+#mmfelder{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;}
+#mmfelder .chip{cursor:pointer;background:transparent;}
+#mmfelder .chip.on{border-color:var(--ember);color:var(--ember);}
+/* Der Graukeil unter der Karte — ohne ihn weiss niemand, welches Ende hoch ist. */
+.mmkeil{display:flex;align-items:center;gap:5px;margin-top:8px;
+        font-family:var(--f-mono);font-size:8.5px;letter-spacing:.08em;color:var(--ink2);}
+.mmkeil i{flex:1;height:7px;border-radius:2px;border:1px solid var(--line);
+          background:linear-gradient(90deg,var(--mm-tief),var(--mm-hoch));}
+
+/* Die Sortenliste. Eine Zeile je Sorte, mit ihrem Zeichen — Zeichen sind SVG,
+   immer (`kit/sot-icons.js`); ein Schriftzeichen fällt je Gerät anders aus. */
+#sortenliste{display:flex;flex-direction:column;gap:3px;margin-top:7px;}
+.sorte{display:flex;align-items:center;gap:7px;text-align:left;padding:5px 7px;
+       font-size:11.5px;}
+.sorte svg{width:15px;height:15px;color:var(--ink2);flex:none;}
+.sorte .taste{margin-left:auto;font-family:var(--f-mono);font-size:9px;color:var(--ink2);}
+.sorte.on{border-color:var(--ember);color:var(--ember);}
+.sorte.on svg,.sorte.on .taste{color:var(--ember);}
+.sorte:disabled{opacity:.4;}
+#bQuelle{display:flex;align-items:center;justify-content:center;gap:6px;}
+#bQuelle.on{border-color:var(--river);color:var(--river);}
+
+/* ------------------------------------------------------- Der Wasserbericht ---*/
+.lauf,.see{border-top:1px solid var(--line);padding:6px 0 5px;cursor:pointer;}
+.lauf:hover,.see:hover{background:color-mix(in srgb,var(--river) 10%,transparent);}
+.see .lkopf b{color:var(--d-wasser);}
+.lkopf{display:flex;align-items:baseline;gap:5px;font-family:var(--f-mono);font-size:11px;
+       flex-wrap:wrap;}
+.lkopf .pfeil{color:var(--river);}
+/* Eigene Zeile statt `margin-left:auto`: in einer 196 px schmalen Spalte passte
+   „0,-4 → -1,-4  4 Schritte · −3 Stufen" nicht nebeneinander, und die Spalte
+   bekam einen waagrechten Rollbalken — ein Bericht, den man schieben muss, wird
+   nicht gelesen. */
+.lkopf .lzahl{flex-basis:100%;font-size:8.5px;color:var(--ink2);letter-spacing:.04em;}
+.lstatus{font-size:9.5px;color:var(--river);margin-top:3px;line-height:1.4;}
+.lauf.senke .lstatus{color:var(--warn);}
+.lstatus b{font-family:var(--f-mono);}
+
+#not{position:absolute;inset:0;display:grid;place-items:center;padding:22px;
+     background:var(--bg);text-align:left;}
+#not .pane{max-width:520px;}
+#not code{font-family:var(--f-mono);font-size:10.5px;background:var(--panel2);
+          border:1px solid var(--line);border-radius:5px;padding:2px 5px;
+          display:inline-block;margin-top:4px;word-break:break-all;}
+
+@media (max-width:640px){
+  .app{padding:8px 8px 10px;}
+  .hud{flex-direction:column;}
+  .hud .rechts{width:auto;flex-direction:row;order:2;overflow-x:auto;align-items:flex-start;}
+  .hud .rechts > *{flex:none;min-width:172px;}
+  .hud .links{order:1;}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="appbar ruled">
+    <div class="brand">PLÄTTCHEN-PFADE<small>Arena — ein Plättchen und seine Ringe</small></div>
+    <div class="hright">
+      <div class="seg" id="segSicht">
+        <button data-s="iso" class="small">Schräg</button>
+        <button data-s="oben" class="small">Aufsicht</button>
+      </div>
+      <button id="bZeit" class="small ghost" title="Tageszeit weiterschalten"></button>
+      <button id="bPassen" class="small ghost" title="Maßstab und Blick auf die Arena zurücksetzen">Einpassen</button>
+    </div>
+  </header>
+
+  <div id="buehne">
+    <canvas id="gl"></canvas>
+    <div class="hud">
+      <div class="links">
+        <div class="pane" id="minikarte"></div>
+        <div class="stempel" id="stempel"></div>
+        <div class="fuss"><div class="chips" id="legende"></div></div>
+      </div>
+      <div class="rechts">
+        <div class="pane" id="ringbrett"></div>
+        <div class="pane" id="sortenbrett"></div>
+        <div class="pane" id="wasserbrett"></div>
+      </div>
+    </div>
+    <div id="not" class="hid">
+      <div class="pane">
+        <b>Die Arena ist nicht gestartet.</b>
+        <p class="note" id="notgrund"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../kit/sot.js"></script>
+<script src="../kit/sot-icons.js"></script>
+<script src="../kit/sot-hex.js"></script>
+<script>
+/* Wenn der Modulteil nicht anläuft (häufigste Ursache: Chrome verweigert
+   ES-Module unter file://), soll die Seite es SAGEN statt weiß zu bleiben.
+   Ebenso ein Fehler in der Zeichenschleife: der hinterliesse sonst ein
+   STEHENDES Bild und sähe aus, als wäre die Seite fertig. */
+window.__arena = false;
+window.addEventListener('error', function (ev) {
+  var n = document.getElementById('not'), g = document.getElementById('notgrund');
+  if (!n || !n.classList.contains('hid')) return;
+  g.innerHTML = '<b>Laufzeitfehler.</b><br><code>' +
+    String((ev.error && ev.error.stack) || ev.message).slice(0, 600) + '</code>';
+  n.classList.remove('hid');
+});
+setTimeout(function () {
+  if (window.__arena) return;
+  var n = document.getElementById('not'), g = document.getElementById('notgrund');
+  g.innerHTML = 'Der Modulteil hat sich nicht gemeldet. Unter <code>file://</code> ' +
+    'verweigert Chrome ES-Module (Herkunft „null“). Zwei Wege:<br><br>' +
+    '<b>1. Ordner ausliefern</b> — <code>npx http-server ..</code> und über ' +
+    '<code>http://localhost:8080/drafts/plaettchen-pfade-v1.html</code> öffnen.<br><br>' +
+    '<b>2. Für Bildschirmfotos</b> — Chrome mit ' +
+    '<code>--allow-file-access-from-files</code> starten.<br><br>' +
+    'Falls stattdessen WebGL fehlt oder der Modulteil einen Fehler hat: die Konsole nennt es.';
+  n.classList.remove('hid');
+}, 2500);
+</script>
+
+<script type="module">
+import * as THREE from '../vendor/three-0.185.1/three.module.min.js';
+
+/* ============================================================================
+   0 · Parameter — ein Bildschirmfoto kann nicht klicken
+   ========================================================================= */
+const P = SOT.params({
+  ringe:   { t:'int', def:0, min:0, max:8, help:'Ringe um das mittlere Plättchen — 0 = ein einzelnes' },
+  sorten:  { t:'str', def:'', help:'Sorten in Ringfolge (Mitte zuerst), z. B. sorten=hwgGsf · ein Buchstabe füllt alles · sorten=zufall würfelt aus der Saat' },
+  wahl:    { t:'str', def:'', help:'Plättchen vorwählen, z. B. wahl=0,0' },
+  quellen: { t:'str', def:'', help:'Quellen als Feldliste, z. B. quellen=0,0;2,-1 — von jeder wird der Lauf gerechnet' },
+  fuellen: { t:'int', def:1, min:0, max:1, help:'Senken füllen und daraus Seen bilden (1) oder roh lassen (0) — mit 0 endet ein Lauf wieder in der Senke' },
+  schuettung:{ t:'int', def:1, min:1, max:16, help:'Schüttung je Quelle — eine Einheit ist ein Bach; die Menge summiert sich talwärts und bestimmt die Breitenklasse' },
+  sicht:   { t:'enum', def:'iso', values:['iso','oben'], help:'Schrägsicht (45°/37°) oder Aufsicht (senkrecht)' },
+  azimut:  { t:'int', def:45, min:0, max:355, step:5, help:'Kamera-Drehung um die Welt-Hochachse (Grad)' },
+  neigung: { t:'int', def:37, min:12, max:80, step:1, help:'Kamera-Neigung in der Schrägsicht (Grad)' },
+  zoom:    { t:'int', def:0, min:0, max:40, step:1, help:'Bildbreite in Feldern — 0 = automatisch einpassen' },
+  zeit:    { t:'enum', def:'mittag', values:['morgen','mittag','abend','nacht'], help:'Tageszeit — Licht und Palette' },
+  seed:    { t:'int', def:7, min:1, max:999, help:'Zufallssaat — Streuung der Ecken, des Bewuchses, der Würfelfüllung' },
+  feld:    { t:'enum', def:'flach', values:['flach','nord','ost','kuppe','senke','kamm','rauschen'],
+             help:'Höhenfeld — der Graukeil, der die Plättchen hebt und senkt' },
+  hub:     { t:'int', def:4, min:0, max:8, help:'Höhenunterschied zwischen Schwarz und Weiss in Stufen — und damit auch die Zahl der Ebenen' },
+  stufenlos:{ t:'flag', help:'Das Feld stufenlos übernehmen statt auf ganze Stufen zu runden — die Gegenprobe zur Terrasse' },
+  feldkehr:{ t:'flag', help:'Feld umkehren (hell ↔ dunkel)' },
+  stufen:  { t:'int', def:100, min:0, max:250, help:'Höhenunterschied der Sorten (%) — 0 = alles auf einer Ebene' },
+  unruhe:  { t:'int', def:100, min:0, max:300, help:'Störung der Hex-Ecken (%) — 0 = mathematisch flach' },
+  ao:      { t:'int', def:100, min:0, max:200, help:'Eingebackene Kontaktverschattung (%)' },
+  dichte:  { t:'int', def:100, min:0, max:200, help:'Dichte des Bewuchses (%)' },
+  post:    { t:'int', def:100, min:0, max:200, help:'Bildnachbearbeitung (%) — 0 = aus, roher Renderer' },
+  schatten:{ t:'enum', def:'weich', values:['aus','hart','weich'], help:'Schlagschatten der Sonne' },
+  lichtdreht:{ t:'int', def:1, min:0, max:1, help:'Sonne dreht mit der Kamera (1) oder steht in der Welt (0)' },
+  gitter:  { t:'flag', help:'Drahtgitter — zeigt die Dreiecke' },
+  still:   { t:'flag', help:'Bewegung anhalten und nur auf Zuruf zeichnen — für vergleichbare Bildschirmfotos' }
+});
+
+/* ============================================================================
+   1 · Die Sorten
+
+   Dieselben sechs wie im Diorama, mit denselben Namen und derselben Streuung —
+   ein Labor, das eine siebte Sorte erfindet, prüft die Pfade nicht mehr,
+   sondern eine neue Weltbeschreibung.
+
+   Neu ist nur `stufe`: die Höhe ist hier eine EIGENSCHAFT DER SORTE, keine
+   gerechnete Landschaft. Damit bleibt die Kontaktverschattung des Diorama
+   (Ecken einer Kante, hinter der es höher weitergeht, werden dunkler) am Leben
+   — sie ist der halbe Grund, warum die Kacheln gemalt aussehen — und man weiss
+   trotzdem jederzeit, warum ein Plättchen wie hoch liegt.
+   ========================================================================= */
+const SORTEN = {
+  g:{ name:'Grasland',  oben:'gras',  flanke:'gras', stufe: 0, zeichen:'hexfeld',
+      streu:{ baum:0.30, busch:0.42, stein:0.16, halm:0.70 } },
+  G:{ name:'Wiese',     oben:'wiese', flanke:'gras', stufe: 0, zeichen:'hasel',
+      streu:{ baum:0.10, busch:0.60, stein:0.10, halm:0.90 } },
+  w:{ name:'Wald',      oben:'wald',  flanke:'gras', stufe: 0, zeichen:'wald',
+      streu:{ baum:0.95, busch:0.60, stein:0.10, halm:0.40 } },
+  f:{ name:'Felsig',    oben:'gras',  flanke:'fels', stufe: 1, zeichen:'berg',
+      streu:{ baum:0.12, busch:0.20, stein:0.95, halm:0.30 } },
+  h:{ name:'Hochebene', oben:'hoch',  flanke:'fels', stufe: 2, zeichen:'terrasse',
+      streu:{ baum:0.28, busch:0.30, stein:0.50, halm:0.55 } },
+  s:{ name:'Kiesbank',  oben:'sand',  flanke:'sand', stufe:-1, zeichen:'fundkies',
+      streu:{ baum:0.02, busch:0.10, stein:0.30, halm:0.15 } }
+};
+const FOLGE = ['g','G','w','f','h','s'];   /* Reihenfolge in Liste und Tasten 1–6 */
+const STANDARD = 'g';
+
+/* ============================================================================
+   2 · Hexgeometrie in Weltkoordinaten
+
+   Spitz-oben, odd-r — DIE Konvention des Projekts (`SOT.hex`,
+   `app/src/stromlinien/grid.ts`). Die Mitte der Arena ist (0,0), also gibt es
+   NEGATIVE Spalten und Zeilen. Das trägt die Konvention: `r & 1` liefert für
+   negative ungerade Zeilen ebenfalls 1, und `SOT.hex.ring` läuft mit
+   denselben Nachbartabellen — geprüft für Ringe 0…3.
+   ========================================================================= */
+const W = 1, H = W * 2 / Math.sqrt(3), RAD = H / 2, INKREIS = W / 2;
+const mitteVon = (c, r) => ({ x:(c + (r & 1) * 0.5) * W, z:r * H * 0.75 });
+
+/* ACHTUNG, Umlaufrichtung — übernommen samt Begründung. z zeigt nach Süden,
+   von oben gesehen liegt +z also UNTEN im Bild. Ein steigender Winkel
+   atan2(z,x) läuft damit im Uhrzeigersinn, und jede daraus gewickelte Fläche
+   zeigt nach INNEN: three verwirft sie, und die Kacheln stehen als sechseckige
+   Löcher da. Mit FALLENDEM Winkel stimmen alle handgewickelten Flächen dieser
+   Datei von selbst. */
+const ECKEN = [];
+for (let k = 0; k < 6; k++) {
+  const a = -(k * 60 + 90) * Math.PI / 180;
+  ECKEN.push([Math.cos(a) * RAD, Math.sin(a) * RAD]);
+}
+/* Ecke 0 = Nordspitze, 3 = Südspitze. Kante k liegt zwischen Ecke k und k+1.
+   Diese Tabelle ist die, an der später die Pfade hängen. */
+const KANTE_VON_DIR = { NW:0, W:1, SW:2, SE:3, E:4, NE:5 };
+const UNTEN = -0.40;                 /* Unterkante der Platte */
+const STUFE = 0.105;                 /* eine Terrassenhöhe */
+
+/* ============================================================================
+   3 · Zufall und Farbe
+   ========================================================================= */
+function rngAus(a) {
+  let s = a >>> 0 || 1;
+  return function () {
+    s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0;
+    return s / 4294967296;
+  };
+}
+const mix32 = (...xs) => {
+  let h = 2166136261 >>> 0;
+  for (const x of xs) { h ^= (x | 0) + 0x9e3779b9; h = Math.imul(h ^ (h >>> 15), 0x85ebca6b) >>> 0; }
+  return h >>> 0;
+};
+/* Ein Plättchen zieht seinen Zufall aus (c,r,seed), nicht aus der
+   Aufbaureihenfolge — sonst verschiebt sich beim Anbauen eines Rings die ganze
+   Streuung, und zwei Bildschirmfotos sind nicht mehr vergleichbar. Genau das
+   zählt hier, wo das Anbauen die Hauptbedienung ist. */
+const rngFeld = (c, r, salz) => rngAus(mix32(c * 73856093, r * 19349663, P.seed * 83492791, salz || 0));
+
+let stil = null;
+const tok = n => stil.getPropertyValue(n).trim();
+const farbe = n => new THREE.Color(tok(n));
+const farbenAus = ns => ns.map(farbe);
+let PAL = null;
+function paletteLesen() {
+  stil = getComputedStyle(document.body);
+  PAL = {
+    gras:  farbenAus(['--d-gras-1','--d-gras-2','--d-gras-3','--d-gras-4','--d-gras-5']),
+    wiese: farbenAus(['--d-wiese-1','--d-wiese-2','--d-wiese-3']),
+    wald:  farbenAus(['--d-wald-boden-1','--d-wald-boden-2','--d-wald-boden-3']),
+    hoch:  farbenAus(['--d-hoch-1','--d-hoch-2','--d-hoch-3']),
+    sand:  farbenAus(['--d-sand-1','--d-sand-2','--d-sand-3']),
+    kies:  farbenAus(['--d-sand-2','--d-sand-3','--d-sand-flanke']),
+    flanke:{ gras:farbe('--d-flanke'), sand:farbe('--d-sand-flanke'), fels:farbe('--d-fels-2') },
+    erde:  farbe('--d-erde'), erdeTief:farbe('--d-erde-tief'), strata:farbe('--d-strata'),
+    fels:  farbenAus(['--d-fels-1','--d-fels-2','--d-fels-3']),
+    wasser:farbe('--d-wasser'), wasserTief:farbe('--d-wasser-tief'),
+    nadel: farbenAus(['--d-nadel-1','--d-nadel-2','--d-nadel-3','--d-nadel-4']),
+    stamm: farbe('--d-stamm'), busch:farbe('--d-busch'), beere:farbe('--d-beere'),
+    papier:farbe('--d-papier'), boden:farbe('--d-boden'),
+    sonne: farbe('--d-sonne'), fuell:farbe('--d-fuell'), rueck:farbe('--d-rueck'),
+    warm:  farbe('--d-warm'), kuehl:farbe('--d-kuehl')
+  };
+}
+function ton(liste, rnd, drift) {
+  const i = Math.floor(rnd() * liste.length) % liste.length;
+  const c = liste[i].clone();
+  if (drift) {
+    const j = (i + (rnd() < 0.5 ? 1 : liste.length - 1)) % liste.length;
+    c.lerp(liste[j], rnd() * drift);
+  }
+  return c;
+}
+const dunkler = (c, f) => c.clone().multiplyScalar(f);
+
+const LICHT = {
+  morgen: { sonne:1.95, fuell:1.40, rueck:0.60, azimut:-100, hoehe:22, belichtung:1.02 },
+  mittag: { sonne:2.40, fuell:1.25, rueck:0.55, azimut: -72, hoehe:50, belichtung:1.00 },
+  abend:  { sonne:2.10, fuell:1.30, rueck:0.62, azimut: -45, hoehe:18, belichtung:1.05 },
+  nacht:  { sonne:0.50, fuell:1.45, rueck:0.22, azimut: -85, hoehe:42, belichtung:1.12 }
+};
+/* `azimut` ist ein VERSATZ zum Kamerawinkel (siehe `lichtdreht`), und sein
+   Vorzeichen ist der ganze Trick: negativ heisst „links vor der Kamera". Mit
+   einem positiven Versatz stand die Sonne fast HINTER der Kamera, und jeder
+   Schlagschatten fiel hinter sein eigenes Objekt — das sah nach kaputtem
+   Schattenwurf aus und war nur ein Vorzeichen. */
+
+/* ============================================================================
+   4 · Der Bauplan (übernommen)
+
+   Alles wird in FLACHE Felder geschrieben und am Ende zu je einer Geometrie
+   verschmolzen: die ganze Arena kostet eine Handvoll Zeichenaufrufe, nicht
+   einen je Baum. Flächennormalen werden hier gerechnet, nicht interpoliert —
+   damit ist die Facettierung eingebaut und `flatShading` unnötig.
+   ========================================================================= */
+class Bauplan {
+  constructor() { this.p = []; this.n = []; this.c = []; this.anz = 0; }
+  dreieck(A, B, C, cA, cB, cC) {
+    const ux = B[0]-A[0], uy = B[1]-A[1], uz = B[2]-A[2];
+    const vx = C[0]-A[0], vy = C[1]-A[1], vz = C[2]-A[2];
+    let nx = uy*vz - uz*vy, ny = uz*vx - ux*vz, nz = ux*vy - uy*vx;
+    const l = Math.hypot(nx, ny, nz) || 1; nx/=l; ny/=l; nz/=l;
+    this.p.push(A[0],A[1],A[2], B[0],B[1],B[2], C[0],C[1],C[2]);
+    this.n.push(nx,ny,nz, nx,ny,nz, nx,ny,nz);
+    this.c.push(cA.r,cA.g,cA.b, cB.r,cB.g,cB.b, cC.r,cC.g,cC.b);
+    this.anz++;
+  }
+  viereck(A, B, C, D, cA, cB, cC, cD) {
+    this.dreieck(A, B, C, cA, cB, cC);
+    this.dreieck(A, C, D, cA, cC, cD);
+  }
+  /* Eine fertige three-Geometrie einschmelzen: verschoben, gedreht, gefärbt.
+     `ff` bekommt die LOKALE Ecke und gibt ihre Farbe — so kann eine Form ihre
+     eigene Verschattung tragen (Wurzel dunkel, Krone hell). */
+  form(geo, m, ff) {
+    const g = geo.index ? geo.toNonIndexed() : geo;
+    const pos = g.attributes.position, v = new THREE.Vector3();
+    const E = [], F = [];
+    for (let i = 0; i < pos.count; i++) {
+      F.push(ff(pos.getX(i), pos.getY(i), pos.getZ(i), i));
+      v.fromBufferAttribute(pos, i).applyMatrix4(m);
+      E.push([v.x, v.y, v.z]);
+    }
+    for (let i = 0; i < E.length; i += 3) this.dreieck(E[i], E[i+1], E[i+2], F[i], F[i+1], F[i+2]);
+    if (g !== geo) g.dispose();
+  }
+  geometrie() {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(this.p, 3));
+    g.setAttribute('normal',   new THREE.Float32BufferAttribute(this.n, 3));
+    g.setAttribute('color',    new THREE.Float32BufferAttribute(this.c, 3));
+    g.computeBoundingSphere();
+    return g;
+  }
+}
+
+/* ============================================================================
+   5 · Die Arena — Plättchen anlegen, Ringe an- und abbauen
+
+   Zwei Speicher, und die Trennung ist der Punkt:
+
+     `sorte`     — Map „c,r" → Sortenbuchstabe. Sie ÜBERLEBT das Abbauen eines
+                   Rings. Wer einen Ring wegnimmt und wieder anbaut, findet
+                   seine Sorten vor; sie stillschweigend zu vergessen wäre
+                   die Art von Verlust, die man erst merkt, wenn sie weh tut.
+     `plaettchen` — Map „c,r" → das GEBAUTE Plättchen (Ecken, Höhen, Spannen im
+                   Netz). Wird bei jedem Aufbau verworfen und neu geschrieben.
+   ========================================================================= */
+const schluessel = (c, r) => c + ',' + r;
+const sorte = new Map();
+const plaettchen = new Map();
+const plAn = (c, r) => plaettchen.get(schluessel(c, r)) || null;
+const alle = () => plaettchen.values();
+
+/* Die kanonische Reihenfolge der Arena: Mitte, dann Ring 1, Ring 2, … Sie ist
+   die Ordnung, in der `?sorten=` gelesen und geschrieben wird — deshalb steht
+   sie an EINER Stelle. */
+const arenaFelder = n => SOT.hex.disc(0, 0, n);
+
+/* Die Höhe einer Sorte. `?stufen=0` legt alles auf eine Ebene — die Gegenprobe
+   darauf, wie viel die Kontaktverschattung wirklich zum Bild beiträgt. */
+const sortenHoehe = t => (SORTEN[t] || SORTEN[STANDARD]).stufe * STUFE * (P.stufen / 100);
+
+/* ---------------------------------------------------------- Das Höhenfeld ---
+   Ein Grauwert je Feld, `w ∈ [0,1]`, und daraus die Höhe. Die Trennung ist
+   Absicht und nicht Umstand:
+
+     · Das FELD ist eine reine Funktion von (c,r) — kein Speicher, keine
+       Reihenfolge, kein Zustand. Ein Feld zu wechseln heisst darum nicht,
+       Höhen umzuschreiben, sondern eine andere Funktion zu fragen. Deshalb
+       kann die Minikarte denselben Wert malen, den die Kachel bekommt: es
+       gibt nur EINE Quelle, nicht ein Bild und eine Welt daneben.
+     · Feld und SORTE addieren sich. Die Sorte behält, was in diesem Labor
+       schon entschieden war (Hochebene liegt höher als Grasland), das Feld
+       legt die Landschaft darunter. Beide Hebel sind einzeln abschaltbar
+       (`?hub=0` bzw. `?stufen=0`), also einzeln beurteilbar — hätte man sie
+       vermischt, wäre nicht mehr zu sagen, wovon eine Stufe kommt.
+
+   GERUNDET wird auf ganze Stufen, und `hub` ist dabei BEIDES: die Höhe
+   zwischen Schwarz und Weiss UND die Zahl der Ebenen. Das ist ein Hebel statt
+   zweier, und es fällt kein Rest an: jedes Plateau liegt genau eine Terrasse
+   über dem nächsten, und genau das will die Kachelbauweise sehen. `?stufenlos`
+   ist die Gegenprobe — dieselbe Landschaft als glatte Rampe, und sie liest
+   sich sofort als Gelände statt als Brett.
+
+   Gehoben wird nur nach OBEN (0…hub Stufen), nie unter die Grundebene. Sichtbar
+   ist ohnehin nur der Unterschied, und so bleibt der Boden JEDER Kachel auf
+   `UNTEN`: die Platte hängt nicht durch, und der Auswahlstrahl behält seinen
+   festen unteren Anschlag.
+   --------------------------------------------------------------------------- */
+function rausch(c, r, salz, weite) {
+  const s = weite || 4;
+  const x = c / s, z = r / s;
+  const xi = Math.floor(x), zi = Math.floor(z);
+  const tx = x - xi, tz = z - zi;
+  const g = (a, b) => rngAus(mix32(a * 374761393, b * 668265263, P.seed, salz))();
+  const f = t => t * t * (3 - 2 * t);
+  const a = g(xi, zi), b = g(xi + 1, zi), c2 = g(xi, zi + 1), d = g(xi + 1, zi + 1);
+  const u = f(tx), v = f(tz);
+  return (a * (1 - u) + b * u) * (1 - v) + (c2 * (1 - u) + d * u) * v;
+}
+/* Die sieben Felder. Jedes bekommt `g` — die Grössen, in denen ein Feld denkt:
+   `tx`/`tz` sind die Lage in der Arena von 0 bis 1 (also der Verlauf, den man
+   als Graukeil vor sich sieht), `d` ist die HEXENTFERNUNG von der Mitte,
+   normiert. Ein radiales Feld muss über `SOT.hex.dist` gehen und nicht über
+   den Pixelabstand, sonst wird eine Kuppe zur Ellipse: eine Zeile ist nur
+   0,866 Feldbreiten hoch. */
+const FELDER = {
+  flach:    { name:'Flach',    f:() => 0 },
+  nord:     { name:'Nord–Süd', f:(g) => g.tz },
+  ost:      { name:'West–Ost', f:(g) => g.tx },
+  kuppe:    { name:'Kuppe',    f:(g) => 1 - g.d },
+  senke:    { name:'Senke',    f:(g) => g.d },
+  kamm:     { name:'Kamm',     f:(g) => 1 - Math.abs(g.tx * 2 - 1) },
+  rauschen: { name:'Rauschen', f:(g) => g.n }
+};
+const feldJetzt = () => FELDER[P.feld] || FELDER.flach;
+
+/* Der rohe Feldwert. Die Ausdehnung kommt aus der RINGZAHL, nicht aus der
+   Umschlagkiste der gebauten Kacheln — sonst hinge das Feld an der Unruhe der
+   Ecken und ein Verlauf verschöbe sich beim Würfeln der Saat. */
+function feldRoh(c, r) {
+  const n = Math.max(1, P.ringe);
+  const m = mitteVon(c, r);
+  const spanX = (n + 0.5) * W, spanZ = n * H * 0.75;
+  const g = {
+    tx: Math.min(1, Math.max(0, (m.x + spanX) / (2 * spanX))),
+    tz: Math.min(1, Math.max(0, (m.z + spanZ) / (2 * spanZ))),
+    d:  Math.min(1, SOT.hex.dist({ c:0, r:0 }, { c, r }) / n),
+    n:  rausch(c, r, 21, Math.max(1.6, n * 0.55))
+  };
+  const w = Math.min(1, Math.max(0, feldJetzt().f(g)));
+  return P.feldkehr ? 1 - w : w;
+}
+
+/* JEDES Feld spannt Schwarz bis Weiss aus. Das ist keine Kosmetik: sonst
+   bedeutet `hub` bei jedem Feld etwas anderes. Die Verläufe und die Kuppe
+   erreichen ihre Enden von selbst, das RAUSCHEN nicht — weiches Wertrauschen
+   trifft die Extreme fast nie, es lag zwischen etwa 0,25 und 0,8 und hob die
+   Arena damit nur halb so hoch wie „Kuppe" bei gleichem Hub. Man hätte den
+   Unterschied dem Feld angelastet statt der Skala.
+
+   Gemessen wird über die Ringzahl (die Arena, wie sie gerade steht), nicht über
+   einen festen Bereich: ein Rauschen ist auf drei Ringen ein anderes Bild als
+   auf acht, und beide sollen ihre Höhen ausnutzen. Einmal je Aufbau, nicht je
+   Feld — sonst wäre es eine Schleife in einer Schleife. */
+let feldNorm = { min:0, span:1 };
+function feldNormRechnen() {
+  let mn = Infinity, mx = -Infinity;
+  for (const q of arenaFelder(P.ringe)) {
+    const w = feldRoh(q.c, q.r);
+    if (w < mn) mn = w;
+    if (w > mx) mx = w;
+  }
+  feldNorm = { min:mn, span:mx - mn };
+}
+/* Ein flaches Feld hat keine Spanne — dann ist jeder Wert 0, und nicht etwa
+   0/0. Auch das ist die richtige Antwort: „überall gleich" heisst „nirgends
+   gehoben". */
+function feldWert(c, r) {
+  if (!(feldNorm.span > 1e-6)) return 0;
+  return (feldRoh(c, r) - feldNorm.min) / feldNorm.span;
+}
+
+/* Der Feldwert in STUFEN (das, was die Kachel hebt) und der Wert, den die
+   Minikarte malt. Sie muss den GERUNDETEN zeigen: ein Graukeil, der feiner
+   abgestuft ist als das Gelände darunter, behauptet eine Genauigkeit, die die
+   Welt nicht hat — und man sucht dann den Fehler in der Höhe. */
+function feldStufen(c, r) {
+  const w = feldWert(c, r);
+  return P.stufenlos ? w * P.hub : Math.round(w * P.hub);
+}
+const feldSchau = (c, r) => P.hub > 0 ? feldStufen(c, r) / P.hub : feldWert(c, r);
+
+/* Ein Plättchen anlegen — Ecken, Unruhe, Höhe. Übernommen aus `feldAnlegen`
+   des Diorama, ohne das Terrassieren einer gerechneten Höhe: hier sind die
+   Stufen schon ganz. */
+function plaettchenAnlegen(c, r, t) {
+  const u = P.unruhe / 100;
+  const rf = rngFeld(c, r, 1), m = mitteVon(c, r);
+  const stufen = feldStufen(c, r);
+  const basis = stufen * STUFE + sortenHoehe(t);
+  const schrumpf = 1 - 0.012 - rf() * 0.020 * u;
+  const hoehe = basis + (rf() - 0.5) * 0.055 * u;
+  const eck = [], hoehen = [];
+  for (let k = 0; k < 6; k++) {
+    const j = 1 + (rf() - 0.5) * 0.05 * u;
+    eck.push([ECKEN[k][0] * schrumpf * j + m.x, ECKEN[k][1] * schrumpf * j + m.z]);
+    hoehen.push(hoehe + (rf() - 0.5) * 0.042 * u);
+  }
+  plaettchen.set(schluessel(c, r), {
+    c, r, t, S:SORTEN[t] || SORTEN[STANDARD],
+    x:m.x, z:m.z, eck, hoehen, hoehe,
+    mitteH: hoehe + (rf() - 0.5) * 0.02 * u, schrumpf,
+    ring: SOT.hex.dist({ c:0, r:0 }, { c, r }),
+    /* `stufen` und `schau` liegen HIER, damit die Minikarte nicht ein zweites
+       Mal rechnet: sie malt, was die Kachel bekommen hat, nicht was sie
+       bekommen hätte sollen. */
+    stufen, schau: feldSchau(c, r),
+    /* `hLauf` ist die Höhe, auf der GEROUTET wird: Feld plus Sorte, OHNE die
+       Unruhe. Das ist keine Sparsamkeit, sondern die Trennung von Gelände und
+       Kosmetik. Die Unruhe verzieht jede Ecke um bis zu ±0,027 — routete das
+       Wasser darauf, hätte jedes Plateau ein zufälliges Gefälle, und ein Lauf
+       liefe scheinbar sauber bergab, obwohl er in Wahrheit nur dem
+       Eckenrauschen folgt. Derselbe Schnitt wie im Diorama: dort fliesst es auf
+       `fill`/`elev` und gezeichnet wird die terrassierte Ansicht. */
+    hLauf: basis,
+    gelVon:0, gelBis:0, bewVon:0, bewBis:0
+  });
+}
+
+function arenaRechnen() {
+  plaettchen.clear();
+  feldNormRechnen();
+  for (const q of arenaFelder(P.ringe)) {
+    const k = schluessel(q.c, q.r);
+    if (!sorte.has(k)) sorte.set(k, STANDARD);
+    plaettchenAnlegen(q.c, q.r, sorte.get(k));
+  }
+}
+
+/* ---------------------------------------------------------- Sorten vorgeben ---
+   `?sorten=` kennt drei Formen, und alle drei sind für die Werkstatt da: ein
+   BUCHSTABE füllt alles (eine Sorte am Stück beurteilen), `zufall` würfelt aus
+   der Saat (Vielfalt ohne lange URL), eine FOLGE setzt Plättchen für Plättchen
+   in der kanonischen Reihenfolge (ein gefundener Stand ist teilbar). */
+function sortenVorgeben(text) {
+  const felder = arenaFelder(P.ringe);
+  if (!text) return;
+  if (text === 'zufall') {
+    const rnd = rngAus(mix32(P.seed * 2654435761, 4711));
+    for (const q of felder) sorte.set(schluessel(q.c, q.r), FOLGE[Math.floor(rnd() * FOLGE.length)]);
+    return;
+  }
+  const s = text.replace(/[^gGwfhs]/g, '');
+  if (!s) return;
+  if (s.length === 1) {
+    for (const q of felder) sorte.set(schluessel(q.c, q.r), s);
+    return;
+  }
+  felder.forEach((q, i) => { if (i < s.length) sorte.set(schluessel(q.c, q.r), s[i]); });
+}
+/* Der Stand ist die URL — sonst ist ein gefundener Aufbau beim nächsten Laden
+   weg, und ein Bildschirmfoto nicht wiederholbar. */
+function sortenSchreiben() {
+  const s = arenaFelder(P.ringe).map(q => sorte.get(schluessel(q.c, q.r)) || STANDARD).join('');
+  P.set('sorten', /^(.)\1*$/.test(s) ? s[0] : s);
+}
+
+/* ============================================================================
+   5b · Die Quellen und ihr Lauf — GERECHNET, nicht gezeichnet
+
+   Was hier entsteht, ist ein PFAD und kein Gewässer: eine Folge von Feldern
+   von der Quelle bis dorthin, wo das Wasser nicht weiterkommt. Gezeigt wird er
+   als Linie durch die Feldmitten — eine Markierung wie der Auswahlring, kein
+   Wasserband. Wie ein Fluss AUSSIEHT, ist eine eigene Frage (`gewaesser-labor-v4`
+   und das Diorama beantworten sie über Ports auf den Kantenmitten); sie hier
+   mitzubeantworten hiesse, zwei Dinge auf einmal zu prüfen.
+
+   ---------------------------------------------------------------------------
+   Die Regel, und warum sie so aussieht
+
+   Gesucht ist der KÜRZESTE Weg von der Quelle zum tiefsten Punkt, der nie
+   bergauf geht. Drei Beobachtungen haben die Form bestimmt:
+
+   1. **Strenges Gefälle allein steht sofort still.** Die Höhen sind auf ganze
+      Stufen gerundet — bei Hub 5 gibt es sechs Höhen für hundert Felder, also
+      hat fast jedes Feld gleich hohe Nachbarn und keinen tieferen. Ein reiner
+      Steilabstieg (immer zum tiefsten Nachbarn) endet darum nach einem
+      Schritt. Wasser dagegen läuft über ein Plateau, bis es einen Abfluss
+      findet. Erlaubt sind deshalb Schritte auf GLEICHE ODER TIEFERE Nachbarn,
+      verboten nur bergauf.
+
+   2. **Der zweite Schlüssel ist nicht Kosmetik.** Bei gleicher Schrittzahl
+      gewinnt der Weg mit der kleineren Summe der Höhen ÜBER dem tiefsten Punkt
+      der Karte. Übersetzt: von zwei gleich langen Wegen nimmt das Wasser den,
+      der früher hinuntergeht — und nicht den, der oben am Rand des Plateaus
+      entlangspaziert und erst am Ende fällt. Beide Kosten sind
+      NICHT-NEGATIV (darum die Messung gegen den tiefsten Punkt und nicht gegen
+      Null: eine Kiesbank liegt bei −1 Stufe, mit rohen Höhen könnte die Summe
+      entlang eines Weges SINKEN, und dann ist die Reihenfolge, in der Dijkstra
+      Felder abschliesst, nicht mehr gültig).
+
+   3. **Das Ziel wird gefunden, nicht vorgegeben.** Gesucht wird nicht „der Weg
+      zum global tiefsten Feld" — der existiert oft nicht, ohne bergauf zu
+      gehen. Stattdessen: unter allen ERREICHBAREN Feldern das tiefste, bei
+      Gleichstand das nächste. Ist der tiefste Punkt der Karte erreichbar,
+      kommt genau er heraus; ist er es nicht, endet der Lauf in einer SENKE —
+      und das ist keine Panne, sondern was Wasser tut. Der Bericht sagt beides
+      ausdrücklich, statt einen Lauf zu zeigen, der so aussieht, als wäre er
+      angekommen.
+
+   Der Preis: O(n²) statt eines Haufens, weil bei 217 Feldern die einfache
+   Auswahl des kleinsten offenen Feldes schneller geschrieben und leichter
+   nachzulesen ist als eine Vorrangwarteschlange. Bei Ring 8 sind das rund
+   47 000 Vergleiche je Quelle — unter einer Millisekunde.
+
+   Was ABSICHTLICH fehlt: das Füllen der Senken (Priority-Flood, wie im
+   Diorama). Es würde jede Pfanne bis zum Überlauf anheben und den Lauf
+   weiterführen, ist aber die Antwort auf eine ANDERE Frage („wo liegt ein
+   See?"). Solange nur der Pfad gerechnet wird, ist die ehrlichere Auskunft:
+   hier bleibt es stehen.
+   ========================================================================= */
+const quellen = new Set();
+const istQuelle = f => !!f && quellen.has(schluessel(f.c, f.r));
+let laeufe = [];
+
+/* Die Breitenklassen. Namen aus dem Almanach, wie im Diorama, und die
+   Schwellen als VIELFACHE der Bach-Schwelle — so laufen sie nicht auseinander,
+   wenn sich die Schüttung ändert. Eine Quelle mit der voreingestellten
+   Schüttung 1 ist genau ein Bach; zwei, die zusammenfliessen, ein kleiner
+   Fluss. Damit ist die Zahl im Bericht dieselbe Zahl, die man im Bild sieht. */
+const KLASSEN = [
+  { ab:1,  name:'Bach',          breit:0.055 },
+  { ab:2,  name:'kleiner Fluss', breit:0.090 },
+  { ab:4,  name:'Fluss',         breit:0.130 },
+  { ab:8,  name:'grosser Fluss', breit:0.180 },
+  { ab:16, name:'Strom',         breit:0.240 }
+];
+const klasseVon = q => KLASSEN.reduce((b, k) => (q >= k.ab ? k : b), KLASSEN[0]);
+
+function quellenVorgeben(text) {
+  quellen.clear();
+  if (!text) return;
+  for (const st of text.split(';')) {
+    const t = st.split(',').map(Number);
+    if (t.length === 2 && isFinite(t[0]) && isFinite(t[1])) quellen.add(schluessel(t[0], t[1]));
+  }
+}
+/* Geschrieben werden nur Quellen, die auf der Arena LIEGEN — sonst wächst die
+   URL mit jedem abgebauten Ring um Felder, die niemand mehr sieht. Im Speicher
+   bleiben sie trotzdem (wie die Sorten), damit ein wieder angebauter Ring
+   seine Quelle vorfindet. */
+function quellenSchreiben() {
+  const drin = [...quellen].filter(k => plaettchen.has(k));
+  P.set('quellen', drin.length ? drin.join(';') : null);
+}
+
+/* ============================================================================
+   5c · Senken füllen — und daraus die SEEN
+
+   Ein See wird nicht gesetzt, er ENTSTEHT: eine Pfanne füllt sich, bis sie über
+   ihren tiefsten Rand läuft. Genau das rechnet Priority-Flood, und es liefert
+   in einem Durchgang alles auf einmal — den Spiegel jeder Pfanne, ihre Tiefe je
+   Feld, und nebenbei die Eigenschaft, die den Lauf heilt.
+
+   DIE EINE ENTSCHEIDUNG VORWEG: wo verlässt das Wasser die Welt? Das Diorama
+   flutet vom KARTENRAND einwärts, weil dort das Tal aus der Karte fällt. Eine
+   geschlossene Arena hat keinen solchen Rand — flutete man vom Rand einer
+   „Senke" (Schüssel), liefe die ganze Arena bis zum Rand voll. Das wäre für ein
+   abflussloses Becken sogar richtig und ist trotzdem nicht gemeint. Geflutet
+   wird darum von den TIEFSTEN FELDERN der Karte aus; sie sind der Abfluss, das
+   Meer, das Loch im Boden. Daraus folgt für alle sieben Felder das Erwartete
+   von selbst: eine Schüssel entwässert in ihre Mitte und hat keine Pfanne, eine
+   Kuppe entwässert an ihren Ring und hat auch keine, und Seen wachsen nur dort,
+   wo das Feld (oder eine Kiesbank) wirklich eine Pfanne stanzt.
+
+   Das Verfahren: alle tiefsten Felder in die offene Menge, dann immer das
+   TIEFSTE OFFENE Feld nehmen und seinen noch unbesuchten Nachbarn
+   `fill = max(eigene Höhe, fill des Erreichers)` geben. Wo danach
+   `fill > Höhe` steht, liegt Wasser; `fill` ist der Spiegel, die Differenz die
+   Tiefe.
+
+   ÜBERNOMMEN, ABER OHNE DAS ε. Das Diorama schreibt `max(h, fill + ε)`, damit
+   jedes Feld einen ECHT tieferen Nachbarn hat und seine Wegsuche nie stehen
+   bleibt. Auf unserem stufenweise gerundeten Feld würde dieses ε jedes Plateau
+   in ein Scheingefälle verwandeln, dessen Richtung aus der Flutreihenfolge
+   kommt und nicht aus dem Gelände — der klar definierte Gleichstands-Entscheid
+   des Laufs („bei gleicher Länge fällt der frühere Weg") wäre still durch eine
+   willkürliche Reihenfolge ersetzt. `fill` liefert hier die Seen und die
+   Überläufe; die Regel des Laufs bleibt, wie sie ist.
+
+   Was das Füllen dem LAUF bringt, ist der eigentliche Gewinn: nach dem Fluten
+   hat jedes Feld einen nicht-steigenden Weg zum Abfluss (nämlich den, auf dem
+   die Flut es erreicht hat). Auf `fill` geroutet gibt es die Sackgasse damit
+   NICHT MEHR — ein Lauf, der vorher in einer Senke endete, quert jetzt ihren
+   See und läuft am Überlauf weiter. `?fuellen=0` ist die Gegenprobe und holt
+   das alte Verhalten zurück.
+   ========================================================================= */
+const EPS = 1e-6;
+let seen = [];
+
+function senkenFuellen() {
+  for (const f of alle()) { f.hFuell = f.hLauf; f.tiefe = 0; f.nass = false; }
+  if (!P.fuellen) return;
+  let hMin = Infinity;
+  for (const f of alle()) hMin = Math.min(hMin, f.hLauf);
+
+  const offen = [], gesetzt = new Set();
+  for (const f of alle()) if (Math.abs(f.hLauf - hMin) < EPS) {
+    gesetzt.add(schluessel(f.c, f.r)); offen.push(f);
+  }
+  /* Kein Minimalhaufen: bei höchstens 217 Feldern ist die einfache Suche nach
+     dem tiefsten offenen Feld schneller geschrieben und leichter nachzulesen
+     als eine Vorrangwarteschlange — dieselbe Abwägung wie beim Lauf. */
+  while (offen.length) {
+    let bi = 0;
+    for (let i = 1; i < offen.length; i++)
+      if (offen[i].hFuell < offen[bi].hFuell - EPS) bi = i;
+    const cur = offen.splice(bi, 1)[0];
+    for (const n of SOT.hex.neighbors(cur.c, cur.r)) {
+      const g = plAn(n.c, n.r); if (!g) continue;
+      const kg = schluessel(g.c, g.r);
+      if (gesetzt.has(kg)) continue;
+      g.hFuell = Math.max(g.hLauf, cur.hFuell);
+      gesetzt.add(kg);
+      offen.push(g);
+    }
+  }
+  for (const f of alle()) f.tiefe = f.hFuell - f.hLauf;
+}
+
+/* Aus den überfluteten Feldern die einzelnen SEEN: zusammenhängende Felder mit
+   DEMSELBEN Spiegel. „Derselbe Spiegel" und nicht bloss „beide unter Wasser" —
+   zwei Pfannen können sich berühren und trotzdem auf verschiedenen Höhen
+   stehen; sie zu einem See zu verschmelzen hiesse, eine Wasserfläche zu
+   behaupten, die in Wirklichkeit eine Stufe hat.
+
+   Der ÜBERLAUF ist der tiefste Nachbar ausserhalb. Dass das genau der Pass ist,
+   folgt aus dem Fluten: läge dort ein tieferes Feld, wäre die Flut durch dieses
+   Feld in die Pfanne gelaufen und der Spiegel wäre entsprechend tiefer. */
+function seenFinden() {
+  seen = [];
+  const gesehen = new Set();
+  for (const f0 of alle()) {
+    if (f0.tiefe <= EPS) continue;
+    const k0 = schluessel(f0.c, f0.r);
+    if (gesehen.has(k0)) continue;
+    gesehen.add(k0);
+    const felder = [], stapel = [f0];
+    while (stapel.length) {
+      const cur = stapel.pop();
+      felder.push(cur);
+      for (const n of SOT.hex.neighbors(cur.c, cur.r)) {
+        const g = plAn(n.c, n.r); if (!g) continue;
+        const kg = schluessel(g.c, g.r);
+        if (gesehen.has(kg) || g.tiefe <= EPS) continue;
+        if (Math.abs(g.hFuell - f0.hFuell) > EPS) continue;
+        gesehen.add(kg); stapel.push(g);
+      }
+    }
+    const drin = new Set(felder.map(x => schluessel(x.c, x.r)));
+    let abfluss = null;
+    for (const x of felder) for (const n of SOT.hex.neighbors(x.c, x.r)) {
+      const g = plAn(n.c, n.r);
+      if (!g || drin.has(schluessel(g.c, g.r))) continue;
+      if (!abfluss || g.hLauf < abfluss.hLauf - EPS) abfluss = g;
+    }
+    felder.forEach(x => { x.see = seen.length; });
+    seen.push({
+      felder, drin, abfluss,
+      spiegel: f0.hFuell,
+      tiefe: Math.max(...felder.map(x => x.tiefe))
+    });
+  }
+  seen.sort((a, b) => b.felder.length - a.felder.length);
+  /* Nach dem Sortieren stimmen die Rückverweise nicht mehr — sie werden für die
+     Frage „durch wie viele Seen läuft dieser Lauf?" gebraucht, und ein falscher
+     Index zählte dort doppelt. */
+  seen.forEach((S, i) => S.felder.forEach(x => { x.see = i; }));
+}
+
+/* Der Lauf einer Quelle. Rückgabe: der Pfad als Feldliste plus das, was der
+   Bericht wissen muss. */
+/* Geroutet wird auf `hFuell`, der WASSEROBERFLÄCHE — nicht auf dem Boden. Das
+   ist die ganze Anbindung der Seen an den Lauf, und sie kostet keinen Sonderfall:
+   die Felder eines Sees haben alle denselben Spiegel, das Queren eines Sees ist
+   also eine Plateauquerung wie jede andere und wird von der bestehenden Regel
+   (kürzester Weg) auf dem direkten Weg zum Überlauf erledigt. Dass hinter dem
+   See weitergelaufen wird, ist keine Regel, sondern eine Folge: das Fluten hat
+   jedem Feld einen nicht-steigenden Weg zum Abfluss verschafft. */
+function laufVon(start) {
+  const hVon = f => f.hFuell;
+  let hMin = Infinity;
+  for (const f of alle()) hMin = Math.min(hMin, hVon(f));
+
+  /* Dijkstra über die Kanten „gleich hoch oder tiefer", Schlüssel
+     (Schritte, Höhe über dem Tiefsten). */
+  const stand = new Map();
+  const setzen = (f, schritte, hoch, von) =>
+    stand.set(schluessel(f.c, f.r), { f, schritte, hoch, von, fertig:false });
+  setzen(start, 0, hVon(start) - hMin, null);
+
+  for (;;) {
+    let best = null;
+    for (const s of stand.values()) {
+      if (s.fertig) continue;
+      if (!best || s.schritte < best.schritte ||
+          (s.schritte === best.schritte && s.hoch < best.hoch - EPS)) best = s;
+    }
+    if (!best) break;
+    best.fertig = true;
+    for (const n of SOT.hex.neighbors(best.f.c, best.f.r)) {
+      const g = plAn(n.c, n.r); if (!g) continue;
+      if (hVon(g) > hVon(best.f) + EPS) continue;          /* bergauf: niemals */
+      const kg = schluessel(g.c, g.r);
+      const schritte = best.schritte + 1, hoch = best.hoch + (hVon(g) - hMin);
+      const alt = stand.get(kg);
+      if (alt && alt.fertig) continue;
+      if (!alt || schritte < alt.schritte ||
+          (schritte === alt.schritte && hoch < alt.hoch - EPS)) setzen(g, schritte, hoch, best.f);
+    }
+  }
+
+  /* Das tiefste erreichbare Feld, bei Gleichstand das nächste. */
+  let ziel = null;
+  for (const s of stand.values()) {
+    if (!ziel || hVon(s.f) < hVon(ziel.f) - EPS ||
+        (Math.abs(hVon(s.f) - hVon(ziel.f)) < EPS && s.schritte < ziel.schritte)) ziel = s;
+  }
+  const pfad = [];
+  for (let s = ziel; s; ) {
+    pfad.push(s.f);
+    s = s.von ? stand.get(schluessel(s.von.c, s.von.r)) : null;
+  }
+  pfad.reverse();
+  return {
+    start, ziel:ziel.f, pfad,
+    schritte: ziel.schritte,
+    /* In STUFEN, nicht in Welteinheiten: eine Stufe ist die Einheit, in der
+       dieses Labor über Höhe redet. */
+    fall: Math.round((hVon(start) - hVon(ziel.f)) / STUFE),
+    ueberTief: Math.round((hVon(ziel.f) - hMin) / STUFE),
+    amTiefsten: Math.abs(hVon(ziel.f) - hMin) < EPS,
+    /* Wie viele Seen quert der Lauf? Nicht wie viele Felder unter Wasser er
+       berührt — ein See, der zweimal betreten wird, ist immer noch einer. */
+    durchSeen: new Set(pfad.filter(f => f.see !== undefined && f.tiefe > EPS)
+                           .map(f => f.see)).size,
+    erreichbar: stand.size
+  };
+}
+/* ---------------------------------------------------- Quellen schütten Wasser ---
+   Eine Quelle ist keine Marke, sondern eine MENGE je Zeiteinheit. Daraus folgt
+   dreierlei, und alle drei sind der Grund, das überhaupt zu bauen:
+
+   1. **Die Menge summiert sich talwärts.** Unterhalb eines Zusammenflusses
+      trägt der Lauf, was beide Quellen schütten — er wird breiter, und man
+      sieht es. Vorher war jeder Lauf ein Strich wie jeder andere.
+   2. **Eine Pfanne ohne Zufluss bleibt TROCKEN.** Das war der offene Punkt des
+      letzten Durchgangs: das Gelände allein machte jede Pfanne zum See, und auf
+      einem Verlauf mit gemischten Sorten waren das sieben Seen ohne jeden
+      Grund. Jetzt steht ein See nur, wo Wasser ankommt.
+   3. **Der See gibt weiter, was er bekommt.** Weil der Lauf ihn quert und am
+      Überlauf weiterläuft, trägt der Abfluss die volle Menge — ein See
+      unterbricht den Fluss nicht, er ist eine Station darin.
+
+   Aufsummiert wird ENTLANG DER LÄUFE, ohne ein zweites Netz zu bauen. Dass das
+   die richtige Summe ergibt, hängt an einer Eigenschaft der Wegregel: treffen
+   sich zwei Läufe in einem Feld, laufen sie ab dort GEMEINSAM weiter. Das ist
+   keine Beobachtung, sondern optimale Teilstruktur — beide Kosten (Schritte,
+   Höhe über dem Tiefsten) sind additiv, also ist der Restweg ab einem Feld nur
+   eine Funktion DIESES Feldes und nicht dessen, woher man kam. Ein Feld
+   unterhalb des Zusammenflusses wird damit von beiden Quellen genau einmal
+   gezählt, und `ab` (das nächste Feld talwärts) ist wohldefiniert, weil beide
+   Läufe dort denselben Nachfolger eintragen.
+
+   ZUR TROCKENEN PFANNE, denn das sieht nach einem Zirkel aus: gerechnet wird
+   auf der GEFÜLLTEN Fläche, und erst danach werden ungespeiste Seen wieder
+   weggenommen. Ändert das die Läufe? Nein — läge eine dieser Pfannen auf einem
+   Lauf, bekäme sie Wasser und wäre nicht ungespeist. Was wir wegnehmen, hat
+   also nie einen Weg getragen; der Festpunkt ist stabil und braucht keine
+   zweite Runde.
+   --------------------------------------------------------------------------- */
+function wasserRechnen() {
+  for (const f of alle()) { f.q = 0; f.ab = null; }
+  laeufe = [];
+  for (const k of quellen) {
+    const f = plaettchen.get(k);
+    if (f) laeufe.push(laufVon(f));
+  }
+  for (const L of laeufe) {
+    for (let i = 0; i < L.pfad.length; i++) {
+      L.pfad[i].q += P.schuettung;
+      if (L.pfad[i + 1]) L.pfad[i].ab = L.pfad[i + 1];
+    }
+  }
+  /* Erst wenn ALLE Quellen eingezahlt haben, steht die Menge an der Mündung. */
+  for (const L of laeufe) { L.menge = L.ziel.q; L.klasse = klasseVon(L.menge); }
+  /* Ein See gilt als gespeist, sobald IRGENDEINES seiner Felder Wasser führt —
+     nicht nur die, die der Lauf quert: eine Wasserfläche verteilt sich, sie
+     bleibt nicht auf dem Streifen liegen, auf dem sie hereinkam. */
+  for (const S of seen) {
+    S.gespeist = S.felder.some(f => f.q > 0);
+    S.felder.forEach(f => { f.nass = S.gespeist; });
+  }
+  /* Nach Quellhöhe sortiert: der Bericht liest sich dann von oben nach unten
+     wie das Tal selbst. */
+  laeufe.sort((a, b) => b.start.hFuell - a.start.hFuell);
+}
+/* Die Höhe, auf der Wasser LIEGT: über einem gespeisten See der Spiegel, sonst
+   die Kachel selbst. Ein Lauf, der über eine Seefläche gezeichnet würde, aber
+   auf der Pfannensohle läge, verschwände im Wasser. */
+const oberflaeche = f => f.nass ? f.hFuell + SEE_HOCH : f.hoehe;
+
+/* ============================================================================
+   6 · Die Kacheln (übernommen)
+
+   Fase, zwei Flankenbänder, Kontaktverschattung in den Eckenfarben. Was hier
+   gegenüber dem Diorama fehlt, ist das Ufer: es gehörte zum Wasser, und Wasser
+   gibt es in der Arena nicht.
+   ========================================================================= */
+function kachelnBauen(bau) {
+  const ao = P.ao / 100;
+  for (const f of alle()) {
+    const rnd = rngFeld(f.c, f.r, 2);
+    const listeOben = { gras:PAL.gras, wiese:PAL.wiese, wald:PAL.wald, hoch:PAL.hoch,
+                        sand:PAL.sand, kies:PAL.kies }[f.S.oben];
+    /* Kontakt: eine Kante, hinter der es HÖHER weitergeht, verschattet ihre
+       zwei Ecken. Das ist der Ersatz für SSAO — billig und steuerbar. In der
+       Arena ist es zugleich das, was einen ANGEBAUTEN Ring sofort lesbar
+       macht: die Naht zwischen zwei Höhen wirft ihren eigenen Kontakt. */
+    const dunkel = [1,1,1,1,1,1];
+    for (const n of SOT.hex.neighbors(f.c, f.r)) {
+      const g = plAn(n.c, n.r); if (!g) continue;
+      const kante = KANTE_VON_DIR[n.dir];
+      const d = g.hoehe - f.hoehe;
+      if (d > 0.05) {
+        const sv = 1 - Math.min(0.34, d * 0.42) * ao;
+        dunkel[kante] = Math.min(dunkel[kante], sv);
+        dunkel[(kante + 1) % 6] = Math.min(dunkel[(kante + 1) % 6], sv);
+      }
+    }
+
+    /* Fase: die Deckfläche sitzt auf einem eingezogenen Ring, der Ring fällt
+       ein Stück ab. Ein Segment genügt — der Grat fängt das Licht. */
+    const FASE = 0.11, FALL = 0.035;
+    const innen = f.eck.map(([x, z], k) => {
+      const dx = x - f.x, dz = z - f.z;
+      return [f.x + dx * (1 - FASE), f.hoehen[k], f.z + dz * (1 - FASE)];
+    });
+    const aussen = f.eck.map(([x, z], k) => [x, f.hoehen[k] - FALL, z]);
+
+    const fOben = innen.map((_, k) => dunkler(ton(listeOben, rnd, 0.45), dunkel[k]));
+    const fMitte = ton(listeOben, rnd, 0.3);
+    const mitte = [f.x, f.mitteH, f.z];
+    f.gelVon = bau.anz;
+
+    for (let k = 0; k < 6; k++) {
+      const k2 = (k + 1) % 6;
+      bau.dreieck(mitte, innen[k], innen[k2], fMitte, fOben[k], fOben[k2]);
+    }
+    for (let k = 0; k < 6; k++) {
+      const k2 = (k + 1) % 6;
+      bau.viereck(innen[k], aussen[k], aussen[k2], innen[k2],
+        dunkler(fOben[k], 0.93), dunkler(fOben[k], 0.8),
+        dunkler(fOben[k2], 0.8), dunkler(fOben[k2], 0.93));
+    }
+    /* Flanke in zwei Bändern — das mittlere darf Gestein zeigen. Die OBERE
+       bleibt Gras, auch bei Gestein: sonst hat die Hochebene einen grauen
+       Kragen direkt unter ihrer grünen Decke. */
+    const stein = f.S.flanke === 'fels';
+    const oben = stein ? PAL.flanke.gras : (PAL.flanke[f.S.flanke] || PAL.flanke.gras);
+    const yTeil = 0.52;
+    for (let k = 0; k < 6; k++) {
+      const k2 = (k + 1) % 6;
+      const yT1 = aussen[k][1], yT2 = aussen[k2][1];
+      const yM1 = UNTEN + (yT1 - UNTEN) * yTeil, yM2 = UNTEN + (yT2 - UNTEN) * yTeil;
+      /* Das Gestein ist ein ANFLUG in der Erde, keine Betonwand: mit fast
+         reinem Grau lasen die felsigen Kacheln wie gegossene Blöcke — und
+         dasselbe Grau blitzte durch jede Kachelnaht. */
+      const cMitte = stein
+        ? PAL.erde.clone().lerp(PAL.strata, 0.20 + rnd() * 0.22)
+        : PAL.erde.clone().lerp(oben, 0.18);
+      const s1 = 1 - 0.16 * ao, s2 = 1 - 0.46 * ao;
+      bau.viereck([aussen[k][0],yT1,aussen[k][2]], [aussen[k][0],yM1,aussen[k][2]],
+                  [aussen[k2][0],yM2,aussen[k2][2]], [aussen[k2][0],yT2,aussen[k2][2]],
+                  dunkler(oben, dunkel[k]), dunkler(cMitte, s1),
+                  dunkler(cMitte, s1), dunkler(oben, dunkel[k2]));
+      bau.viereck([aussen[k][0],yM1,aussen[k][2]], [aussen[k][0],UNTEN,aussen[k][2]],
+                  [aussen[k2][0],UNTEN,aussen[k2][2]], [aussen[k2][0],yM2,aussen[k2][2]],
+                  dunkler(cMitte, s1), dunkler(PAL.erdeTief, s2),
+                  dunkler(PAL.erdeTief, s2), dunkler(cMitte, s1));
+    }
+    /* Boden — nie zu sehen, aber ohne ihn klafft die Platte beim flachen Blick.
+       In der Arena mit EINEM Plättchen ist er sogar leicht zu sehen: dort gibt
+       es keinen Nachbarn, der die Unterseite verdeckt. */
+    const bodenF = dunkler(PAL.erdeTief, 1 - 0.5 * ao);
+    for (let k = 1; k < 5; k++)
+      bau.dreieck([f.eck[0][0],UNTEN,f.eck[0][1]], [f.eck[k+1][0],UNTEN,f.eck[k+1][1]],
+                  [f.eck[k][0],UNTEN,f.eck[k][1]], bodenF, bodenF, bodenF);
+    f.gelBis = bau.anz;
+  }
+}
+
+/* ============================================================================
+   7 · Bewuchs (übernommen)
+
+   Nicht Zierde: erst der Bewuchs macht die SORTE lesbar. Ein Wald ohne Bäume
+   und eine Wiese unterscheiden sich nur in einem Grünton — mit Streuung sind
+   sie auf den ersten Blick zwei Dinge. Genau das braucht ein Labor, in dem man
+   Sorten von Hand setzt.
+
+   Ein schiefer Kegel liest sich als Baum, ein gerader als Kegel.
+   ========================================================================= */
+function kegelRoh(rnd, seiten, r, h, schief) {
+  const pos = [], sx = (rnd()-0.5)*schief, sz = (rnd()-0.5)*schief;
+  const ring = [];
+  for (let k = 0; k < seiten; k++) {
+    /* Negativer Winkel aus demselben Grund wie bei ECKEN — sonst zeigt der
+       Kegel nach innen und ein Baum ist eine Baumhülle von hinten. */
+    const a = -k / seiten * Math.PI * 2 + rnd() * 0.2;
+    const rr = r * (0.82 + rnd() * 0.36);
+    ring.push([Math.cos(a)*rr, (rnd()-0.5)*h*0.12, Math.sin(a)*rr]);
+  }
+  const spitze = [sx, h, sz];
+  for (let k = 0; k < seiten; k++) {
+    const a = ring[k], b = ring[(k+1) % seiten];
+    pos.push(a[0],a[1],a[2], b[0],b[1],b[2], spitze[0],spitze[1],spitze[2]);
+    pos.push(a[0],a[1],a[2], 0,-h*0.04,0, b[0],b[1],b[2]);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  return g;
+}
+function steinRoh(rnd) {
+  /* Ikosaeder, Ecken verzogen — flach schattiert. IcosahedronGeometry ist
+     schon unindiziert; ein `toNonIndexed()` hier wäre nur eine Warnung. */
+  const g = new THREE.IcosahedronGeometry(1, 0);
+  const pos = g.attributes.position, seen = new Map();
+  for (let i = 0; i < pos.count; i++) {
+    const k = [pos.getX(i), pos.getY(i), pos.getZ(i)].map(v => v.toFixed(3)).join('|');
+    let d = seen.get(k);
+    if (!d) { d = [1 + (rnd()-0.5)*0.55, 1 + (rnd()-0.5)*0.55, 1 + (rnd()-0.5)*0.55]; seen.set(k, d); }
+    pos.setXYZ(i, pos.getX(i)*d[0], pos.getY(i)*d[1], pos.getZ(i)*d[2]);
+  }
+  return g;
+}
+const M = () => new THREE.Matrix4();
+const stellen = (x, y, z, sx, sy, sz, dreh) => M()
+  .makeTranslation(x, y, z)
+  .multiply(M().makeRotationY(dreh || 0))
+  .multiply(M().makeScale(sx, sy, sz === undefined ? sx : sz));
+
+/* Höhe der (welligen) Oberfläche an einem Punkt im Plättchen — damit Bäume und
+   Steine wirklich AUF der Fläche stehen und nicht in ihr schweben. */
+function hoeheAn(f, lx, lz) {
+  /* Ecke k liegt bei −(k·60°+90°), darum der Sektor über den NEGATIVEN Winkel.
+     Die 6π sind nur, um positiv zu bleiben — ein Vielfaches von 2π und damit
+     von sechs Sektoren, sie verschieben also nichts. */
+  const a = Math.atan2(lz, lx);
+  const s = (-a - Math.PI / 2 + Math.PI * 6) / (Math.PI / 3);
+  const k = ((Math.floor(s) % 6) + 6) % 6, tt = s - Math.floor(s);
+  const d = Math.min(1, Math.hypot(lx, lz) / RAD);
+  const rand = f.hoehen[k] * (1 - tt) + f.hoehen[(k + 1) % 6] * tt;
+  return f.mitteH * (1 - d) + rand * d;
+}
+
+function baum(bau, rnd, x, y, z, groesse) {
+  const h = groesse * (0.52 + rnd() * 0.30), dreh = rnd() * Math.PI * 2;
+  const stammH = h * 0.28, stammR = groesse * 0.032;
+  bau.form(new THREE.CylinderGeometry(stammR*0.8, stammR*1.25, stammH, 5, 1),
+    stellen(x, y + stammH/2, z, 1, 1, 1, dreh),
+    (vx, vy) => dunkler(PAL.stamm, 0.7 + (vy/stammH + 0.5) * 0.4));
+  const lagen = 2 + Math.floor(rnd() * 2.4);
+  for (let i = 0; i < lagen; i++) {
+    const fq = i / lagen;
+    const r = groesse * (0.20 - fq * 0.075) * (0.85 + rnd()*0.3);
+    const lh = h * (0.42 - fq * 0.07);
+    const yy = y + stammH * 0.75 + fq * h * 0.40;
+    const c = PAL.nadel[Math.min(PAL.nadel.length - 1, i + (rnd() < 0.4 ? 1 : 0))];
+    bau.form(kegelRoh(rnd, 6 + Math.floor(rnd()*2), r, lh, r*0.35),
+      stellen(x, yy, z, 1, 1, 1, dreh + i * 0.7),
+      (vx, vy) => dunkler(c, 0.80 + (vy / lh) * 0.28));
+  }
+}
+function busch(bau, rnd, x, y, z, groesse) {
+  const n = 1 + Math.floor(rnd() * 2.4);
+  for (let i = 0; i < n; i++) {
+    const s = groesse * (0.07 + rnd() * 0.05);
+    bau.form(steinRoh(rnd),
+      stellen(x + (rnd()-0.5)*groesse*0.12, y + s*0.62, z + (rnd()-0.5)*groesse*0.12,
+              s, s*0.9, s, rnd()*3),
+      (vx, vy) => dunkler(PAL.busch, 0.72 + (vy + 1) * 0.19));
+  }
+  if (rnd() < 0.45)
+    for (let i = 0; i < 2 + Math.floor(rnd()*2); i++) {
+      const s = groesse * 0.019;
+      bau.form(new THREE.IcosahedronGeometry(1, 0),
+        stellen(x + (rnd()-0.5)*groesse*0.13, y + groesse*(0.09 + rnd()*0.06),
+                z + (rnd()-0.5)*groesse*0.13, s, s, s), () => PAL.beere);
+    }
+}
+function steinhaufen(bau, rnd, x, y, z, groesse) {
+  /* Kein EIN grosser Fels: drei bis fünf verschieden grosse, geclustert. */
+  const n = 2 + Math.floor(rnd() * 3.4);
+  for (let i = 0; i < n; i++) {
+    const s = groesse * (0.055 + rnd() * 0.085) * (i === 0 ? 1.35 : 1);
+    const c = PAL.fels[Math.floor(rnd() * PAL.fels.length)];
+    bau.form(steinRoh(rnd),
+      stellen(x + (rnd()-0.5)*groesse*0.22, y + s*0.44, z + (rnd()-0.5)*groesse*0.22,
+              s, s*(0.7 + rnd()*0.5), s, rnd()*3),
+      (vx, vy) => dunkler(c, 0.62 + (vy + 1) * 0.24));
+  }
+}
+function halme(bau, rnd, x, y, z, groesse, c) {
+  /* Offene Zylinder (sechs Dreiecke) — bei vielen Plättchen zählt jede Fläche. */
+  for (let i = 0; i < 2; i++) {
+    const h = groesse * (0.05 + rnd() * 0.05), b = groesse * 0.006;
+    bau.form(new THREE.CylinderGeometry(b*0.3, b, h, 3, 1, true),
+      stellen(x + (rnd()-0.5)*groesse*0.09, y + h/2, z + (rnd()-0.5)*groesse*0.09,
+              1, 1, 1, rnd()*3),
+      (vx, vy) => dunkler(c, 0.72 + (vy/h + 0.5) * 0.4));
+  }
+}
+
+function bewuchsBauen(bau) {
+  const dichte = P.dichte / 100;
+  for (const f of alle()) {
+    f.bewVon = bau.anz;
+    const rnd = rngFeld(f.c, f.r, 3);
+    const s = f.S.streu;
+    const anzahl = (p, max) => Math.round(p * dichte * (0.6 + rnd() * max));
+    const plaetze = [];
+    /* Innerhalb der Plättchengrenze bleiben — freie Streuung sieht schlechter
+       aus als eine bewusste. Darum Kreis mit 0.8·Inkreis und Mindestabstand. */
+    const platz = (min) => {
+      for (let v = 0; v < 12; v++) {
+        const a = rnd() * Math.PI * 2, rr = Math.sqrt(rnd()) * INKREIS * 0.80;
+        const lx = Math.cos(a) * rr, lz = Math.sin(a) * rr;
+        if (plaetze.every(q => (q[0]-lx)**2 + (q[1]-lz)**2 > min*min)) {
+          plaetze.push([lx, lz]); return [lx, lz];
+        }
+      }
+      return null;
+    };
+    const setzen = (n, min, fn) => {
+      for (let i = 0; i < n; i++) {
+        const q = platz(min); if (!q) continue;
+        fn(f.x + q[0], hoeheAn(f, q[0], q[1]) - 0.012, f.z + q[1]);
+      }
+    };
+    setzen(anzahl(s.baum,  3.2), 0.20, (x,y,z) => baum(bau, rnd, x, y, z, W));
+    setzen(anzahl(s.stein, 2.2), 0.16, (x,y,z) => steinhaufen(bau, rnd, x, y, z, W));
+    setzen(anzahl(s.busch, 2.0), 0.13, (x,y,z) => busch(bau, rnd, x, y, z, W));
+    setzen(anzahl(s.halm,  3.0), 0.08, (x,y,z) => halme(bau, rnd, x, y, z, W, PAL.nadel[3]));
+    f.bewBis = bau.anz;
+  }
+}
+
+/* ============================================================================
+   8 · Renderer, Materialien, Nachbearbeitung (übernommen)
+   ========================================================================= */
+const leinwand = document.getElementById('gl');
+const buehne = document.getElementById('buehne');
+let renderer, scene, kamera, sonne, fuell, rueck;
+let matGelaende, matSonstiges, matWasser;
+let matHell, matBlur, matEnde, quad, quadScene, quadCam;
+let rtScene, rtA, rtB;
+let mGelaende = null, mSonstiges = null, mSchatten = null, mRing = null, mRingHover = null;
+let mLauf = null, mSee = null;
+let schattenTex = null;
+const arenaMitte = new THREE.Vector3();
+const arenaSpan = new THREE.Vector3();
+let arenaHoch = 0;
+const blickZiel = new THREE.Vector3();
+
+function rendererBauen() {
+  /* `preserveDrawingBuffer` NUR mit ?still: zeichnet man auf Zuruf, darf der
+     Bildpuffer zwischen zwei Zeichnungen nicht verworfen werden. Ohne das legt
+     headless Chrome unter `--virtual-time-budget` gelegentlich einen geleerten
+     Puffer vor — das Bildschirmfoto ist dann leeres Papier, und man sucht den
+     Fehler in der Kamerapassung. */
+  renderer = new THREE.WebGLRenderer({
+    canvas:leinwand, antialias:true, alpha:false, preserveDrawingBuffer:!!P.still
+  });
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  /* `PCFSoftShadowMap` ist in r185 abgekündigt und fällt still auf PCF zurück —
+     „weich" hätte gar nichts getan. Weiche Schatten kommen darum aus VSM. */
+  renderer.shadowMap.enabled = P.schatten !== 'aus';
+  renderer.shadowMap.type = P.schatten === 'weich' ? THREE.VSMShadowMap : THREE.PCFShadowMap;
+  scene = new THREE.Scene();
+  kamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
+
+  sonne = new THREE.DirectionalLight(0xffffff, 1);
+  sonne.castShadow = true;
+  sonne.shadow.mapSize.set(1024, 1024);
+  sonne.shadow.bias = -0.0012; sonne.shadow.normalBias = 0.02;
+  sonne.shadow.radius = 2; sonne.shadow.blurSamples = 10;
+  scene.add(sonne, sonne.target);
+  fuell = new THREE.HemisphereLight(0xffffff, 0x888888, 1); scene.add(fuell);
+  rueck = new THREE.DirectionalLight(0xffffff, 0.2); scene.add(rueck);
+
+  matGelaende  = new THREE.MeshStandardMaterial({ vertexColors:true, roughness:0.92, metalness:0 });
+  matSonstiges = new THREE.MeshStandardMaterial({ vertexColors:true, roughness:0.86, metalness:0 });
+  /* Glatt und leicht spiegelnd — das ist der ganze Unterschied zum Gelände,
+     und er genügt: eine Fläche, die das Himmelslicht anders zurückgibt als
+     alles ringsum, liest sich als Wasser. `DoubleSide`, weil man bei flachem
+     Blick unter den Spiegel schaut, wenn ein Ufer davor höher liegt. */
+  matWasser = new THREE.MeshStandardMaterial({
+    vertexColors:true, roughness:0.22, metalness:0.04,
+    transparent:true, opacity:0.90, side:THREE.DoubleSide });
+
+  /* Nachbearbeitung. RawShaderMaterial, damit three NICHTS anhängt — keine
+     Tonwertabbildung, keine Farbraumwandlung. Der letzte Durchgang macht beides
+     selbst; sonst wäre das Bild doppelt kodiert. In ein Rendertarget wendet
+     three toneMapping nicht an, die Zwischenbilder sind also linear und dürfen
+     HDR tragen. */
+  const vs = `attribute vec3 position; varying vec2 vUv;
+    void main(){ vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+  const roh = (fs, uni) => new THREE.RawShaderMaterial({
+    vertexShader:vs, fragmentShader:fs, uniforms:uni, depthTest:false, depthWrite:false });
+
+  matHell = roh(`precision highp float; varying vec2 vUv;
+    uniform sampler2D tBild; uniform float uSchwelle;
+    void main(){ vec3 c = texture2D(tBild, vUv).rgb;
+      float l = max(max(c.r, c.g), c.b);
+      gl_FragColor = vec4(c * smoothstep(uSchwelle, uSchwelle + 0.7, l), 1.0); }`,
+    { tBild:{ value:null }, uSchwelle:{ value:1.05 } });
+
+  matBlur = roh(`precision highp float; varying vec2 vUv;
+    uniform sampler2D tBild; uniform vec2 uRichtung;
+    void main(){
+      vec3 s = texture2D(tBild, vUv).rgb * 0.2270;
+      s += (texture2D(tBild, vUv + uRichtung*1.3846).rgb + texture2D(tBild, vUv - uRichtung*1.3846).rgb) * 0.3162;
+      s += (texture2D(tBild, vUv + uRichtung*3.2308).rgb + texture2D(tBild, vUv - uRichtung*3.2308).rgb) * 0.0702;
+      gl_FragColor = vec4(s, 1.0); }`,
+    { tBild:{ value:null }, uRichtung:{ value:new THREE.Vector2() } });
+
+  matEnde = roh(`precision highp float; varying vec2 vUv;
+    uniform sampler2D tBild, tGlut; uniform vec2 uPixel;
+    uniform float uBelichtung, uGlut, uSaettigung, uScharf, uVignette;
+    uniform vec3 uWarm, uKuehl;
+    vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
+    vec3 srgb(vec3 c){ return mix(c*12.92, 1.055*pow(max(c, vec3(1e-5)), vec3(1.0/2.4)) - 0.055,
+                                  step(vec3(0.0031308), c)); }
+    void main(){
+      vec3 c = texture2D(tBild, vUv).rgb;
+      vec3 u = texture2D(tBild, vUv + vec2(uPixel.x, 0.0)).rgb
+             + texture2D(tBild, vUv - vec2(uPixel.x, 0.0)).rgb
+             + texture2D(tBild, vUv + vec2(0.0, uPixel.y)).rgb
+             + texture2D(tBild, vUv - vec2(0.0, uPixel.y)).rgb;
+      c += (c - u * 0.25) * uScharf;
+      c += texture2D(tGlut, vUv).rgb * uGlut;
+      c = aces(c * uBelichtung);
+      float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      c *= mix(uKuehl, uWarm, smoothstep(0.16, 0.86, l));
+      c = mix(vec3(l), c, uSaettigung);
+      c *= 1.0 - uVignette * smoothstep(0.34, 0.90, distance(vUv, vec2(0.5)));
+      gl_FragColor = vec4(srgb(clamp(c, 0.0, 1.0)), 1.0); }`,
+    { tBild:{ value:null }, tGlut:{ value:null }, uPixel:{ value:new THREE.Vector2() },
+      uBelichtung:{ value:1 }, uGlut:{ value:0.5 }, uSaettigung:{ value:1.12 },
+      uScharf:{ value:0.30 }, uVignette:{ value:0.16 },
+      uWarm:{ value:new THREE.Vector3(1,1,1) }, uKuehl:{ value:new THREE.Vector3(1,1,1) } });
+
+  quadScene = new THREE.Scene();
+  quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), matHell);
+  quad.frustumCulled = false;
+  quadScene.add(quad);
+  quadCam = new THREE.Camera();
+
+  const opt = { type:THREE.HalfFloatType, colorSpace:THREE.NoColorSpace, stencilBuffer:false };
+  rtScene = new THREE.WebGLRenderTarget(2, 2, { ...opt, depthBuffer:true, samples:4 });
+  rtA = new THREE.WebGLRenderTarget(2, 2, { ...opt, depthBuffer:false });
+  rtB = new THREE.WebGLRenderTarget(2, 2, { ...opt, depthBuffer:false });
+}
+
+function schattenTextur() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+  const g = cv.getContext('2d');
+  const rg = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+  rg.addColorStop(0, 'rgba(0,0,0,0.62)');
+  rg.addColorStop(0.5, 'rgba(0,0,0,0.34)');
+  rg.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = rg; g.fillRect(0, 0, 256, 256);
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/* ============================================================================
+   9 · Die Arena aufbauen
+   ========================================================================= */
+let messung = { dreiecke:0, bauzeit:0 };
+
+function altWeg() {
+  for (const m of [mGelaende, mSonstiges, mSchatten, mRing, mRingHover, mLauf, mSee]) {
+    if (!m) continue;
+    scene.remove(m);
+    if (m.geometry) m.geometry.dispose();
+    if (m.material && ![matGelaende, matSonstiges, matWasser].includes(m.material)) m.material.dispose();
+  }
+  mGelaende = mSonstiges = mSchatten = mRing = mRingHover = mLauf = mSee = null;
+}
+
+function weltBauen() {
+  const t0 = performance.now();
+  paletteLesen();
+  altWeg();
+  arenaRechnen();
+  senkenFuellen();
+  seenFinden();
+  wasserRechnen();
+
+  const bGel = new Bauplan();
+  kachelnBauen(bGel);
+  mGelaende = new THREE.Mesh(bGel.geometrie(), matGelaende);
+  mGelaende.castShadow = true; mGelaende.receiveShadow = true;
+  scene.add(mGelaende);
+
+  const bRest = new Bauplan();
+  bewuchsBauen(bRest);
+  mSonstiges = new THREE.Mesh(bRest.geometrie(), matSonstiges);
+  mSonstiges.castShadow = true; mSonstiges.receiveShadow = true;
+  scene.add(mSonstiges);
+  messung.dreiecke = bGel.anz + bRest.anz;
+
+  mGelaende.geometry.computeBoundingBox();
+  const bb = mGelaende.geometry.boundingBox;
+  arenaMitte.set((bb.min.x + bb.max.x)/2, 0, (bb.min.z + bb.max.z)/2);
+  arenaHoch = bb.max.y;
+  arenaSpan.set(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
+
+  /* Der Bodenschatten macht aus der Platte ein Ding auf einem TISCH. Bei einem
+     einzelnen Plättchen ist er die halbe Wirkung — ohne ihn schwebt es. */
+  if (!schattenTex) schattenTex = schattenTextur();
+  mSchatten = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
+    map:schattenTex, transparent:true, depthWrite:false, color:PAL.boden, toneMapped:false }));
+  mSchatten.rotation.x = -Math.PI / 2;
+  mSchatten.scale.set(arenaSpan.x * 1.9 + 0.6, arenaSpan.z * 1.45 + 0.5, 1);
+  mSchatten.position.set(arenaMitte.x + 0.22, UNTEN - 0.02, arenaMitte.z + 0.30);
+  scene.add(mSchatten);
+
+  seenBauen();
+  laufBauen();
+
+  mRing = ringBauen(farbe('--ember'), 0.11);
+  mRingHover = ringBauen(farbe('--ink2'), 0.055);
+  mRing.visible = mRingHover.visible = false;
+  scene.add(mRing, mRingHover);
+
+  matGelaende.wireframe = matSonstiges.wireframe = !!P.gitter;
+
+  /* Ein Plättchen, das der Abbau eines Rings weggenommen hat, darf nicht
+     gewählt bleiben — sonst hängt der Ring im Leeren und die Sortenliste
+     schreibt in ein Plättchen, das es nicht gibt. */
+  if (gewaehlt && !plAn(gewaehlt.c, gewaehlt.r)) gewaehlt = null;
+  else if (gewaehlt) gewaehlt = plAn(gewaehlt.c, gewaehlt.r);
+  ueber = null;
+
+  lichtStellen();
+  kameraStellen();
+  ringSetzen(mRing, gewaehlt);
+  messung.bauzeit = performance.now() - t0;
+  legendeBauen();
+  minikarteBauen();
+  ringbrettBauen();
+  sortenbrettBauen();
+  wasserbrettBauen();
+  stempelSchreiben();
+}
+
+/* -------------------------------------------------------------------- Ringe ---
+   Ein BAND, keine Linie: `linewidth` ignoriert WebGL, ein Ring aus THREE.Line
+   wäre auf jedem Gerät ein Haar breit. */
+function ringBauen(col, breite) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(12 * 3), 3));
+  const idx = [];
+  for (let k = 0; k < 6; k++) {
+    const a = k*2, b = a+1, c = ((k+1)%6)*2, d = c+1;
+    idx.push(a, b, d, a, d, c);
+  }
+  g.setIndex(idx);
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+    color:col, toneMapped:false, transparent:true, opacity:0.95,
+    depthWrite:false, side:THREE.DoubleSide }));
+  m.frustumCulled = false;
+  m.userData.breite = breite;
+  return m;
+}
+/* ------------------------------------------------------- Der Lauf als Band ---
+   Eine MARKIERUNG, kein Gewässer: unbeleuchtet, ohne Tonwertabbildung, ohne
+   Tiefenschreiben — genau wie die Auswahlringe, und aus demselben Grund. Wer
+   hier ein Wasserband sähe, würde über sein Aussehen streiten, statt zu prüfen,
+   ob der Weg stimmt.
+
+   Zwei Kniffe halten die Linie lesbar:
+
+   · Zwischen zwei Feldmitten liegt ein Stützpunkt auf der KANTENMITTE (die ist
+     genau die Mitte der beiden Feldmitten), und zwar auf der HÖHEREN der
+     beiden Höhen. Ohne ihn zieht die gerade Verbindung von einer hohen zu
+     einer tiefen Mitte quer DURCH die Flanke der Terrasse und verschwindet
+     darin — mit ihm läuft die Linie waagrecht bis zur Kante und fällt dann.
+     Das sagt nebenbei die Wahrheit darüber, WO das Wasser fällt.
+   · Um die Quelle liegt ein Sechseckring in derselben Farbe. Der Anfang eines
+     Weges ist die Stelle, die man setzt — sie soll man auch sehen, wenn der
+     Lauf nur zwei Felder lang ist.
+   --------------------------------------------------------------------------- */
+/* --------------------------------------------------------- Die Seenfläche ---
+   Ein See ist EINE Fläche auf EINER Höhe. Das ist der Punkt, an dem er sich vom
+   Gelände unterscheidet, und er verträgt keine Ausnahme: die Kacheln sind je
+   Feld geschrumpft und ihre Ecken um bis zu ±0,027 verzogen — übernähme die
+   Wasserfläche diese Ecken, hätte sie eine unruhige Kante und an jeder
+   Feldgrenze eine Naht, und das liest sich sofort als Fehler statt als Wasser.
+
+   Darum wird sie aus dem IDEALEN Sechseck gebaut (`ECKEN` um die Feldmitte,
+   ungeschrumpft, unverzogen): benachbarte Felder stossen dann mathematisch
+   genau aneinander, es gibt keine Naht, und die Fläche greift ein bis zwei
+   Prozent über die Kachelkante — was von selbst wie Wasser aussieht, das ans
+   Ufer schwappt.
+
+   Gefärbt wird je Feld nach seiner TIEFE, nicht je See: flach am Ufer, dunkel
+   über der Pfanne. Der Spiegel bleibt trotzdem eine Ebene — die Farbe erzählt,
+   was darunter liegt, ohne die Fläche zu verbiegen.
+   --------------------------------------------------------------------------- */
+const SEE_HOCH = 0.006, SEE_TIEFTON = 3 * STUFE;
+function seenBauen() {
+  /* Nur GESPEISTE Seen werden gebaut. Eine Pfanne, in die nichts hineinläuft,
+     ist eine Mulde im Gelände und kein Gewässer. */
+  const nass = seen.filter(S => S.gespeist);
+  if (!nass.length) return;
+  const bau = new Bauplan();
+  for (const S of nass) {
+    const y = S.spiegel + SEE_HOCH;
+    for (const f of S.felder) {
+      const c = PAL.wasser.clone().lerp(PAL.wasserTief, Math.min(1, f.tiefe / SEE_TIEFTON));
+      const m = [f.x, y, f.z];
+      const p = k => [f.x + ECKEN[k][0], y, f.z + ECKEN[k][1]];
+      for (let k = 0; k < 6; k++) bau.dreieck(m, p(k), p((k + 1) % 6), c, c, c);
+    }
+  }
+  mSee = new THREE.Mesh(bau.geometrie(), matWasser);
+  /* Wasser wirft keinen Schatten, aber es fängt einen: der Baum am Ufer soll
+     auf dem See stehen. */
+  mSee.receiveShadow = true;
+  scene.add(mSee);
+}
+
+const LAUF_HOCH = 0.045;
+function laufBauen() {
+  if (!laeufe.length) return;
+  const pos = [], idx = [];
+  const ecke = (x, y, z) => { pos.push(x, y, z); return pos.length / 3 - 1; };
+  const viereck = (a, b, c, d) => idx.push(a, b, c, a, c, d);
+  /* Ein Streifen konstanter Breite entlang einer Punktfolge. Stumpfe Stösse an
+     den Knicken — bei dieser Breite ist die Kerbe kleiner als ein Bildpunkt. */
+  const streifen = (pkte, breite) => {
+    for (let i = 0; i < pkte.length - 1; i++) {
+      const a = pkte[i], b = pkte[i + 1];
+      let dx = b[0] - a[0], dz = b[2] - a[2];
+      const l = Math.hypot(dx, dz);
+      if (l < 1e-5) continue;
+      dx /= l; dz /= l;
+      const px = -dz * breite / 2, pz = dx * breite / 2;
+      viereck(ecke(a[0]+px, a[1], a[2]+pz), ecke(a[0]-px, a[1], a[2]-pz),
+              ecke(b[0]-px, b[1], b[2]-pz), ecke(b[0]+px, b[1], b[2]+pz));
+    }
+  };
+  /* Gezeichnet wird das NETZ, nicht Lauf für Lauf: unterhalb eines
+     Zusammenflusses liegen sonst zwei Bänder übereinander, und das breitere
+     wäre nicht das, was man sieht, sondern das zuletzt gezeichnete. Je Feld
+     genau ein Stück talwärts, in der Breite SEINER Menge — so wächst das Band
+     genau dort, wo die Menge wächst. */
+  for (const f of alle()) {
+    if (!f.q || !f.ab) continue;
+    const g = f.ab;
+    /* Innerhalb eines Sees wird nichts gezeichnet: ein Fluss quer über eine
+       Wasserfläche liest sich falsch. Er verschwindet am Ufer und kommt am
+       Überlauf wieder heraus — wie auf einer Karte. */
+    if (f.nass && g.nass) continue;
+    const ya = oberflaeche(f) + LAUF_HOCH, yb = oberflaeche(g) + LAUF_HOCH;
+    streifen([[f.x, ya, f.z],
+              [(f.x + g.x) / 2, Math.max(ya, yb), (f.z + g.z) / 2],
+              [g.x, yb, g.z]], klasseVon(f.q).breit);
+  }
+  for (const L of laeufe) {
+    const q = L.start, b = 0.13;
+    /* Liegt die Quelle selbst in einem See, gehört ihr Ring auf den SPIEGEL —
+       sonst läge er auf der Pfannensohle und damit unter Wasser. */
+    const yEck = kk => q.nass ? oberflaeche(q) : q.hoehen[kk];
+    for (let k = 0; k < 6; k++) {
+      const k2 = (k + 1) % 6;
+      const p = (kk, s) => [q.x + (q.eck[kk][0] - q.x) * s, yEck(kk) + LAUF_HOCH,
+                            q.z + (q.eck[kk][1] - q.z) * s];
+      const A = p(k, 1 - b), B = p(k, 1 + b * 0.3), C = p(k2, 1 + b * 0.3), D = p(k2, 1 - b);
+      viereck(ecke(...A), ecke(...B), ecke(...C), ecke(...D));
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeBoundingSphere();
+  mLauf = new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+    color:farbe('--river'), toneMapped:false, transparent:true, opacity:0.95,
+    depthWrite:false, side:THREE.DoubleSide }));
+  scene.add(mLauf);
+}
+
+function ringSetzen(l, f) {
+  if (!l) return;
+  if (!f) { l.visible = false; neuZeichnen(); return; }
+  const b = l.userData.breite, a = l.geometry.attributes.position;
+  for (let k = 0; k < 6; k++) {
+    const dx = f.eck[k][0] - f.x, dz = f.eck[k][1] - f.z, y = f.hoehen[k] + 0.035;
+    a.setXYZ(k*2,   f.x + dx * (1 - b), y, f.z + dz * (1 - b));
+    a.setXYZ(k*2+1, f.x + dx * (1 + b * 0.35), y, f.z + dz * (1 + b * 0.35));
+  }
+  a.needsUpdate = true;
+  l.geometry.computeBoundingSphere();
+  l.visible = true;
+  neuZeichnen();
+}
+
+/* ============================================================================
+   10 · Licht und Kamera
+   ========================================================================= */
+function lichtStellen() {
+  const L = LICHT[P.zeit] || LICHT.mittag;
+  const azi = (P.lichtdreht ? P.azimut + L.azimut : L.azimut) * Math.PI / 180;
+  const hoe = L.hoehe * Math.PI / 180;
+  const d = 9;
+  sonne.target.position.copy(blickZiel);
+  sonne.position.set(
+    blickZiel.x + Math.cos(hoe) * Math.sin(azi) * d,
+    blickZiel.y + Math.sin(hoe) * d,
+    blickZiel.z + Math.cos(hoe) * Math.cos(azi) * d
+  );
+  sonne.color.copy(PAL.sonne); sonne.intensity = L.sonne;
+  /* Die Schattenkamera eng um das legen, was wirklich da ist: jede überflüssige
+     Einheit kostet Auflösung, und bei EINEM Plättchen ist der Unterschied
+     zwischen „eng" und „ganze Karte" der zwischen scharf und Brei. */
+  const sc = sonne.shadow.camera;
+  const rad = 0.5 * Math.hypot(arenaSpan.x, arenaSpan.z) + 0.8;
+  sc.left = -rad; sc.right = rad; sc.top = rad; sc.bottom = -rad;
+  sc.near = 0.1; sc.far = d + rad + 4;
+  sc.updateProjectionMatrix();
+  sonne.shadow.radius = P.schatten === 'weich' ? 2 : 1;
+
+  fuell.color.copy(PAL.fuell); fuell.groundColor.copy(PAL.rueck); fuell.intensity = L.fuell;
+  rueck.color.copy(PAL.fuell); rueck.intensity = L.rueck;
+  rueck.position.set(blickZiel.x - Math.sin(azi) * 6, blickZiel.y + 1.6,
+                     blickZiel.z - Math.cos(azi) * 6);
+
+  scene.background = PAL.papier;
+  matEnde.uniforms.uBelichtung.value = L.belichtung;
+  matEnde.uniforms.uWarm.value.set(PAL.warm.r, PAL.warm.g, PAL.warm.b);
+  matEnde.uniforms.uKuehl.value.set(PAL.kuehl.r, PAL.kuehl.g, PAL.kuehl.b);
+  renderer.toneMappingExposure = L.belichtung;
+  neuZeichnen();
+}
+
+const istOben = () => P.sicht === 'oben';
+const neigungJetzt = () => istOben() ? 90 : P.neigung;
+
+function kameraStellen() {
+  const azi = P.azimut * Math.PI / 180;
+  const neig = neigungJetzt() * Math.PI / 180;
+  const ziel = blickZiel.clone();
+  ziel.y = 0.25;
+  const d = 60;
+  kamera.position.set(
+    ziel.x + Math.cos(neig) * Math.sin(azi) * d,
+    ziel.y + Math.sin(neig) * d,
+    ziel.z + Math.cos(neig) * Math.cos(azi) * d
+  );
+  /* Senkrecht von oben ist `lookAt` mit der Hochachse als Aufwärtsvektor
+     entartet — dann zeigt Norden nach oben, indem der Aufwärtsvektor auf −z
+     kippt. Ohne das dreht sich das Bild bei 90° willkürlich weg. */
+  kamera.up.set(0, 1, 0);
+  if (neigungJetzt() > 88) kamera.up.set(0, 0, -1);
+  kamera.lookAt(ziel);
+
+  const w = buehne.clientWidth || 1, h = buehne.clientHeight || 1;
+  /* Der Maßstab ist „so viele Felder in der Bildbreite" — auflösungsunabhängig
+     und in Spielgrößen gedacht, nicht in Weltmetern. */
+  const hx = zoomJetzt() * W / 2;
+  const hy = hx * h / w;
+  kamera.left = -hx; kamera.right = hx; kamera.top = hy; kamera.bottom = -hy;
+  kamera.near = 0.1; kamera.far = 200;
+  kamera.updateProjectionMatrix();
+  kamera.updateMatrixWorld(true);
+  stempelSchreiben();
+  neuZeichnen();
+}
+
+/* ------------------------------------------------------------- Der Maßstab ---
+   Eine Arena, die wächst, muss mitwachsen: ein einzelnes Plättchen bei dreissig
+   Feldern Bildbreite ist ein Punkt, und derselbe Maßstab lässt Ring 6 aus dem
+   Bild laufen. Der Maßstab ist darum ABGELEITET — aus der Silhouette im
+   Kamerasystem, also inklusive Neigung und Drehung.
+
+   `?zoom=` schlägt das: ein Bildschirmfoto muss den Maßstab festnageln können.
+   Am Rad zu drehen setzt denselben Merker, denn wer selbst zoomt, will nicht
+   beim nächsten Ring zurückgeworfen werden. */
+let zoomFest = new URLSearchParams(location.search).has('zoom') && P.zoom > 0;
+let zoomAuto = 6;
+const zoomJetzt = () => (zoomFest && P.zoom > 0) ? P.zoom : zoomAuto;
+
+function passen(sagen) {
+  const w = buehne.clientWidth || 1, h = buehne.clientHeight || 1;
+  const azi = P.azimut * Math.PI / 180;
+  const neig = neigungJetzt() * Math.PI / 180;
+  const cr = new THREE.Vector3(Math.cos(azi), 0, -Math.sin(azi));
+  const cu = new THREE.Vector3(-Math.sin(azi) * Math.sin(neig), Math.cos(neig),
+                               -Math.cos(azi) * Math.sin(neig));
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const f of alle())
+    for (let k = 0; k < 6; k++)
+      for (const y of [f.hoehen[k], UNTEN]) {
+        const px = f.eck[k][0]*cr.x + y*cr.y + f.eck[k][1]*cr.z;
+        const py = f.eck[k][0]*cu.x + y*cu.y + f.eck[k][1]*cu.z;
+        if (px < x0) x0 = px; if (px > x1) x1 = px;
+        if (py < y0) y0 = py; if (py > y1) y1 = py;
+      }
+  if (!isFinite(x0)) return;
+  /* 0.62 statt 0.92 wie im Diorama: dort füllt das Tal das Bild, hier soll um
+     die Arena Papier stehen bleiben — sie ist ein Objekt auf einem Tisch, und
+     ein Objekt braucht Rand. */
+  const brX = (x1 - x0) / 0.62, brY = ((y1 - y0) / 0.62) * w / h;
+  /* Die Untergrenze ist nicht Vorsicht, sondern eine Aussage: ein EINZELNES
+     Plättchen füllt sonst das ganze Bild und liest sich als Wand statt als
+     Spielstein. Vier Feldbreiten lassen genug Papier ringsum, damit es auf
+     einem Tisch liegt — und ein Baum darauf behält seine Grösse gegenüber dem
+     Plättchen, statt zum Baum eines Waldes zu werden. */
+  zoomAuto = Math.min(40, Math.max(4.4, Math.max(brX, brY) / W));
+  blickZiel.set(arenaMitte.x, 0, arenaMitte.z);
+  kameraStellen(); lichtStellen();
+  if (sagen) SOT.toast('Eingepasst — ' + zoomJetzt().toFixed(1) + ' Felder Bildbreite');
+}
+
+/* ============================================================================
+   11 · Bildgrösse und Zeichnen
+   ========================================================================= */
+function groesseStellen() {
+  const w = Math.max(1, buehne.clientWidth), h = Math.max(1, buehne.clientHeight);
+  renderer.setSize(w, h, false);
+  const dpr = renderer.getPixelRatio();
+  const pw = Math.max(2, Math.floor(w * dpr)), ph = Math.max(2, Math.floor(h * dpr));
+  rtScene.setSize(pw, ph);
+  rtA.setSize(Math.max(2, pw >> 2), Math.max(2, ph >> 2));
+  rtB.setSize(Math.max(2, pw >> 2), Math.max(2, ph >> 2));
+  matEnde.uniforms.uPixel.value.set(1 / pw, 1 / ph);
+  if (!zoomFest) passen(false); else kameraStellen();
+}
+
+function durchgang(mat, ziel) {
+  quad.material = mat;
+  renderer.setRenderTarget(ziel);
+  renderer.render(quadScene, quadCam);
+}
+
+function zeichnen() {
+  if (P.post > 0) {
+    renderer.setRenderTarget(rtScene);
+    renderer.clear();
+    renderer.render(scene, kamera);
+    matHell.uniforms.tBild.value = rtScene.texture;
+    durchgang(matHell, rtA);
+    matBlur.uniforms.tBild.value = rtA.texture;
+    matBlur.uniforms.uRichtung.value.set(1 / rtA.width, 0);
+    durchgang(matBlur, rtB);
+    matBlur.uniforms.tBild.value = rtB.texture;
+    matBlur.uniforms.uRichtung.value.set(0, 1 / rtA.height);
+    durchgang(matBlur, rtA);
+    const s = P.post / 100;
+    matEnde.uniforms.tBild.value = rtScene.texture;
+    matEnde.uniforms.tGlut.value = rtA.texture;
+    matEnde.uniforms.uGlut.value = 0.55 * s;
+    matEnde.uniforms.uSaettigung.value = 1 + 0.14 * s;
+    matEnde.uniforms.uScharf.value = 0.34 * s;
+    matEnde.uniforms.uVignette.value = 0.18 * s;
+    durchgang(matEnde, null);
+  } else {
+    renderer.setRenderTarget(null);
+    renderer.render(scene, kamera);
+  }
+}
+
+/* `?still` heisst NICHT „bewegte Szene eingefroren", sondern „nur auf Zuruf
+   zeichnen" — und dann SOFORT, nicht beim nächsten Bild. Der Unterschied ist
+   der Bildschirmfoto-Ablauf der Werkstatt: `--virtual-time-budget` spult die
+   Zeit vor; eine laufende rAF-Schleife rendert dann hunderte Bilder, eine
+   wartende liefert einen geleerten Puffer, wenn das Budget zwischen
+   Grössenänderung und nächstem Bild ausläuft. Synchron zeichnen umgeht beides.
+
+   In dieser Arena bewegt sich ohnehin nichts von selbst — es gibt kein Feuer,
+   keinen Regen, kein Wasser. Die Schleife zeichnet darum NUR, wenn etwas
+   schmutzig ist; das ist kein Sparen, sondern die Wahrheit über die Szene. */
+let bereit = false, schmutzig = true;
+function neuZeichnen() {
+  if (!bereit) return;
+  if (P.still) zeichnen(); else schmutzig = true;
+}
+function schleife() {
+  requestAnimationFrame(schleife);
+  if (P.still || !schmutzig) return;
+  schmutzig = false;
+  zeichnen();
+}
+
+/* ============================================================================
+   12 · Anfassen: Schieben, Drehen, Wählen
+
+   Zeigen läuft über das HÖHENFELD, nicht über einen Netzschnitt — der erste
+   Treffer auf dem Netz ist in der Schrägsicht die FLANKE der Kachel davor, man
+   landete also systematisch auf dem Plättchen VOR dem gemeinten. In einer
+   Arena mit Terrassen ist das kein Schönheitsfehler: von einer Hochebene auf
+   das Grasland daneben zu tippen wählte zuverlässig die Hochebene.
+
+   Nebenwirkung, und eine erwünschte: der BEWUCHS spielt keine Rolle. Ein Baum
+   ist kein Gelände; durch ihn hindurch zeigt man auf sein Plättchen.
+   ========================================================================= */
+const strahl = new THREE.Raycaster();
+const maus = new THREE.Vector2();
+let gewaehlt = null, ueber = null;
+
+/* Weltpunkt → Plättchen, in KONSTANTER Zeit. Aus `mitteVon` rückwärts: die
+   Zeile folgt aus z, die Spalte aus x abzüglich des Zeilenversatzes. Weil sich
+   die Zeilen überlappen, werden die drei Zeilen ringsum geprüft — neun
+   Kandidaten, nicht alle. */
+function feldBei(x, z) {
+  const r0 = Math.round(z / (H * 0.75));
+  let best = null, bd = Infinity;
+  for (let r = r0 - 1; r <= r0 + 1; r++) {
+    const c0 = Math.round(x / W - (r & 1) * 0.5);
+    for (let c = c0 - 1; c <= c0 + 1; c++) {
+      const f = plAn(c, r); if (!f) continue;
+      const d = (f.x - x) ** 2 + (f.z - z) ** 2;
+      if (d < bd) { bd = d; best = f; }
+    }
+  }
+  /* Ausserhalb des eigenen Sechsecks liegt kein Plättchen — sonst „trifft" der
+     Strahl neben der Arena noch das nächstbeste, und in einer Arena mit einem
+     einzigen Plättchen wäre das jeder Klick auf das Papier. */
+  return best && bd <= RAD * RAD ? best : null;
+}
+const PICK_SCHRITT = 0.055;
+function feldUnter(ev) {
+  if (!mGelaende) return null;
+  const b = leinwand.getBoundingClientRect();
+  maus.x = ((ev.clientX - b.left) / b.width) * 2 - 1;
+  maus.y = -((ev.clientY - b.top) / b.height) * 2 + 1;
+  strahl.setFromCamera(maus, kamera);
+  const o = strahl.ray.origin, d = strahl.ray.direction;
+  if (Math.abs(d.y) < 1e-6) return null;
+  const t0 = Math.max(0, (arenaHoch + 0.5 - o.y) / d.y);
+  const t1 = (UNTEN - o.y) / d.y;
+  if (!(t1 > t0)) return null;
+  for (let t = t0; t <= t1; t += PICK_SCHRITT) {
+    const f = feldBei(o.x + d.x * t, o.z + d.z * t);
+    if (f && o.y + d.y * t <= f.hoehe) return f;
+  }
+  return feldBei(o.x + d.x * t1, o.z + d.z * t1);
+}
+/* Zeigerbewegung → Weltverschiebung auf der Grundebene. Waagrecht entspricht
+   der Kamera-Rechtsachse; senkrecht der Blickrichtung am Boden, und die wird
+   durch die Neigung gestaucht — darum das Teilen durch sin(Neigung). */
+function schiebeAchsen() {
+  const azi = P.azimut * Math.PI / 180;
+  const neig = Math.max(12, neigungJetzt()) * Math.PI / 180;
+  const w = Math.max(1, buehne.clientWidth), h = Math.max(1, buehne.clientHeight);
+  const hx = zoomJetzt() * W / 2, hy = hx * h / w;
+  return {
+    rechts:{ x:Math.cos(azi), z:-Math.sin(azi) },
+    vor:{ x:Math.sin(azi), z:Math.cos(azi) },
+    sx:(2 * hx) / w,
+    sz:(2 * hy) / h / Math.sin(neig)
+  };
+}
+
+let zieht = null, zogGerade = false;
+leinwand.addEventListener('pointerdown', ev => {
+  /* Ein Ziehen, das AUSSERHALB der Leinwand endet, bekommt nie sein `click` —
+     die Sperre bliebe stehen und frässe den nächsten echten Klick. Hier ist
+     der sichere Ort, sie zurückzunehmen: vor jeder neuen Geste. */
+  zogGerade = false;
+  zieht = { x:ev.clientX, y:ev.clientY, weit:0, dreht:ev.shiftKey || ev.button === 2,
+            a:P.azimut, n:P.neigung, zx:blickZiel.x, zz:blickZiel.z };
+  leinwand.setPointerCapture(ev.pointerId);
+  leinwand.classList.add('zieht');
+});
+leinwand.addEventListener('contextmenu', ev => ev.preventDefault());
+/* EIN pointermove für alles: zeigen, schieben, drehen. Zwei Zuhörer würden
+   während des Ziehens jedes Bild einen Strahl schiessen. */
+leinwand.addEventListener('pointermove', ev => {
+  if (!zieht) {
+    if (ev.pointerType === 'touch') return;
+    ueberSetzen(feldUnter(ev));
+    return;
+  }
+  const dx = ev.clientX - zieht.x, dy = ev.clientY - zieht.y;
+  zieht.weit = Math.max(zieht.weit, Math.abs(dx) + Math.abs(dy));
+  if (zieht.weit < 5) return;
+  if (mRingHover) mRingHover.visible = false;
+  if (zieht.dreht) {
+    P.azimut = ((Math.round(zieht.a - dx * 0.4) % 360) + 360) % 360;
+    P.neigung = Math.max(12, Math.min(80, Math.round(zieht.n + dy * 0.25)));
+    kameraStellen();
+    if (P.lichtdreht) lichtStellen();
+  } else {
+    const A = schiebeAchsen();
+    blickZiel.x = zieht.zx - A.rechts.x * dx * A.sx - A.vor.x * dy * A.sz;
+    blickZiel.z = zieht.zz - A.rechts.z * dx * A.sx - A.vor.z * dy * A.sz;
+    kameraStellen();
+    lichtStellen();
+  }
+});
+addEventListener('pointerup', () => {
+  if (!zieht) return;
+  leinwand.classList.remove('zieht');
+  if (zieht.weit > 5) {
+    zogGerade = true;
+    /* Der Stand ist die URL — ein gefundener Blick muss teilbar sein. */
+    if (zieht.dreht) { P.set('azimut', P.azimut); P.set('neigung', P.neigung); }
+  }
+  zieht = null;
+});
+leinwand.addEventListener('click', ev => {
+  /* Ein Ziehen endet ebenfalls in einem `click`. Ohne diese Sperre wählt jedes
+     Schieben ein Plättchen. */
+  if (zogGerade) { zogGerade = false; return; }
+  waehlen(feldUnter(ev));
+});
+leinwand.addEventListener('wheel', ev => {
+  ev.preventDefault();
+  /* Wer selbst zoomt, will nicht beim nächsten Ring zurückgeworfen werden —
+     also übernimmt das Rad den Maßstab endgültig. „Einpassen" gibt ihn zurück. */
+  const jetzt = zoomJetzt();
+  const z = Math.max(2, Math.min(40, Math.round((jetzt + (ev.deltaY > 0 ? 1 : -1)) * 10) / 10));
+  zoomFest = true;
+  P.set('zoom', Math.round(z));
+  kameraStellen(); lichtStellen();
+}, { passive:false });
+
+/* ============================================================================
+   13 · Wählen und Sorte setzen — die eigentliche Bedienung
+   ========================================================================= */
+function waehlen(f) {
+  gewaehlt = f || null;
+  ringSetzen(mRing, gewaehlt);
+  if (gewaehlt && gewaehlt === ueber) ringSetzen(mRingHover, null);
+  P.set('wahl', gewaehlt ? gewaehlt.c + ',' + gewaehlt.r : null);
+  sortenbrettBauen();
+  minikarteMarken();
+  stempelSchreiben();
+}
+
+/* Der Zeiger hat ZWEI Wege in die Welt — über die Leinwand und über die
+   Minikarte —, und beide sollen dasselbe anzeigen. Darum eine Stelle: wer
+   auf die Minikarte zeigt, sieht den Ring im Diorama, und umgekehrt. Zwei
+   getrennte Zustände wären zwei Wahrheiten über denselben Zeiger. */
+function ueberSetzen(f) {
+  if (f === ueber) return;
+  ueber = f || null;
+  leinwand.classList.toggle('ziel', !!ueber);
+  ringSetzen(mRingHover, ueber && ueber !== gewaehlt ? ueber : null);
+  minikarteMarken();
+}
+
+/* Eine Sorte setzen heisst: die Arena NEU BAUEN. Nicht aus Faulheit — die
+   Kontaktverschattung eines Plättchens hängt an den Höhen seiner NACHBARN, und
+   eine neue Sorte ist meist auch eine neue Höhe. Wer nur das eine Plättchen
+   umschriebe, liesse den Kontakt der sechs Nachbarn falsch stehen. Bei
+   Ring 8 (217 Plättchen) kostet der ganze Aufbau wenige Dutzend Millisekunden;
+   der Stempel nennt sie, damit die Behauptung prüfbar bleibt. */
+function sorteSetzen(t) {
+  if (!gewaehlt || !SORTEN[t]) return;
+  sorte.set(schluessel(gewaehlt.c, gewaehlt.r), t);
+  sortenSchreiben();
+  weltBauen();
+}
+/* ------------------------------------------------------------- Einebnen (T) ---
+   Kein Bildschalter, sondern ein BEDIENUNGSWERKZEUG, und es ist gemessen:
+   ein Strahlgang über alle Plättchenmitten trifft bei der Voreinstellung
+   (37° Neigung) 91 von 91, bei ganz flachem Blick (14°) nur 71 — die zwanzig
+   fehlenden sind von der Terrasse DAVOR wirklich verdeckt, denn mit
+   `?stufen=0` sind es wieder 91 von 91. Was verdeckt ist, kann man nicht
+   antippen; `T` nimmt darum die Höhen weg, statt am Zeigen herumzudoktern.
+   Dieselbe Antwort gibt `diorama-labor-v1` auf dieselbe Frage. */
+function ebnen(an) {
+  P.set('stufen', an ? 0 : 100);
+  P.stufen = an ? 0 : 100;
+  weltBauen();
+  if (!zoomFest) passen(false);
+  SOT.toast(an ? 'Eingeebnet — alle Plättchen auf einer Höhe'
+               : 'Höhen der Sorten wieder da');
+}
+
+function ringeSetzen(n) {
+  const neu = Math.max(0, Math.min(8, n));
+  if (neu === P.ringe) return;
+  P.set('ringe', neu);
+  P.ringe = neu;
+  sortenSchreiben();
+  weltBauen();
+  /* Die Arena hat ihre Grösse geändert — der Maßstab folgt, sofern ihn nicht
+     jemand festgenagelt hat. */
+  if (!zoomFest) passen(false);
+}
+
+/* ============================================================================
+   14 · Die Bedienung — Baukasten über der Leinwand
+   ========================================================================= */
+function stempelSchreiben() {
+  const n = plaettchen.size;
+  document.getElementById('stempel').textContent =
+    (istOben() ? 'Aufsicht' : 'Schräg ' + P.azimut + '°/' + P.neigung + '°') +
+    ' · Ring ' + P.ringe + ' · ' + n + ' Plättchen · ' +
+    feldJetzt().name + ' ' + P.hub + (P.stufenlos ? ' stufenlos' : ' Stufen') + ' · ' +
+    (() => { const n = seen.filter(S => S.gespeist).length;
+             return n ? n + (n === 1 ? ' See · ' : ' Seen · ') : ''; })() +
+    (messung.dreiecke / 1000).toFixed(1) + 'k Dreiecke · ' +
+    messung.bauzeit.toFixed(0) + ' ms' +
+    (gewaehlt ? ' · gewählt ' + gewaehlt.c + ',' + gewaehlt.r : '');
+}
+
+function ringbrettBauen() {
+  const n = plaettchen.size;
+  const brett = document.getElementById('ringbrett');
+  brett.innerHTML =
+    '<div class="blabel">Ringe<span class="co">' + n + ' Plättchen</span></div>' +
+    '<div class="zaehler">' +
+    '<button id="bWeg" title="Äussersten Ring wegnehmen"' + (P.ringe === 0 ? ' disabled' : '') + '>−</button>' +
+    '<b>' + P.ringe + '</b>' +
+    '<button id="bDazu" title="Einen Ring anlegen"' + (P.ringe >= 8 ? ' disabled' : '') + '>+</button>' +
+    '</div>' +
+    '<div class="werkzeug">' +
+    '<button class="small ghost" id="bWuerfeln" title="Alle Plättchen aus der Saat würfeln">Würfeln</button>' +
+    '<button class="small ghost" id="bLeeren" title="Alle Plättchen auf Grasland">Leeren</button>' +
+    '</div>' +
+    '<div class="bnote">Ziehen schiebt, <b>Shift</b>+Ziehen dreht, Rad zoomt. ' +
+    'Tasten <b>+</b> / <b>−</b> wie die Knöpfe, <b>F</b> blättert die Felder, ' +
+    '<b>Bild ↑↓</b> den Hub, <b>Q</b> setzt eine Quelle, <b>S</b> füllt die Senken, ' +
+    '<b>T</b> ebnet die Sorten ein, <b>Esc</b> wählt ab.</div>';
+  brett.querySelector('#bWeg').addEventListener('click', () => ringeSetzen(P.ringe - 1));
+  brett.querySelector('#bDazu').addEventListener('click', () => ringeSetzen(P.ringe + 1));
+  brett.querySelector('#bWuerfeln').addEventListener('click', () => {
+    sortenVorgeben('zufall'); sortenSchreiben(); weltBauen();
+  });
+  brett.querySelector('#bLeeren').addEventListener('click', () => {
+    sortenVorgeben(STANDARD); sortenSchreiben(); weltBauen();
+  });
+}
+
+/* ---------------------------------------------------------- Die Minikarte ---
+   Aufsicht auf das Raster, jedes Sechseck in seinem Höhenwert. Zwei Regeln
+   haben sie geformt:
+
+   1. Sie malt `f.schau` — den Wert, den die Kachel WIRKLICH bekommen hat, samt
+      Rundung auf ganze Stufen. Ein Keil, der feiner abgestuft ist als das
+      Gelände, behauptet eine Genauigkeit, die die Welt nicht hat.
+   2. Gefärbt wird in CSS über `color-mix` der Tokens, nicht in JS. Damit kippt
+      der Keil mit der Nacht mit, ohne dass die Karte neu gebaut wird — und es
+      steht kein `#hex` im Quelltext, das jemand vergessen könnte.
+
+   Sie wird bei jedem Weltaufbau neu geschrieben, aber Auswahl und Zeiger
+   ändern nur KLASSEN (`minikarteMarken`): das ist der Unterschied zwischen
+   einem Zeigerring, der mit der Maus läuft, und einem, der bei jeder Bewegung
+   217 Polygone neu erzeugt.
+   --------------------------------------------------------------------------- */
+const MMW = 10, MMH = SOT.hex.height(MMW);
+function minikarteBauen() {
+  const brett = document.getElementById('minikarte');
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  const teile = [];
+  for (const f of alle()) {
+    const m = SOT.hex.center(f.c, f.r, MMW, 0);
+    x0 = Math.min(x0, m.x - MMW/2); x1 = Math.max(x1, m.x + MMW/2);
+    y0 = Math.min(y0, m.y - MMH/2); y1 = Math.max(y1, m.y + MMH/2);
+    teile.push({ f, m });
+  }
+  const pad = MMW * 0.22;
+  const vb = [x0 - pad, y0 - pad, (x1 - x0) + 2*pad, (y1 - y0) + 2*pad]
+    .map(v => v.toFixed(2)).join(' ');
+  const F = feldJetzt();
+  brett.innerHTML =
+    '<div class="blabel">Höhenfeld<span class="co">' + F.name + '</span></div>' +
+    '<svg id="mmsvg" viewBox="' + vb + '">' +
+    teile.map(t =>
+      /* Ein GESPEISTER See wird blau gemalt, nicht grau — sonst müsste man ihn
+         im Bild suchen, und die Minikarte ist der Ort, an dem man ihn finden
+         soll. Die Tiefe steckt im Ton, wie in der Fläche selbst. Eine PFANNE
+         OHNE ZUFLUSS behält ihr Grau und bekommt nur einen gestrichelten Rand:
+         sie ist kein Gewässer, aber sie ist der Ort, an dem eines entstünde —
+         und genau das will man beim Entwerfen sehen. */
+      '<polygon data-c="' + t.f.c + '" data-r="' + t.f.r + '" ' +
+      (t.f.tiefe > EPS && !t.f.nass ? 'class="pfanne" ' : '') +
+      'points="' + SOT.hex.points(t.m.x, t.m.y, MMW * 0.94) + '" ' +
+      'style="fill:' + (t.f.nass
+        ? 'color-mix(in srgb, var(--d-wasser-tief) ' +
+          (Math.min(1, t.f.tiefe / SEE_TIEFTON) * 100).toFixed(0) + '%, var(--d-wasser))'
+        : 'color-mix(in srgb, var(--mm-hoch) ' + (t.f.schau * 100).toFixed(1) +
+          '%, var(--mm-tief))') + '">' +
+      '<title>' + t.f.c + ',' + t.f.r + ' · ' + t.f.S.name + ' · ' +
+      (t.f.stufen).toFixed(P.stufenlos ? 1 : 0) + ' Stufen' +
+      (t.f.tiefe > EPS ? (t.f.nass ? ' · See, ' : ' · Pfanne ohne Zufluss, ') +
+        (t.f.tiefe / STUFE).toFixed(P.stufenlos ? 1 : 0) + ' tief' : '') +
+      (t.f.q ? ' · ' + klasseVon(t.f.q).name + ' (' + t.f.q + ')' : '') +
+      '</title></polygon>').join('') +
+    /* Die Läufe liegen ÜBER den Sechsecken — SVG malt in Reihenfolge, und ein
+       Weg, den das nächste Feld überdeckt, wäre keiner. */
+    laeufe.map(L => {
+      const pk = L.pfad.map(f => SOT.hex.center(f.c, f.r, MMW, 0));
+      const q = pk[0], z = pk[pk.length - 1];
+      return (pk.length > 1
+        ? '<polyline class="mmlauf" points="' +
+          pk.map(m => m.x.toFixed(2) + ',' + m.y.toFixed(2)).join(' ') + '"/>' : '') +
+        '<circle class="mmziel' + (L.amTiefsten ? '' : ' senke') + '" cx="' + z.x.toFixed(2) +
+        '" cy="' + z.y.toFixed(2) + '" r="' + (MMW * 0.26).toFixed(2) + '"/>' +
+        '<circle class="mmquelle" cx="' + q.x.toFixed(2) + '" cy="' + q.y.toFixed(2) +
+        '" r="' + (MMW * 0.20).toFixed(2) + '"/>';
+    }).join('') +
+    '</svg>' +
+    '<div class="mmkeil">tief<i></i>hoch</div>' +
+    '<div id="mmfelder">' + Object.keys(FELDER).map(k =>
+      '<span class="chip' + (k === P.feld ? ' on' : '') + '" data-f="' + k + '">' +
+      FELDER[k].name + '</span>').join('') + '</div>' +
+    '<div class="zaehler">' +
+    '<button id="bHubWeg" title="Flacher"' + (P.hub === 0 ? ' disabled' : '') + '>−</button>' +
+    '<b>' + P.hub + '</b>' +
+    '<button id="bHubDazu" title="Höher"' + (P.hub >= 8 ? ' disabled' : '') + '>+</button>' +
+    '</div>' +
+    /* Ein Feld ohne Spanne ist ganz schwarz, und ganz schwarz sieht aus wie
+       kaputt. Es SAGEN ist billiger, als den Keil zu einer Notlüge in
+       Mittelgrau zu machen — schwarz IST hier der tiefste Wert. */
+    (feldNorm.span > 1e-6
+      ? '<div class="bnote"><b>Hub</b> = Stufen zwischen Schwarz und Weiss, und damit ' +
+        'auch die Zahl der Ebenen. <b>0</b> hebt nichts.</div>'
+      : '<div class="bnote">Überall derselbe Wert — dieses Feld hebt nichts, ' +
+        'die Höhen kommen allein von den Sorten. Ein anderes Feld wählen ' +
+        'oder <b>F</b> drücken.</div>');
+
+  const svg = brett.querySelector('#mmsvg');
+  svg.addEventListener('click', ev => {
+    const p = ev.target.closest('polygon'); if (!p) return;
+    waehlen(plAn(+p.dataset.c, +p.dataset.r));
+  });
+  /* `pointerover`/`pointerout` statt `mousemove`: das Ereignis kommt je
+     Sechseck einmal, nicht je Bildpunkt. */
+  svg.addEventListener('pointerover', ev => {
+    const p = ev.target.closest('polygon'); if (!p) return;
+    ueberSetzen(plAn(+p.dataset.c, +p.dataset.r));
+  });
+  svg.addEventListener('pointerleave', () => ueberSetzen(null));
+  brett.querySelectorAll('#mmfelder .chip').forEach(ch =>
+    ch.addEventListener('click', () => feldSetzen(ch.dataset.f)));
+  brett.querySelector('#bHubWeg').addEventListener('click', () => hubSetzen(P.hub - 1));
+  brett.querySelector('#bHubDazu').addEventListener('click', () => hubSetzen(P.hub + 1));
+  minikarteMarken();
+}
+function minikarteMarken() {
+  document.querySelectorAll('#mmsvg polygon').forEach(p => {
+    const c = +p.dataset.c, r = +p.dataset.r;
+    p.classList.toggle('sel', !!gewaehlt && gewaehlt.c === c && gewaehlt.r === r);
+    p.classList.toggle('hov', !!ueber && ueber.c === c && ueber.r === r);
+  });
+}
+/* Ein Feld wechseln ist ein Neuaufbau — die Höhen ändern sich, und mit ihnen
+   die Kontaktverschattung ALLER Nachbarn. Der Maßstab folgt mit: eine Kuppe
+   mit Hub 8 ist deutlich höher als das flache Brett, und sie soll ins Bild
+   passen, ohne dass man erst „Einpassen" sucht. */
+function feldSetzen(name) {
+  if (!FELDER[name] || name === P.feld) return;
+  P.feld = name; P.set('feld', name);
+  weltBauen();
+  if (!zoomFest) passen(false);
+}
+function hubSetzen(n) {
+  const neu = Math.max(0, Math.min(8, n));
+  if (neu === P.hub) return;
+  P.hub = neu; P.set('hub', neu);
+  weltBauen();
+  if (!zoomFest) passen(false);
+}
+
+function sortenbrettBauen() {
+  const brett = document.getElementById('sortenbrett');
+  const f = gewaehlt;
+  brett.innerHTML =
+    '<div class="blabel">Plättchen' +
+    (f ? '<span class="co">' + f.c + ',' + f.r + ' · Ring ' + f.ring + '</span>' : '') +
+    '</div>' +
+    (f ? '' : '<div class="bnote">Keines gewählt — ein Plättchen antippen.</div>') +
+    '<div id="sortenliste">' +
+    FOLGE.map((t, i) =>
+      '<button class="sorte small' + (f && f.t === t ? ' on' : '') + '" data-t="' + t + '"' +
+      (f ? '' : ' disabled') + '>' + SOT.icon(SORTEN[t].zeichen) +
+      '<span>' + SORTEN[t].name + '</span><span class="taste">' + (i + 1) + '</span></button>').join('') +
+    '</div>' +
+    '<div class="werkzeug"><button class="small' + (istQuelle(f) ? ' on' : '') +
+    '" id="bQuelle"' + (f ? '' : ' disabled') + ' title="Quelle setzen oder entfernen (Q)">' +
+    SOT.icon('lauf') + (istQuelle(f) ? 'Quelle weg' : 'Quelle setzen') + '</button></div>' +
+    '<div class="bnote">Die Höhe gehört zur Sorte: Hochebene <b>+2</b>, Felsig <b>+1</b>, ' +
+    'Kiesbank <b>−1</b> Stufen. Darum wirft ein Sortenwechsel neuen Kontaktschatten ' +
+    '— und einen anderen Lauf.</div>';
+  brett.querySelectorAll('.sorte').forEach(b =>
+    b.addEventListener('click', () => sorteSetzen(b.dataset.t)));
+  const bq = brett.querySelector('#bQuelle');
+  bq.querySelector('svg').style.cssText = 'width:13px;height:13px;flex:none';
+  bq.addEventListener('click', () => quelleSchalten(gewaehlt));
+}
+
+/* --------------------------------------------------------- Der Wasserbericht ---
+   Was gerechnet wurde, muss man LESEN können — ein Weg, den man nur sieht,
+   lässt sich nicht nachprüfen. Darum je Quelle eine Zeile mit Schritten, Fall
+   in Stufen und dem, worauf es eigentlich ankommt: ob der Lauf am tiefsten
+   Punkt der Karte ankommt oder vorher in einer Senke stehen bleibt.
+   --------------------------------------------------------------------------- */
+function seenZeilen() {
+  if (!P.fuellen) return '<div class="bnote">Senken werden nicht gefüllt (<b>S</b>) — ' +
+    'ein Lauf endet darum in der Pfanne statt sie zu queren.</div>';
+  if (!seen.length) return '<div class="bnote">Keine Senke, also kein See: von jedem ' +
+    'Plättchen führt ein Weg abwärts bis zum tiefsten Punkt.</div>';
+  const voll = seen.filter(S => S.gespeist), leer = seen.length - voll.length;
+  const trocken = leer
+    ? '<div class="bnote"><b>' + leer + '</b> ' + (leer === 1 ? 'Pfanne' : 'Pfannen') +
+      ' ohne Zufluss — in der Minikarte gestrichelt. Hier stünde ein See, sobald ' +
+      'Wasser ankommt.</div>'
+    : '';
+  if (!voll.length) return '<div class="bnote">Kein See: die Pfannen bekommen kein ' +
+    'Wasser. Eine Quelle oberhalb setzen (<b>Q</b>).</div>' + trocken;
+  const zeig = voll.slice(0, 4);
+  return zeig.map((S, i) =>
+    '<div class="see" data-c="' + S.felder[0].c + '" data-r="' + S.felder[0].r + '">' +
+    '<div class="lkopf"><b>See ' + (i + 1) + '</b>' +
+    '<span class="lzahl">' + S.felder.length +
+    (S.felder.length === 1 ? ' Feld · ' : ' Felder · ') +
+    (S.tiefe / STUFE).toFixed(P.stufenlos ? 1 : 0) +
+    ' tief · Überlauf ' + (S.abfluss ? S.abfluss.c + ',' + S.abfluss.r : '—') +
+    '</span></div></div>').join('') +
+    (voll.length > zeig.length
+      ? '<div class="bnote">… und ' + (voll.length - zeig.length) + ' weitere.</div>' : '') +
+    trocken;
+}
+
+/* Die Schüttung ist ein Hebel wie „Ringe" und „Hub" — dieselbe Bauform, damit
+   man sie ohne Nachdenken bedient. Sie ändert keine Höhe, also wird die Welt
+   nicht neu gebaut; nur die Mengen und damit die Breiten. */
+function schuettungSetzen(n) {
+  const neu = Math.max(1, Math.min(16, n));
+  if (neu === P.schuettung) return;
+  P.schuettung = neu; P.set('schuettung', neu);
+  wasserFrisch();
+}
+
+function schuettungZeile() {
+  return '<div class="zaehler">' +
+    '<button id="bSchWeg" title="Weniger Wasser je Quelle"' +
+    (P.schuettung <= 1 ? ' disabled' : '') + '>−</button>' +
+    '<b>' + P.schuettung + '</b>' +
+    '<button id="bSchDazu" title="Mehr Wasser je Quelle"' +
+    (P.schuettung >= 16 ? ' disabled' : '') + '>+</button>' +
+    '</div>' +
+    '<div class="bnote">Schüttung je Quelle. <b>1</b> ist ein Bach; die Menge summiert ' +
+    'sich talwärts, und das Band wird breiter, wo sie wächst.</div>';
+}
+
+function wasserbrettBauen() {
+  const brett = document.getElementById('wasserbrett');
+  const seeKopf = '<div class="blabel" style="margin-top:8px">Seen<span class="co">' +
+    (P.fuellen ? seen.length : '—') + '</span></div>' + seenZeilen();
+  if (!laeufe.length) {
+    brett.innerHTML =
+      '<div class="blabel">Wasser</div>' +
+      '<div class="bnote">Keine Quelle. Ein Plättchen wählen und <b>Q</b> drücken — ' +
+      'der Lauf wird von dort gerechnet: nie bergauf, kürzester Weg, ' +
+      'zum tiefsten erreichbaren Punkt.</div>' + seeKopf;
+    brett.querySelectorAll('.see').forEach(z =>
+      z.addEventListener('click', () => waehlen(plAn(+z.dataset.c, +z.dataset.r))));
+    return;
+  }
+  brett.innerHTML =
+    '<div class="blabel">Wasser<span class="co">' + laeufe.length +
+    (laeufe.length === 1 ? ' Quelle' : ' Quellen') + '</span></div>' +
+    schuettungZeile() +
+    laeufe.map(L =>
+      '<div class="lauf' + (L.amTiefsten ? '' : ' senke') + '" data-c="' + L.start.c +
+      '" data-r="' + L.start.r + '">' +
+      '<div class="lkopf"><b>' + L.start.c + ',' + L.start.r + '</b>' +
+      '<span class="pfeil">→</span><b>' + L.ziel.c + ',' + L.ziel.r + '</b>' +
+      '<span class="lzahl">' + (L.schritte === 1 ? '1 Schritt' : L.schritte + ' Schritte') +
+      ' · ' + (L.fall ? '−' + L.fall + (L.fall === 1 ? ' Stufe' : ' Stufen') : 'kein Gefälle') +
+      ' · an der Mündung <b>' + L.klasse.name + '</b> (' + L.menge + ')</span></div>' +
+      '<div class="lstatus">' + (L.amTiefsten
+        ? (L.schritte ? 'erreicht den tiefsten Punkt' : 'liegt schon am tiefsten Punkt')
+        : 'bleibt in einer Senke — <b>' + L.ueberTief + '</b> ' +
+          (L.ueberTief === 1 ? 'Stufe' : 'Stufen') + ' über dem Tiefsten') +
+      (L.durchSeen ? ' · durch <b>' + L.durchSeen +
+        (L.durchSeen === 1 ? '</b> See' : '</b> Seen') : '') +
+      '</div></div>').join('') +
+    '<div class="bnote">Gerechnet ist der PFAD auf der Wasseroberfläche: gleich hoch oder ' +
+    'tiefer, kürzester Weg zuerst, bei Gleichstand der, der früher fällt.</div>' +
+    seeKopf;
+  /* Eine Zeile ist zugleich der Weg zu ihrer Quelle bzw. zum See — bei acht
+     Ringen sucht man sie sonst im Bild. */
+  brett.querySelectorAll('.lauf, .see').forEach(z =>
+    z.addEventListener('click', () => waehlen(plAn(+z.dataset.c, +z.dataset.r))));
+  const bw = brett.querySelector('#bSchWeg'), bd = brett.querySelector('#bSchDazu');
+  if (bw) bw.addEventListener('click', () => schuettungSetzen(P.schuettung - 1));
+  if (bd) bd.addEventListener('click', () => schuettungSetzen(P.schuettung + 1));
+}
+
+/* Eine Quelle setzen ändert KEINE Höhe — also wird die Welt nicht neu gebaut,
+   nur der Lauf neu gerechnet und seine Markierung neu gelegt. Das ist der
+   Unterschied zwischen einem Klick, der 60 ms kostet, und einem, der 2 ms
+   kostet; bei einem Werkzeug, mit dem man herumprobiert, merkt man ihn. */
+/* Das Füllen an- und abschalten ist ein Neuaufbau: die Wasseroberfläche ist die
+   Fläche, auf der geroutet wird, also ändert sich mit ihr JEDER Lauf — und die
+   Seen kommen und gehen. Die Gegenprobe ist der Zweck des Schalters. */
+function fuellenSchalten(an) {
+  P.fuellen = an ? 1 : 0;
+  P.set('fuellen', P.fuellen);
+  weltBauen();
+  SOT.toast(an ? 'Senken gefüllt — Läufe queren ihre Seen'
+               : 'Senken roh — ein Lauf endet in der Pfanne');
+}
+
+/* Alles neu rechnen, was am WASSER hängt, und nur das. Die Seenfläche gehört
+   dazu: ob eine Pfanne einen See trägt, entscheidet der Zufluss — eine Quelle
+   umzusetzen kann also einen See erscheinen oder verschwinden lassen. */
+function wasserFrisch() {
+  wasserRechnen();
+  for (const m of [mLauf, mSee]) {
+    if (!m) continue;
+    scene.remove(m);
+    m.geometry.dispose();
+    if (m.material !== matWasser) m.material.dispose();
+  }
+  mLauf = mSee = null;
+  seenBauen();
+  laufBauen();
+  minikarteBauen();
+  wasserbrettBauen();
+  sortenbrettBauen();
+  stempelSchreiben();
+  neuZeichnen();
+}
+
+function quelleSchalten(f) {
+  if (!f) { SOT.toast('Erst ein Plättchen antippen.'); return; }
+  const k = schluessel(f.c, f.r);
+  if (quellen.has(k)) quellen.delete(k); else quellen.add(k);
+  quellenSchreiben();
+  wasserFrisch();
+}
+
+/* Die Legende zählt mit. Sie ist nicht Zierde: wer eine Arena von Hand malt,
+   verliert schnell den Überblick, wie viel von was liegt. */
+function legendeBauen() {
+  const zahl = {};
+  for (const f of alle()) zahl[f.t] = (zahl[f.t] || 0) + 1;
+  document.getElementById('legende').innerHTML = FOLGE
+    .filter(t => zahl[t])
+    .map(t => '<span class="chip">' + SOT.icon(SORTEN[t].zeichen) + ' ' +
+              SORTEN[t].name + ' <b>' + zahl[t] + '</b></span>').join('');
+}
+
+function zeitKnopf() {
+  const b = document.getElementById('bZeit');
+  const zn = { morgen:'morgen', mittag:'sonne', abend:'abend', nacht:'mond' }[P.zeit];
+  b.innerHTML = SOT.icon(zn) + ' ' + P.zeit;
+  b.querySelector('svg').style.cssText = 'width:13px;height:13px;vertical-align:-2px';
+}
+function sichtKnopf() {
+  document.querySelectorAll('#segSicht button').forEach(b =>
+    b.classList.toggle('on', b.dataset.s === P.sicht));
+}
+function zeitStellen(name) {
+  P.zeit = name; P.set('zeit', name);
+  document.body.classList.toggle('night', name === 'nacht');
+  document.body.dataset.zeit = name;
+  zeitKnopf();
+  /* Die Palette steckt in den ECKENFARBEN — eine andere Tageszeit ist darum
+     ein Neuaufbau, kein Umschalten eines Materials. Genau dafür sind die
+     Tokens da: es steht kein `#hex` im JS, das man vergessen könnte. */
+  weltBauen();
+}
+
+addEventListener('keydown', ev => {
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test((ev.target || {}).tagName || '')) return;
+  if (ev.key >= '1' && ev.key <= '6') {
+    if (gewaehlt) sorteSetzen(FOLGE[+ev.key - 1]);
+    else SOT.toast('Erst ein Plättchen antippen.');
+    return;
+  }
+  if (ev.key === '+' || ev.key === '=') { ringeSetzen(P.ringe + 1); return; }
+  if (ev.key === '-' || ev.key === '_') { ringeSetzen(P.ringe - 1); return; }
+  if (ev.key === 't' || ev.key === 'T') { ebnen(P.stufen > 0); return; }
+  /* `F` blättert durch die Felder. Sieben Felder nacheinander zu sehen, ohne
+     den Blick von der Welt zu nehmen, ist die eigentliche Prüfung dieses
+     Durchgangs — mit der Maus wandert das Auge jedes Mal in die Ecke. */
+  if (ev.key === 'f' || ev.key === 'F') {
+    const ks = Object.keys(FELDER);
+    feldSetzen(ks[(ks.indexOf(P.feld) + (ev.shiftKey ? ks.length - 1 : 1)) % ks.length]);
+    return;
+  }
+  if (ev.key === 'PageUp')   { hubSetzen(P.hub + 1); return; }
+  if (ev.key === 'PageDown') { hubSetzen(P.hub - 1); return; }
+  if (ev.key === 'q' || ev.key === 'Q') { quelleSchalten(gewaehlt); return; }
+  if (ev.key === 's' || ev.key === 'S') { fuellenSchalten(!P.fuellen); return; }
+  if (ev.key === '[' || ev.key === ']') {
+    P.set('azimut', ((P.azimut + (ev.key === '[' ? -15 : 15)) % 360 + 360) % 360);
+    P.azimut = +P.azimut;
+    kameraStellen(); if (P.lichtdreht) lichtStellen(); return;
+  }
+  if (ev.key === 'Escape') { waehlen(null); return; }
+  const A = schiebeAchsen(), s = (ev.shiftKey ? 3 : 1) * W;
+  let hin = null;
+  if (ev.key === 'ArrowLeft')  hin = [-A.rechts.x * s, -A.rechts.z * s];
+  else if (ev.key === 'ArrowRight') hin = [A.rechts.x * s, A.rechts.z * s];
+  else if (ev.key === 'ArrowUp')    hin = [-A.vor.x * s, -A.vor.z * s];
+  else if (ev.key === 'ArrowDown')  hin = [A.vor.x * s, A.vor.z * s];
+  else return;
+  ev.preventDefault();
+  blickZiel.x += hin[0]; blickZiel.z += hin[1];
+  kameraStellen(); lichtStellen();
+});
+
+/* ============================================================================
+   15 · Anlaufen
+   ========================================================================= */
+document.body.dataset.zeit = P.zeit;
+if (P.zeit === 'nacht') document.body.classList.add('night');
+zeitKnopf(); sichtKnopf();
+
+rendererBauen();
+sortenVorgeben(P.sorten);
+quellenVorgeben(P.quellen);
+weltBauen();
+bereit = true;
+window.__arena = true;
+groesseStellen();
+passen(false);
+sortenSchreiben();
+
+if (P.wahl) {
+  const w = P.wahl.split(',').map(Number);
+  waehlen(plAn(w[0], w[1]));
+}
+
+document.getElementById('bPassen').addEventListener('click', () => {
+  zoomFest = false; P.set('zoom', null); passen(true);
+});
+document.getElementById('bZeit').addEventListener('click', () => {
+  const o = ['morgen','mittag','abend','nacht'];
+  zeitStellen(o[(o.indexOf(P.zeit) + 1) % o.length]);
+});
+document.querySelectorAll('#segSicht button').forEach(b =>
+  b.addEventListener('click', () => {
+    P.sicht = b.dataset.s; P.set('sicht', P.sicht);
+    sichtKnopf();
+    if (!zoomFest) passen(false); else { kameraStellen(); lichtStellen(); }
+  }));
+
+SOT.regler(P, { onChange:(name) => {
+  if (name === 'azimut' || name === 'neigung' || name === 'sicht') {
+    kameraStellen(); if (P.lichtdreht) lichtStellen();
+  } else if (name === 'zoom') {
+    zoomFest = P.zoom > 0; kameraStellen(); lichtStellen();
+  } else if (name === 'post' || name === 'still') neuZeichnen();
+  else if (name === 'gitter') {
+    matGelaende.wireframe = matSonstiges.wireframe = !!P.gitter; neuZeichnen();
+  } else if (name === 'zeit') zeitStellen(P.zeit);
+  else if (name === 'lichtdreht') lichtStellen();
+  else if (name === 'schatten') {
+    renderer.shadowMap.enabled = P.schatten !== 'aus';
+    renderer.shadowMap.type = P.schatten === 'weich' ? THREE.VSMShadowMap : THREE.PCFShadowMap;
+    /* Die Schattenart steckt im Shader — JEDES Material muss neu übersetzt
+       werden, sonst schaltet nur um, was danach zum ersten Mal gezeichnet
+       wird. */
+    for (const m of [matGelaende, matSonstiges]) m.needsUpdate = true;
+    lichtStellen();
+  } else if (name === 'ringe' || name === 'feld' || name === 'hub' ||
+             name === 'stufenlos' || name === 'feldkehr' || name === 'fuellen') {
+    weltBauen(); if (!zoomFest) passen(false);
+  }
+  else if (name === 'sorten') { sortenVorgeben(P.sorten); weltBauen(); }
+  else if (name === 'quellen') { quellenVorgeben(P.quellen); weltBauen(); }
+  else if (name === 'schuettung') wasserFrisch();
+  else weltBauen();
+} });
+SOT.debug(P);
+
+/* Der Beobachter genügt — er feuert auch beim Fensterwechsel, und anders als
+   `resize` auch dann, wenn nur das Reglerbrett die Bühne schmaler macht. */
+new ResizeObserver(groesseStellen).observe(buehne);
+requestAnimationFrame(schleife);
+</script>
+</body>
+</html>

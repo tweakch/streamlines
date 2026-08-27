@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Gewässer-Labor v2 — der organische Fluss</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<style>
+/* =====================================================================
+   Gewässer-Labor v2 — RENDERING, nicht Hydrologie.
+   v1 hat gerechnet (Abflussbilanz, Klassen, Sektoren); das steht und
+   bleibt. v2 fragt nur noch: wie wird aus denselben Daten ein Fluss,
+   der organisch AUSSIEHT? Es setzt die sechs Regeln der Art-Direction
+   um (Karte „Gewässer: der Fluss hat einen eigenen Takt"):
+
+     1  Die Tangente gehört beiden Feldern   → EIN Catmull-Rom-Zug je Lauf
+     2  Der Fluss meidet die Mitte           → gesäte Quer-Auslenkung je Feld
+     3  Breite fliesst, sie springt nicht    → Band als gefülltes Polygon,
+                                               Breite je Stützpunkt aus q
+     4  Prallhang und Gleithang              → Kiessaum asymmetrisch: breit
+                                               auf der Innenseite der Kurve
+     5  Verzweigt heisst ungleich            → Hauptarm + zwei UNGLEICHE
+                                               Nebenrinnen, Kiesbänke dazwischen
+     6  Die Mündung zeigt stromab            → Nebenlauf biegt ein und trifft
+                                               spitzwinklig in Fliessrichtung
+
+   Dazu der PINSEL: feTurbulence + feDisplacementMap verschiebt die
+   fertige Vektorkante mit fraktalem Rauschen — aus der sauberen Linie
+   wird ein Ufer. seed = Weltsaat, darum reproduzierbar.
+
+   Links daneben zum Vergleich der Bestand (erkundung-v6): je Feld eine
+   Quadratkurve durch die Feldmitte, Breite je Feld konstant.
+   ===================================================================== */
+body{max-width:1500px;margin:0 auto;padding:14px 14px 40px;}
+header.kopf{margin-bottom:12px;}
+header.kopf h1{font-family:var(--f-disp);font-weight:800;font-size:21px;margin:0;}
+header.kopf .sub{font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink2);margin-top:3px;}
+.vgl{display:grid;grid-template-columns:1fr;gap:14px;}
+@media(min-width:980px){.vgl{grid-template-columns:1fr 1fr;}}
+.tafel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;}
+.tafel h2{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  font-weight:400;color:var(--ink2);margin:0 0 8px;}
+.tafel h2 b{color:var(--ink);font-weight:700;}
+.tafel svg{display:block;width:100%;height:auto;background:var(--bg);border-radius:8px;}
+.regeln{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;}
+.regeln h3{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  font-weight:400;color:var(--ink2);margin:0 0 6px;}
+.regeln ol{margin:0;padding-left:18px;font-size:12px;line-height:1.55;color:var(--ink);}
+.regeln .dim{font-size:11px;color:var(--ink2);margin:8px 0 0;}
+</style>
+</head>
+<body>
+<header class="kopf">
+  <h1>Gewässer-Labor v2 — der organische Fluss</h1>
+  <div class="sub">Dieselben Daten (Läufe · q · b = 6·√Q) — zwei Zeichnungen</div>
+</header>
+
+<div class="vgl">
+  <div class="tafel" id="tafelAlt">
+    <h2><b>Heute (erkundung-v6):</b> das Raster taktet — je Feld eine Kurve durch die Mitte</h2>
+    <svg id="svgAlt"></svg>
+  </div>
+  <div class="tafel" id="tafelNeu">
+    <h2><b>Organisch (v2):</b> eine Linie mit Gedächtnis — plus Pinsel</h2>
+    <svg id="svgNeu"></svg>
+  </div>
+</div>
+
+<div class="regeln">
+  <h3>Was die rechte Tafel anders macht</h3>
+  <ol>
+    <li><b>Ein Zug je Lauf</b> (Catmull-Rom durch alle Stützpunkte) statt einer Kurve je Feld — die Tangente ist an jeder Feldgrenze stetig.</li>
+    <li><b>Gesäte Auslenkung:</b> der Durchgangspunkt liegt nie in der Feldmitte; kleines Wasser schlängelt mehr (Faktor aus q).</li>
+    <li><b>Band als Polygon:</b> die Breite interpoliert entlang des Laufs — keine Stufe an der Feldgrenze.</li>
+    <li><b>Gleithang:</b> der Kiessaum liegt breit auf der Innenseite jeder Kurve, das Prallufer bleibt schmal.</li>
+    <li><b>Ungleiche Verzweigung:</b> Hauptarm schlankt ab, zwei ungleiche Nebenrinnen, linsenförmige Kiesbänke.</li>
+    <li><b>Mündung stromab:</b> die Bäche biegen ein und treffen den Rhein spitzwinklig in Fliessrichtung.</li>
+  </ol>
+  <p class="dim">Der Pinsel: <code>feTurbulence</code> (fraktales Rauschen, seed = Weltsaat) + <code>feDisplacementMap</code>
+  verschiebt die fertige Kante — aus der Vektorlinie wird ein Ufer. <code>?pinsel=0</code> schaltet ihn aus,
+  <code>?hilfe</code> zeigt alle Parameter. Historisch inspiriert und für das Spiel vereinfacht.</p>
+</div>
+
+<script src="../kit/sot.js"></script>
+<script>
+'use strict';
+/* =====================================================================
+   Debug: ?seed=N ?amp=N ?pinsel=N ?freq=N ?nur=alt|neu ?night ?debug
+   ===================================================================== */
+var P = SOT.params({
+  seed:   { t:'int', def:7,  help:'Weltsaat — bestimmt Auslenkung UND Pinselrauschen' },
+  amp:    { t:'int', def:22, min:0, max:34, help:'Auslenkung der Mittellinie, % der Feldbreite' },
+  pinsel: { t:'int', def:7,  min:0, max:20, help:'feDisplacementMap-Stärke (0 = Pinsel aus)' },
+  freq:   { t:'int', def:35, min:5, max:120, help:'Rausch-baseFrequency ×0,001' },
+  nur:    { t:'enum', values:['beide','alt','neu'], def:'beide', help:'nur eine Tafel zeigen' }
+});
+SOT.debug(P);
+
+/* ---- Daten: identisch mit erkundung-v6 ------------------------------- */
+var COLS=9, ROWS=12, HXW=100, HXH=115.47;
+var QLOK=0.2, BFAK=6;
+var RUNS=[
+  {id:'R',nm:'Der junge Rhein',q0:16,
+   path:[[4,0],[4,1],[4,2],[3,3],[3,4],[3,5],[3,6],[3,7],[4,8],[4,9],[4,10]]},
+  {id:'W',nm:'Westbach',q0:0.15,path:[[1,2],[2,2],[3,2],[4,2]]},
+  {id:'O',nm:'Haldenbach',q0:0.15,path:[[7,5],[6,5],[5,5],[4,5],[3,5]]}
+];
+var BRAID=new Set(['3,4','3,7']);
+var VB_W=COLS*HXW+HXW/2, VB_H=(ROWS-1)*HXH*0.75+HXH;
+
+function cx(c,r){return (c+(r&1?0.5:0))*HXW+HXW/2;}
+function cy(c,r){return r*HXH*0.75+HXH/2;}
+function ecken(c,r){var x=cx(c,r),y=cy(c,r);
+  return [[x,y-HXH/2],[x+HXW/2,y-HXH/4],[x+HXW/2,y+HXH/4],
+          [x,y+HXH/2],[x-HXW/2,y+HXH/4],[x-HXW/2,y-HXH/4]];}
+/* Regelmässiges Sechseck: die Mitte der gemeinsamen Kante IST der
+   Mittelpunkt zwischen den beiden Feldmitten — keine Kantentabellen nötig. */
+function kanteMitte(a,b){return [(cx(a[0],a[1])+cx(b[0],b[1]))/2,(cy(a[0],a[1])+cy(b[0],b[1]))/2];}
+
+/* Abfluss je Lauf und Index — die 3-Pass-Bilanz aus erkundung-v6. */
+var runQ={},endQ={};
+for(var pass=0;pass<3;pass++){
+  RUNS.forEach(function(run){
+    runQ[run.id]=[];var q=run.q0;
+    run.path.forEach(function(p,i){
+      q+=QLOK;var k=p.join(',');
+      RUNS.forEach(function(o){
+        if(o!==run&&o.path[o.path.length-1].join(',')===k&&endQ[o.id])q+=endQ[o.id];
+      });
+      runQ[run.id][i]=q;
+    });
+    endQ[run.id]=q;
+  });
+}
+/* Überzeichnung „lesbar" — dieselbe Kurve wie in v6. */
+function bandBreite(b){
+  var f;
+  if(b<0.5)f=.028; else if(b<5)f=.028+(b-0.5)/4.5*.042;
+  else if(b<10)f=.070+(b-5)/5*.035;
+  else if(b<100)f=.105+Math.log10(b/10)*.100;
+  else f=Math.min(.34,.205+Math.log10(b/100)*.10);
+  return f*HXW;
+}
+var farbe=function(q){var b=BFAK*Math.sqrt(q);
+  return b<5?'var(--w-bach)':b<10?'var(--river)':'var(--riverdeep)';};
+
+/* ---- Bühne ------------------------------------------------------------ */
+function hexGitter(){
+  var h='';
+  for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
+    var braidNah=BRAID.has(c+','+r);
+    h+='<polygon points="'+ecken(c,r).map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')
+      +'" fill="var(--flach)" fill-opacity="'+(braidNah?'.0':'.45')
+      +'" stroke="var(--line)" stroke-opacity=".55" stroke-width="1"/>';
+    if(braidNah)h+='<polygon points="'+ecken(c,r).map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')
+      +'" fill="var(--kies)" fill-opacity=".28" stroke="var(--line)" stroke-opacity=".55" stroke-width="1"/>';
+  }
+  return h;
+}
+
+/* =====================================================================
+   LINKE TAFEL — der Bestand aus erkundung-v6, wortgetreu:
+   je Feld M kanteMitte Q feldMitte kanteMitte, Breite je Feld konstant,
+   Saum symmetrisch, Verzweigung = drei gleiche parallele Rinnen.
+   ===================================================================== */
+function altZeichnen(){
+  var h=hexGitter();
+  RUNS.forEach(function(run){
+    run.path.forEach(function(p,i){
+      var pv=run.path[i-1],nx=run.path[i+1];
+      var C=[cx(p[0],p[1]),cy(p[0],p[1])];
+      var a=pv?kanteMitte(pv,p):null, b=nx?kanteMitte(p,nx):null;
+      var q=runQ[run.id][i], w=bandBreite(BFAK*Math.sqrt(q));
+      var braid=BRAID.has(p.join(','));
+      function pf(off){
+        var cxq=C[0],cyq=C[1];
+        if(off&&a&&b){var dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1;cxq+=-dy/L*off;cyq+=dx/L*off;}
+        if(!a)return 'M '+C[0].toFixed(1)+' '+C[1].toFixed(1)+' L '+b[0].toFixed(1)+' '+b[1].toFixed(1);
+        if(!b)return 'M '+a[0].toFixed(1)+' '+a[1].toFixed(1)+' L '+C[0].toFixed(1)+' '+C[1].toFixed(1);
+        return 'M '+a[0].toFixed(1)+' '+a[1].toFixed(1)+' Q '+cxq.toFixed(1)+' '+cyq.toFixed(1)+' '+b[0].toFixed(1)+' '+b[1].toFixed(1);
+      }
+      var uw=w+Math.max(3,w*.6)*(braid?2.6:1);
+      h+='<path d="'+pf(0)+'" fill="none" stroke="var(--w-saum)" stroke-width="'+uw.toFixed(1)+'" stroke-linecap="round"/>';
+      if(braid){
+        [-HXH*0.16,0,HXH*0.16].forEach(function(off){
+          h+='<path d="'+pf(off)+'" fill="none" stroke="'+farbe(q)+'" stroke-width="'+(w*0.45).toFixed(1)+'" stroke-linecap="round"/>';
+        });
+      }else{
+        h+='<path d="'+pf(0)+'" fill="none" stroke="'+farbe(q)+'" stroke-width="'+w.toFixed(1)+'" stroke-linecap="round"/>';
+      }
+      if(!pv)h+='<circle cx="'+C[0]+'" cy="'+C[1]+'" r="'+Math.max(3,w*.9).toFixed(1)+'" fill="'+farbe(q)+'"/>';
+    });
+  });
+  return h;
+}
+
+/* =====================================================================
+   RECHTE TAFEL — die sechs Regeln.
+   ===================================================================== */
+
+/* Catmull-Rom durch die Stützpunkte, S Proben je Segment. Jeder Punkt
+   trägt q und den (gebrochenen) Feld-Index seines Laufs mit. */
+function crSample(cp,S){
+  var out=[];
+  for(var i=0;i<cp.length-1;i++){
+    var p0=cp[Math.max(0,i-1)],p1=cp[i],p2=cp[i+1],p3=cp[Math.min(cp.length-1,i+2)];
+    for(var s=0;s<S;s++){
+      var t=s/S,t2=t*t,t3=t2*t;
+      out.push({
+        x:.5*(2*p1.x+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*t2+(-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+        y:.5*(2*p1.y+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*t2+(-p0.y+3*p1.y-3*p2.y+p3.y)*t3),
+        q:p1.q+(p2.q-p1.q)*t, ci:p1.ci+(p2.ci-p1.ci)*t
+      });
+    }
+  }
+  out.push({x:cp[cp.length-1].x,y:cp[cp.length-1].y,q:cp[cp.length-1].q,ci:cp[cp.length-1].ci});
+  /* Tangente/Normale/Krümmung je Probe */
+  for(var j=0;j<out.length;j++){
+    var A=out[Math.max(0,j-1)],B=out[Math.min(out.length-1,j+1)];
+    var dx=B.x-A.x,dy=B.y-A.y,L=Math.hypot(dx,dy)||1;
+    out[j].tx=dx/L;out[j].ty=dy/L;out[j].nx=-dy/L;out[j].ny=dx/L;
+  }
+  for(j=0;j<out.length;j++){
+    var C1=out[Math.max(0,j-2)],C2=out[Math.min(out.length-1,j+2)];
+    out[j].kr=C1.tx*C2.ty-C1.ty*C2.tx;   /* >0: Linkskurve → Innenufer links */
+  }
+  return out;
+}
+/* Band als gefülltes Polygon: wOf(sample) → [links,rechts]. */
+function ribbon(sm,wOf){
+  var L=[],R=[];
+  sm.forEach(function(s){
+    var w=wOf(s);
+    L.push([s.x+s.nx*w[0],s.y+s.ny*w[0]]);
+    R.push([s.x-s.nx*w[1],s.y-s.ny*w[1]]);
+  });
+  return 'M '+L.map(function(p){return p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' L ')
+       +' L '+R.reverse().map(function(p){return p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' L ')+' Z';
+}
+function braidBump(ci){
+  var m=0;
+  [4,7].forEach(function(k){var d=Math.abs(ci-k);if(d<0.5)m=Math.max(m,0.5*(1+Math.cos(2*Math.PI*d)));});
+  return m;
+}
+
+function neuZeichnen(){
+  var rnd=SOT.rng(P.seed||7);
+  var baseAmp=P.amp/100*HXW;
+  var h=hexGitter();
+  var haupt=null;                        /* die Proben des Rheins — für die Mündungen */
+  /* Schichtregel der Mündung: erst alle Säume, dann die Wasserkörper —
+     beides aufsteigend nach Q. Nie liegt ein Ufer AUF Wasser. */
+  var saums=[],koerper=[];
+
+  RUNS.forEach(function(run){
+    var q0=runQ[run.id][0];
+    /* Stützpunkte: Kantenmitte (quer gesät) · Durchgangspunkt (quer gesät,
+       kleines Wasser schlängelt mehr), für den Rhein plus Brettrand. */
+    var cp=[];
+    function durch(i){
+      var p=run.path[i],pv=run.path[i-1]||p,nx=run.path[i+1]||p;
+      var dx=cx(nx[0],nx[1])-cx(pv[0],pv[1]),dy=cy(nx[0],nx[1])-cy(pv[0],pv[1]);
+      var L=Math.hypot(dx,dy)||1,q=runQ[run.id][i];
+      var f=0.55+0.75/(1+q);            /* Regel 2: weniger Trägheit, mehr Schlängeln */
+      var off=Math.max(-30,Math.min(30,(rnd()-0.5)*2*baseAmp*f));
+      return {x:cx(p[0],p[1])-dy/L*off,y:cy(p[0],p[1])+dx/L*off,q:q,ci:i};
+    }
+    if(run.id==='R')cp.push({x:cx(4,0),y:0,q:q0,ci:-0.5});
+    for(var i=0;i<run.path.length;i++){
+      if(i>0){
+        /* Fester Port: das Band kreuzt die Kante IMMER in der Kantenmitte,
+           ohne Ausnahme (Entscheid — siehe Kantenvertrag, Art-Direction Kap. 5). */
+        var m=kanteMitte(run.path[i-1],run.path[i]);
+        cp.push({x:m[0],y:m[1],q:(runQ[run.id][i-1]+runQ[run.id][i])/2,ci:i-0.5});
+      }
+      cp.push(durch(i));
+    }
+    if(run.id==='R')cp.push({x:cx(4,10),y:VB_H,q:endQ.R,ci:run.path.length-0.5});
+
+    /* Regel 6: der Nebenlauf endet nicht in der Feldmitte des Rheins,
+       sondern biegt ein und trifft die Hauptlinie stromab, spitzwinklig. */
+    if(run.id!=='R'&&haupt){
+      cp.pop();                                        /* Durchgangspunkt des Mündungsfelds weg */
+      var ziel=run.path[run.path.length-1],zx=cx(ziel[0],ziel[1]),zy=cy(ziel[0],ziel[1]);
+      var bestJ=0,bestD=1e9;
+      haupt.forEach(function(s,j){var d=(s.x-zx)*(s.x-zx)+(s.y-zy)*(s.y-zy);if(d<bestD){bestD=d;bestJ=j;}});
+      var j=Math.min(haupt.length-2,bestJ+6),M=haupt[j];
+      var vor=cp[cp.length-1];
+      var seite=((vor.x-M.x)*M.nx+(vor.y-M.y)*M.ny)>=0?1:-1;
+      cp.push({x:M.x-M.tx*52+M.nx*seite*16,y:M.y-M.ty*52+M.ny*seite*16,q:endQ[run.id],ci:vor.ci+0.5});
+      cp.push({x:M.x,y:M.y,q:endQ[run.id],ci:vor.ci+1});
+    }
+
+    var sm=crSample(cp,10);
+    if(run.id==='R')haupt=sm;
+    var wV=function(s){return bandBreite(BFAK*Math.sqrt(s.q));};
+
+    /* Regel 4: Kiessaum asymmetrisch — Gleithang innen breit, Prallhang
+       aussen schmal. In der Schotterflur (Regel 5) weitet er sich stark. */
+    var saum=ribbon(sm,function(s){
+      var w=wV(s),k=Math.max(-1,Math.min(1,s.kr*26)),bb=braidBump(s.ci);
+      var g=Math.max(2.5,w*0.5),weit=1+1.9*bb;
+      return [(w/2+g*(1+Math.max(0,k)*1.7))*weit,(w/2+g*(1+Math.max(0,-k)*1.7))*weit];
+    });
+    saums.push({q:endQ[run.id],svg:'<path d="'+saum+'" fill="var(--w-saum)"/>'});
+
+    var kk='';
+    /* Regel 3: das Wasser als Polygon mit fliessender Breite; in der
+       Schotterflur schlankt der Hauptarm ab (Regel 5). */
+    var fluss=ribbon(sm,function(s){
+      var w=wV(s)*(1-0.45*braidBump(s.ci));return [w/2,w/2];
+    });
+    kk+='<path d="'+fluss+'" fill="'+farbe(sm[Math.floor(sm.length/2)].q)+'"/>';
+
+    /* Regel 5: zwei UNGLEICHE Nebenrinnen je Verzweigung, Kiesbänke dazwischen. */
+    if(run.id==='R')[4,7].forEach(function(k){
+      var zone=sm.filter(function(s){return Math.abs(s.ci-k)<=0.48;});
+      if(zone.length<4)return;
+      [[26,0.30],[-18,0.19]].forEach(function(arm){
+        var d='M '+zone.map(function(s){
+          var t=(s.ci-k+0.48)/0.96,off=Math.sin(Math.PI*t)*arm[0];
+          return (s.x+s.nx*off).toFixed(1)+' '+(s.y+s.ny*off).toFixed(1);
+        }).join(' L ');
+        var wA=bandBreite(BFAK*Math.sqrt(zone[0].q))*arm[1];
+        kk+='<path d="'+d+'" fill="none" stroke="'+farbe(zone[0].q)+'" stroke-width="'+wA.toFixed(1)+'" stroke-linecap="round"/>';
+      });
+      var M2=zone[Math.floor(zone.length/2)],ang=Math.atan2(M2.ty,M2.tx)*180/Math.PI;
+      [[14,26,6],[-10,18,4.5]].forEach(function(b){
+        kk+='<ellipse cx="'+(M2.x+M2.nx*b[0]).toFixed(1)+'" cy="'+(M2.y+M2.ny*b[0]).toFixed(1)
+          +'" rx="'+b[1]+'" ry="'+b[2]+'" transform="rotate('+ang.toFixed(1)+' '+(M2.x+M2.nx*b[0]).toFixed(1)
+          +' '+(M2.y+M2.ny*b[0]).toFixed(1)+')" fill="var(--kies)" stroke="var(--w-saum)" stroke-width="1"/>';
+      });
+    });
+
+    /* Talweg: die tiefste Rinne als dunkler Kern — Tiefe ohne Farbverlauf. */
+    var tal=ribbon(sm,function(s){
+      var w=wV(s)*(1-0.45*braidBump(s.ci))*0.28;return [w/2,w/2];
+    });
+    kk+='<path d="'+tal+'" fill="var(--w-tal)"/>';
+
+    if(run.id!=='R'){
+      var s0=sm[0];
+      kk+='<circle cx="'+s0.x.toFixed(1)+'" cy="'+s0.y.toFixed(1)+'" r="'
+        +Math.max(3,wV(s0)*.9).toFixed(1)+'" fill="'+farbe(s0.q)+'"/>';
+    }
+    koerper.push({q:endQ[run.id],svg:kk});
+  });
+  var auf=function(a,b){return a.q-b.q;},sv=function(x){return x.svg;};
+  saums.sort(auf);koerper.sort(auf);
+  var wasser=saums.map(sv).join('')+koerper.map(sv).join('');
+
+  /* Der Pinsel: Rauschen verschiebt die fertige Kante. seed = Weltsaat. */
+  var defs='',gAttr='';
+  if(P.pinsel>0){
+    defs='<defs><filter id="pinsel" x="-15%" y="-15%" width="130%" height="130%">'
+      +'<feTurbulence type="fractalNoise" baseFrequency="'+(P.freq/1000)+'" numOctaves="2" seed="'+(P.seed||7)+'" result="n"/>'
+      +'<feDisplacementMap in="SourceGraphic" in2="n" scale="'+P.pinsel+'" xChannelSelector="R" yChannelSelector="G"/>'
+      +'</filter></defs>';
+    gAttr=' filter="url(#pinsel)"';
+  }
+  return defs+h+'<g'+gAttr+'>'+wasser+'</g>';
+}
+
+/* ---- Farb-Zwischentöne wie in erkundung-v6 ---------------------------- */
+var st=document.createElement('style');
+st.textContent=':root,body{--w-bach:color-mix(in srgb,var(--river) 62%,var(--bg));'
+  +'--w-saum:color-mix(in srgb,var(--kies) 72%,var(--bg));'
+  +'--w-tal:color-mix(in srgb,var(--riverdeep) 72%,var(--ink));}'
+  /* Nachts ist --ink hell — der Talweg würde zum Glanzlicht. Tiefe ist
+     immer dunkler: nachts Richtung --bg mischen. */
+  +'body.night{--w-tal:color-mix(in srgb,var(--riverdeep) 60%,var(--bg));}';
+document.head.appendChild(st);
+
+var svgAlt=document.getElementById('svgAlt'),svgNeu=document.getElementById('svgNeu');
+svgAlt.setAttribute('viewBox','0 0 '+VB_W+' '+VB_H);
+svgNeu.setAttribute('viewBox','0 0 '+VB_W+' '+VB_H);
+svgAlt.innerHTML=altZeichnen();
+svgNeu.innerHTML=neuZeichnen();
+if(P.nur==='alt')document.getElementById('tafelNeu').style.display='none';
+if(P.nur==='neu')document.getElementById('tafelAlt').style.display='none';
+</script>
+</body>
+</html>
