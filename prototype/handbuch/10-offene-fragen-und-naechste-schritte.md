@@ -37,6 +37,8 @@ Historische Treue und erzeugte Landschaft vertragen sich nur begrenzt: Eine erze
 
 Die aktuelle Weltkarte in `world.ts` ist ein erster Entwurf des Kartografen-Gewerks – Geometrie und Fundstellen-Positionen sind „historisch inspiriert und vereinfacht" und warten auf die Recherche-Karte (Kap. 10, „jede Jahreszahl prüfen"). {.dim}
 
+**Die Naturengine (Kap. 4) öffnet diese Entscheidung nicht wieder.** Verworfen wurde die *endlose Seed-Welt pro Spieler* – nicht das Erzeugen als Autorenwerkzeug. Die Engine läuft in der **Pipeline**, nicht im Spiel: ihr Ergebnis ist eine gebackene Welt, für alle dieselbe, gegen belegte Fixpunkte geprüft. Was sie ersetzt, ist nicht die gestaltete Karte, sondern die *Hand*, die jede Epoche einzeln zeichnen müsste – dasselbe Argument, mit dem die Pipeline schon die ASCII-Karte ersetzt hat (Kap. 1). Die Grenze bleibt trotzdem scharf und ist in Kap. 4 als offene Frage vermerkt: sobald eine Simulation *zur Spielzeit* rechnet, ist die Welt wieder pro Spieler verschieden. {.dim}
+
 ## Design-Backlog {open}
 
 - Module II–V als spielbare Kartensets (II als Nächstes: "sichtbare vs. verwaltete Macht" + Omen-Nächte)
