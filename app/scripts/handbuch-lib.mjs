@@ -230,7 +230,18 @@ export function renderCard(card, ids) {
 
 /* ----------------------------------------------------------------- Kapitel --- */
 
+/**
+ * Zeilenenden normalisieren. `core.autocrlf` ist auf dieser Maschine `true`
+ * und es gibt keine `.gitattributes` — sobald ein Kapitel einmal committet
+ * und wieder ausgecheckt wurde, liegt es mit CRLF im Arbeitsbaum, während
+ * unangetastete Kapitel LF behalten. Der Parser darf daran nicht scheitern:
+ * ein `\r` am Zeilenende hätte sonst das Frontmatter unlesbar gemacht und den
+ * Status `{concept}` einer Karte mitverschluckt.
+ */
+export const lf = (s) => s.replace(/\r\n/g, '\n')
+
 export function parseChapterFile(src, name) {
+  src = lf(src)
   const fm = src.match(/^---\n([\s\S]*?)\n---\n/)
   if (!fm) throw new Error(name + ': Frontmatter (---) fehlt')
   const meta = {}
@@ -278,7 +289,7 @@ const PLACEHOLDER = '<!-- HANDBUCH:KAPITEL -->'
  */
 export function compose(opts = {}) {
   const dir = opts.srcDir || SRC_DIR
-  const template = readFileSync(join(dir, 'template.html'), 'utf8')
+  const template = lf(readFileSync(join(dir, 'template.html'), 'utf8'))
   if (!template.includes(PLACEHOLDER)) {
     throw new Error('template.html ohne Platzhalter ' + PLACEHOLDER)
   }

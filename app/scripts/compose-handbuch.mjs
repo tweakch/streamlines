@@ -12,7 +12,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { compose } from './handbuch-lib.mjs'
+import { compose, lf } from './handbuch-lib.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const OUT = resolve(HERE, '../../prototype/drafts/stromlinien-handbuch.html')
@@ -26,7 +26,10 @@ const { html: body, kept, files } = compose()
 const html = body.replace('<!DOCTYPE html>', '<!DOCTYPE html>\n' + MARKER)
 
 if (process.argv.includes('--check')) {
-  const current = existsSync(OUT) ? readFileSync(OUT, 'utf8') : ''
+  /* lf(): das eingecheckte HTML kommt nach einem Checkout mit CRLF zurück
+     (autocrlf), das Komponierte ist immer LF — ohne Normalisierung meldete
+     der Vergleich Drift, wo keine ist. */
+  const current = existsSync(OUT) ? lf(readFileSync(OUT, 'utf8')) : ''
   if (current === html) {
     console.log(`handbuch aktuell (${kept} Karten aus ${files.length} Kapiteln).`)
   } else {
