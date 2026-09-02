@@ -13,15 +13,25 @@
 import { ladeMapper } from '../lib/mapper.mjs'
 
 function ausMapper(id, meta) {
-  const M = ladeMapper(id)
+  /* Einmal für die DEKLARATION — die Klassen des Overlays sind dieselben,
+     egal auf welcher Ebene gerechnet wird. */
+  const deklaration = ladeMapper(id)
   return {
     ...meta,
     kodierung: 'uint8 · Klassen',
     mapper: id,
     klassen: Object.fromEntries(
-      Object.entries(M.klassen).map(([k, v]) => [k, v]),
+      Object.entries(deklaration.klassen).map(([k, v]) => [k, v]),
     ),
     berechne(ctx) {
+      /* Und je Lauf einmal frisch für die ZÄHLUNG. Ein Mapper zählt seine
+         Treffer intern mit; dieselbe Instanz über zwei Ebenen zu führen
+         summiert sie auf, und `buche()` verbucht auf Ebene 2 dann auch noch
+         die Treffer der Ebene 1. Die Bilanz ginge um genau den Faktor 2 nicht
+         auf — und tat es lange nicht, weil ohne Geometrie alle Zähler auf 0
+         standen und 0 = 0 auf jeder Ebene aufgeht. Aufgefallen ist es in der
+         Sekunde, in der die Quelle da war: „gelesen 20155, verbucht 40310". */
+      const M = ladeMapper(id)
       const L = ctx.ledger(meta.quellen[0])
       const werte = ctx.neuesFeld()
       const merkmale = ctx.merkmale(meta.kinds)

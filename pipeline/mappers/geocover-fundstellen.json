@@ -2,46 +2,35 @@
   "id": "geocover-fundstellen",
   "titel": "GeoCover Archäologie → Fundstellenart",
   "ziel": "overlay:fundstelle",
-  "notiz": "Achtung, ungeprüfte Annahme: das INTERLIS-Modell DEFINIERT diese Klassen, es beweist nicht, dass der GeoCover-Datenbestand sie in unserer Region füllt. GeoCover ist ein Geologie-, kein Archäologiedatensatz. Diese Tabelle steht bereit, bevor die Geometrie geprüft ist — wenn nichts kommt, meldet das Protokoll eine Eingabe von 0, und das ist die richtige Antwort.",
+  "notiz": "GEPRÜFT (Sep 2026) — die alte Warnung ist aufgelöst. Sie lautete: „das INTERLIS-Modell DEFINIERT diese Klassen, es beweist nicht, dass der GeoCover-Datenbestand sie in unserer Region füllt.\" Er füllt sie: 23 Blätter Alpenrhein liefern **70 Fundstellen in 9 Arten**, und darunter sind beide plättchenrelevanten — `Pfahlbauten` (6) und `Höhlensiedlung, Abri` (3).\n\nZwei Einschränkungen, die bleiben. Erstens ist `Archaeology_PT` auf **13 der 23 Blätter gar nicht vorhanden** — GeoCover ist ein Geologie-, kein Archäologiedatensatz, und wo die Tabelle fehlt, fehlt sie ganz. Eine leere Gegend heisst hier also nicht „nichts gefunden\", sondern „nicht erfasst\". Zweitens sind 70 Punkte für ein ganzes Tal wenig; die echte Fundstellendichte liegt weit höher. Diese Ebene ist ein Anfang, keine Bestandsaufnahme.\n\nDIE EPOCHE WIRD MITGEFÜHRT: Die Quelle nennt bei 50 der 70 Punkte eine Epoche oder Periode (`AARC_EPOCH`, `AARC_PERIOD`) — Mittelalter 18, prähistorisch 14, Neuzeit 12, Bronzezeit 8, Steinzeit 3, unbekannt 1; bei 20 steht nichts. Sie steht in `properties.aarc_epoch` bzw. `aarc_period` der Quelldatei. Darum sind auch die nach-prähistorischen Arten aufgenommen (Burgstelle, Kalkofen, Felsenkeller): eine Burgstelle IST eine Fundstelle, nur eine spätere, und für die Module III–V ist sie das Material. Gefiltert wird im Spiel nach Epoche — die Pipeline wirft nichts weg, was die Quelle hergibt.",
   "quelle": {
-    "katalog": "GeologyModelLookUp_V2_1",
-    "klasse": "Archaeology_PT_Kind",
-    "stand": "2020-12-08",
-    "url": "https://models.geo.admin.ch/Swisstopo/GeologyModelLookUp_V2_1.xml",
+    "katalog": "GeologyModelLookUp_V2_1, Klasse Archaeology_PT_Kind",
+    "klasse": "Archaeology_PT.KIND",
+    "stand": "2026-06-24",
+    "url": "https://data.geo.admin.ch/api/stac/v1/collections/ch.swisstopo.geologie-geocover",
     "lizenz": "swisstopo, freie Geodaten — Namensnennung",
-    "geometrie": "swissGEOCOVER2D — Vorkommen in der Region NICHT geprüft"
+    "geometrie": "swissGEOCOVER2D, 23 Blätter Alpenrhein — Tabelle auf 13 Blättern nicht vorhanden"
   },
   "klassen": {
     "siedlung": { "wert": 1, "name": "Siedlungsreste", "belegstatus": "belegt", "farbe": "#c07a4a" },
     "hoehle": { "wert": 2, "name": "Höhlensiedlung", "belegstatus": "belegt", "plaettchen": "hoehle", "farbe": "#6b5a4a" },
     "pfahl": { "wert": 3, "name": "Pfahlbau, Seerandsiedlung", "belegstatus": "belegt", "plaettchen": "pfahl", "farbe": "#7a9ab0" },
     "grab": { "wert": 4, "name": "Gräber", "belegstatus": "belegt", "farbe": "#8a7f9b" },
-    "kult": { "wert": 5, "name": "Kultstein", "belegstatus": "belegt", "farbe": "#a89060" }
+    "kult": { "wert": 5, "name": "Kultstein", "belegstatus": "belegt", "farbe": "#a89060" },
+    "burg": { "wert": 6, "name": "Burgstelle, Wachtturm", "belegstatus": "belegt", "epoche": "ab Mittelalter", "farbe": "#9b6a6a" },
+    "handwerk": { "wert": 7, "name": "Handwerksanlage", "belegstatus": "belegt", "epoche": "ab Mittelalter", "farbe": "#8c8560" },
+    "keller": { "wert": 8, "name": "Felsenkeller", "belegstatus": "belegt", "epoche": "Neuzeit", "farbe": "#6f6a60" }
   },
   "eintraege": [
-    { "code": "Aarc101001", "quelltext": "archäologische Fundstelle, Anlage, Siedlungsreste", "klasse": "siedlung", "treue": "klassiert" },
-    {
-      "code": "Aarc101002",
-      "quelltext": "Höhlensiedlung",
-      "klasse": "hoehle",
-      "treue": "1:1",
-      "notiz": "Deckt sich eins zu eins mit TileKind `hoehle` — ein Plättchen des Spiels steht als Klasse im Bundeskatalog."
-    },
-    {
-      "code": "Aarc101003",
-      "quelltext": "Pfahlbauten, Seerandsiedlung",
-      "klasse": "pfahl",
-      "treue": "1:1",
-      "notiz": "Deckt sich eins zu eins mit TileKind `pfahl`. Bodensee- und Zürichseeufer sind UNESCO-Welterbe-Pfahlbaugebiet — hier trifft das Spiel die Wirklichkeit."
-    },
-    { "code": "Aarc101005", "quelltext": "Gräber, Gräberfeld", "klasse": "grab", "treue": "klassiert" },
-    { "code": "Aarc101006", "quelltext": "Flachgrab, Nekropole", "klasse": "grab", "treue": "klassiert" },
-    { "code": "Aarc101007", "quelltext": "Grabhügel, Dolmengrab", "klasse": "grab", "treue": "klassiert" },
-    { "code": "Aarc101008", "quelltext": "Kultstein", "klasse": "kult", "treue": "1:1" }
+    { "code": "archäologische Fundstelle, Anlage, Siedlungsreste", "klasse": "siedlung", "treue": "1:1", "notiz": "häufigste Art (24)." },
+    { "code": "Burgstelle, Burghügel, Wachtturm", "klasse": "burg", "treue": "klassiert", "notiz": "25 Punkte, die zweithäufigste Art — und durchweg mittelalterlich. Für Epoche I unbrauchbar, für III–V der Anfang eines Bestands." },
+    { "code": "Pfahlbauten", "klasse": "pfahl", "treue": "1:1", "notiz": "Deckt sich eins zu eins mit dem Plättchen `pfahl`. Alle 6 liegen zwischen 9.17 und 9.32 °O bei 47.59–47.64 °N — am Südufer des Bodensees, wo die Pfahlbauten auch wirklich liegen. Das ist die beste Bestätigung der Projektion, die diese Pipeline hat." },
+    { "code": "Höhlensiedlung, Abri", "klasse": "hoehle", "treue": "klassiert", "notiz": "Deckt sich mit dem Plättchen `hoehle`, aber nicht ganz: ein Abri ist ein Felsdach, keine Höhle. Zwei der drei sind als `Steinzeit` bzw. `prähistorisch` datiert — die einzigen Fundstellen der Quelle, die zeitlich in Modul I fallen." },
+    { "code": "Kalkofen", "klasse": "handwerk", "treue": "klassiert", "notiz": "Kalkbrennerei. Eigene Klasse `handwerk` statt `siedlung`, weil es eine Anlage ohne Wohnung ist — und weil Kalkbrennen später eine Mechanik werden könnte (siehe `kalk` im Fels-Mapper)." },
+    { "code": "Gräber, Gräberfeld", "klasse": "grab", "treue": "1:1" },
+    { "code": "Kultstein", "klasse": "kult", "treue": "1:1", "notiz": "3 Punkte. Passt auf den Deutungsrahmen ANI der Nacht-Engine (Handbuch Kap. 4)." },
+    { "code": "Steinplattengrab", "klasse": "grab", "treue": "klassiert", "notiz": "mit `Gräber` zusammengelegt — die Bauform des Grabes ist für das Spiel bisher ohne Wirkung." },
+    { "code": "Felsenkeller", "klasse": "keller", "treue": "1:1", "notiz": "ein einziger Punkt, neuzeitlich. Aufgenommen, weil Wegwerfen hier nichts spart." }
   ],
-  "verworfen": [
-    { "code": "Aarc101004", "quelltext": "Burgstelle, Burghügel", "grund": "Mittelalter — ausserhalb der Epochen I–III, kommt mit Modul 4 zurück" },
-    { "code": "Aarc101009", "quelltext": "Kalkofen", "grund": "historisch, nicht prähistorisch — gehört zu Exploitation, nicht zu Fundstellen" },
-    { "code": "Aarc101010", "quelltext": "Felsenkeller", "grund": "neuzeitlich" }
-  ]
+  "verworfen": []
 }

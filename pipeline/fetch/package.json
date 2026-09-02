@@ -4,6 +4,7 @@
   "type": "module",
   "description": "Fetch-/Normalisierungs-Stufe der Karten-Pipeline: liest Rohdaten (GeoTIFF-DTMs etc.) aus pipeline/data/ und schreibt normalisierte Quellen nach pipeline/sources/. Nur diese Stufe darf npm-Dependencies haben; bake.mjs bleibt dependency-frei.",
   "dependencies": {
+    "fflate": "^0.8.3",
     "geotiff": "^2.1.3"
   }
 }

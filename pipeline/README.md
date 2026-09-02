@@ -54,6 +54,10 @@ node pipeline/fetch/fetch-osm-lakes.mjs    # Overpass → sources/osm-seen.geo.j
 node pipeline/bake.mjs                     # sources/ → prototype/drafts/rhein-tiles-v4.data.js
 node pipeline/verify-cell.mjs 1 209 304    # Stichprobe: Zelle + Basis-Verteilung prüfen
 
+npm install --prefix pipeline/fetch        # (fflate für die GeoCover-Stufe)
+node pipeline/fetch/normalize-geocover.mjs --laden
+#   swissGEOCOVER2D → sources/geocover-{fels,boden,archaeologie}.geo.json
+#   ohne --laden nur aus schon geladenen Blättern in data/
 node pipeline/bake-overlays.mjs            # sources/ → out/karte.sqlite + out/bericht.json
 #   nur Spielebene: --ebenen=1 · einzeln: --overlay=hoehe,steigung
 npm install --prefix pipeline/ingest       # einmalig: pg für die Ingest-Stufe
@@ -383,6 +387,42 @@ normalisierte Quelle. Der Bake leitet daraus pro Hexzelle der Ebene 2 (0.4 km) a
 Ebenen mit `region` liefern nur Kacheln innerhalb der Region; der Viewer schaltet
 auf sie nur, wenn die Blickmitte in der Region liegt (`regionKm` im Tileset).
 GeoTIFF-Rohdaten (40 MB+) kommen **nicht ins Repo** (`pipeline/data/`, gitignored).
+
+## Untergrund: swissGEOCOVER2D (`fetch/normalize-geocover.mjs`)
+
+Bis Sep 2026 wusste die Karte, wie das Gelände geformt ist (DTM), wo Wasser
+steht (OSM) und wie tief die Seen sind (swissBATHY3D) — aber nicht, woraus der
+Boden besteht. Drei Overlays waren angemeldet und leer: `fels`, `boden` und
+`fundstelle` meldeten `quelleFehlt` und eine Eingabe von 0. Das war Absicht
+(eine fehlende Quelle soll im Bericht sichtbar sein), aber es blieb eine Lücke.
+
+Die Stufe holt 23 Blätter des Geologischen Atlas 1:25 000 über die
+swisstopo-STAC-API (`ch.swisstopo.geologie-geocover`, ~168 MB als GeoPackage
+je Blatt), liest daraus `Bedrock_PLG`, `Unconsolidated_Deposits_PLG` und
+`Archaeology_PT`, rechnet MN95 → WGS84 und schreibt drei Quelldateien.
+Ergebnis: **20 155 Festgestein-, 24 025 Lockergestein-Polygone und 70
+Fundstellen.**
+
+Vier Dinge, die dabei herauskamen und die man wissen muss:
+
+| Fund | Folge |
+| --- | --- |
+| Die Mapper zeigten auf ein Vokabular, das die Daten nicht führen: `Rbed…` bzw. `Runc308…` statt der ausgelieferten `LITHO_MAIN`/`RUNC_LITHO`. Im Katalog gibt es **keine Brücke** zwischen den Vokabularen. | Beide Mapper auf den ausgelieferten Text umgeschlüsselt (110 bzw. 40 Werte, alle zugeordnet). |
+| Das Silex-Signal steckt im **Beisatz**, nicht im Hauptgestein (`Kalkstein: kieselig: Bioklasten`). | `fels` klassiert zweiachsig: Kopfterm → Basisklasse, `kieselig\|Chert\|Radiolarien\|Quarz` → `kiesel`. Eine Kopfterm-Zuordnung hätte 3 260 Merkmale falsch als Kalk geführt. |
+| `COMPOSIT_D` — die Körnungsspalte, auf die `boden` zielte — ist zu **99 % leer**. | `boden` steht jetzt auf der Ablagerungsart (Hangschutt, Moräne, Sumpf …). Achsenwechsel, nicht bloss Schlüsselwechsel: alle Einträge sind `klassiert`, keiner `1:1`. |
+| Manche Blätter kommen **doppelt** — unter Kachel- und unter Blattnummer, in verschiedenen Fassungen des Datenmodells (Vättis: 1157 Polygone alt gegen 1161 neu). | Ausgewählt wird nach Blattname im Zip, gewinnt die Fassung mit mehr Modellspalten. Ohne das würde ein Gebiet doppelt gezählt und aus der schlechteren Fassung gelesen. |
+
+Die alte `UNGEPRÜFT`-Warnung im Fundstellen-Mapper ist damit aufgelöst — und
+zwar positiv: GeoCover führt `Pfahlbauten` und `Höhlensiedlung, Abri`, also
+beide plättchenrelevanten Arten. Die sechs Pfahlbauten liegen zwischen 9.17 und
+9.32 °O bei 47.59–47.64 °N, am Südufer des Bodensees, wo sie auch wirklich
+liegen — die beste Bestätigung der Projektion, die diese Pipeline hat.
+Einschränkung: `Archaeology_PT` fehlt auf **13 der 23 Blätter** ganz. Eine leere
+Gegend heisst hier „nicht erfasst", nicht „nichts gefunden".
+
+Zwei Zips tragen ihre Pfade mit **Backslashes** (`GPKG\de\x.gpkg`) — nicht
+konform, aber so ausgeliefert; ein Filter auf `GPKG/de/` findet nichts und die
+Stufe lief stumm ins Leere, bis das auffiel.
 
 ## Ingest in die Datenbank (`ingest/`)
 

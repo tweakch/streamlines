@@ -2,36 +2,69 @@
   "id": "geocover-boden",
   "titel": "GeoCover Lockergestein → Spielklasse Boden",
   "ziel": "overlay:boden",
-  "notiz": "Zusammensetzung des Lockergesteins. Diese Tabelle entscheidet mittelbar über `erhaltung` — was der Boden von einem vergrabenen Depot drei Epochen später noch hergibt. Torf ist deshalb eine eigene Klasse und nicht mit „lehmig\" zusammengelegt.",
+  "notiz": "Diese Tabelle entscheidet mittelbar über `erhaltung` — was der Boden von einem vergrabenen Depot drei Epochen später noch hergibt. Torf ist deshalb eine eigene Klasse und nicht mit „lehmig\" zusammengelegt.\n\nUMGESCHLÜSSELT (Sep 2026): Die Tabelle stand auf den Codes `Runc308…` der Katalogklasse `Unconsolidated_Deposits_PLG_Composit` — also auf der KÖRNUNG. Die zugehörige Spalte `COMPOSIT_D` ist im ausgelieferten GeoPackage jedoch zu 99 % leer (38 von 24 025 Polygonen). Gefüllt und zu 0 % leer ist `RUNC_LITHO`: die ABLAGERUNGSART (Hangschutt, Moräne, Sumpf, Bachschutt …), 40 verschiedene Werte.\n\nDas ist ein Wechsel der Achse, nicht bloss des Schlüssels: die Quelle sagt nicht mehr „woraus besteht es\", sondern „wie ist es hierher gekommen\". Für die Erhaltungsfrage ist das brauchbar — eine Moräne ist verlässlich lehmig-steinig, ein Sumpf torfig, ein Bachschutt kiesig —, aber es ist eine Ableitung und keine Messung. Alle Einträge sind darum `klassiert`, keiner `1:1`.\n\nWas Körnung wäre und nicht kommt, bleibt offen: sobald `COMPOSIT_D` in einer künftigen GeoCover-Fassung gefüllt ist, gehört die Tabelle auf beide Achsen gestellt (Ablagerungsart × Körnung), nicht nur umgeschaltet.",
   "quelle": {
-    "katalog": "GeologyModelLookUp_V2_1",
-    "klasse": "Unconsolidated_Deposits_PLG_Composit",
-    "stand": "2020-12-08",
-    "url": "https://models.geo.admin.ch/Swisstopo/GeologyModelLookUp_V2_1.xml",
+    "katalog": "GeologyModelLookUp_V2_1 (beschreibt das Vokabular, schlüsselt es aber nicht)",
+    "klasse": "Unconsolidated_Deposits_PLG.RUNC_LITHO",
+    "stand": "2026-06-24",
+    "url": "https://data.geo.admin.ch/api/stac/v1/collections/ch.swisstopo.geologie-geocover",
     "lizenz": "swisstopo, freie Geodaten — Namensnennung",
-    "geometrie": "swissGEOCOVER2D (GeoPackage/INTERLIS, MN95) — noch nicht geladen"
+    "geometrie": "swissGEOCOVER2D, 23 Blätter Alpenrhein, GeoPackage MN95 → WGS84 (pipeline/fetch/normalize-geocover.mjs)"
   },
   "klassen": {
-    "torf": { "wert": 1, "name": "torfig", "erhaltung": "organisch", "gibt": ["torf"], "farbe": "#4a4230" },
-    "ton": { "wert": 2, "name": "tonig", "erhaltung": "gut", "gibt": ["ton"], "farbe": "#6f7360" },
-    "lehm": { "wert": 3, "name": "lehmig bis siltig", "erhaltung": "mittel", "gibt": ["lehm"], "farbe": "#8b7d63" },
-    "sand": { "wert": 4, "name": "sandig", "erhaltung": "gering", "gibt": ["sand"], "farbe": "#c2ae86" },
-    "kies": { "wert": 5, "name": "kiesig bis geröllreich", "erhaltung": "keine", "gibt": ["kies"], "farbe": "#a8a294" }
+    "torf": { "wert": 1, "name": "torfig", "gibt": ["torf"], "erhaelt": "organisches", "farbe": "#5d4a35" },
+    "ton": { "wert": 2, "name": "tonig", "gibt": ["ton"], "erhaelt": "keramik, knochen", "farbe": "#8a7a63" },
+    "lehm": { "wert": 3, "name": "lehmig bis siltig", "gibt": ["lehm"], "erhaelt": "knochen", "farbe": "#9c8a76" },
+    "sand": { "wert": 4, "name": "sandig", "gibt": ["sand"], "erhaelt": "stein", "farbe": "#c4b48c" },
+    "kies": { "wert": 5, "name": "kiesig bis blockig", "gibt": ["kies"], "erhaelt": "stein", "farbe": "#a8a49c" }
   },
   "eintraege": [
-    {
-      "code": "Runc308007",
-      "quelltext": "torfig",
-      "klasse": "torf",
-      "treue": "klassiert",
-      "notiz": "Der wertvollste Eintrag für die Kernmechanik: Feuchtboden erhält Organisches. Was hier vergraben wird, ist drei Epochen später noch da."
-    },
-    { "code": "Runc308001", "quelltext": "tonig", "klasse": "ton", "treue": "klassiert" },
-    { "code": "Runc308002", "quelltext": "lehmig", "klasse": "lehm", "treue": "klassiert" },
-    { "code": "Runc308003", "quelltext": "siltig", "klasse": "lehm", "treue": "klassiert", "notiz": "mit lehmig zusammengelegt — die Unterscheidung trägt im Spiel nichts" },
-    { "code": "Runc308004", "quelltext": "sandig", "klasse": "sand", "treue": "klassiert" },
-    { "code": "Runc308005", "quelltext": "kiesig", "klasse": "kies", "treue": "klassiert" },
-    { "code": "Runc308006", "quelltext": "geröllreich", "klasse": "kies", "treue": "klassiert" }
+    { "code": "Sumpf", "klasse": "torf", "treue": "klassiert", "notiz": "Der wichtigste Eintrag für die Erhaltung: nass, sauerstoffarm, hält Holz und Geflecht. 2134 Polygone — genug, um im Spiel spürbar zu sein." },
+    { "code": "Torfmoor, Torf", "klasse": "torf", "treue": "klassiert" },
+    { "code": "palustrisches Sediment, undifferenziert", "klasse": "torf", "treue": "klassiert", "notiz": "palustrisch = Sumpfablagerung." },
+    { "code": "palustrisches Sediment", "klasse": "torf", "treue": "klassiert" },
+    { "code": "Lignit (palustrisches Sediment)", "klasse": "torf", "treue": "klassiert", "notiz": "Braunkohle — verkohlter Torf." },
+    { "code": "detritische Verlandungsbildung", "klasse": "torf", "treue": "klassiert", "notiz": "verlandeter Seerand, organikreich — dieselbe Erhaltungslage wie Sumpf." },
+
+    { "code": "Seebodensediment", "klasse": "ton", "treue": "klassiert" },
+    { "code": "lakustrisches Sediment, undifferenziert", "klasse": "ton", "treue": "klassiert" },
+    { "code": "glazilakustrisches Sediment, undifferenziert", "klasse": "ton", "treue": "klassiert", "notiz": "Beckenton eines Eisstausees — feinstgeschichtet." },
+    { "code": "glazilakustrisches Deltasediment", "klasse": "ton", "treue": "klassiert" },
+    { "code": "Seekreide", "klasse": "ton", "treue": "klassiert", "notiz": "kalkiger Seeschlamm; feinkörnig wie Ton, aber karbonatisch." },
+
+    { "code": "Moräne (Till), undifferenziert", "klasse": "lehm", "treue": "klassiert", "notiz": "Grundmoräne ist ein Diamikt: Steine in lehmiger Matrix. Grösste Klasse der Karte (4856 Polygone) — und das Erbe der Eiszeit, auf dem Modul I spielt." },
+    { "code": "Moräne auf Gletscher oder Toteis (Glacier or Dead Ice covered by Till)", "klasse": "lehm", "treue": "klassiert" },
+    { "code": "Hanglehm, Schwemmlehm", "klasse": "lehm", "treue": "klassiert" },
+    { "code": "Verwitterungslehm, undifferenziert", "klasse": "lehm", "treue": "klassiert" },
+    { "code": "tiefgründige Verwitterungsdecke", "klasse": "lehm", "treue": "klassiert" },
+    { "code": "Löss, Lösslehm", "klasse": "lehm", "treue": "klassiert", "notiz": "windverfrachteter Silt — der fruchtbarste Boden der Tabelle." },
+
+    { "code": "glazifluviatiles Sediment, undifferenziert", "klasse": "sand", "treue": "klassiert", "notiz": "Die einzige Ablagerungsart, die die Quelle als sandig statt als Schotter führt. Dass `sand` damit fast leer bleibt, ist eine Aussage über die Quelle und keine über die Landschaft." },
+
+    { "code": "Hangschutt", "klasse": "kies", "treue": "klassiert", "notiz": "Häufigste Ablagerung überhaupt (7488) — der Alpenrhein ist ein Tal aus Hangschutt." },
+    { "code": "Bachschutt", "klasse": "kies", "treue": "klassiert" },
+    { "code": "gemischter Schutt", "klasse": "kies", "treue": "klassiert" },
+    { "code": "Blockschutt", "klasse": "kies", "treue": "klassiert" },
+    { "code": "Sturzablagerung, undifferenziert", "klasse": "kies", "treue": "klassiert" },
+    { "code": "Bergsturzablagerung", "klasse": "kies", "treue": "klassiert" },
+    { "code": "Felssturzablagerung", "klasse": "kies", "treue": "klassiert" },
+    { "code": "Lawinenschutt", "klasse": "kies", "treue": "klassiert" },
+    { "code": "Blockgletscher", "klasse": "kies", "treue": "klassiert" },
+    { "code": "Rutschmasse", "klasse": "kies", "treue": "klassiert" },
+    { "code": "zerrüttete Sackungsmasse", "klasse": "kies", "treue": "klassiert" },
+    { "code": "Murgangablagerung", "klasse": "kies", "treue": "klassiert" },
+    { "code": "Alluvion, undifferenziert", "klasse": "kies", "treue": "klassiert", "notiz": "Debattierbar: Alluvion umfasst Sand wie Kies. Im Alpenrhein überwiegt Kies — aber wenn `sand` je Gewicht bekommt, gehört dieser Eintrag geteilt." },
+    { "code": "glazifluviatiler Schotter", "klasse": "kies", "treue": "klassiert" },
+    { "code": "fluviatiler Schotter", "klasse": "kies", "treue": "klassiert" },
+    { "code": "Vorstossschotter", "klasse": "kies", "treue": "klassiert" },
+    { "code": "randglazialer Schotter", "klasse": "kies", "treue": "klassiert" },
+    { "code": "Rückzugsschotter", "klasse": "kies", "treue": "klassiert" },
+    { "code": "Quelltuff (Kalksinter, Lockergestein)", "klasse": "kies", "treue": "klassiert", "notiz": "Debattierbar: Kalksinter ist verfestigt und porös, weder kiesig noch lehmig. Als eigene Klasse erst sinnvoll, wenn das Spiel etwas damit tut (Kalkbrennen?)." },
+    { "code": "Tsunamiablagerung", "klasse": "kies", "treue": "klassiert", "notiz": "22 Polygone — die Sturzflutablagerung eines Bergsturzes in einen See. Bleibt in `kies`, ist aber als Ereignisspur interessanter als als Boden." }
   ],
-  "verworfen": []
+  "verworfen": [
+    { "code": "Lockergestein", "grund": "nennt keine Ablagerungsart und keine Körnung — trägt damit keine Aussage über Erhaltung. 2155 Polygone, die grösste Lücke der Tabelle." },
+    { "code": "geringmächtige Lockergesteinsbedeckung", "grund": "beschreibt die Mächtigkeit, nicht das Material; darunter steht der Fels, den `fels` schon führt." },
+    { "code": "künstliche Ablagerung, undifferenziert", "grund": "Aufschüttung der Neuzeit — für eine Karte, die 10 000 BP beginnt, kein Untergrund, sondern eine Störung." }
+  ]
 }
