@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STROMLINIEN · Prototypen-Werkstatt v1</title>
+<link rel="stylesheet" href="../kit/sot.css">
+<style>
+/* Issue #8 — Werkstatt-Einstieg. Nur Draft-CSS; Kit-Tokens. ~540px. */
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);}
+.wrap{max-width:540px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;
+  padding:max(14px,env(safe-area-inset-top)) 14px calc(18px + env(safe-area-inset-bottom));}
+.kopf{margin-bottom:14px;position:sticky;top:0;z-index:2;background:var(--bg);
+  padding-bottom:8px;margin-left:-2px;margin-right:-2px;padding-left:2px;padding-right:2px;}
+.kicker{font-family:var(--f-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ember);}
+h1{font-family:var(--f-display);font-weight:800;font-size:26px;line-height:1.1;margin:4px 0 6px;}
+.sub{font-size:13px;color:var(--ink2);line-height:1.45;margin:0 0 12px;}
+.search{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:var(--r-md,10px);
+  border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-size:15px;}
+.search:focus{outline:none;border-color:var(--ember);box-shadow:0 0 0 3px color-mix(in srgb,var(--ember) 25%,transparent);}
+.meta{font-family:var(--f-mono);font-size:10px;letter-spacing:.08em;color:var(--ink2);margin:10px 0 8px;}
+.liste{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;flex:1;overflow:auto;}
+.liste button{width:100%;text-align:left;padding:12px 14px;border-radius:var(--r-md,10px);
+  border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;cursor:pointer;}
+.liste button:active,.liste button:focus-visible{border-color:var(--ember);box-shadow:0 0 8px var(--emberglow);}
+.liste .nm{font-weight:700;font-size:14.5px;display:block;}
+.liste .fn{font-family:var(--f-mono);font-size:10.5px;color:var(--ink2);margin-top:3px;display:block;word-break:break-all;}
+.leer{padding:24px 8px;text-align:center;color:var(--ink2);font-size:13.5px;}
+.view{display:none;flex:1;flex-direction:column;min-height:0;}
+.view.on{display:flex;}
+.playbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.playbar .ttl{flex:1;font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;color:var(--ink2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.framewrap{flex:1;min-height:70dvh;border:1px solid var(--line);border-radius:var(--r-md,10px);
+  overflow:hidden;background:var(--panel2);}
+.framewrap iframe{width:100%;height:100%;min-height:70dvh;border:0;display:block;background:var(--bg);}
+a.small.ghost{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;
+  padding:8px 12px;border-radius:var(--r-pill,999px);border:1.5px solid var(--line);
+  background:transparent;color:var(--ink);font:inherit;font-size:12px;font-weight:600;}
+a.small.ghost:active,a.small.ghost:focus-visible{border-color:var(--ember);}
+.hint{font-size:11.5px;color:var(--ink2);margin-top:8px;line-height:1.4;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="view on" id="viewList" aria-label="Draft-Liste">
+    <header class="kopf">
+      <div class="kicker">Werkstatt · Issue #8</div>
+      <h1>Prototypen</h1>
+      <p class="sub">Suchen, tippen, anspielen. Zurück bringt dich hierher. Kein App-Port.</p>
+      <input class="search" id="q" type="search" placeholder="Suche Titel oder Dateiname…" autocomplete="off" enterkeyhint="search">
+      <div class="meta" id="meta">…</div>
+    </header>
+    <ul class="liste" id="liste"></ul>
+  </section>
+
+  <section class="view" id="viewPlay" aria-label="Prototype spielen">
+    <div class="playbar">
+      <button type="button" class="small ghost" id="btnBack">Zurück</button>
+      <div class="ttl" id="playTitle"></div>
+      <a class="small ghost" id="btnOpen" href="#" target="_blank" rel="noopener">Neu</a>
+    </div>
+    <div class="framewrap"><iframe id="frame" title="Prototype"></iframe></div>
+    <p class="hint">Wenn der Draft leer bleibt (Sandbox/CORS), nutze <b>Neu</b> — öffnet die Datei direkt.</p>
+  </section>
+</div>
+
+<script src="../kit/sot.js"></script>
+<script>
+'use strict';
+/* Ledger: fetch LEDGER.md, Fallback = eingebettete Liste (Stand PR #9). */
+var EMBEDDED = [{"file": "allmende-labor-v2.html", "label": "Allmende labor"}, {"file": "almanach-v1.html", "label": "Almanach"}, {"file": "art-direction-handbuch.html", "label": "Art direction handbuch"}, {"file": "asset-drop-v1.html", "label": "Asset drop"}, {"file": "asset-editor-v1.html", "label": "Asset editor"}, {"file": "auftakt-v1.html", "label": "Auftakt"}, {"file": "bildstil-labor-v1.html", "label": "Bildstil labor"}, {"file": "diorama-labor-v1.html", "label": "Diorama labor"}, {"file": "dynamic-rhein-tiles-with-seasons-v1.html", "label": "Dynamic rhein tiles with seasons"}, {"file": "eiszeit-labor-v3.html", "label": "Eiszeit labor"}, {"file": "ereignis-labor-v1.html", "label": "Ereignis labor"}, {"file": "erkundung-v6.html", "label": "Erkundung"}, {"file": "feld-labor-threejs-v1.html", "label": "Feld labor threejs"}, {"file": "feld-labor-v1.html", "label": "Feld labor"}, {"file": "fluss-gefaelle-labor-v2.html", "label": "Fluss gefaelle labor"}, {"file": "gefuege-v1.html", "label": "Gefuege"}, {"file": "gewaesser-labor-v1.html", "label": "Gewaesser labor"}, {"file": "gewaesser-labor-v2.html", "label": "Gewaesser labor"}, {"file": "gewaesser-labor-v3.html", "label": "Gewaesser labor"}, {"file": "gewaesser-labor-v4.html", "label": "Gewaesser labor"}, {"file": "kamera-labor-v1.html", "label": "Kamera labor"}, {"file": "kartenwachstum-v1.html", "label": "Kartenwachstum"}, {"file": "klimatile-stilguide-v1.html", "label": "Klimatile stilguide"}, {"file": "lauf-korridor-v1.html", "label": "Lauf korridor"}, {"file": "map-editor-v3.html", "label": "Map editor"}, {"file": "mechanik-labor-v1.html", "label": "Mechanik-Labor"}, {"file": "nacht-effekte-v1.html", "label": "Nacht-Effekte"}, {"file": "namen-v1.html", "label": "Namen"}, {"file": "overlay-labor-v1.html", "label": "Overlay labor"}, {"file": "plaettchen-pfade-v1.html", "label": "Plaettchen pfade"}, {"file": "profil-hub-v2.html", "label": "Profil hub"}, {"file": "prototypen-werkstatt-v1.html", "label": "Prototypen-Werkstatt"}, {"file": "rhein-gesamt-v1.html", "label": "Rhein gesamt"}, {"file": "rhein-tiles-v4.html", "label": "Rhein tiles"}, {"file": "sammlerin-nachtwaage-v1.html", "label": "Sammlerin + Nachtwaage"}, {"file": "spielfeld-entlastung-v1.html", "label": "Spielfeld entlastung"}, {"file": "stromlinien-epoche1.html", "label": "Epoche I"}, {"file": "stromlinien-handbuch.html", "label": "Handbuch"}, {"file": "stromlinien-technik.html", "label": "Technik"}, {"file": "tageszeit-akzente-v1.html", "label": "Tageszeit akzente"}, {"file": "zoomstufen-labor-v1.html", "label": "Zoomstufen labor"}];
+var P = SOT.params({
+  q: { t:'str', def:'', help:'Suchbegriff vorausfüllen' },
+  open: { t:'str', def:'', help:'Draft-Datei sofort öffnen, z.B. erkundung-v6.html' },
+  debug: { t:'flag', help:'Parse-Infos in der Konsole' }
+});
+var $ = SOT.$, toast = SOT.toast;
+var drafts = EMBEDDED.slice();
+var current = null;
+
+function parseLedger(md){
+  var out=[], re=/\|\s*`([^`]+)`\s*\|\s*([^|]+)\|/g, m;
+  while((m=re.exec(md))){
+    var file=m[1].trim(), label=m[2].trim();
+    if(/\.html$/.test(file)) out.push({file:file,label:label});
+  }
+  return out;
+}
+function loadLedger(){
+  return fetch('./LEDGER.md',{cache:'no-store'}).then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.text();
+  }).then(function(md){
+    var parsed=parseLedger(md);
+    if(!parsed.length) throw new Error('empty ledger');
+    drafts=parsed;
+    if(P.debug) console.log('ledger fetch', drafts.length);
+  }).catch(function(err){
+    if(P.debug) console.warn('ledger fallback', err);
+    drafts=EMBEDDED.slice();
+  });
+}
+function norm(s){return (s||'').toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss');}
+function filtered(){
+  var q=norm($('#q').value.trim());
+  if(!q) return drafts;
+  return drafts.filter(function(d){
+    return norm(d.label).indexOf(q)>=0 || norm(d.file).indexOf(q)>=0;
+  });
+}
+function renderList(){
+  var list=filtered(), ul=$('#liste');
+  $('#meta').textContent=list.length+' / '+drafts.length+' Drafts';
+  if(!list.length){
+    ul.innerHTML='<li class="leer">Nichts gefunden. Anderen Begriff versuchen.</li>';
+    return;
+  }
+  ul.innerHTML=list.map(function(d){
+    return '<li><button type="button" data-file="'+d.file+'">'
+      +'<span class="nm">'+d.label+'</span>'
+      +'<span class="fn">'+d.file+'</span></button></li>';
+  }).join('');
+  ul.querySelectorAll('button[data-file]').forEach(function(btn){
+    btn.addEventListener('click', function(){ openDraft(btn.getAttribute('data-file')); });
+  });
+}
+function findDraft(file){
+  for(var i=0;i<drafts.length;i++) if(drafts[i].file===file) return drafts[i];
+  return {file:file,label:file.replace(/\.html$/,'')};
+}
+function openDraft(file){
+  current=findDraft(file);
+  $('#playTitle').textContent=current.label+' · '+current.file;
+  var url='./'+encodeURI(current.file);
+  $('#btnOpen').href=url;
+  var frame=$('#frame');
+  frame.src='about:blank';
+  requestAnimationFrame(function(){ frame.src=url; });
+  $('#viewList').classList.remove('on');
+  $('#viewPlay').classList.add('on');
+  history.pushState({view:'play',file:file},'', '?open='+encodeURIComponent(file));
+}
+function showList(){
+  current=null;
+  $('#frame').src='about:blank';
+  $('#viewPlay').classList.remove('on');
+  $('#viewList').classList.add('on');
+  if(location.search.indexOf('open=')>=0) history.pushState({view:'list'},'','?');
+  $('#q').focus();
+}
+$('#q').addEventListener('input', renderList);
+$('#btnBack').addEventListener('click', showList);
+window.addEventListener('popstate', function(){
+  if(current) showList();
+});
+loadLedger().then(function(){
+  if(P.q) $('#q').value=P.q;
+  renderList();
+  if(P.open) openDraft(P.open);
+  else $('#q').focus();
+});
+</script>
+</body>
+</html>

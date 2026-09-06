@@ -30,15 +30,16 @@ Werkstatt filtert/sucht über `file` + `label`.
 | `klimatile-stilguide-v1.html` | Klimatile stilguide |
 | `lauf-korridor-v1.html` | Lauf korridor |
 | `map-editor-v3.html` | Map editor |
-| `mechanik-labor-v1.html` | Mechanik labor |
-| `nacht-effekte-v1.html` | Nacht effekte |
+| `mechanik-labor-v1.html` | Mechanik-Labor |
+| `nacht-effekte-v1.html` | Nacht-Effekte |
 | `namen-v1.html` | Namen |
 | `overlay-labor-v1.html` | Overlay labor |
 | `plaettchen-pfade-v1.html` | Plaettchen pfade |
 | `profil-hub-v2.html` | Profil hub |
+| `prototypen-werkstatt-v1.html` | Prototypen-Werkstatt |
 | `rhein-gesamt-v1.html` | Rhein gesamt |
 | `rhein-tiles-v4.html` | Rhein tiles |
-| `sammlerin-nachtwaage-v1.html` | Sammlerin nachtwaage |
+| `sammlerin-nachtwaage-v1.html` | Sammlerin + Nachtwaage |
 | `spielfeld-entlastung-v1.html` | Spielfeld entlastung |
 | `stromlinien-epoche1.html` | Stromlinien epoche1 |
 | `stromlinien-handbuch.html` | Stromlinien handbuch |
