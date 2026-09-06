@@ -334,6 +334,54 @@ Zwei Figuren mit täglicher Entscheidung, max. 2 Schritte über verbundene Plät
 
 Offen: weitere Rollen in späteren Epochen (Händler, Mönch, Ingenieur?) und ob ein dritter Mensch die Aufteilung Tal/Höhe kaputt macht. {.dim}
 
+## Sammlerin: Zielort tippen, Risiko = Besitz {concept badge="Umgesetzt (Fleisch-Draft)"}
+
+> Die Sammlerin ist keine „kurze Jägerin". Sie tippt einen **Zielort** — kurze Wege, verlässlicher Ertrag — und das Risiko hängt am **Lager**, nicht an der Strecke.
+
+Im Fleisch-Draft (`sammlerin-nachtwaage-v1`) tippt der Spieler nach der Auswahl der Sammlerin ein leuchtendes Feld: **Tap = gehen**, kein Inspector während der Auswahl. Am Slot steht dauerhaft „Tippen = gehen". Glow auf Ziel-Hexes (~540px). Ohne Plättchen im Tal gibt es absichtlich keine Glow-Felder (Stamm steht noch nicht) — Toast, kein Bug.
+
+| | Sammlerin ✦ | Jäger ➤ |
+| --- | --- | --- |
+| Geste | Zielort tippen | Pfad / Hang |
+| Ertrag | kurz, verlässlich (bewirtschaften) | Entfernung, Jagd von oben |
+| Risikoachse | **Besitz** (Lager/Vorrat) | Entfernung / Aufstellung |
+
+::: why Formgeberin, nicht Jäger-light
+Die zweite Person muss sich **anders anfühlen** als die erste. Gleiche Gesten mit kürzerer Reichweite töten die Rolle. Zielort + Besitz-Risiko sind die Trennung — später Korridore/Boot als Formgebung, nicht als „noch mehr Schritte".
+:::
+
+Aktualisiert die ältere Karte „Menschen als bewegliche Elemente": Ausdauer-Zahlen bleiben; die Sammlerin-Geste ist **Zielort**, nicht „1 Schritt über Plättchen". {.dim}
+
+Quellenlage Spieltext / Feel: PR #7–#11, Feel PASS. Belegstatus der *Geste* selbst: `frei erfunden` (Interaktion). Die *Rolle* Sammlerin/Jäger als Arbeitsteilung: `historisch inspiriert`.
+
+## Risikoleiter: mehr Lager, teurerer Fehlgriff {concept badge="Umgesetzt (Fleisch-Draft)"}
+
+> Besitz steuert nicht nur die Nacht — er steuert auch, wie teuer ein Fehlgriff der Sammlerin am Abend wird. Eine Achse, Tabelle, keine Sonderfälle.
+
+| Bestand (Nahrung + Vorrat-Karten) | Sammlerin-Fehlgriff |
+| --- | --- |
+| 0–2 | kein extra Risiko |
+| 3–5 | ~15 % → −1 Nahrung („zu gierig") |
+| 6+ | ~35 % → −2 Nahrung |
+
+Spieler-Erlebnis: nach dem Fehlgriff denken „hätt ich weniger gehortet…" — nicht „Pech gehabt". Scheitern bleibt **Stamm zieht weiter**, kein Tod.
+
+::: why Eine Achse
+Nachtwaage und Risikoleiter lesen denselben Bestand. Zwei getrennte Würfelsysteme würden wie Buchhaltung wirken. Eine Tabelle, zwei Leser (Nacht / Sammlerin).
+:::
+
+Belegstatus Mechanik: `frei erfunden`. Historische Lesart (sichtbares Lager zieht Begehren / Druck): `historisch ableitbar`.
+
+## Wissens-Boden am mageren Tag {concept badge="Umgesetzt (Fleisch-Draft)"}
+
+> Knapp darf sich *leer* anfühlen, aber nicht *nutzlos*. Ein magerer Abend ohne Lohn gibt trotzdem **+1 Wissen** und bricht Fog — „Die Netze blieben leer. Die Uferlinie kennen wir jetzt."
+
+Damit bleibt Knapp-Spielen ruhig-sicher statt tot, und Reich wird nicht Pflicht. Der Tick muss am Brett sichtbar sein (Fog weicht), sonst merkt man ihn nicht.
+
+::: why Wegwissen zählt ohne Fang
+Am frühen Holozän zählt, was man vom Tal *kennt*, nicht nur was man heimträgt. Belegstatus Text: `historisch inspiriert`.
+:::
+
 ## Reichweite als Wachstumsschraube: das gespielte Gebiet wächst durch Bewegung {concept}
 
 Aus den Notizen zum Spielablauf: Die Karte wächst nicht nach Fahrplan, sondern **als Folge der Züge der eigenen Menschen** – die Reichweite der Sammlerin/des Jägers ist die einzige Wachstumsschraube. Wer nicht wandert, spielt die Epoche auf wenigen Feldern: weniger Ertrag, weniger Fundstellen, weniger Zeichen, ohne dass das verboten wäre. Die Karte selbst wird damit zum Fortschrittsbalken, und der Nebel des Ungespielten (Kap. 8) hört auf, reine Auswahlhilfe zu sein.
