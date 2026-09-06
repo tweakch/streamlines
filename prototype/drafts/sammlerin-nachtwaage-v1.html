@@ -267,11 +267,26 @@ body{
 .map .cell.valid{--edge:var(--ember);}
 .map .cell.valid.zielort{--edge:var(--ember);}
 .map .cell.valid.zielort::after{
-  box-shadow:inset 0 0 0 2.5px color-mix(in srgb, var(--ember) 75%, transparent),
-             0 0 10px color-mix(in srgb, var(--ember) 35%, transparent);
+  box-shadow:inset 0 0 0 2.5px color-mix(in srgb, var(--ember) 80%, transparent),
+             0 0 12px color-mix(in srgb, var(--emberglow) 55%, transparent);
+  animation:zielortPulse 1.7s ease-in-out infinite;
+}
+@keyframes zielortPulse{
+  0%,100%{box-shadow:inset 0 0 0 2.5px color-mix(in srgb, var(--ember) 75%, transparent),
+                      0 0 10px color-mix(in srgb, var(--emberglow) 40%, transparent);}
+  50%{box-shadow:inset 0 0 0 3px color-mix(in srgb, var(--ember) 90%, transparent),
+                 0 0 16px color-mix(in srgb, var(--emberglow) 70%, transparent);}
+}
+@media (max-width:540px){
+  .map .cell.valid.zielort::after{
+    box-shadow:inset 0 0 0 3px color-mix(in srgb, var(--ember) 85%, transparent),
+               0 0 14px color-mix(in srgb, var(--emberglow) 65%, transparent);
+  }
 }
 body.person-zieht .map .cell.valid{cursor:pointer;}
 body.person-zieht .map .cell:not(.valid):not(.fog){cursor:default;opacity:.92;}
+/* Hebel 3: Hint am Slot bleibt lesbar, auch wenn Toast weg ist */
+#pb_sammler.sel .ptxt span{color:var(--ember);font-weight:700;letter-spacing:.02em;}
 .map .cell.dropziel{--edge:var(--good);}
 .map .cell.inspect,.map .cell.sel{--edge:var(--ink);}
 body.night .map .cell.inspect{--edge:var(--bone);}
@@ -728,6 +743,7 @@ body.zieht .cell.valid{--edge:var(--ember);}
    Scheitern = Stamm zieht weiter. Tabelle, keine Spezialfälle.
    Debug: ?autostart&seed=&phase=nacht&debug  (+ bestehende Params)
    v1.1 Zielort-Geste: Tap=gehen, Highlights .zielort, kein Inspector während Auswahl
+   v1.3 Hebel2+3: Glow Pulse/~540px + persistenter Hint „Tippen = gehen“ am Sammlerin-Slot
    v1.2 Hebel1: 2-Karten-Nacht-Beat (Flip-Reset, Pause, Chip 1/2, Button nach Flip)
    =====================================================================
  */
@@ -1893,7 +1909,9 @@ function renderPeople(){
     const n=$('#pb_'+pid),p=S.people[pid];
     n.classList.toggle('sel',selPerson===pid);
     n.classList.toggle('leer',p.rest<=0&&selPerson!==pid);
-    $('#pt_'+pid).textContent=p.cell?'im Tal':(pid==='sammler'?'Zielort tippen':'nicht im Tal');
+    /* Hebel 3: während Auswahl persistenter Hint — nicht nur Toast */
+    if(pid==='sammler'&&selPerson==='sammler') $('#pt_'+pid).textContent='Tippen = gehen';
+    else $('#pt_'+pid).textContent=p.cell?'im Tal':(pid==='sammler'?'Zielort tippen':'nicht im Tal');
     /* Vier Mini-Werte. Gesundheit und Angriff sind Anzeige ohne Mechanik —
        reservierter Platz für Risikoleiter und Jagd (Nachtrag 5). Jede
        Spanne .pv ist der Vorschau-Platz. */
