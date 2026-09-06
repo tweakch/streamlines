@@ -50,6 +50,40 @@ Erste Kampagne: überrascht. Zweite: Vorräte anlegen. Erfahrene Spieler antizip
 
 Damit verschiebt sich auch die Trennlinie zu den Streu-Ereignissen: sie liegt nicht zwischen „datiert" und „undatiert", sondern verläuft **pro Angabe**. Der Waldbrand im Labor ist in der Zeit gesetzt (Datum erfunden) und im Raum emergent (Ort aus dem Kartenzustand) – ein Ereignis kann in einer Dimension Anker und in der anderen Streu sein. {.dim}
 
+## Nachtwaage A: Bestand liest die Nacht {concept badge="Umgesetzt (Fleisch-Draft)"}
+
+> Die Nacht skaliert mit dem Lager. Wenig Vorrat = ruhig. Viel Vorrat = teurer und exponierter. Weiche Kurve, keine harte Schwelle.
+
+| Bestand | Nacht |
+| --- | --- |
+| 0–2 | ruhig: 1 Karte, meist Gelegenheit |
+| 3–5 | gemischt: 1 Karte, Gelegenheit oder Druck |
+| 6+ | Druck: **2 Karten** (eigener Beat: Flip → Pause → Chip `1/2`→`2/2`) |
+
+Locked gegen Schwelle-B (Feel: tot unter der Schwelle). SoT: [`prototype/ab/nachtwaage-ton/NOTES.md`](../ab/nachtwaage-ton/NOTES.md). Draft: `prototype/drafts/sammlerin-nachtwaage-v1.html`.
+
+::: why Waage, nicht Würfel-Drama
+P4: Nacht liest Zustand. Der Spieler spürt die Folge des Sammelns in der Aufdeckung — nicht in einem zweiten Minispiel.
+:::
+
+## Nacht-Ton B + Belegstatus an den Bändern {concept badge="Umgesetzt (Fleisch-Draft)"}
+
+> Alex wählte **„Beute weckt Neugier"**: die schwere Nacht riecht nach fremden Blicken, nicht nach Gastrecht. Der Ton färbt nur die **Sprache** der 6+-Karten — nicht die Tabelle.
+
+**Belegstatus klebt an den Besitz-Bändern**, nicht am Ton:
+
+| Band | Karten | Belegstatus |
+| --- | --- | --- |
+| 0–2 | *Tausch am Lagerfeuer* · *Leichte Gäste* | historisch inspiriert |
+| 3–5 | *Spuren im Schilf* · *Ein Angebot, das nach Vorrat riecht* | insp. · frei erfunden |
+| 6+ | *Spuren am Bootsland* · *Hungernde Nachbarn* · *Der Vorrat riecht weit* | insp. · insp. · frei erfunden |
+
+Spielertexte in Stimme am Feuer, kein Museums-Schild. 2-Karten-Beat: zweite Karte braucht eigenen Atemzug, sonst verwischt Ton B.
+
+::: gap Was das Handbuch noch schuldet
+Epoche-1-Ökologie ausserhalb der Aue (Hang/Hochlage, Hasel, Hirsch/Steinbock, Fundanker) verdichtet Chronist separat — hilft Belege einordnen, ist aber keine Mechanik-Karte.
+:::
+
 ## Ereignis-Dramaturgie: das Ereignis erzählt die Runde {done badge="Umgesetzt (ohne Geometrie)"}
 
 ::: why In der App seit 21. Aug 2026 — die Hälfte ohne Geometrie
