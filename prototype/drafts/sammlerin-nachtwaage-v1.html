@@ -432,9 +432,10 @@ body.zieht .cell.valid{--edge:var(--ember);}
 .nfront .result{margin-top:14px;font-family:var(--f-mono);font-size:13px;font-weight:700;}
 .result.good{color:var(--good);} .result.bad{color:var(--bad);}
 .nfront button{margin-top:18px;}
-.nfront .beat{position:absolute;top:12px;right:14px;font-family:var(--f-mono);font-size:11px;
+.nfront:has(.beat) .tag{padding-right:3.5em;}
+.nfront .beat{position:absolute;top:12px;right:14px;z-index:1;font-family:var(--f-mono);font-size:10px;
   letter-spacing:.14em;color:var(--ember);background:color-mix(in srgb,var(--panel2) 80%,transparent);
-  border:1px solid var(--line);border-radius:999px;padding:4px 9px;text-transform:uppercase;}
+  border:1px solid color-mix(in srgb,var(--ember) 40%,var(--line));border-radius:var(--r-pill);padding:4px 9px;text-transform:uppercase;pointer-events:none;}
 .nfront button:disabled{opacity:.45;cursor:wait;}
 .nightmsg{position:fixed;top:22%;left:0;right:0;text-align:center;font-family:var(--f-disp);font-weight:700;
           font-size:16px;letter-spacing:.18em;color:var(--ink2);opacity:0;transition:opacity 1s;z-index:51;
