@@ -38,7 +38,16 @@ Zwei getrennte Achsen (nicht vermischen):
 - Wissens-Boden am mageren Tag: „Die Netze blieben leer. Die Uferlinie kennen wir jetzt.“ (historisch inspiriert)
 - Scheitern = Stamm zieht weiter
 
-Umgesetzt in Draft: [`prototype/drafts/sammlerin-nachtwaage-v1.html`](../../drafts/sammlerin-nachtwaage-v1.html) (merged via PR #7).
+## Querverweise
+
+| Was | Wo |
+|---|---|
+| Spielbarer Draft | [`prototype/drafts/sammlerin-nachtwaage-v1.html`](../../drafts/sammlerin-nachtwaage-v1.html) |
+| Diese Entscheidung | `prototype/ab/nachtwaage-ton/NOTES.md` (diese Datei) |
+| Handbuch (Karten folgen) | Kap. 02 Kernmechaniken · Kap. 03 Nacht — Status Badge „Umgesetzt (Fleisch-Draft)“ |
+| Werkstatt | [`prototypen-werkstatt-v1.html`](../../drafts/prototypen-werkstatt-v1.html) · Suche „Sammlerin“ |
+
+Merged: PR #7 (Draft) · #9 (2-Karten-Beat + LEDGER) · #11 (Glow + Hint). Hebel 1–3 auf `main`. Kein `app/`-Port.
 
 ## Karten-Pool (Ton B, Chronist)
 
@@ -46,7 +55,8 @@ Umgesetzt in Draft: [`prototype/drafts/sammlerin-nachtwaage-v1.html`](../../draf
 - **3–5:** Spuren im Schilf (insp.) · Ein Angebot, das nach Vorrat riecht (frei)
 - **6+:** Spuren am Bootsland · Hungernde Nachbarn (insp.) · Der Vorrat riecht weit (frei)
 
-## Nächstes Experiment (nicht diese A/B)
+## Erledigt / Parkplatz
 
-2-Karten-Nacht-Beat (Feel/UI): zweite Karte darf nicht wie Rauschen wirken.
-Debug-Tray = Parkplatz. Kein `app/`-Port.
+- ✅ 2-Karten-Nacht-Beat (Hebel 1)
+- ✅ Zielort-Glow ~540px + Hint „Tippen = gehen“ (Hebel 2+3)
+- Parkplatz: Debug-Tray. Kein `app/`-Port ohne Mitred.
