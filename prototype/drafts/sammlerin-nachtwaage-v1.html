@@ -432,6 +432,10 @@ body.zieht .cell.valid{--edge:var(--ember);}
 .nfront .result{margin-top:14px;font-family:var(--f-mono);font-size:13px;font-weight:700;}
 .result.good{color:var(--good);} .result.bad{color:var(--bad);}
 .nfront button{margin-top:18px;}
+.nfront .beat{position:absolute;top:12px;right:14px;font-family:var(--f-mono);font-size:11px;
+  letter-spacing:.14em;color:var(--ember);background:color-mix(in srgb,var(--panel2) 80%,transparent);
+  border:1px solid var(--line);border-radius:999px;padding:4px 9px;text-transform:uppercase;}
+.nfront button:disabled{opacity:.45;cursor:wait;}
 .nightmsg{position:fixed;top:22%;left:0;right:0;text-align:center;font-family:var(--f-disp);font-weight:700;
           font-size:16px;letter-spacing:.18em;color:var(--ink2);opacity:0;transition:opacity 1s;z-index:51;
           pointer-events:none;text-transform:uppercase;}
@@ -723,6 +727,7 @@ body.zieht .cell.valid{--edge:var(--ember);}
    Scheitern = Stamm zieht weiter. Tabelle, keine Spezialfälle.
    Debug: ?autostart&seed=&phase=nacht&debug  (+ bestehende Params)
    v1.1 Zielort-Geste: Tap=gehen, Highlights .zielort, kein Inspector während Auswahl
+   v1.2 Hebel1: 2-Karten-Nacht-Beat (Flip-Reset, Pause, Chip 1/2, Button nach Flip)
    =====================================================================
  */
 'use strict';
@@ -2173,6 +2178,8 @@ function pickNight(){
   return pickFromPool(band.pool);
 }
 let _nachtQueue=[];
+let _nachtTotal=0,_nachtIdx=0;
+const NACHT_FLIP_MS=1100, NACHT_BEAT_PAUSE_MS=380;
 function revealNight(){
   const a=ANCHORS[S.round];
   if(a){
@@ -2190,28 +2197,53 @@ function revealNight(){
     }
     if(P.debug)toast('Nacht zieht '+_nachtQueue.length+' · Bestand '+bestand(),2200);
   }
-  showNextNachtCard();
+  _nachtTotal=_nachtQueue.length;
+  _nachtIdx=0;
+  showNextNachtCard(true);
 }
-function showNextNachtCard(){
-  const ev=_nachtQueue.shift();
-  if(!ev){endNight();return;}
-  const res=ev.fx();
-  S.N=Math.max(0,S.N-1);
-  const more=_nachtQueue.length>0;
+function paintNachtCard(ev, res, more){
   const beleg=ev.beleg?('<p class="dim" style="font-size:10px;margin-top:6px">Belegstatus: '+ev.beleg+'</p>'):'';
+  const chip=_nachtTotal>1?('<div class="beat">'+_nachtIdx+'/'+_nachtTotal+'</div>'):'';
   const fr=$('#nfront');
   fr.className='nface nfront'+(ev.anchor?' anchor':'');
-  fr.innerHTML='<div class="tag">'+(ev.anchor?ico('beleg')+' '+ev.tag:ev.tag)+'</div>'
+  fr.innerHTML=chip
+    +'<div class="tag">'+(ev.anchor?ico('beleg')+' '+ev.tag:ev.tag)+'</div>'
     +(ev.glyph?'<div style="width:44px;height:44px;margin:0 auto 8px;color:var(--ember)">'+SOT.icon(ev.glyph)+'</div>':'')
     +'<h2>'+ev.h+'</h2><p>'+ev.p+'</p>'
     +'<div class="result '+(res.good?'good':'bad')+'">'+res.txt+'</div>'
     +beleg
     +'<p class="dim" style="font-size:11px;margin-top:10px">Der Stamm isst: −1 Nahrung'
     +(more?' · weitere Karte folgt':'')+'</p>'
-    +'<button class="primary" onclick="'+(more?'showNextNachtCard()':'endNight()')+'">'
+    +'<button class="primary" id="btnNachtNext" disabled onclick="'+(more?'showNextNachtCard()':'endNight()')+'">'
     +(more?'Weiter in der Nacht':'Den Morgen erwarten')+'</button>';
-  $('#ncard').classList.add('flip');
-  renderRes();
+}
+function armNachtButton(){
+  const b=$('#btnNachtNext');
+  if(b)b.disabled=false;
+}
+function showNextNachtCard(isFirst){
+  const ev=_nachtQueue.shift();
+  if(!ev){endNight();return;}
+  _nachtIdx++;
+  const res=ev.fx();
+  S.N=Math.max(0,S.N-1);
+  const more=_nachtQueue.length>0;
+  const card=$('#ncard');
+  const run=()=>{
+    paintNachtCard(ev,res,more);
+    requestAnimationFrame(()=>{
+      card.classList.add('flip');
+      setTimeout(armNachtButton, NACHT_FLIP_MS);
+    });
+    renderRes();
+  };
+  if(isFirst){
+    run();
+    return;
+  }
+  /* Hebel 1: Flip zurück → Pause → neu drehen (eigener Beat) */
+  card.classList.remove('flip');
+  setTimeout(run, NACHT_BEAT_PAUSE_MS);
 }
 function wildZieht(){
   const schritte=S.wildSprung?2:1;S.wildSprung=false;
