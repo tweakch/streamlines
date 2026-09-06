@@ -265,9 +265,18 @@ body{
    Gelände, das diese Fassung wichtig macht. Ein Klassenschritt mehr (.map)
    stellt die Reihenfolge wieder her: Zustand > Gelände. */
 .map .cell.valid{--edge:var(--ember);}
+.map .cell.valid.zielort{--edge:var(--ember);}
+.map .cell.valid.zielort::after{
+  box-shadow:inset 0 0 0 2.5px color-mix(in srgb, var(--ember) 75%, transparent),
+             0 0 10px color-mix(in srgb, var(--ember) 35%, transparent);
+}
+body.person-zieht .map .cell.valid{cursor:pointer;}
+body.person-zieht .map .cell:not(.valid):not(.fog){cursor:default;opacity:.92;}
 .map .cell.dropziel{--edge:var(--good);}
 .map .cell.inspect,.map .cell.sel{--edge:var(--ink);}
 body.night .map .cell.inspect{--edge:var(--bone);}
+/* Sammlerin-Zielort schlägt Hang-Edge und Inspect-Schatten */
+.map .cell.valid.zielort.inspect{--edge:var(--ember);filter:none;}
 
 /* Marken: Spur ruft, Wild zieht, Vorkommen liegt.
    ACHTUNG — bewusster Eingriff in die Detailstufen des Baukastens:
@@ -713,6 +722,7 @@ body.zieht .cell.valid{--edge:var(--ember);}
    Wissens-Boden am mageren Tag (1 Wissens-Tick, Fog bricht),
    Scheitern = Stamm zieht weiter. Tabelle, keine Spezialfälle.
    Debug: ?autostart&seed=&phase=nacht&debug  (+ bestehende Params)
+   v1.1 Zielort-Geste: Tap=gehen, Highlights .zielort, kein Inspector während Auswahl
    =====================================================================
  */
 'use strict';
@@ -1265,6 +1275,7 @@ function movePerson(cell){
   if(neu)msg+=' Neues Land: +'+neu+' Felder.';
   toast(msg,3000);
   if(p.rest<=0)selPerson=null;
+  document.body.classList.toggle('person-zieht',!!selPerson);
   renderAll();
 }
 
@@ -1620,9 +1631,19 @@ function renderMap(){
     if(cell===selCell)d.classList.add('inspect');
     if(targets&&targets.has(cell)){
       d.classList.add('valid');
+      if(selPerson==='sammler')d.classList.add('zielort');
       if(vorschau&&vorschau.get(cell)>=4)d.classList.add('spaeh');
-      SOT.hex.mark(d,'zahl',el('span',{text:vorschau&&vorschau.get(cell)?'+'+vorschau.get(cell):''}));
+      const zahlTxt=selPerson==='sammler'
+        ?(targets.get(cell).k?String(targets.get(cell).k):'•')
+        :(vorschau&&vorschau.get(cell)?'+'+vorschau.get(cell):'');
+      SOT.hex.mark(d,'zahl',el('span',{text:zahlTxt}));
       d.onclick=()=>movePerson(cell);
+    }else if(selPerson){
+      /* Person gewählt: Tap = nur Zielort/Weg, nie Inspector (Kill #2) */
+      d.classList.add('clickable');
+      d.onclick=()=>toast(selPerson==='sammler'
+        ?'Kein Zielort — tippe ein leuchtendes Feld.'
+        :'Kein Weg dorthin — tippe ein markiertes Feld.',2600);
     }else if(selIdx!==null&&!cell.tile&&(()=>{const tk=S.hand[selIdx];
         return tk&&TILES[tk].valid(cell)&&!(tk==='pfahl'&&!S.pfahlUnlocked);})()){
       d.classList.add('valid');d.onclick=()=>placeTile(cell);
@@ -1635,7 +1656,7 @@ function renderMap(){
     +'<span>Wasser = Band im Feld, daneben ist Ufer</span>'
     +'<span>'+ico('silex')+ico('ocker')+ico('quarz')+' Vorkommen — nur am Hang</span>'
     +'<span>'+ico('spur')+' Spur</span>'
-    +(targets&&targets.size?'<span>+n = so viele Felder deckt dieser Schritt auf</span>':'')
+    +(targets&&targets.size?(selPerson==='sammler'?'<span>Leuchtende Felder = Zielorte der Sammlerin (Tippen = gehen)</span>':'<span>+n = so viele Felder deckt dieser Schritt auf</span>'):'')
     +(S.faehrte?'<span>Fährte gelesen: das Rudel zieht nach Norden</span>':'');
 }
 
@@ -1850,14 +1871,18 @@ function selPersonToggle(pid){
   const p=S.people[pid];
   if(p.rest<=0){toast(S.vorbereitung==='rast'?'Rasttag – heute geht niemand.':'Keine Ausdauer mehr – morgen wieder.');return;}
   selPerson=selPerson===pid?null:pid;selIdx=null;
+  document.body.classList.toggle('person-zieht',!!selPerson);
+  if(selPerson)closeInspect();
   renderAll();
   if(selPerson){
     const t=zielFelder(pid);
     if(t.size===0)toast(p.cell?'Kein erreichbares Feld.':'Kein Plättchen zum Betreten – erst bauen.');
-    else toast(p.nm+' · '+p.rest+' Ausdauer'+(pid==='jaeger'?' — genug für einen Hang (2 Schritte).':' — ein Schritt im Tal.'),3200);
+    else if(pid==='sammler')toast('Sammlerin: Zielort tippen — leuchtende Felder. Tippen = gehen.',3400);
+    else toast(p.nm+' · '+p.rest+' Ausdauer — genug für einen Hang (2 Schritte).',3200);
   }
 }
 function renderPeople(){
+  document.body.classList.toggle('person-zieht',!!selPerson);
   for(const pid of['sammler','jaeger']){
     const n=$('#pb_'+pid),p=S.people[pid];
     n.classList.toggle('sel',selPerson===pid);
