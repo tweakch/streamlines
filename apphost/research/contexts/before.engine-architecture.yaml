@@ -1,0 +1,16 @@
+id: before.engine-architecture
+title: Engine architecture
+questions:
+  - Which units of identity (grains, actors, services) map onto world cells, players, and pipeline jobs?
+  - How would ingest → normalize → typed graph → context queries run as workers, not inside the game process?
+  - What does a later Aspire lab host that the current game AppHost must not?
+  - Where does the simulation tick live relative to persistence and the client?
+seed_concepts:
+  - ActorGrain
+  - SimulationTick
+  - ContextQuery
+  - DedicatedServer
+notes: >
+  Orleans grains are the intended future model for long-lived world entities.
+  Aspire is the intended later lab host. Neither is wired in this v0 slice.
+  The live game AppHost stays the Streamlines harness.

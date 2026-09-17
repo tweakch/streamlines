@@ -1,0 +1,16 @@
+id: before.hex-engine
+title: Hex engine
+questions:
+  - How do production hex engines keep pointy-top odd-r coordinates, neighbors, and pathfinding consistent?
+  - What is a tile (placed piece that stays) versus a cell (fixed world position)?
+  - When is hex size measured (container must be visible) and how is that tested?
+  - What belongs in the grid kernel versus game rules on top of it?
+seed_concepts:
+  - HexWorld
+  - OddROffset
+  - TileVsCell
+  - SimulationTick
+notes: >
+  Streamlines already pins pointy-top odd-r in three places (kit, prototype, app).
+  This context collects independent implementations, not a second hex library
+  for the current game.

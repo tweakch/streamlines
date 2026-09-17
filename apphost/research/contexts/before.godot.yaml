@@ -1,0 +1,15 @@
+id: before.godot
+title: Godot
+questions:
+  - What of BEFORE belongs in a Godot client versus a dedicated or simulation server?
+  - How do Godot hex and tilemap addons encode coordinates, and do they match odd-r pointy-top?
+  - C# versus GDScript versus a headless worker process for graph and world services?
+  - Which Godot multiplayer patterns survive a persistent, designed world?
+seed_concepts:
+  - DedicatedServer
+  - HexWorld
+  - PersistentWorld
+  - ActorGrain
+notes: >
+  Streamlines is a browser client today. This context is precedent for a
+  possible Godot client or runtime, not a decision to port the current game.

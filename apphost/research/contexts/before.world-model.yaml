@@ -1,0 +1,18 @@
+id: before.world-model
+title: World model
+questions:
+  - How is a persistent, designed world stored so cells survive sessions without becoming an opaque save blob?
+  - What is authored once for everyone (gestaltete Welt) versus simulated or generated per player?
+  - How do fog-of-the-unplayed, region selection, and chunk or streaming layers interact?
+  - Which spatial index (hex cell, chunk, GIS feature) is the source of truth?
+seed_concepts:
+  - PersistentWorld
+  - DesignedWorld
+  - HexWorld
+  - ChunkStreaming
+  - FogOfUnplayed
+  - SpatialIndex
+notes: >
+  Streamlines already treats the Alpenrhein map as a designed world (fixed
+  coordinates, same data for all). BEFORE needs that honesty at engine
+  scale: persistence, regioning, and what "the world" is.
