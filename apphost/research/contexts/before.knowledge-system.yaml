@@ -1,0 +1,17 @@
+id: before.knowledge-system
+title: Knowledge system
+questions:
+  - How do tools attach provenance to claims (belegt / historisch inspiriert / frei erfunden)?
+  - What graph shape holds Handbuch-like cards, evidence, and context questions?
+  - How does "known = walked" (fog never closes) differ from classic fog of war?
+  - Which query is a context query versus a document search?
+seed_concepts:
+  - EvidenceProvenance
+  - KnowledgeCard
+  - FogOfUnplayed
+  - ContextQuery
+  - KnowledgeGraph
+notes: >
+  The Handbuch is Streamlines' design knowledge base. This graph is the
+  engineering analogue: typed evidence for architecture questions, not a
+  second Handbuch and not a lore wiki.

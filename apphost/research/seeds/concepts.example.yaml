@@ -1,0 +1,173 @@
+# Example concept nodes and relationships.
+# Illustrative only — not loaded into a running graph in v0.
+
+concepts:
+  - id: HexWorld
+    label: Hex world
+    summary: A playable space addressed in hex cells, not squares or voxels.
+    contexts:
+      - before.hex-engine
+      - before.world-model
+      - before.godot
+
+  - id: OddROffset
+    label: Odd-r offset coordinates
+    summary: Pointy-top hexes with odd rows shifted right; Streamlines' convention.
+    contexts:
+      - before.hex-engine
+
+  - id: TileVsCell
+    label: Tile versus cell
+    summary: >
+      Tile = placed piece that stays. Cell = fixed world position.
+      Hex is a shape, never an object name.
+    contexts:
+      - before.hex-engine
+
+  - id: PersistentWorld
+    label: Persistent world
+    summary: World state that survives sessions and is shared, not a single save blob.
+    contexts:
+      - before.world-model
+      - before.godot
+
+  - id: DesignedWorld
+    label: Designed world (gestaltete Welt)
+    summary: Authored geography, same coordinates for every player; not procedural per run.
+    contexts:
+      - before.world-model
+
+  - id: ChunkStreaming
+    label: Chunk streaming
+    summary: Load a region of the world on demand; analogue of Streamlines' chosen region.
+    contexts:
+      - before.world-model
+
+  - id: SpatialIndex
+    label: Spatial index
+    summary: The structure that answers "what is at this cell / chunk / GIS feature?"
+    contexts:
+      - before.world-model
+
+  - id: FogOfUnplayed
+    label: Fog of the unplayed
+    summary: Known = walked; fog never closes again. Distinct from tactical fog of war.
+    contexts:
+      - before.world-model
+      - before.knowledge-system
+
+  - id: SimulationTick
+    label: Simulation tick
+    summary: "The world's step: who owns it, how it persists, how clients observe it."
+    contexts:
+      - before.engine-architecture
+      - before.hex-engine
+      - before.world-model
+
+  - id: ActorGrain
+    label: Actor grain
+    summary: Long-lived virtual actor (Orleans grain) as identity for cells, repos, concepts.
+    contexts:
+      - before.engine-architecture
+      - before.godot
+
+  - id: DedicatedServer
+    label: Dedicated server
+    summary: Sim and persistence off the rendering client (Godot, browser, or otherwise).
+    contexts:
+      - before.engine-architecture
+      - before.godot
+
+  - id: EvidenceProvenance
+    label: Evidence provenance
+    summary: A claim carries where it came from and how strongly it is supported.
+    contexts:
+      - before.knowledge-system
+
+  - id: KnowledgeCard
+    label: Knowledge card
+    summary: A bounded, addressable note (Handbuch-Karte analogue) with status and links.
+    contexts:
+      - before.knowledge-system
+
+  - id: KnowledgeGraph
+    label: Knowledge graph
+    summary: Typed nodes and edges as the store for precedent, not a document dump.
+    contexts:
+      - before.knowledge-system
+
+  - id: ContextQuery
+    label: Context query
+    summary: Retrieve evidence that answers a context's questions, not "repos like this".
+    contexts:
+      - before.knowledge-system
+      - before.engine-architecture
+
+relationships:
+  - from: HexWorld
+    type: REQUIRES
+    to: OddROffset
+    note: Streamlines (and this graph) assume pointy-top odd-r unless evidence says otherwise.
+
+  - from: HexWorld
+    type: DISTINGUISHES
+    to: TileVsCell
+    note: Grid kernel vs placed pieces; do not collapse the two.
+
+  - from: PersistentWorld
+    type: MAY_USE
+    to: ChunkStreaming
+    note: Regioning / streaming is one way a large designed world stays loadable.
+
+  - from: PersistentWorld
+    type: REQUIRES
+    to: SpatialIndex
+    note: Persistence without an addressable index is a save file, not a world.
+
+  - from: DesignedWorld
+    type: SPECIALIZES
+    to: PersistentWorld
+    note: Same world for everyone; authored, not rolled.
+
+  - from: FogOfUnplayed
+    type: APPLIES_TO
+    to: PersistentWorld
+    note: Knowledge of the map is itself persistent world state.
+
+  - from: SimulationTick
+    type: OWNED_BY
+    to: DedicatedServer
+    note: Tick should not live only in the rendering client.
+
+  - from: ActorGrain
+    type: MODELS
+    to: PersistentWorld
+    note: Future identity for long-lived world entities.
+
+  - from: ActorGrain
+    type: MODELS
+    to: ContextQuery
+    note: A context can be a grain that answers its own questions.
+
+  - from: KnowledgeCard
+    type: CARRIES
+    to: EvidenceProvenance
+    note: Cards without provenance are opinions.
+
+  - from: ContextQuery
+    type: READS
+    to: KnowledgeGraph
+    note: Queries hit typed edges, not a keyword index first.
+
+  - from: DedicatedServer
+    type: MAY_USE
+    to: ActorGrain
+    note: Server-side identity; Godot or browser is a view.
+
+  - from: HexWorld
+    type: EVIDENCED_BY
+    to: wesnoth
+    note: Example only; wesnoth is a Repository seed, not a Concept.
+
+# EVIDENCED_BY to a repo name is informal in this example file.
+# In the typed graph, Repository is its own node type (see graph/README.md).

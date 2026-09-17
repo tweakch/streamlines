@@ -1,0 +1,136 @@
+# Example curated seeds only.
+# Nothing in this file is fetched, cloned, or crawled by v0.
+# A later ingest should stay in the 20–50 range, not thousands.
+#
+# Pick a repo because it can answer a BEFORE context question,
+# not because it is an RPG or a hex game.
+
+repos:
+  - name: wesnoth
+    url: https://github.com/wesnoth/wesnoth
+    why: >
+      Long-lived hex tactics with fog of war and campaign persistence.
+      Precedent for hex coordinates, vision, and what a "map" stores
+      between sessions (before.hex-engine, before.world-model).
+    contexts:
+      - before.hex-engine
+      - before.world-model
+
+  - name: OpenTTD
+    url: https://github.com/OpenTTD/OpenTTD
+    why: >
+      Tile world whose simulation tick, save format, and map size are
+      first-class. Precedent for SimulationTick and PersistentWorld
+      without needing an RPG loop.
+    contexts:
+      - before.world-model
+      - before.engine-architecture
+
+  - name: Cataclysm-DDA
+    url: https://github.com/CleverRaven/Cataclysm-DDA
+    why: >
+      Overmap + local map, persistent reality, and "what the player
+      knows" as data. Precedent for FogOfUnplayed vs classic fog,
+      and for knowledge attached to places.
+    contexts:
+      - before.world-model
+      - before.knowledge-system
+
+  - name: veloren
+    url: https://github.com/veloren/veloren
+    why: >
+      Persistent multiplayer world with a server-authoritative sim and
+      ECS-ish identity. Precedent for DedicatedServer and what lives
+      off the client.
+    contexts:
+      - before.world-model
+      - before.engine-architecture
+
+  - name: minetest
+    url: https://github.com/minetest/minetest
+    why: >
+      Chunked voxel world, streaming, and a stable on-disk map.
+      Precedent for ChunkStreaming and SpatialIndex — the hex analogue
+      of "which slice of the world is loaded".
+    contexts:
+      - before.world-model
+
+  - name: honeycomb
+    url: https://github.com/flauwekeul/honeycomb
+    why: >
+      TypeScript hex grid with explicit coordinate systems. Precedent
+      for a grid kernel separate from game rules (TileVsCell, OddROffset).
+    contexts:
+      - before.hex-engine
+
+  - name: godot
+    url: https://github.com/godotengine/godot
+    why: >
+      Candidate client/runtime. Precedent for scene vs server split,
+      tilemaps, and what a Godot process should not own (graph workers).
+    contexts:
+      - before.godot
+      - before.engine-architecture
+
+  - name: godot-demo-projects
+    url: https://github.com/godotengine/godot-demo-projects
+    why: >
+      Official patterns for 2D tilemaps, multiplayer, and dedicated
+      server demos. Smaller than the engine; easier evidence for
+      before.godot questions.
+    contexts:
+      - before.godot
+
+  - name: orleans
+    url: https://github.com/dotnet/orleans
+    why: >
+      Virtual actors (grains) as the intended future identity model for
+      long-lived world entities, repos, and concepts. Not used in v0.
+    contexts:
+      - before.engine-architecture
+
+  - name: aspire
+    url: https://github.com/dotnet/aspire
+    why: >
+      Distributed lab host. Streamlines already uses Aspire for the
+      game; this seed is about a later research lab, not the live
+      AppHost wiring.
+    contexts:
+      - before.engine-architecture
+
+  - name: OpenRA
+    url: https://github.com/OpenRA/OpenRA
+    why: >
+      Networked simulation tick with a dedicated server and deterministic
+      world step. Precedent for where the tick lives relative to the client.
+    contexts:
+      - before.engine-architecture
+      - before.world-model
+
+  - name: cesium
+    url: https://github.com/CesiumGS/cesium
+    why: >
+      Geospatial globe as data, not as a texture. Precedent for a
+      designed geographic world (coordinates, streaming tiles, GIS
+      truth) that hex cells would sit on.
+    contexts:
+      - before.world-model
+
+  - name: neo4j
+    url: https://github.com/neo4j/neo4j
+    why: >
+      Property graph store. Precedent for node/edge types in graph/
+      (Concept, Evidence, Relationship) and for context queries that
+      are not document search.
+    contexts:
+      - before.knowledge-system
+      - before.engine-architecture
+
+  - name: logseq
+    url: https://github.com/logseq/logseq
+    why: >
+      Local knowledge graph of linked cards/pages with queries.
+      Precedent for KnowledgeCard and ContextQuery — closer to a
+      Handbuch than to a search index.
+    contexts:
+      - before.knowledge-system
